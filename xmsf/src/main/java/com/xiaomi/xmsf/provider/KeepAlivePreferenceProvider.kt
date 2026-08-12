@@ -46,7 +46,7 @@ class KeepAlivePreferenceProvider : ContentProvider() {
         }
         val appContext = context?.applicationContext ?: return null
         val repository = PreferenceRepository(appContext.dataStore)
-        val requestedKeys = selectionArgs?.filter { it in keys }?.takeIf { it.isNotEmpty() } ?: keys
+        val requestedKeys = requestedKeys(selectionArgs)
 
         return MatrixCursor(arrayOf(KEEPALIVE_PREF_COLUMN_KEY, KEEPALIVE_PREF_COLUMN_ENABLED)).apply {
             val snapshot = runBlocking { repository.keepAliveSettingsSnapshot() }
@@ -78,4 +78,11 @@ class KeepAlivePreferenceProvider : ContentProvider() {
         }
         return appContext.checkCallingPermission(KEEPALIVE_PREF_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED
     }
+
+    internal fun requestedKeys(selectionArgs: Array<out String>?): List<String> =
+        if (selectionArgs.isNullOrEmpty()) {
+            keys
+        } else {
+            selectionArgs.filter { it in keys }
+        }
 }

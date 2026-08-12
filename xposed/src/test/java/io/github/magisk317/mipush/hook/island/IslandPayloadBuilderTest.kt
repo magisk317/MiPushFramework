@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.island
 
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.island.IslandOptions
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
@@ -115,5 +116,54 @@ class IslandPayloadBuilderTest {
         val textInfo = left["textInfo"]!!.jsonObject
         assertEquals(title, textInfo["title"]!!.jsonPrimitive.contentOrNull)
         assertEquals(content, textInfo["content"]!!.jsonPrimitive.contentOrNull)
+    }
+
+    @Test
+    fun `visual switch suppresses explicit colors and outer glow`() {
+        IslandPreferences.resetForTest(IslandOptions(visualEnabled = false))
+        try {
+            val extras = IslandPayloadBuilder.buildExtras(
+                context = RuntimeEnvironment.getApplication(),
+                title = "title",
+                content = "content",
+                highlightColor = "#FFFF0000",
+                islandOuterGlow = true,
+            )
+
+            assertFalse(extras.containsKey(IslandDispatchContract.HIGHLIGHT_COLOR))
+            assertFalse(extras.containsKey(IslandDispatchContract.GLOW_COLOR))
+            assertFalse(extras.containsKey(IslandDispatchContract.ISLAND_GLOW_COLOR))
+            assertFalse(extras.containsKey(IslandDispatchContract.FOCUS_GLOW_COLOR))
+
+            val paramIsland = Json.parseToJsonElement(
+                extras.getString(IslandDispatchContract.FOCUS_PARAM)!!,
+            ).jsonObject["param_v2"]!!.jsonObject["param_island"]!!.jsonObject
+            assertFalse(paramIsland.containsKey("highlightColor"))
+            assertFalse(paramIsland.containsKey("outEffectSrc"))
+        } finally {
+            IslandPreferences.resetForTest()
+        }
+    }
+
+    @Test
+    fun `explicit caller options survive package preference lookup`() {
+        IslandPreferences.resetForTest(IslandOptions(visualEnabled = false))
+        try {
+            val extras = IslandPayloadBuilder.buildExtras(
+                context = RuntimeEnvironment.getApplication(),
+                title = "title",
+                content = "content",
+                sourcePackage = "com.example.clone",
+                highlightColor = "#FFFF0000",
+                optionsOverride = IslandOptions(visualEnabled = true),
+            )
+
+            assertEquals(
+                "#FFFF0000",
+                extras.getString(IslandDispatchContract.HIGHLIGHT_COLOR),
+            )
+        } finally {
+            IslandPreferences.resetForTest()
+        }
     }
 }

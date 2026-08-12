@@ -12,6 +12,7 @@ import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
+import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_USER
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_VALUE
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
@@ -26,6 +27,13 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
+import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
+import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 
 class IslandPreferenceProvider : ContentProvider() {
@@ -53,6 +61,13 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
+        ISLAND_PREF_RENDERER_MODE,
+        ISLAND_PREF_VISUAL_ENABLED,
+        ISLAND_PREF_DYNAMIC_COLOR,
+        ISLAND_PREF_BLUR_ENABLED,
+        ISLAND_PREF_GLASS_ENABLED,
+        ISLAND_PREF_OUTER_GLOW_ENABLED,
+        ISLAND_PREF_ANIMATION_ENABLED,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
         DUAL_APP_ENABLED_KEY,
@@ -90,9 +105,18 @@ class IslandPreferenceProvider : ContentProvider() {
                 ?: uri.getQueryParameter("package")
                     ?.takeIf { it.isNotBlank() }
         }
+        val userId = uri.getQueryParameter(ISLAND_PREF_COLUMN_USER)
+            ?.toIntOrNull()
+            ?.takeIf { it >= 0 }
+
+        if (requiresExplicitUserScope(packageName, userId)) {
+            // A package-scoped read must identify the notification owner explicitly. Falling back
+            // to the XMSF process user can return primary-user settings for a cloned notification.
+            return null
+        }
 
         return MatrixCursor(arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE)).apply {
-            val snapshot = IslandOptionsSnapshotReader.read(appContext, packageName)
+            val snapshot = IslandOptionsSnapshotReader.read(appContext, packageName, userId)
             val flags = snapshot.options.toPreferenceFlags(snapshot.logSanitizationEnabled)
             requestedKeys.forEach { key ->
                 addRow(arrayOf(key, flags.getValue(key)))
@@ -140,4 +164,7 @@ class IslandPreferenceProvider : ContentProvider() {
 
     internal fun isTrustedAmapPackage(packageName: String, flags: Int): Boolean =
         amapCallerGuard.isPackageAllowed(packageName, flags)
+
+    internal fun requiresExplicitUserScope(packageName: String?, userId: Int?): Boolean =
+        !packageName.isNullOrBlank() && userId == null
 }

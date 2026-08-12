@@ -42,6 +42,37 @@ class XMPushUtilsDispatchResultTest {
     }
 
     @Test
+    fun `generic broadcast is not success without a potential receiver`() {
+        val result = XMPushUtils.genericBroadcastResult(
+            hasPotentialReceiver = false,
+            sendAccepted = true,
+            serviceStartError = null,
+        )
+
+        assertEquals(XMPushUtils.DispatchResult.ServiceBlocked(), result)
+        assertFalse(result.dispatched)
+    }
+
+    @Test
+    fun `generic broadcast success requires receiver and accepted send`() {
+        assertEquals(
+            XMPushUtils.DispatchResult.BroadcastSent(explicit = false),
+            XMPushUtils.genericBroadcastResult(
+                hasPotentialReceiver = true,
+                sendAccepted = true,
+                serviceStartError = null,
+            ),
+        )
+        assertFalse(
+            XMPushUtils.genericBroadcastResult(
+                hasPotentialReceiver = true,
+                sendAccepted = false,
+                serviceStartError = null,
+            ).dispatched,
+        )
+    }
+
+    @Test
     fun `Failed is not dispatched`() {
         assertFalse(XMPushUtils.DispatchResult.Failed.dispatched)
     }

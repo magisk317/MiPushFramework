@@ -10,6 +10,13 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
+import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
+import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 
 data class IslandOptions(
@@ -20,6 +27,13 @@ data class IslandOptions(
     val showNotification: Boolean = true,
     val showOriginalNotification: Boolean = true,
     val focusNotification: Boolean = false,
+    val rendererMode: IslandRendererMode = IslandRendererMode.AUTO,
+    val visualEnabled: Boolean = true,
+    val dynamicColor: Boolean = true,
+    val blurEnabled: Boolean = true,
+    val glassEnabled: Boolean = true,
+    val outerGlowEnabled: Boolean = true,
+    val animationEnabled: Boolean = true,
     val colorStatusBarIcon: Boolean = false,
     val colorStatusBarIconGlobal: Boolean = false,
     val dualAppEnabled: Boolean = false,
@@ -38,6 +52,13 @@ data class IslandOptions(
         ISLAND_PREF_SHOW_NOTIFICATION to showNotification.toFlagValue(),
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to showOriginalNotification.toFlagValue(),
         ISLAND_PREF_FOCUS_NOTIF to focusNotification.toFlagValue(),
+        ISLAND_PREF_RENDERER_MODE to rendererMode.wireValue,
+        ISLAND_PREF_VISUAL_ENABLED to visualEnabled.toFlagValue(),
+        ISLAND_PREF_DYNAMIC_COLOR to dynamicColor.toFlagValue(),
+        ISLAND_PREF_BLUR_ENABLED to blurEnabled.toFlagValue(),
+        ISLAND_PREF_GLASS_ENABLED to glassEnabled.toFlagValue(),
+        ISLAND_PREF_OUTER_GLOW_ENABLED to outerGlowEnabled.toFlagValue(),
+        ISLAND_PREF_ANIMATION_ENABLED to animationEnabled.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to colorStatusBarIcon.toFlagValue(),
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY to colorStatusBarIconGlobal.toFlagValue(),
         DUAL_APP_ENABLED_KEY to dualAppEnabled.toFlagValue(),

@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
+import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_USER
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_VALUE
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
@@ -20,6 +21,13 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
+import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
+import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
@@ -43,6 +51,13 @@ object IslandPreferences {
         ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
+        ISLAND_PREF_RENDERER_MODE,
+        ISLAND_PREF_VISUAL_ENABLED,
+        ISLAND_PREF_DYNAMIC_COLOR,
+        ISLAND_PREF_BLUR_ENABLED,
+        ISLAND_PREF_GLASS_ENABLED,
+        ISLAND_PREF_OUTER_GLOW_ENABLED,
+        ISLAND_PREF_ANIMATION_ENABLED,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
         DUAL_APP_ENABLED_KEY,
@@ -54,8 +69,10 @@ object IslandPreferences {
 
     @Volatile
     private var refreshLoopStarted = false
-    private val packageOptions = ConcurrentHashMap<String, IslandOptions>()
-    private val packageRefreshes = ConcurrentHashMap.newKeySet<String>()
+    internal data class PackageKey(val userId: Int, val packageName: String)
+
+    private val packageOptions = ConcurrentHashMap<PackageKey, IslandOptions>()
+    private val packageRefreshes = ConcurrentHashMap.newKeySet<PackageKey>()
     private val refreshGeneration = AtomicLong()
     private val loopGeneration = AtomicLong()
     private val refreshLock = Any()
@@ -69,32 +86,53 @@ object IslandPreferences {
 
     fun current(): IslandOptions = options
 
-    fun current(packageName: String?): IslandOptions {
+    /**
+     * Resolve the renderer owner synchronously at hook-install time. The normal preference loop
+     * is intentionally asynchronous, but an initial AUTO default would otherwise make an
+     * explicit mipush mode look like HyperIsland ownership during SystemUI startup.
+     */
+    fun rendererModeForOwnership(): io.github.magisk317.mipush.common.island.IslandRendererMode {
+        val loaded = readOptions(null)
+        loaded.onSuccess { options = it }
+        return loaded.getOrElse { options }.rendererMode
+    }
+
+    fun current(packageName: String?, userId: Int? = null): IslandOptions {
         val pkg = packageName?.takeIf { it.isNotBlank() } ?: return options
-        val cached = packageOptions[pkg]
-        if (cached == null && packageRefreshes.add(pkg)) {
+        val normalizedUserId = userId?.takeIf { it >= 0 } ?: return options.copy(
+            enabled = false,
+            focusNotification = false,
+            visualEnabled = false,
+        )
+        val key = PackageKey(normalizedUserId, pkg)
+        val cached = packageOptions[key]
+        if (cached == null && packageRefreshes.add(key)) {
             val generation = refreshGeneration.get()
             val executor = refreshExecutor
             if (executor == null || executor.isShutdown) {
-                packageRefreshes.remove(pkg)
+                packageRefreshes.remove(key)
             } else {
                 runCatching {
                     executor.execute {
-                        readOptions(pkg).onSuccess {
+                        readOptions(pkg, key.userId).onSuccess {
                             if (refreshGeneration.get() == generation) {
-                                packageOptions[pkg] = it
+                                packageOptions[key] = it
                             }
                         }
-                        packageRefreshes.remove(pkg)
+                        packageRefreshes.remove(key)
                     }
                 }.onFailure {
-                    packageRefreshes.remove(pkg)
+                    packageRefreshes.remove(key)
                 }
             }
         }
-        // A package-specific opt-out must not inherit a globally enabled focus mode
-        // while the first asynchronous read is still in flight.
-        return cached ?: options.copy(focusNotification = false)
+        // Package-specific opt-outs must not inherit globally enabled behavior while the first
+        // asynchronous read is in flight. Focus and visual rendering are both user-visible
+        // policies; fail closed until the package snapshot is available.
+        return cached ?: options.copy(
+            focusNotification = false,
+            visualEnabled = false,
+        )
     }
 
     fun refreshNow() {
@@ -105,7 +143,7 @@ object IslandPreferences {
             executor.execute {
                 refreshBlocking(refresh.generation)
                 refresh.packageNames.forEach { packageName ->
-                    readOptions(packageName).onSuccess {
+                    readOptions(packageName.packageName, packageName.userId).onSuccess {
                         if (refreshGeneration.get() == refresh.generation) {
                             packageOptions[packageName] = it
                         }
@@ -140,7 +178,7 @@ object IslandPreferences {
 
     internal data class RefreshRequest(
         val generation: Long,
-        val packageNames: Set<String>,
+        val packageNames: Set<PackageKey>,
     )
 
     fun startRefreshLoop() {
@@ -273,11 +311,15 @@ object IslandPreferences {
         packageRefreshes.clear()
     }
 
-    internal fun cachePackageOptionsForTest(packageName: String, options: IslandOptions) {
-        packageOptions[packageName] = options
+    internal fun cachePackageOptionsForTest(
+        packageName: String,
+        options: IslandOptions,
+        userId: Int = 0,
+    ) {
+        packageOptions[PackageKey(userId.coerceAtLeast(0), packageName)] = options
     }
 
-    private fun readOptions(packageName: String?): Result<IslandOptions> = runCatching {
+    private fun readOptions(packageName: String?, userId: Int? = null): Result<IslandOptions> = runCatching {
         val app = currentApplication() ?: return@runCatching options
         val prefUri = Uri.Builder()
             .scheme("content")
@@ -287,21 +329,24 @@ object IslandPreferences {
                 if (!packageName.isNullOrBlank()) {
                     builder.appendQueryParameter(ISLAND_PREF_COLUMN_PACKAGE, packageName)
                 }
+                if (packageName != null && userId != null) {
+                    builder.appendQueryParameter(ISLAND_PREF_COLUMN_USER, userId.toString())
+                }
             }
             .build()
         val values = app.contentResolver.query(prefUri, null, null, PREF_KEYS, null)?.use { cursor ->
             val keyIndex = cursor.getColumnIndex(ISLAND_PREF_COLUMN_KEY)
             val valueIndex = cursor.getColumnIndex(ISLAND_PREF_COLUMN_VALUE)
-            if (keyIndex < 0 || valueIndex < 0) {
-                emptyMap()
-            } else {
-                buildMap<String, String> {
-                    while (cursor.moveToNext()) {
-                        put(cursor.getString(keyIndex), cursor.getString(valueIndex))
-                    }
+            check(keyIndex >= 0 && valueIndex >= 0) {
+                "island preference provider returned an invalid cursor"
+            }
+            buildMap<String, String> {
+                while (cursor.moveToNext()) {
+                    put(cursor.getString(keyIndex), cursor.getString(valueIndex))
                 }
             }
-        }.orEmpty()
+        } ?: error("island preference provider returned no cursor")
+        check(values.isNotEmpty()) { "island preference provider returned no values" }
 
         // Reuse the single provider query above instead of a second readFlag round-trip.
         val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
@@ -315,6 +360,15 @@ object IslandPreferences {
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
             showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
+            rendererMode = io.github.magisk317.mipush.common.island.IslandRendererMode.parse(
+                values[ISLAND_PREF_RENDERER_MODE],
+            ),
+            visualEnabled = values.booleanValue(ISLAND_PREF_VISUAL_ENABLED, true),
+            dynamicColor = values.booleanValue(ISLAND_PREF_DYNAMIC_COLOR, true),
+            blurEnabled = values.booleanValue(ISLAND_PREF_BLUR_ENABLED, true),
+            glassEnabled = values.booleanValue(ISLAND_PREF_GLASS_ENABLED, true),
+            outerGlowEnabled = values.booleanValue(ISLAND_PREF_OUTER_GLOW_ENABLED, true),
+            animationEnabled = values.booleanValue(ISLAND_PREF_ANIMATION_ENABLED, true),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
             colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, false),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
@@ -332,4 +386,5 @@ object IslandPreferences {
     private fun Map<String, String>.intValue(key: String, default: Int): Int {
         return this[key]?.toIntOrNull() ?: default
     }
+
 }

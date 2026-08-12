@@ -30,4 +30,27 @@ class RootAccessStatePolicyTest {
         assertEquals(ManagerRootAccessState.GRANTED, resolveRuntimeRootAccessState(granted))
         assertEquals(ManagerRootAccessState.NOT_GRANTED, resolveRuntimeRootAccessState(denied))
     }
+
+    @Test
+    fun `usage stats result requires an explicit successful allow marker`() {
+        assertEquals(
+            true,
+            resolveUsageStatsAllowed(
+                ManagerWriteResultDto(
+                    status = ManagerProtocol.WRITE_STATUS_SUCCESS,
+                    resultLong = 1L,
+                ),
+            ),
+        )
+        assertEquals(
+            false,
+            resolveUsageStatsAllowed(
+                ManagerWriteResultDto(
+                    status = ManagerProtocol.WRITE_STATUS_SUCCESS,
+                    resultLong = 0L,
+                ),
+            ),
+        )
+        assertEquals(false, resolveUsageStatsAllowed(null))
+    }
 }

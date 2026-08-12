@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -42,6 +46,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -96,7 +102,7 @@ class ZygiskConfigPage : ComponentActivity() {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
+                if (state.configReadAvailable) FloatingActionButton(
                     onClick = {
                         viewModel.saveConfig(
                             onSuccess = {
@@ -133,12 +139,40 @@ class ZygiskConfigPage : ComponentActivity() {
                         modifier = Modifier.fillMaxSize()
                     ) {
                         item {
-                            ZygiskStatusHeader(state.isZygiskEnabled)
+                            state.configReadError?.let { error ->
+                                Text(
+                                    text = "Unable to read Zygisk configuration: $error",
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(MaterialTheme.spacing.large),
+                                )
+                            }
+                        }
+                        item {
+                            ZygiskStatusHeader(
+                                isZygiskEnabled = state.isZygiskEnabled,
+                                isAvailable = state.zygiskStatusAvailable,
+                                error = state.zygiskStatusError,
+                            )
+                        }
+                        item {
+                            ZygiskOptions(
+                                profile = state.profile,
+                                observe = state.observe,
+                                autoScan = state.autoScan,
+                                onProfileChanged = viewModel::setProfile,
+                                onObserveChanged = viewModel::setObserve,
+                                onAutoScanChanged = viewModel::setAutoScan,
+                                enabled = state.configReadAvailable,
+                                candidates = state.scanCandidates,
+                                scanError = state.scanError,
+                                onScan = viewModel::scan,
+                            )
                         }
                         items(state.installedApps) { app ->
                             AppItem(
                                 app = app,
                                 isChecked = state.spoofPackages.contains(app.packageName),
+                                enabled = state.configReadAvailable,
                                 onCheckedChange = { checked ->
                                     viewModel.togglePackage(app.packageName, checked)
                                 }
@@ -151,9 +185,75 @@ class ZygiskConfigPage : ComponentActivity() {
     }
 
     @Composable
-    private fun ZygiskStatusHeader(isZygiskEnabled: Boolean) {
-        val statusText = if (isZygiskEnabled) stringResource(R.string.zygisk_enabled) else stringResource(R.string.zygisk_disabled)
-        val color = if (isZygiskEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    private fun ZygiskOptions(
+        profile: String,
+        observe: Boolean,
+        autoScan: Boolean,
+        onProfileChanged: (String) -> Unit,
+        onObserveChanged: (Boolean) -> Unit,
+        onAutoScanChanged: (Boolean) -> Unit,
+        candidates: List<String>,
+        scanError: String?,
+        onScan: () -> Unit,
+        enabled: Boolean,
+    ) {
+        var expanded by remember { mutableStateOf(false) }
+        Column(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.large)) {
+            Text("Device profile", style = MaterialTheme.typography.titleMedium)
+            Box {
+                Text(
+                    text = profile,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = enabled) { expanded = true }
+                        .padding(vertical = MaterialTheme.spacing.medium),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf("miui14", "hyperos1", "legacy-v11").forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            enabled = enabled,
+                            onClick = { onProfileChanged(option); expanded = false },
+                        )
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Observe property keys", modifier = Modifier.weight(1f))
+                Switch(checked = observe, enabled = enabled, onCheckedChange = onObserveChanged)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Automatic scan", modifier = Modifier.weight(1f))
+                Switch(checked = autoScan, enabled = enabled, onCheckedChange = onAutoScanChanged)
+            }
+            Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
+                Text("Scan installed packages")
+            }
+            scanError?.let { error ->
+                Text(
+                    text = "Unable to scan packages: $error",
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            candidates.take(32).forEach { candidate ->
+                Text(candidate, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    @Composable
+    private fun ZygiskStatusHeader(
+        isZygiskEnabled: Boolean,
+        isAvailable: Boolean,
+        error: String?,
+    ) {
+        val statusText = when {
+            !isAvailable -> "Module status unavailable: ${error.orEmpty()}"
+            isZygiskEnabled -> stringResource(R.string.zygisk_enabled)
+            else -> stringResource(R.string.zygisk_disabled)
+        }
+        val color = if (isZygiskEnabled && isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,6 +272,7 @@ class ZygiskConfigPage : ComponentActivity() {
     private fun AppItem(
         app: ManagerApplication,
         isChecked: Boolean,
+        enabled: Boolean,
         onCheckedChange: (Boolean) -> Unit
     ) {
         Row(
@@ -203,7 +304,8 @@ class ZygiskConfigPage : ComponentActivity() {
             }
             Switch(
                 checked = isChecked,
-                onCheckedChange = onCheckedChange
+                enabled = enabled,
+                onCheckedChange = onCheckedChange,
             )
         }
     }

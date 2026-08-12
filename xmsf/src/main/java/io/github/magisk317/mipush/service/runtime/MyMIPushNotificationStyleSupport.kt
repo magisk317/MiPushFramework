@@ -10,17 +10,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.SystemClock
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.MIPushNotificationViewSupport
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.notification.SweetTagHandler
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController.getBitmapFromUri
@@ -38,6 +41,7 @@ internal object MyMIPushNotificationStyleSupport {
     private const val CONVERSATION_HISTORY_TTL_MS = 2 * 60 * 60 * 1000L
 
     private data class ConversationKey(
+        val userId: Int,
         val packageName: String,
         val notificationId: Int,
         val conversationId: String?
@@ -134,9 +138,10 @@ internal object MyMIPushNotificationStyleSupport {
         container: XmPushActionContainer,
         notificationId: Int,
         message: NotificationCompat.MessagingStyle.Message,
-        pkgCtx: Context
+        pkgCtx: Context,
+        userId: Int = resolveTargetUserId(context, container.packageName),
     ): NotificationCompat.Builder {
-        val packageName = container.packageName
+        val packageName = MIPushNotificationHelper.getTargetPackage(container)
         MagiskOtel.event(
             name = "push.event",
             attributes = mapOf(
@@ -152,7 +157,7 @@ internal object MyMIPushNotificationStyleSupport {
         val metaInfo = container.metaInfo
         val conversation = getConversationFor(context, metaInfo, packageName)
         val groupConversation = isGroupConversation(metaInfo)
-        val messages = collectConversationMessages(packageName, notificationId, metaInfo, message)
+        val messages = collectConversationMessages(packageName, notificationId, metaInfo, message, userId)
         return createMessageStyleNotificationBuilder(
             context,
             container,
@@ -202,13 +207,21 @@ internal object MyMIPushNotificationStyleSupport {
         )
     }
 
-    fun clearConversationHistory(packageName: String, notificationId: Int) {
+    fun clearConversationHistory(
+        packageName: String,
+        notificationId: Int,
+        userId: Int = currentUserId(),
+    ) {
         synchronized(conversationHistories) {
             val iterator = conversationHistories.keys.iterator()
             var removed = 0
             while (iterator.hasNext()) {
                 val key = iterator.next()
-                if (key.packageName == packageName && key.notificationId == notificationId) {
+                if (
+                    key.userId == userId &&
+                    key.packageName == packageName &&
+                    key.notificationId == notificationId
+                ) {
                     iterator.remove()
                     removed++
                 }
@@ -219,13 +232,22 @@ internal object MyMIPushNotificationStyleSupport {
         }
     }
 
+    fun clearConversationHistories(packageName: String, userId: Int = currentUserId()) {
+        synchronized(conversationHistories) {
+            conversationHistories.keys.removeIf {
+                it.userId == userId && it.packageName == packageName
+            }
+        }
+    }
+
     private fun collectConversationMessages(
         packageName: String,
         notificationId: Int,
         metaInfo: PushMetaInfo,
-        message: NotificationCompat.MessagingStyle.Message
+        message: NotificationCompat.MessagingStyle.Message,
+        userId: Int,
     ): List<NotificationCompat.MessagingStyle.Message> {
-        val key = conversationKey(packageName, notificationId, metaInfo)
+        val key = conversationKey(packageName, notificationId, metaInfo, userId)
         val messageKey = messageKey(metaInfo, message)
         val fallbackMessageKey = messageKey(null, message)
         val now = SystemClock.elapsedRealtime()
@@ -238,7 +260,7 @@ internal object MyMIPushNotificationStyleSupport {
                 history = null
             }
             if (history == null) {
-                val seededMessages = activeStyleMessages(packageName, notificationId)
+                val seededMessages = activeStyleMessages(packageName, notificationId, userId)
                     .distinctBy { messageKey(null, it) }
                     .takeLast(MAX_MESSAGES_PER_CONVERSATION)
                     .map { CachedMessage(messageKey(null, it), it) }
@@ -267,13 +289,16 @@ internal object MyMIPushNotificationStyleSupport {
     private fun conversationKey(
         packageName: String,
         notificationId: Int,
-        metaInfo: PushMetaInfo
+        metaInfo: PushMetaInfo,
+        userId: Int,
     ): ConversationKey {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val conversationId = custom.conversationId(null)
             ?: if (metaInfo.isSetNotifyId()) metaInfo.notifyId.toString() else null
-        return ConversationKey(packageName, notificationId, conversationId)
+        return ConversationKey(userId, packageName, notificationId, conversationId)
     }
+
+    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
     private fun messageKey(
         metaInfo: PushMetaInfo?,
@@ -290,10 +315,11 @@ internal object MyMIPushNotificationStyleSupport {
 
     private fun activeStyleMessages(
         packageName: String,
-        notificationId: Int
+        notificationId: Int,
+        userId: Int,
     ): List<NotificationCompat.MessagingStyle.Message> {
         try {
-            val activeNotification = findActiveNotification(packageName, notificationId)
+            val activeNotification = findActiveNotification(packageName, notificationId, userId)
             if (activeNotification != null) {
                 val activeStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification)
                 if (activeStyle != null) {
@@ -306,11 +332,32 @@ internal object MyMIPushNotificationStyleSupport {
         return emptyList()
     }
 
-    private fun findActiveNotification(packageName: String, notificationId: Int) =
+    @Suppress("DEPRECATION")
+    private fun findActiveNotification(
+        packageName: String,
+        notificationId: Int,
+        userId: Int,
+    ) =
         io.github.magisk317.mipush.notification.NotificationController.getNotificationManagerEx()
             .getActiveNotifications(packageName)
-            ?.firstOrNull { it != null && it.id == notificationId }
+            ?.firstOrNull { it != null && it.id == notificationId && it.userId == userId }
             ?.notification
+
+    private fun resolveTargetUserId(context: Context, packageName: String?): Int {
+        if (packageName.isNullOrBlank()) return currentUserId()
+        return runCatching {
+            val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0),
+                ).uid
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationInfo(packageName, 0).uid
+            }
+            (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
+        }.getOrElse { currentUserId() }
+    }
 
     private fun createMessageStyleNotificationBuilder(
         context: Context,

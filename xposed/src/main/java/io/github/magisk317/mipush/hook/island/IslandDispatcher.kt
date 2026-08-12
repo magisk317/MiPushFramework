@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.island
 
 import android.content.Context
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -31,8 +32,10 @@ object IslandDispatcher {
         // showNotification belongs to the focus payload and controls shade visibility. The
         // notification still has to reach SystemUI when false so the island itself can render.
         runCatching {
-            IslandDispatcherNotifier.post(context.applicationContext ?: context, request)
-            IslandDispatchState.markPosted(request.notificationId)
+            check(IslandDispatcherNotifier.post(context.applicationContext ?: context, request)) {
+                "island notification post failed user=${request.userId}"
+            }
+            IslandDispatchState.markPosted(request.notificationId, request.userId)
         }.fold(
             onSuccess = {
                 val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
@@ -64,9 +67,15 @@ object IslandDispatcher {
         )
     }
 
-    fun cancel(context: Context, notificationId: Int = DEFAULT_NOTIFICATION_ID) {
-        IslandDispatcherNotifier.cancel(context.applicationContext ?: context, notificationId)
-        IslandDispatchState.markCancelled(notificationId)
+    fun cancel(
+        context: Context,
+        notificationId: Int = DEFAULT_NOTIFICATION_ID,
+        userId: Int = Utils.myUserId().coerceAtLeast(0),
+    ) {
+        check(IslandDispatcherNotifier.cancel(context.applicationContext ?: context, notificationId, userId)) {
+            "island notification cancel failed user=$userId"
+        }
+        IslandDispatchState.markCancelled(notificationId, userId)
     }
 
     fun sendBroadcast(context: Context, request: IslandRequest) {
@@ -75,9 +84,10 @@ object IslandDispatcher {
 
     fun cancelBroadcast(
         context: Context,
-        notificationId: Int = DEFAULT_NOTIFICATION_ID
+        notificationId: Int = DEFAULT_NOTIFICATION_ID,
+        userId: Int = Utils.myUserId().coerceAtLeast(0),
     ) {
-        IslandDispatcherBroadcaster.cancel(context, notificationId)
+        IslandDispatcherBroadcaster.cancel(context, notificationId, userId)
     }
 
     fun postedIdsForTest(): Set<Int> = IslandDispatchState.postedIds()

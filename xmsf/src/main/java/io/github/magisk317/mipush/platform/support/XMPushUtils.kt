@@ -13,7 +13,6 @@ import io.github.magisk317.mipush.notification.NotificationManagerEx
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.common.configurations.XMPushUtils as CoreXMPushUtils
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -24,12 +23,12 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 object XMPushUtils {
     @JvmStatic
     fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration {
-        return CoreXMPushUtils.getConfiguration(container)
+        return getConfiguration(container?.metaInfo)
     }
 
     @JvmStatic
     fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration {
-        return CoreXMPushUtils.getConfiguration(metaInfo)
+        return CustomConfiguration(metaInfo?.extra)
     }
 
     @JvmStatic
@@ -67,14 +66,28 @@ object XMPushUtils {
         actionType: ActionType,
         appId: String?
     ): XmPushActionContainer {
-        val container = CoreXMPushUtils.packToContainer(action, packageName, actionType, appId)
+        val payload = com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+            .convertThriftObjectToBytes(action)
+            ?: throw IllegalArgumentException("Unable to serialize push action: ${action.javaClass.name}")
+        val container = XmPushActionContainer().apply {
+            target = com.xiaomi.xmpush.thrift.Target().apply {
+                channelId = 5L
+                userId = "fakeid"
+            }
+            setPushAction(payload)
+            this.action = actionType
+            isRequest = true
+            this.packageName = packageName
+            setEncryptAction(false)
+            appid = appId
+        }
         HookTraceCompat.onBuildContainer(0, container)
         return container
     }
 
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
-        CoreXMPushUtils.packToBytes(container)
+        com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
             ?: throw IllegalArgumentException("Unable to serialize: ${container.javaClass.name}")
 
     /**
@@ -210,12 +223,20 @@ object XMPushUtils {
             context.sendBroadcast(intent)
             true
         }.getOrDefault(false)
-        return finish(
-            if (genericSent) {
-                DispatchResult.BroadcastSent(explicit = false)
-            } else {
-                DispatchResult.ServiceBlocked(serviceStartError)
-            }
-        )
+        return finish(genericBroadcastResult(
+            hasPotentialReceiver = explicitReceivers.isNotEmpty(),
+            sendAccepted = genericSent,
+            serviceStartError = serviceStartError,
+        ))
+    }
+
+    internal fun genericBroadcastResult(
+        hasPotentialReceiver: Boolean,
+        sendAccepted: Boolean,
+        serviceStartError: Throwable?,
+    ): DispatchResult = if (hasPotentialReceiver && sendAccepted) {
+        DispatchResult.BroadcastSent(explicit = false)
+    } else {
+        DispatchResult.ServiceBlocked(serviceStartError)
     }
 }

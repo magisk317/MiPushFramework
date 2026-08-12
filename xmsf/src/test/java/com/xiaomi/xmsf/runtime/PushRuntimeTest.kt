@@ -281,6 +281,36 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `inbound dedupe does not share message ids between packages`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        assertTrue(
+            AndroidPushRuntime.observeInboundMessage(
+                packageName = "com.example.one",
+                action = "SendMessage",
+                messageId = "shared-id",
+                source = "test",
+            )
+        )
+        assertTrue(
+            AndroidPushRuntime.observeInboundMessage(
+                packageName = "com.example.two",
+                action = "SendMessage",
+                messageId = "shared-id",
+                source = "test",
+            )
+        )
+        assertFalse(
+            AndroidPushRuntime.observeInboundMessage(
+                packageName = "com.example.one",
+                action = "SendMessage",
+                messageId = "shared-id",
+                source = "test",
+            )
+        )
+    }
+
+    @Test
     fun `message id dedupe window remains active for sixty seconds`() {
         AndroidPushRuntime.clearStateForTests()
 
@@ -354,6 +384,24 @@ class PushRuntimeTest {
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CHANNEL_LIFECYCLE_TRACKING))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CONNECTION_SESSION_RUNTIME))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.STOCK_SURFACE_COMPATIBILITY))
+    }
+
+    @Test
+    fun `channel identity includes Android user`() {
+        val record = PushChannelRecord(
+            packageName = "com.example.app",
+            channelId = "channel",
+            userId = "xiaomi-user",
+            session = "session",
+            state = PushChannelState.Bound,
+            updatedAtMs = 1L,
+            source = "test",
+        )
+
+        assertFalse(
+            AndroidPushRuntime.channelIdentity(record, androidUserId = 0) ==
+                AndroidPushRuntime.channelIdentity(record, androidUserId = 999),
+        )
     }
 
     private fun testHost(processedIntents: MutableList<Intent>): PushRuntimeBridgeHost {

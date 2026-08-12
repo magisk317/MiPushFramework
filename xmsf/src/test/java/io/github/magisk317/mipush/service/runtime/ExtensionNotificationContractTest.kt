@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+// Keep Robolectric: this test relies on Android framework implementations indirectly;
+// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28], application = Application::class)
 class ExtensionNotificationContractTest {
@@ -125,34 +127,67 @@ class ExtensionNotificationContractTest {
     fun `suppression callback wins once and consumes pending fallback`() {
         var now = 100L
         val registry = ExtensionPendingRegistry(elapsedRealtime = { now })
-        registry.register(MESSAGE_ID, TARGET_PACKAGE, container(), byteArrayOf(1)) { _, _ -> }
+        registry.register(TARGET_PACKAGE, MESSAGE_ID, container(), byteArrayOf(1), userId = 0) { _, _ -> }
 
         now = 9_999L
         val completion = registry.complete(
+            TARGET_PACKAGE,
             MESSAGE_ID,
             RemoteNotificationContent(isShowNotification = false),
+            userId = 0,
         )
 
         assertNotNull(completion)
         assertFalse(completion!!.content!!.isShowNotification)
-        assertNull(registry.timeout(MESSAGE_ID))
-        assertNull(registry.complete(MESSAGE_ID, RemoteNotificationContent()))
+        assertNull(registry.timeout(TARGET_PACKAGE, MESSAGE_ID, userId = 0))
+        assertNull(registry.complete(TARGET_PACKAGE, MESSAGE_ID, RemoteNotificationContent(), userId = 0))
     }
 
     @Test
     fun `null and late callbacks leave the original notification for timeout fallback`() {
         var now = 0L
         val registry = ExtensionPendingRegistry(elapsedRealtime = { now })
-        registry.register(MESSAGE_ID, TARGET_PACKAGE, container(), byteArrayOf(1, 2)) { _, _ -> }
+        registry.register(TARGET_PACKAGE, MESSAGE_ID, container(), byteArrayOf(1, 2), userId = 0) { _, _ -> }
 
-        assertNull(registry.complete(MESSAGE_ID, null))
+        assertNull(registry.complete(TARGET_PACKAGE, MESSAGE_ID, null, userId = 0))
         now = ExtensionNotificationContract.INITIAL_TIMEOUT_MS
-        assertNull(registry.complete(MESSAGE_ID, RemoteNotificationContent(title = "late")))
+        assertNull(registry.complete(TARGET_PACKAGE, MESSAGE_ID, RemoteNotificationContent(title = "late"), userId = 0))
 
-        val fallback = registry.timeout(MESSAGE_ID)
+        val fallback = registry.timeout(TARGET_PACKAGE, MESSAGE_ID, userId = 0)
         assertNotNull(fallback)
         assertNull(fallback!!.content)
         assertTrue(fallback.entry.payload.contentEquals(byteArrayOf(1, 2)))
+    }
+
+    @Test
+    fun `same message id remains isolated between packages`() {
+        val registry = ExtensionPendingRegistry(elapsedRealtime = { 100L })
+        registry.register("com.example.one", MESSAGE_ID, container(), byteArrayOf(1), userId = 0) { _, _ -> }
+        registry.register("com.example.two", MESSAGE_ID, container(), byteArrayOf(2), userId = 0) { _, _ -> }
+
+        assertEquals(1, registry.complete("com.example.one", MESSAGE_ID, RemoteNotificationContent(), userId = 0)!!.entry.payload[0])
+        assertEquals(2, registry.timeout("com.example.two", MESSAGE_ID, userId = 0)!!.entry.payload[0])
+    }
+
+    @Test
+    fun `same package and message id remains isolated between Android users`() {
+        val registry = ExtensionPendingRegistry(elapsedRealtime = { 100L })
+        registry.register(TARGET_PACKAGE, MESSAGE_ID, container(), byteArrayOf(1), userId = 0) { _, _ -> }
+        registry.register(TARGET_PACKAGE, MESSAGE_ID, container(), byteArrayOf(2), userId = 999) { _, _ -> }
+
+        assertEquals(
+            1,
+            registry.complete(
+                TARGET_PACKAGE,
+                MESSAGE_ID,
+                RemoteNotificationContent(),
+                userId = 0,
+            )!!.entry.payload[0],
+        )
+        assertEquals(
+            2,
+            registry.timeout(TARGET_PACKAGE, MESSAGE_ID, userId = 999)!!.entry.payload[0],
+        )
     }
 
     private fun container(): XmPushActionContainer = XmPushActionContainer().apply {

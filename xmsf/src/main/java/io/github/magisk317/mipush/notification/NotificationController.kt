@@ -53,6 +53,7 @@ import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.runtime.PushRuntime
 
@@ -72,6 +73,7 @@ object NotificationController {
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
     private const val KIB = 1024
+    private const val PER_USER_RANGE = 100_000L
     const val CHANNEL_WARN = "warn"
 
     @JvmStatic
@@ -137,6 +139,20 @@ object NotificationController {
 
     @JvmStatic
     fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
+        findExistingChannelId(context, metaInfo, packageName)?.let { return it }
+
+        val stockChannelId = NotificationChannelManager.getChannelId(context, metaInfo, packageName)
+        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
+        logD("getExistsChannelId() provisioned stock channel pkg=$packageName channel=$stockChannelId")
+        return stockChannelId
+    }
+
+    /** Lookup-only channel resolution for read paths; never creates groups or channels. */
+    internal fun findExistingChannelId(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        packageName: String,
+    ): String? {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val preferredBorrowed = custom.borrowChannelId(null)?.takeIf { it.isNotBlank() }
         if (preferredBorrowed != null) {
@@ -173,15 +189,7 @@ object NotificationController {
             )
             return selectedChannelId
         }
-        val supportsTargetProvisioning = getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)
-        if (supportsTargetProvisioning) {
-            NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-            logD("getExistsChannelId() use stock target channel pkg=$packageName channel=$stockChannelId")
-            return stockChannelId
-        }
-        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-        logD("getExistsChannelId() fallback to local stock channel pkg=$packageName channel=$stockChannelId")
-        return stockChannelId
+        return null
     }
 
     internal fun selectManagedChannelId(
@@ -206,7 +214,8 @@ object NotificationController {
         metaInfo: PushMetaInfo,
         applyPayloadDecorations: Boolean = true,
     ): Notification? {
-        val islandOptions = MiPushIslandPreferences.read(context, packageName)
+        val userId = resolveNotificationUserId(context, packageName)
+        val islandOptions = MiPushIslandPreferences.read(context, packageName, userId)
         val isMockReplay = metaInfo.isMockReplay()
         val extras = Bundle()
         extras.putString("target_package", packageName)
@@ -229,6 +238,7 @@ object NotificationController {
             targetPackage = packageName,
             notificationBuilder = notificationBuilder,
             colorStatusBarIcon = islandOptions.colorStatusBarIcon,
+            userId = userId,
         )
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
@@ -327,7 +337,7 @@ object NotificationController {
             packageName = packageName,
             focusPlan = focusPlan,
             contentIntent = previewNotification.contentIntent,
-            notificationKey = NativeNotificationFeatureBuilder.notificationKey(packageName, notificationId, tag),
+            notificationKey = NativeNotificationFeatureBuilder.notificationKey(packageName, notificationId, tag, userId),
         )
         if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             notificationBuilder.addExtras(configuredFocusBundle)
@@ -347,6 +357,7 @@ object NotificationController {
             notificationId = notificationId,
             metaInfo = metaInfo,
             builder = notificationBuilder,
+            userId = userId,
         )
         // Stock 7.4.67-C t0 uses one local post timestamp for Notification.when and
         // mipush_org_when. The old product path sampled the clock again inside the coordinator,
@@ -371,7 +382,7 @@ object NotificationController {
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
         if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
             logD("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
-            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
         if (
@@ -384,7 +395,7 @@ object NotificationController {
             )
         ) {
             logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
-            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
         val notificationToPost = if (focusPlan.allowIslandProxy &&
@@ -420,6 +431,7 @@ object NotificationController {
             notificationId = notificationId,
             metaInfo = metaInfo,
             notification = notificationToPost,
+            userId = userId,
         )
         if (!islandOptions.showOriginalNotification) {
             Napier.d(
@@ -432,7 +444,7 @@ object NotificationController {
                 "notification_original_skipped",
                 "NotificationController.publish",
             )
-            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
         val posted = TopNotificationCoordinator.postNotification(
@@ -442,6 +454,7 @@ object NotificationController {
             notificationId = notificationId,
             messageId = metaInfo.id,
             notification = notificationToPost,
+            userId = userId,
         )
         if (!posted) {
             Napier.w(
@@ -449,7 +462,7 @@ object NotificationController {
                 tag = TAG
             )
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
-            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
         SweetNotificationCoordinator.onNotificationPosted(
@@ -457,6 +470,7 @@ object NotificationController {
             packageName = packageName,
             notificationId = notificationId,
             notification = notificationToPost,
+            userId = userId,
         )
         if (shouldPostMockReplayVisibleReceipt(isMockReplay, islandOptions)) {
             postMockReplayVisibleReceipt(
@@ -527,8 +541,18 @@ object NotificationController {
         originalTag: String? = null,
         source: Notification,
         replaceOriginal: Boolean = false,
-        colorStatusBarIcon: Boolean = MiPushIslandPreferences.read(context).colorStatusBarIcon,
+        colorStatusBarIcon: Boolean? = null,
     ): Boolean {
+        val userId = resolveNotificationUserId(context, packageName)
+        val effectiveColorStatusBarIcon = colorStatusBarIcon
+            ?: MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
+        if (!NotificationManagerEx.canNotifyForUser(userId, Utils.myUserId())) {
+            Napier.w(
+                "skip mock replay receipt for foreign user=$userId pkg=$packageName",
+                tag = TAG,
+            )
+            return false
+        }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         ensureMockReplayReceiptChannel(context, manager, packageName)
         val appName = Global.applicationNameCache().getAppName(context, packageName)
@@ -577,13 +601,13 @@ object NotificationController {
                 builder.setSmallIcon(iconCompat)
             }
         }
-        val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
+        val color = applyStatusBarIcon(context, packageName, builder, effectiveColorStatusBarIcon)
         val receipt = ProgressStyleBuilder.buildNotification(context, builder)
         val receiptTag = if (replaceOriginal) originalTag else "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
         val receiptId = if (replaceOriginal) notificationId else mockReplayReceiptNotificationId(packageName)
         return runCatching {
             val postedAsTarget = NotificationManagerEx.isHooked &&
-                getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt)
+                getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt, userId)
             if (!postedAsTarget) {
                 manager.notify(receiptTag, receiptId, receipt)
             }
@@ -655,7 +679,8 @@ object NotificationController {
         ) ?: metaInfo.description?.takeIf { it.isNotBlank() }
             ?: title
         val appContext = context.applicationContext ?: context
-        val proxyId = IslandProxyNotificationId.fromPackage(packageName, notificationId, tag)
+        val userId = resolveNotificationUserId(appContext, packageName)
+        val proxyId = IslandProxyNotificationId.fromPackage(packageName, notificationId, tag, userId)
         return runCatching {
             appContext.sendBroadcast(
                 Intent(ACTION_SHOW_ISLAND).apply {
@@ -677,6 +702,7 @@ object NotificationController {
                     putExtra("enableFloat", options.enableFloat)
                     putExtra("showNotification", options.showNotification)
                     putExtra("sourcePackage", packageName)
+                    putExtra("userId", userId)
                     putExtra("sourceChannelId", notification.channelId)
                     putExtra("contentIntent", notification.contentIntent)
                     putExtra("isOngoing", notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
@@ -823,9 +849,23 @@ object NotificationController {
         clearGroup: Boolean
     ) {
         val packageName = MIPushNotificationHelper.getTargetPackage(container)
-        MyMIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId)
+        val userId = resolveNotificationUserId(context, packageName)
+        MyMIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
-        NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+        NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
+        TopNotificationCoordinator.cancelNotification(
+            context = context,
+            packageName = packageName,
+            tag = tag,
+            notificationId = notificationId,
+            userId = userId,
+        )
+        SweetNotificationCoordinator.cancelNotification(
+            context = context,
+            packageName = packageName,
+            notificationId = notificationId,
+            userId = userId,
+        )
         cancelGeneratedIslandProxy(context, packageName, notificationId, tag)
         FocusNotificationLifecycle.end(
             context = context,
@@ -833,6 +873,7 @@ object NotificationController {
             notificationId = notificationId,
             tag = tag,
             cancelNotification = true,
+            userId = userId,
         )
         if (clearGroup) {
             getNotificationManagerEx().cancel(
@@ -1068,11 +1109,16 @@ object NotificationController {
         if (!NotificationManagerEx.isHooked) {
             return
         }
+        val userId = resolveNotificationUserId(context, packageName)
         runCatching {
             (context.applicationContext ?: context).sendBroadcast(
                 Intent(ACTION_CANCEL_ISLAND).apply {
                     setPackage(SYSTEM_UI_PACKAGE)
-                    putExtra(EXTRA_NOTIFICATION_ID, IslandProxyNotificationId.fromPackage(packageName, notificationId, tag))
+                    putExtra(
+                        EXTRA_NOTIFICATION_ID,
+                        IslandProxyNotificationId.fromPackage(packageName, notificationId, tag, userId),
+                    )
+                    putExtra("userId", userId)
                 },
             )
         }.onFailure {
@@ -1134,14 +1180,19 @@ object NotificationController {
 
         val id = (System.currentTimeMillis() / 1000L).toInt()
         val builder = NotificationCompat.Builder(context, mockChannelId)
-        val colorStatusBarIcon = MiPushIslandPreferences.read(context, packageName).colorStatusBarIcon
+        val userId = resolveNotificationUserId(context, packageName)
+        val colorStatusBarIcon = MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
         val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
         builder.setWhen(System.currentTimeMillis())
         builder.setShowWhen(true)
         builder.setAutoCancel(true)
 
         val tag = "xmsf_mock_${kind.name}"
-        NativeNotificationFeatureBuilder.releaseMediaSessionsForTag(packageName, tag)
+        NativeNotificationFeatureBuilder.releaseMediaSessionsForTag(
+            packageName = packageName,
+            tag = tag,
+            userId = resolveNotificationUserId(context, packageName),
+        )
         Napier.d("mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag", tag = TAG)
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
@@ -1388,7 +1439,8 @@ object NotificationController {
             setTitle(title)
             setDescription(description)
         }
-        val options = MiPushIslandPreferences.read(context, packageName)
+        val userId = resolveNotificationUserId(context, packageName)
+        val options = MiPushIslandPreferences.read(context, packageName, userId)
         val generatedFocusParam = MiPushIslandPayloadBuilder.buildFocusParam(
             context = context,
             metaInfo = metaInfo,
@@ -1452,6 +1504,7 @@ object NotificationController {
                 packageName,
                 notificationId,
                 notificationTag,
+                resolveNotificationUserId(context, packageName),
             ),
         )
 
@@ -1516,7 +1569,8 @@ object NotificationController {
         isOngoing: Boolean = false,
         islandOuterGlow: Boolean = true,
     ) {
-        val options = MiPushIslandPreferences.read(this, sourcePackage)
+        val userId = resolveNotificationUserId(this, sourcePackage)
+        val options = MiPushIslandPreferences.read(this, sourcePackage, userId)
         val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
         Napier.d(
             "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
@@ -1535,6 +1589,7 @@ object NotificationController {
                 putExtra("enableFloat", options.enableFloat)
                 putExtra("showNotification", false)
                 putExtra("sourcePackage", sourcePackage)
+                putExtra("userId", userId)
                 putExtra("sourceChannelId", "mipush_mock_island")
                 putExtra("contentIntent", contentIntent)
                 putExtra("isOngoing", isOngoing)
@@ -1559,6 +1614,23 @@ object NotificationController {
             val fallback = if (packageName == context.packageName) android.os.Process.myUid() else 0
             Napier.w("failed to resolve uid for focus notification pkg=$packageName fallback=$fallback", error, tag = TAG)
             fallback
+        }
+    }
+
+    internal fun resolveNotificationUserId(context: Context, packageName: String): Int {
+        return runCatching {
+            val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0),
+                ).uid
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationInfo(packageName, 0).uid
+            }
+            (uid.toLong() / PER_USER_RANGE).toInt().coerceAtLeast(0)
+        }.getOrElse {
+            Utils.myUserId().coerceAtLeast(0)
         }
     }
 

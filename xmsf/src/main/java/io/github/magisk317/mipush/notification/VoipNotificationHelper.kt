@@ -31,9 +31,16 @@ object VoipNotificationHelper {
     internal const val VOIP_TYPE_VOICE = 1
     internal const val VOIP_TYPE_VIDEO = 2
 
+    // Keep sequence state per Android user and package. A cloned package can legitimately reuse
+    // the same sequence range as its owner; sharing the key would suppress a valid call there.
+    private data class SequenceKey(
+        val userId: Int,
+        val packageName: String,
+    )
+
     // Stock 7.4.67-C com.xiaomi.push.voip.b keeps one process-lifetime sequence per package in an
     // unbounded HashMap. The old 128-entry LRU could evict an active package and admit a stale call.
-    private val sequenceCache = hashMapOf<String, Long>()
+    private val sequenceCache = hashMapOf<SequenceKey, Long>()
 
     @JvmStatic
     fun isVoipNotification(metaInfo: PushMetaInfo?): Boolean {
@@ -52,17 +59,26 @@ object VoipNotificationHelper {
     }
 
     @JvmStatic
-    fun shouldDropStale(metaInfo: PushMetaInfo?, packageName: String): Boolean {
+    fun shouldDropStale(
+        metaInfo: PushMetaInfo?,
+        packageName: String,
+        userId: Int = currentUserId(),
+    ): Boolean {
         val extras = metaInfo?.extra ?: return false
         // Stock 7.4.67-C com.xiaomi.push.voip.b.i applies sequence ordering only to
         // msg_busi_type=voip. Style type 6 is independent notification presentation data.
         if (!isVoipBusiness(extras)) return false
 
         val sequence = sequence(extras)
+        val key = SequenceKey(userId.coerceAtLeast(0), packageName)
         synchronized(sequenceCache) {
-            val previous = sequenceCache[packageName] ?: 0L
+            val previous = sequenceCache[key] ?: 0L
             if (previous > sequence) {
-                Napier.d("drop stale VoIP notification pkg=$packageName sequence=$sequence previous=$previous", tag = TAG)
+                Napier.d(
+                    "drop stale VoIP notification user=${key.userId} pkg=$packageName " +
+                        "sequence=$sequence previous=$previous",
+                    tag = TAG,
+                )
                 MagiskOtel.event(
                     name = "push.event",
                     attributes = mapOf(
@@ -72,12 +88,13 @@ object VoipNotificationHelper {
                         "stage" to "voip_stale_drop",
                         "reason" to "stale_sequence",
                         "target_package" to packageName,
+                        "user_id" to key.userId.toString(),
                     ),
                     statusOk = true,
                 )
                 return true
             }
-            sequenceCache[packageName] = sequence
+            sequenceCache[key] = sequence
             return false
         }
     }
@@ -141,6 +158,16 @@ object VoipNotificationHelper {
             sequenceCache.clear()
         }
     }
+
+    fun clearPackageState(packageName: String, userId: Int = currentUserId()) {
+        val key = SequenceKey(userId.coerceAtLeast(0), packageName)
+        synchronized(sequenceCache) {
+            sequenceCache.remove(key)
+        }
+    }
+
+    private fun currentUserId(): Int = runCatching { io.github.magisk317.mipush.common.utils.Utils.myUserId() }
+        .getOrDefault(0)
 
     internal fun hasVoipStyle(extras: Map<String, String>): Boolean {
         return extras[KEY_NOTIFICATION_STYLE_TYPE] == STYLE_TYPE_VOIP

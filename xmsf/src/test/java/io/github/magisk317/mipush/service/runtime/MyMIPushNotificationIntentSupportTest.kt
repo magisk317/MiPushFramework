@@ -90,4 +90,31 @@ class MyMIPushNotificationIntentSupportTest {
         assertFalse(shadow.isService)
         assertEquals(targetComponent, shadow.savedIntent.component)
     }
+
+    @Test
+    fun `explicit click component cannot escape target package`() {
+        val intent = android.content.Intent().setComponent(
+            ComponentName("com.example.other", "com.example.other.Activity"),
+        )
+
+        assertEquals(
+            null,
+            MyMIPushNotificationIntentSupport.constrainIntentToPackage(intent, "com.example.target"),
+        )
+    }
+
+    @Test
+    fun `same package explicit click component remains usable`() {
+        val intent = android.content.Intent().setComponent(
+            ComponentName("com.example.target", "com.example.target.Activity"),
+        )
+
+        val constrained = MyMIPushNotificationIntentSupport.constrainIntentToPackage(
+            intent,
+            "com.example.target",
+        )
+
+        assertEquals(intent, constrained)
+        assertEquals("com.example.target", constrained?.`package`)
+    }
 }

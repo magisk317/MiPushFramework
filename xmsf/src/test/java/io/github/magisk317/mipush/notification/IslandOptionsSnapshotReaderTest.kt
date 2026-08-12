@@ -1,12 +1,24 @@
 package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.data.IslandSettingsSnapshot
+import io.github.magisk317.mipush.common.island.IslandRendererMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+@ExtendWith(RobolectricExtension::class)
+@Config(sdk = [28])
 class IslandOptionsSnapshotReaderTest {
+    @AfterEach
+    fun clearSettingsCache() {
+        IslandOptionsSnapshotReader.clearCachedSettings()
+    }
+
     @Test
     fun `merge preserves global options and clamps timeout`() {
         val snapshot = IslandOptionsSnapshotReader.merge(
@@ -84,6 +96,60 @@ class IslandOptionsSnapshotReaderTest {
         )
     }
 
+    @Test
+    fun `visual settings cross the runtime snapshot without changing notification semantics`() {
+        val snapshot = IslandOptionsSnapshotReader.merge(
+            settings = settings(
+                rendererMode = IslandRendererMode.HYPERISLAND.wireValue,
+                visualEnabled = false,
+                dynamicColor = false,
+                blurEnabled = false,
+                glassEnabled = false,
+                outerGlowEnabled = false,
+                animationEnabled = false,
+            ),
+            appEnabled = null,
+            appFocusNotification = null,
+        )
+
+        assertEquals(IslandRendererMode.HYPERISLAND, snapshot.options.rendererMode)
+        assertFalse(snapshot.options.visualEnabled)
+        assertFalse(snapshot.options.dynamicColor)
+        assertFalse(snapshot.options.blurEnabled)
+        assertFalse(snapshot.options.glassEnabled)
+        assertFalse(snapshot.options.outerGlowEnabled)
+        assertFalse(snapshot.options.animationEnabled)
+        assertTrue(snapshot.options.showNotification)
+    }
+
+    @Test
+    fun `unavailable settings disable island proxy but preserve original notification`() {
+        val snapshot = IslandOptionsSnapshotReader.unavailableSnapshot()
+
+        assertFalse(snapshot.options.enabled)
+        assertFalse(snapshot.options.showNotification)
+        assertTrue(snapshot.options.showOriginalNotification)
+        assertFalse(snapshot.options.focusNotification)
+    }
+
+    @Test
+    fun `global reads use the cached settings after initialization`() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        IslandOptionsSnapshotReader.updateCachedSettings(
+            settings(
+                enabled = false,
+                timeoutSecs = 17,
+                rendererMode = IslandRendererMode.HYPERISLAND.wireValue,
+            ),
+        )
+
+        val snapshot = IslandOptionsSnapshotReader.read(context)
+
+        assertFalse(snapshot.options.enabled)
+        assertEquals(17, snapshot.options.timeoutSecs)
+        assertEquals(IslandRendererMode.HYPERISLAND, snapshot.options.rendererMode)
+    }
+
     private fun settings(
         enabled: Boolean = true,
         timeoutSecs: Int = 5,
@@ -92,6 +158,13 @@ class IslandOptionsSnapshotReaderTest {
         colorStatusBarIconGlobal: Boolean = false,
         dualAppEnabled: Boolean = false,
         logSanitizationEnabled: Boolean = false,
+        rendererMode: String = "auto",
+        visualEnabled: Boolean = true,
+        dynamicColor: Boolean = true,
+        blurEnabled: Boolean = true,
+        glassEnabled: Boolean = true,
+        outerGlowEnabled: Boolean = true,
+        animationEnabled: Boolean = true,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
         timeoutSecs = timeoutSecs,
@@ -104,5 +177,12 @@ class IslandOptionsSnapshotReaderTest {
         colorStatusBarIconGlobal = colorStatusBarIconGlobal,
         dualAppEnabled = dualAppEnabled,
         logSanitizationEnabled = logSanitizationEnabled,
+        rendererMode = rendererMode,
+        visualEnabled = visualEnabled,
+        dynamicColor = dynamicColor,
+        blurEnabled = blurEnabled,
+        glassEnabled = glassEnabled,
+        outerGlowEnabled = outerGlowEnabled,
+        animationEnabled = animationEnabled,
     )
 }

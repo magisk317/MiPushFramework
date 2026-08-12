@@ -13,6 +13,10 @@ import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoRight
 import io.github.d4viddf.hyperisland_kit.models.PicInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
+import io.github.magisk317.mipush.common.island.IslandOptions
+import io.github.magisk317.mipush.common.island.IslandRendererPolicy
+import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -47,6 +51,9 @@ object IslandPayloadBuilder {
         style: NotificationStyle = NotificationStyle.GENERAL,
         smallOnly: Boolean = false,
     ): String {
+        val options = IslandPreferences.current()
+        val visualHighlightColor = highlightColor.takeIf { options.visualEnabled }
+        val visualOuterGlow = options.visualEnabled && islandOuterGlow
         return createNotification(
             context = context,
             title = title,
@@ -63,7 +70,7 @@ object IslandPayloadBuilder {
             .buildJsonParam()
             .normalizeShowNotification(showNotification)
             .fixTextButtonJson()
-            .injectIslandAppearance(highlightColor, islandOuterGlow)
+            .injectIslandAppearance(visualHighlightColor, visualOuterGlow)
             .preserveTriggerAreas(smallOnly)
     }
 
@@ -77,6 +84,7 @@ object IslandPayloadBuilder {
         enableFloat: Boolean = true,
         showNotification: Boolean = true,
         sourcePackage: String? = null,
+        userId: Int? = null,
         sourceChannelId: String? = null,
         actions: List<Notification.Action> = emptyList(),
         showIslandIcon: Boolean = true,
@@ -84,13 +92,29 @@ object IslandPayloadBuilder {
         islandOuterGlow: Boolean = false,
         style: NotificationStyle = NotificationStyle.GENERAL,
         smallOnly: Boolean = false,
+        optionsOverride: IslandOptions? = null,
     ): Bundle {
         val safeContent = content.ifBlank { title }
+        val options = optionsOverride ?: IslandPreferences.current(sourcePackage, userId)
+        val payloadIcon = icon ?: fallbackIcon(context)
+        val dynamicColor = if (options.visualEnabled && options.dynamicColor) {
+            DynamicIslandColorResolver.resolve(
+                context = context,
+                packageName = sourcePackage,
+                notificationIcon = payloadIcon,
+            )
+        } else {
+            null
+        }
+        val resolvedHighlightColor = if (options.visualEnabled) highlightColor ?: dynamicColor else null
+        val resolvedOuterGlow = options.visualEnabled && (islandOuterGlow || options.outerGlowEnabled)
+        val owner = IslandRendererPolicy.owner(context, options)
+        val rendererMode = IslandRendererPolicy.mode(context, options)
         val notification = createNotification(
             context = context,
             title = title,
             content = safeContent,
-            icon = icon ?: fallbackIcon(context),
+            icon = payloadIcon,
             timeoutSecs = timeoutSecs,
             firstFloat = firstFloat,
             enableFloat = enableFloat,
@@ -117,12 +141,21 @@ object IslandPayloadBuilder {
                     .buildJsonParam()
                     .normalizeShowNotification(showNotification)
                     .fixTextButtonJson()
-                    .injectIslandAppearance(highlightColor, islandOuterGlow)
+                    .injectIslandAppearance(resolvedHighlightColor, resolvedOuterGlow)
                     .preserveTriggerAreas(smallOnly),
             )
-            putString(IslandDispatchContract.OWNER, IslandDispatchContract.OWNER_MARKER)
+            putString(IslandDispatchContract.OWNER, owner)
+            putInt(IslandDispatchContract.VISUAL_VERSION, IslandVisualContract.VERSION)
+            putString(IslandDispatchContract.VISUAL_MODE, rendererMode.wireValue)
+            putString(IslandDispatchContract.VISUAL_MARKER, IslandVisualContract.VISUAL_MARKER)
+            resolvedHighlightColor?.let { putString(IslandDispatchContract.HIGHLIGHT_COLOR, it) }
+            if (resolvedOuterGlow) {
+                resolvedHighlightColor?.let { putString(IslandDispatchContract.GLOW_COLOR, it) }
+                resolvedHighlightColor?.let { putString(IslandDispatchContract.ISLAND_GLOW_COLOR, it) }
+                resolvedHighlightColor?.let { putString(IslandDispatchContract.FOCUS_GLOW_COLOR, it) }
+            }
             putBoolean(IslandDispatchContract.PROCESSED, true)
-            if (islandOuterGlow) {
+            if (resolvedOuterGlow) {
                 putString("miui.bigIsland.effect.src", "outer_glow")
             }
             sourcePackage?.let { putString(IslandDispatchContract.SOURCE_PACKAGE, it) }

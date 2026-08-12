@@ -91,6 +91,54 @@ class ManifestContractTest {
     }
 
     @Test
+    fun `island and keep alive preference providers preserve guarded authorities`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.IslandPreferenceProvider",
+            "authorities",
+            "com.xiaomi.xmsf.island.prefs",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.IslandPreferenceProvider",
+            "exported",
+            "true",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.IslandPreferenceProvider",
+            "permission",
+            "",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider",
+            "authorities",
+            "com.xiaomi.xmsf.keepalive.prefs",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider",
+            "readPermission",
+            "com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider",
+            "exported",
+            "true",
+        )
+    }
+
+    @Test
     fun `package lifecycle receiver subscribes to stock data clear`() {
         val document = parseManifest()
         val receiver = findApplicationNodeByAndroidName(
@@ -107,6 +155,35 @@ class ManifestContractTest {
                     "android.intent.action.PACKAGE_DATA_CLEARED"
             },
             "Stock 7.4.67-C package data-clear cleanup must be reachable from the system broadcast",
+        )
+    }
+
+    @Test
+    fun `self update revival keeps system lifecycle entry private`() {
+        val document = parseManifest()
+
+        val selfUpdateReceiver = findApplicationNodeByAndroidName(
+            document,
+            "receiver",
+            "com.xiaomi.push.service.SelfUpdateReceiver",
+        )
+        assertNotNull(selfUpdateReceiver)
+        assertEquals("true", selfUpdateReceiver!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertTrue(
+            selfUpdateReceiver.getElementsByTagName("action").let { actions ->
+                (0 until actions.length).any { index ->
+                    (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                        "android.intent.action.MY_PACKAGE_REPLACED"
+                }
+            },
+        )
+
+        assertApplicationNodeAttribute(
+            document,
+            "receiver",
+            "com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated",
+            "exported",
+            "false",
         )
     }
 
@@ -299,6 +376,31 @@ class ManifestContractTest {
                     "com.xiaomi.xmsf.service.UPDATE_KA_CONFIG"
             },
             "KeepAliveConfigService must retain the stock update action",
+        )
+    }
+
+    @Test
+    fun `mi cloud push bridge preserves its gated bind action`() {
+        val document = parseManifest()
+        val service = findApplicationNodeByAndroidName(
+            document,
+            "service",
+            "com.xiaomi.xmsf.sync.BindMiCloudPushService",
+        )
+
+        assertNotNull(service)
+        assertEquals("true", service!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertEquals(
+            "com.xiaomi.permission.CLOUD_MANAGER",
+            service.getAttributeNS(ANDROID_NS, "permission"),
+        )
+        val actions = service.getElementsByTagName("action")
+        assertTrue(
+            (0 until actions.length).any { index ->
+                (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                    "com.xiaomi.xmsf.sync.BIND_PUSH_SERVICE"
+            },
+            "MiCloud push bridge must retain the stock bind action",
         )
     }
 

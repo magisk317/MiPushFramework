@@ -146,6 +146,48 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
     }
 
     @Test
+    @DisplayName("known QQ click route uses the real launcher activity")
+    fun `buildClickedPendingIntent uses explicit launcher for QQ`() {
+        val context = RuntimeEnvironment.getApplication()
+        val targetPackage = "com.tencent.mobileqq"
+        val launcherClass = "com.tencent.mobileqq.activity.SplashActivity"
+        val launcherComponent = ComponentName(targetPackage, launcherClass)
+        shadowOf(context.packageManager).addActivityIfNotPresent(launcherComponent)
+        shadowOf(context.packageManager).addIntentFilterForActivity(
+            launcherComponent,
+            android.content.IntentFilter().apply {
+                addAction(android.content.Intent.ACTION_MAIN)
+                addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            },
+        )
+
+        val container = XmPushActionContainer().apply {
+            packageName = targetPackage
+            metaInfo = PushMetaInfo().apply {
+                setId("msg-qq-launcher")
+                setNotifyId(3)
+                extra = mutableMapOf(
+                    PushConstants.EXTRA_PARAM_NOTIFY_EFFECT to PushConstants.NOTIFICATION_CLICK_INTENT,
+                    PushConstants.EXTRA_PARAM_CLASS_NAME to "com.tencent.mobileqq.activity.JumpActivity",
+                )
+            }
+        }
+
+        val pendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
+            context = context,
+            container = container,
+            decryptedContent = byteArrayOf(7, 8, 9),
+            notificationId = 301,
+            extra = null,
+        )
+
+        assertNotNull(pendingIntent)
+        val shadow = shadowOf(pendingIntent!!)
+        assertTrue(shadow.isActivity)
+        assertEquals(launcherComponent, shadow.savedIntent.component)
+    }
+
+    @Test
     @DisplayName("buildClickedPendingIntent returns Service PendingIntent when no SDK intent (notify_effect=1, no launch intent)")
     fun `buildClickedPendingIntent returns Service PendingIntent when no SDK intent available`() {
         val context = RuntimeEnvironment.getApplication()

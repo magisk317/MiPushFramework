@@ -166,6 +166,22 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `lookup-only channel resolution does not provision a missing channel`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val metaInfo = PushMetaInfo().apply {
+            extra = mutableMapOf("channel_id" to "read_only_probe")
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val stockChannelId = NotificationChannelManager.getChannelId(context, metaInfo, packageName)
+
+        NotificationManagerEx.init(context)
+
+        assertNull(NotificationController.findExistingChannelId(context, metaInfo, packageName))
+        assertNull(notificationManager.getNotificationChannel(stockChannelId))
+    }
+
+    @Test
     fun `focus bundle uses each focus pic uri and skips missing bitmaps`() {
         val loadedUris = mutableListOf<String>()
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)

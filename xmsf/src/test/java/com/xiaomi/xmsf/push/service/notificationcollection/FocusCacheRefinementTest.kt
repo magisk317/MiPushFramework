@@ -23,6 +23,8 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * Requirement 18.2: Product switch is preserved, allowing user to control focus notifications.
  * Requirement 18.3: No cloud-control whitelist is replicated (switch strategy only).
  */
+// Keep Robolectric: this test relies on Android framework implementations indirectly;
+// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class FocusCacheRefinementTest {

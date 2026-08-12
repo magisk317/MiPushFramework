@@ -143,4 +143,34 @@ class SecurityCoreXSpacePackageInfoHookTest {
             ).forceRequired
         )
     }
+
+    @Test
+    fun `user id parser does not treat the legacy flags argument as a user`() {
+        assertEquals(
+            null,
+            SecurityCoreXSpacePackageInfoHook.userIdArgIndex(
+                listOf(String::class.java, Int::class.javaPrimitiveType!!),
+            ),
+        )
+        assertEquals(
+            2,
+            SecurityCoreXSpacePackageInfoHook.userIdArgIndex(
+                listOf(
+                    String::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    Int::class.javaPrimitiveType!!,
+                ),
+            ),
+        )
+        assertEquals(
+            2,
+            SecurityCoreXSpacePackageInfoHook.userIdArgIndex(
+                listOf(
+                    String::class.java,
+                    Long::class.javaPrimitiveType!!,
+                    Int::class.javaPrimitiveType!!,
+                ),
+            ),
+        )
+    }
 }

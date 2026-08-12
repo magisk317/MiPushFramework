@@ -53,6 +53,16 @@ class VoipNotificationHelperTest {
     }
 
     @Test
+    fun `same package sequence is isolated between Android users`() {
+        val first = meta("msg_busi_type" to "voip", "sequence" to "20")
+        val lower = meta("msg_busi_type" to "voip", "sequence" to "10")
+
+        assertFalse(VoipNotificationHelper.shouldDropStale(first, "pkg", userId = 0))
+        assertFalse(VoipNotificationHelper.shouldDropStale(lower, "pkg", userId = 999))
+        assertTrue(VoipNotificationHelper.shouldDropStale(lower, "pkg", userId = 0))
+    }
+
+    @Test
     fun `stock sequence state is not evicted by other packages`() {
         assertFalse(
             VoipNotificationHelper.shouldDropStale(

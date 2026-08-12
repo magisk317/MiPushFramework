@@ -67,6 +67,7 @@ class KeepAliveHook : BaseHook() {
         startPreferenceRefreshLoop()
         hookOomAdjuster(param.classLoader)
         hookKillProcess(param.classLoader)
+        hookPackageKill(param.classLoader)
         hookAppStandbyController(param.classLoader)
         XLog.i(
             TAG,
@@ -235,6 +236,14 @@ class KeepAliveHook : BaseHook() {
                 )
             }
         }.onFailure {
+            val previous = flags
+            // A provider failure invalidates the complete snapshot. Retaining ready=true here
+            // would keep old anti-kill and resource-bypass decisions active after a revoked or
+            // unavailable configuration.
+            flags = KeepAliveFlags()
+            if (previous.ready) {
+                XLog.w(TAG, "keepalive preferences unavailable; disabled stale runtime flags")
+            }
             logRateLimited("pref_refresh", "failed to refresh keepalive prefs: ${it.message}")
         }
     }
@@ -288,6 +297,47 @@ class KeepAliveHook : BaseHook() {
         }
     }
 
+    private fun hookPackageKill(classLoader: ClassLoader) {
+        runCatching {
+            val owner = findHookClass("com.android.server.am.ProcessList", classLoader)
+            val resolved = resolveTarget("package_kill_guard", owner, KeepAliveHookTargets.packageKill) ?: return
+            val packageIndex = requireNotNull(resolved.target.packageIndex)
+            val reasonIndex = requireNotNull(resolved.target.valueIndex)
+            val subReasonIndex = requireNotNull(resolved.target.secondaryValueIndex)
+            resolved.method.hook {
+                doBefore {
+                    val packageName = args.getOrNull(packageIndex) as? String
+                    val reason = args.getOrNull(reasonIndex) as? Int
+                    val subReason = args.getOrNull(subReasonIndex) as? Int
+                    // These indexes are part of the exact API 33 descriptor above:
+                    // callerWillRestart=4, doit=6, evenPersistent=7, setRemoved=8,
+                    // uninstalling=9. Unknown or malformed values fail open.
+                    if (
+                        KeepAlivePolicy.shouldSuppressPackageKill(
+                            flags = flags,
+                            packageName = packageName,
+                            reason = reason,
+                            subReason = subReason,
+                            callerWillRestart = args.getOrNull(4) as? Boolean,
+                            doit = args.getOrNull(6) as? Boolean,
+                            evenPersistent = args.getOrNull(7) as? Boolean,
+                            setRemoved = args.getOrNull(8) as? Boolean,
+                            uninstalling = args.getOrNull(9) as? Boolean,
+                        )
+                    ) {
+                        result = false
+                        logRateLimited(
+                            "package_kill_guard",
+                            "suppressed current XMSF package automatic kill reason=$reason subReason=$subReason",
+                        )
+                    }
+                }
+            }
+        }.onFailure {
+            XLog.e(TAG, "failed to hook ProcessList.killPackageProcessesLSP", it)
+        }
+    }
+
     private fun hookAppStandbyController(classLoader: ClassLoader) {
         runCatching {
             val owner = findHookClass("com.android.server.usage.AppStandbyController", classLoader)
@@ -300,7 +350,13 @@ class KeepAliveHook : BaseHook() {
     }
 
     private fun hookStandbyBucket(owner: Class<*>) {
-        val resolved = resolveTarget("standby_bucket", owner, KeepAliveHookTargets.standbyBucket) ?: return
+        KeepAliveHookTargets.standbyBucket.forEach { target ->
+            hookStandbyBucketTarget(owner, target)
+        }
+    }
+
+    private fun hookStandbyBucketTarget(owner: Class<*>, target: IndexedHookTarget) {
+        val resolved = resolveTarget("standby_bucket", owner, listOf(target)) ?: return
         val packageIndex = requireNotNull(resolved.target.packageIndex)
         val bucketIndex = requireNotNull(resolved.target.valueIndex)
         resolved.method.hook {

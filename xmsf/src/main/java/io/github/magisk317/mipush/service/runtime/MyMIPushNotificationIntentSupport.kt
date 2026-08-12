@@ -20,6 +20,7 @@ import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
+import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.push.service.ComponentHelper
@@ -32,6 +33,9 @@ import java.net.URL
 internal object MyMIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
     internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
+
+    internal fun shouldUseLauncherFallback(packageName: String?): Boolean =
+        NotificationClickFallbackContract.shouldUseLauncherFallback(packageName)
 
     private const val BRIDGE_ACTIVITY_CLASS = "com.xiaomi.mipush.sdk.BridgeActivity"
     private val BRIDGE_ACTIVITY_FLAGS =
@@ -148,6 +152,18 @@ internal object MyMIPushNotificationIntentSupport {
             applyPendingIntentIdentity(this, container.packageName, notificationId, messageId)
         }
 
+        if (NotificationClickFallbackContract.shouldUseLauncherFallback(container.packageName)) {
+            buildLauncherFallbackPendingIntent(
+                context = context,
+                packageName = container.packageName,
+                notificationId = notificationId,
+                messageId = messageId,
+            )?.let {
+                logClickRoute("launcher_fallback", container.packageName, notificationId)
+                return it
+            }
+        }
+
         val activityIntent = getSdkIntent(context, container)
         if (shouldUseSdkActivityClick(activityIntent != null)) {
             activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -231,6 +247,36 @@ internal object MyMIPushNotificationIntentSupport {
             pendingIntentRequestCode(container.packageName, notificationId, messageId.hashCode()),
             bridgeIntent,
             FLAG_IMMUTABLE_UPDATE_CURRENT
+        )
+    }
+
+    private fun buildLauncherFallbackPendingIntent(
+        context: Context,
+        packageName: String?,
+        notificationId: Int,
+        messageId: String,
+    ): PendingIntent? {
+        val targetPackage = packageName?.takeIf(String::isNotBlank) ?: return null
+        val launcher = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            `package` = targetPackage
+        }
+        // MAIN/LAUNCHER entries do not need CATEGORY_DEFAULT; using MATCH_DEFAULT_ONLY
+        // incorrectly rejects normal launcher activities on Android package managers.
+        val activityInfo = context.packageManager.resolveActivity(launcher, 0)
+            ?.activityInfo
+            ?: return null
+        val explicitLauncher = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            component = ComponentName(activityInfo.packageName, activityInfo.name)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            applyPendingIntentIdentity(this, targetPackage, notificationId, messageId)
+        }
+        return PendingIntent.getActivity(
+            context,
+            pendingIntentRequestCode(targetPackage, notificationId, messageId.hashCode()),
+            explicitLauncher,
+            FLAG_IMMUTABLE_UPDATE_CURRENT,
         )
     }
 
@@ -501,9 +547,7 @@ internal object MyMIPushNotificationIntentSupport {
         if (extra.containsKey(PushConstants.EXTRA_PARAM_INTENT_URI)) {
             val intentStr = extra[PushConstants.EXTRA_PARAM_INTENT_URI] ?: return null
             return try {
-                Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME).apply {
-                    `package` = pkgName
-                }
+                constrainIntentToPackage(Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME), pkgName)
             } catch (e: URISyntaxException) {
                 logE("Failed to parse intent URI: ${e.message}", e)
                 null
@@ -542,9 +586,7 @@ internal object MyMIPushNotificationIntentSupport {
         if (extra.containsKey(keys.intentUri)) {
             val intentStr = extra[keys.intentUri] ?: return null
             return try {
-                Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME).apply {
-                    `package` = pkgName
-                }
+                constrainIntentToPackage(Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME), pkgName)
             } catch (e: URISyntaxException) {
                 logE("Failed to parse button intent URI: ${e.message}", e)
                 null
@@ -557,6 +599,18 @@ internal object MyMIPushNotificationIntentSupport {
         return Intent().apply {
             component = ComponentName(pkgName, className)
         }
+    }
+
+    /**
+     * An explicit component wins over Intent.package during resolution. Reject a payload that
+     * tries to point an explicit component (including a selector component) outside its target
+     * application before adding the target package constraint.
+     */
+    internal fun constrainIntentToPackage(intent: Intent, packageName: String): Intent? {
+        if (packageName.isBlank()) return null
+        val components = listOfNotNull(intent.component, intent.selector?.component)
+        if (components.any { it.packageName != packageName }) return null
+        return intent.apply { `package` = packageName }
     }
 
     private fun getWebIntent(place: Int, extra: Map<String, String>): Intent? {

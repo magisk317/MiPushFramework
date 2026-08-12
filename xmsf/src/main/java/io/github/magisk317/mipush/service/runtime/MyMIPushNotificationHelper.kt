@@ -53,6 +53,7 @@ import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.CoroutineScope
@@ -94,6 +95,17 @@ class MyMIPushNotificationHelper {
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
             notificationSessionStartedAtMs = nowMs
             logD("notification session started at=$nowMs source=$source")
+        }
+
+        @JvmStatic
+        fun clearPackageTransientState(
+            packageName: String,
+            userId: Int = Utils.myUserId().coerceAtLeast(0),
+        ) {
+            val prefix = "$userId|$packageName|"
+            synchronized(nonDisplayDispatchLock) {
+                recentNonDisplayDispatches.keys.removeIf { it.startsWith(prefix) }
+            }
         }
 
         @JvmStatic
@@ -220,26 +232,7 @@ class MyMIPushNotificationHelper {
             )
             if (shouldFallbackToRawEncryptedDispatch(container.isEncryptAction, outcome)) {
                 val packageName = MIPushNotificationHelper.getTargetPackage(container)
-                val dispatched = packageName.isNotBlank() && XMPushUtils.dispatchToApplication(
-                    context = context,
-                    packageName = packageName,
-                    payload = decryptedContent,
-                    fromNotification = true,
-                )
-                val candidateCount = RegSecUtils.getCandidateRegSecs(container).size
-                logW(
-                    "encrypted notification processing failed; raw payload fallback " +
-                        "pkg=$packageName candidates=$candidateCount dispatched=$dispatched"
-                )
-                PushRuntime.observeNotificationEvent(
-                    packageName = packageName,
-                    action = if (dispatched) {
-                        "encrypted_raw_payload_dispatched"
-                    } else {
-                        "encrypted_raw_payload_failed"
-                    },
-                    source = "MyMIPushNotificationHelper.notifyPushMessage",
-                )
+                val dispatched = dispatchRawEncryptedPayload(context, container, decryptedContent)
                 return finish(
                     if (dispatched) MockReplayOutcome.Dispatched else MockReplayOutcome.Failed,
                     if (dispatched) "encrypted_raw_fallback" else "encrypted_raw_fallback_failed",
@@ -254,6 +247,33 @@ class MyMIPushNotificationHelper {
             outcome: MockReplayOutcome,
         ): Boolean = isEncrypted && outcome == MockReplayOutcome.Failed
 
+        private fun dispatchRawEncryptedPayload(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+        ): Boolean {
+            val packageName = MIPushNotificationHelper.getTargetPackage(container)
+            val dispatched = packageName.isNotBlank() && XMPushUtils.dispatchToApplication(
+                context = context,
+                packageName = packageName,
+                payload = decryptedContent,
+                fromNotification = true,
+            )
+            PushRuntime.observeNotificationEvent(
+                packageName = packageName,
+                action = if (dispatched) {
+                    "encrypted_raw_payload_dispatched"
+                } else {
+                    "encrypted_raw_payload_failed"
+                },
+                source = "MyMIPushNotificationHelper.encryptedFallback",
+            )
+            logW(
+                "encrypted notification processing failed; raw payload fallback " +
+                    "pkg=$packageName dispatched=$dispatched",
+            )
+            return dispatched
+        }
 
         private fun handleNotificationByConfigurations(
             context: Context,
@@ -292,7 +312,7 @@ class MyMIPushNotificationHelper {
                         doNotifyPushMessage(context, container, decryptedContent)
                     } else {
                         notificationScope.launch {
-                            try {
+                            val notificationOutcome = try {
                                 logD(
                                     "policy_notify dispatch start pkg=$packageName action=${container.action} " +
                                         "messageId=$messageId"
@@ -309,6 +329,10 @@ class MyMIPushNotificationHelper {
                                         "messageId=$messageId",
                                     e
                                 )
+                                MockReplayOutcome.Failed
+                            }
+                            if (shouldFallbackToRawEncryptedDispatch(container.isEncryptAction, notificationOutcome)) {
+                                dispatchRawEncryptedPayload(context, container, decryptedContent)
                             }
                         }
                         MockReplayOutcome.Dispatched
@@ -529,7 +553,7 @@ class MyMIPushNotificationHelper {
             messageId: String?,
             nowMs: Long = System.currentTimeMillis()
         ): Boolean {
-            val key = "$packageName|$action|${messageId.orEmpty()}"
+            val key = "${Utils.myUserId().coerceAtLeast(0)}|$packageName|$action|${messageId.orEmpty()}"
             synchronized(nonDisplayDispatchLock) {
                 val iterator = recentNonDisplayDispatches.entries.iterator()
                 while (iterator.hasNext()) {
@@ -603,6 +627,7 @@ class MyMIPushNotificationHelper {
                 )
             }
             val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
+            val targetUserId = NotificationController.resolveNotificationUserId(context, targetPackage)
             val isMiui = MIUIUtils.isMIUI()
             if (shouldSuppressForegroundNotification(
                     extra = metaInfo.extra,
@@ -633,7 +658,14 @@ class MyMIPushNotificationHelper {
             // Stock 7.4.67-C t0 invokes sweet reminder filtering before its VoIP sequence filter.
             // The retained 3.7.9 helper has no remind_status lifecycle, so keep the newer behavior
             // in the product dispatch path instead of modifying pinned SDK sources.
-            if (SweetNotificationCoordinator.shouldSuppress(context, targetPackage, notificationId, metaInfo)) {
+            if (SweetNotificationCoordinator.shouldSuppress(
+                    context = context,
+                    packageName = targetPackage,
+                    notificationId = notificationId,
+                    metaInfo = metaInfo,
+                    userId = targetUserId,
+                )
+            ) {
                 logD("skip repeated sweet notification pkg=$targetPackage messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
                     packageName = targetPackage,
@@ -648,7 +680,7 @@ class MyMIPushNotificationHelper {
                     dispatchMessageArrived,
                 )
             }
-            if (VoipNotificationHelper.shouldDropStale(metaInfo, targetPackage)) {
+            if (VoipNotificationHelper.shouldDropStale(metaInfo, targetPackage, targetUserId)) {
                 logD("skip stale voip notification pkg=$targetPackage messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
                     packageName = targetPackage,
@@ -813,6 +845,13 @@ class MyMIPushNotificationHelper {
                 )
             } else {
                 MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(pkgCtx, container.metaInfo, packageName)
+            }
+
+            if (MyMIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName)) {
+                notificationBuilder.extras.putBoolean(
+                    NotificationClickFallbackContract.USE_LAUNCHER_FALLBACK,
+                    true,
+                )
             }
 
             if (metaInfo.extra != null) {

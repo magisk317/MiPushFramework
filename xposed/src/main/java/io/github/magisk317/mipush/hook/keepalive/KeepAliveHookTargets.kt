@@ -33,6 +33,7 @@ internal sealed class MethodResolution {
 internal object KeepAliveHookTargets {
     private const val OOM_ADJUSTER = "com.android.server.am.OomAdjuster"
     private const val PROCESS_RECORD = "com.android.server.am.ProcessRecord"
+    private const val PROCESS_LIST = "com.android.server.am.ProcessList"
     private const val APP_STANDBY_CONTROLLER = "com.android.server.usage.AppStandbyController"
 
     val oomApply = listOf(
@@ -88,7 +89,59 @@ internal object KeepAliveHookTargets {
         ),
     )
 
+    /** API 33 package-cleanup boundary, before MIUI sends SIGSTOP or removes process records. */
+    val packageKill = listOf(
+        IndexedHookTarget(
+            capability = "package_kill_guard",
+            shape = MethodShape(
+                owner = PROCESS_LIST,
+                name = "killPackageProcessesLSP",
+                parameterTypes = listOf(
+                    "java.lang.String",
+                    "int",
+                    "int",
+                    "int",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "int",
+                    "int",
+                    "java.lang.String",
+                ),
+                returnType = "boolean",
+            ),
+            packageIndex = 0,
+            valueIndex = 10,
+            secondaryValueIndex = 11,
+        ),
+    )
+
     val standbyBucket = listOf(
+        IndexedHookTarget(
+            capability = "standby_bucket",
+            shape = MethodShape(
+                owner = APP_STANDBY_CONTROLLER,
+                name = "setAppStandbyBucket",
+                parameterTypes = listOf("java.lang.String", "int", "int", "int", "int"),
+                returnType = "void",
+            ),
+            packageIndex = 0,
+            valueIndex = 1,
+        ),
+        IndexedHookTarget(
+            capability = "standby_bucket",
+            shape = MethodShape(
+                owner = APP_STANDBY_CONTROLLER,
+                name = "setAppStandbyBucket",
+                parameterTypes = listOf("java.lang.String", "int", "int", "int"),
+                returnType = "void",
+            ),
+            packageIndex = 0,
+            valueIndex = 2,
+        ),
         IndexedHookTarget(
             capability = "standby_bucket",
             shape = MethodShape(

@@ -34,6 +34,7 @@ object NotificationIslandTemplate : IslandTemplate {
                 sourceChannelId = data.channelId,
                 actions = viewModel.actions,
                 style = style,
+                optionsOverride = options,
             ),
         )
     }

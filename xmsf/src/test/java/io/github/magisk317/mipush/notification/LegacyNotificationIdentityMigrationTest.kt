@@ -13,4 +13,11 @@ class LegacyNotificationIdentityMigrationTest {
         assertFalse(LegacyNotificationIdentityMigration.isLegacyIdentity("native"))
         assertFalse(LegacyNotificationIdentityMigration.isLegacyIdentity("mi_push_pkg"))
     }
+
+    @Test
+    fun `migration only considers notifications from the current user`() {
+        assertTrue(LegacyNotificationIdentityMigration.belongsToUser(0, 0))
+        assertTrue(LegacyNotificationIdentityMigration.belongsToUser(999, 999))
+        assertFalse(LegacyNotificationIdentityMigration.belongsToUser(999, 0))
+    }
 }

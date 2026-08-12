@@ -51,4 +51,27 @@ internal object KeepAlivePolicy {
             currentNameMapping &&
             currentPidMapping
     }
+
+    fun shouldSuppressPackageKill(
+        flags: KeepAliveFlags,
+        packageName: String?,
+        reason: Int?,
+        subReason: Int?,
+        callerWillRestart: Boolean?,
+        doit: Boolean?,
+        evenPersistent: Boolean?,
+        setRemoved: Boolean?,
+        uninstalling: Boolean?,
+    ): Boolean {
+        return flags.ready &&
+            flags.antiKill &&
+            packageName == XMSF_PACKAGE_NAME &&
+            reason == AUTOMATIC_KILL_REASON &&
+            subReason in automaticKillSubReasons &&
+            callerWillRestart == false &&
+            doit == true &&
+            evenPersistent == false &&
+            setRemoved == false &&
+            uninstalling == false
+    }
 }

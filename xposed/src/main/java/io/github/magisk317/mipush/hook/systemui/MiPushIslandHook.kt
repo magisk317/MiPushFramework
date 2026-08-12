@@ -9,9 +9,11 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.app.NotificationManager
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
+import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
@@ -47,9 +49,11 @@ class MiPushIslandHook : BaseHook() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun handleStatusBarNotification(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
         val extras = notification.extras ?: return
+        sbn.let(MiPushIslandVisualState::record)
         if (extras.getBoolean(IslandDispatchContract.PROCESSED, false)) return
         if (IslandDispatchContract.hasNativeFocusPayload(extras)) {
             XLog.d(TAG, "preserve native focus payload pkg=${sbn.packageName} key=${sbn.key}")
@@ -60,7 +64,7 @@ class MiPushIslandHook : BaseHook() {
         if (!extras.getBoolean(EXTRA_ALLOW_PROXY, false)) {
             return
         }
-        val options = IslandPreferences.current(sourcePackage)
+        val options = IslandPreferences.current(sourcePackage, sbn.userId)
         if (!options.canInjectFocusPayload) return
         XLog.i(
             TAG,
@@ -110,8 +114,15 @@ class MiPushIslandHook : BaseHook() {
                 enableFloat = options.enableFloat,
                 showNotification = options.showNotification,
                 sourcePackage = sourcePackage,
+                userId = sbn.userId,
                 sourceChannelId = channelId,
-                contentIntent = notification.contentIntent,
+                contentIntent = resolveClickIntent(
+                    context = context,
+                    sourcePackage = sourcePackage,
+                    notification = notification,
+                    notificationId = sbn.id,
+                    userId = sbn.userId,
+                ),
                 isOngoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0,
                 actions = notification.actions?.toList().orEmpty(),
                 clearBeforePost = true,
@@ -121,6 +132,52 @@ class MiPushIslandHook : BaseHook() {
         val sourceKey = sourceKeyFor(sbn)
         trackedForCancel.record(sourceKey, proxyId)
         XLog.d(TAG, "posted island proxy pkg=$sourcePackage id=${sbn.id} proxyId=$proxyId sourceKey=$sourceKey")
+    }
+
+    private fun resolveClickIntent(
+        context: Context,
+        sourcePackage: String,
+        notification: Notification,
+        notificationId: Int,
+        userId: Int,
+    ): android.app.PendingIntent? {
+        val original = notification.contentIntent
+        if (
+            original == null ||
+            original.creatorPackage != XMSF_PACKAGE_NAME ||
+            !notification.extras.getBoolean(NotificationClickFallbackContract.USE_LAUNCHER_FALLBACK, false)
+        ) {
+            return original
+        }
+
+        val targetContext = IslandClickRouting.contextForUser(context, userId) ?: return original
+        val launchIntent = runCatching {
+            Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                `package` = sourcePackage
+            }.let { launcherQuery ->
+                val resolved = targetContext.packageManager.resolveActivity(launcherQuery, 0)
+                    ?.activityInfo
+                    ?.let { android.content.ComponentName(it.packageName, it.name) }
+                    ?: return@runCatching null
+                Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                    component = resolved
+                }
+            }
+        }.getOrNull() ?: return original
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        return runCatching {
+            android.app.PendingIntent.getActivity(
+                targetContext,
+                IslandClickRouting.requestCode(sourcePackage, notificationId, userId),
+                launchIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                    android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+        }.onFailure {
+            XLog.w(TAG, "failed to create target launch PendingIntent pkg=$sourcePackage: ${it.message}")
+        }.getOrNull() ?: original
     }
 
     private fun resolveSourcePackage(sbn: StatusBarNotification, extras: Bundle): String? {
@@ -159,7 +216,7 @@ class MiPushIslandHook : BaseHook() {
                 },
             )
         }.getOrElse {
-            notification.smallIcon ?: Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
+            notification.smallIcon ?: Icon.createWithResource("android", android.R.drawable.sym_def_app_icon)
         }
     }
 
@@ -196,14 +253,19 @@ class MiPushIslandHook : BaseHook() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun proxyNotificationId(sbn: StatusBarNotification): Int {
-        return IslandProxyNotificationIds.fromPackage(sbn.packageName)
+        return IslandProxyNotificationIds.fromPackage(sbn.packageName, sbn.userId)
     }
 
     private fun dedupKeyFor(sbn: StatusBarNotification): Int {
-        val key = sbn.key
-        if (!key.isNullOrBlank()) return key.hashCode()
-        return (sbn.packageName.hashCode() xor sbn.id)
+        return IslandProxyDedupKeys.fromStatusBarKey(
+            key = sbn.key,
+            packageName = sbn.packageName,
+            notificationId = sbn.id,
+            tag = sbn.tag,
+            userId = sbn.userId,
+        )
     }
 
     private fun sourceKeyFor(sbn: StatusBarNotification): String {
@@ -212,6 +274,7 @@ class MiPushIslandHook : BaseHook() {
             packageName = sbn.packageName,
             notificationId = sbn.id,
             tag = sbn.tag,
+            userId = sbn.userId,
         )
     }
 
@@ -222,6 +285,7 @@ class MiPushIslandHook : BaseHook() {
 
     private companion object {
         private const val TAG = "MiPushIslandHook"
+        private const val XMSF_PACKAGE_NAME = "com.xiaomi.xmsf"
         private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
         private const val PROXY_POST_DEDUPE_MS = 2_000L
@@ -287,11 +351,12 @@ class MiPushIslandHook : BaseHook() {
         sbn: StatusBarNotification?,
     ) {
         sbn ?: return
+        MiPushIslandVisualState.remove(sbn)
         val context = currentApplication()?.applicationContext ?: return
         val sourceKey = sourceKeyFor(sbn)
         val proxyId = trackedForCancel.removeAndResolveCancellation(sourceKey)
         if (proxyId != null) {
-            IslandDispatcher.cancel(context, proxyId)
+            IslandDispatcher.cancel(context, proxyId, sbn.userId)
             XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
         }
         // Native Live Update path never enters trackedForCancel (allowIslandProxy=false). When the
@@ -338,4 +403,3 @@ class MiPushIslandHook : BaseHook() {
         )
     }
 }
-

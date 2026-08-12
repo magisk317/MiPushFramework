@@ -14,10 +14,10 @@ class StockMiPushPayloadDeduperTest {
 
     @Test
     fun `same package and payload is dropped but different payload is admitted`() {
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 1_000L))
-        assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 2_000L))
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(2), 2_000L))
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.other", byteArrayOf(1), 2_000L))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 1_000L, userId = 0))
+        assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 2_000L, userId = 0))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(2), 2_000L, userId = 0))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.other", byteArrayOf(1), 2_000L, userId = 0))
     }
 
     @Test
@@ -29,6 +29,7 @@ class StockMiPushPayloadDeduperTest {
                 "com.example.app",
                 payload,
                 1_000L,
+                userId = 0,
             ),
         )
         assertFalse(
@@ -37,6 +38,7 @@ class StockMiPushPayloadDeduperTest {
                 "com.example.app",
                 payload,
                 1_001L,
+                userId = 0,
             ),
         )
         assertFalse(
@@ -45,6 +47,7 @@ class StockMiPushPayloadDeduperTest {
                 "com.example.app",
                 payload,
                 1_002L,
+                userId = 0,
             ),
         )
         assertTrue(
@@ -53,18 +56,20 @@ class StockMiPushPayloadDeduperTest {
                 "com.example.app",
                 payload,
                 1_003L,
+                userId = 0,
             ),
         )
     }
 
     @Test
     fun `stock expiry removes an old entry after its final duplicate hit`() {
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 1_000L))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", byteArrayOf(1), 1_000L, userId = 0))
         assertTrue(
             StockMiPushPayloadDeduper.shouldDrop(
                 "com.example.app",
                 byteArrayOf(1),
                 1_000L + StockMiPushPayloadDeduper.DEDUP_WINDOW_MS + 1,
+                userId = 0,
             ),
         )
         assertFalse(
@@ -72,7 +77,29 @@ class StockMiPushPayloadDeduperTest {
                 "com.example.app",
                 byteArrayOf(1),
                 1_000L + StockMiPushPayloadDeduper.DEDUP_WINDOW_MS + 2,
+                userId = 0,
             ),
         )
+    }
+
+    @Test
+    fun `same package and payload remain independent between users`() {
+        val payload = byteArrayOf(1)
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_000L, userId = 0))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_001L, userId = 10))
+        assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_002L, userId = 0))
+        assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_003L, userId = 10))
+    }
+
+    @Test
+    fun `package reset clears only the selected user`() {
+        val payload = byteArrayOf(1)
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_000L, userId = 0))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_001L, userId = 10))
+
+        StockMiPushPayloadDeduper.clearPackageState("com.example.app", userId = 10)
+
+        assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_002L, userId = 0))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_003L, userId = 10))
     }
 }

@@ -56,7 +56,10 @@ internal class NotificationChannelNameRuntimeEnricher private constructor(
         }
 
         val probed = runCatching {
-            prober.probe(packageName, remaining.mapNotNull { it.id })
+            // Android app UIDs are allocated in PER_USER_RANGE blocks; packageUid is already
+            // the target package UID returned by the runtime reader.
+            val targetUserId = packageUid?.div(100_000) ?: Utils.myUserId()
+            prober.probe(packageName, remaining.mapNotNull { it.id }, targetUserId)
         }.onFailure {
             logW("channel name probe failed pkg=$packageName: ${it.message}")
         }.getOrDefault(false)
@@ -120,7 +123,10 @@ internal class NotificationChannelNameRuntimeEnricher private constructor(
 }
 
 internal fun interface ChannelNameProber {
-    fun probe(packageName: String, channelIds: List<String>): Boolean
+    fun probe(packageName: String, channelIds: List<String>, userId: Int): Boolean
+
+    fun probe(packageName: String, channelIds: List<String>): Boolean =
+        probe(packageName, channelIds, Utils.myUserId())
 }
 
 /**
@@ -133,7 +139,7 @@ internal class NotificationManagerChannelNameProber(
     private val holdMillis: Long = DEFAULT_HOLD_MILLIS,
     private val sleeper: (Long) -> Unit = { millis -> Thread.sleep(millis) },
 ) : ChannelNameProber {
-    override fun probe(packageName: String, channelIds: List<String>): Boolean {
+    override fun probe(packageName: String, channelIds: List<String>, userId: Int): Boolean {
         val context = contextProvider() ?: return false
         val targets = channelIds
             .asSequence()
@@ -149,7 +155,7 @@ internal class NotificationManagerChannelNameProber(
             val notificationId = PROBE_ID_BASE + index
             val notification = buildProbeNotification(context, channelId) ?: return@forEachIndexed
             val ok = runCatching {
-                NotificationManagerEx.notify(packageName, PROBE_TAG, notificationId, notification)
+                NotificationManagerEx.notify(packageName, PROBE_TAG, notificationId, notification, userId)
             }.getOrDefault(false)
             if (ok) {
                 posted += PROBE_TAG to notificationId
@@ -163,7 +169,7 @@ internal class NotificationManagerChannelNameProber(
         logD("channel name probe posted=${posted.size}/${targets.size} pkg=$packageName")
         sleeper(holdMillis)
         posted.forEach { (tag, id) ->
-            runCatching { NotificationManagerEx.cancel(packageName, tag, id) }
+            runCatching { NotificationManagerEx.cancel(packageName, tag, id, userId) }
         }
         return true
     }

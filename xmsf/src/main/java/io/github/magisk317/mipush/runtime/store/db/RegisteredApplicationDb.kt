@@ -16,12 +16,21 @@ import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Created by Trumeet on 2017/12/23.
  */
 object RegisteredApplicationDb {
     private val TAG = "RegisteredApplicationDb"
+    private data class IslandSettingsKey(val userId: Int, val packageName: String)
+
+    internal data class IslandSettings(
+        val enabled: Boolean,
+        val focusNotification: Boolean,
+    )
+
+    private val islandSettingsCache = ConcurrentHashMap<IslandSettingsKey, IslandSettings>()
 
 
     @JvmStatic
@@ -73,9 +82,9 @@ object RegisteredApplicationDb {
     @JvmStatic
     fun getList(pkg: String?): List<RegisteredApplication> = runBlocking {
         if (TextUtils.isEmpty(pkg)) {
-            registeredApplicationDao.getAll()
+            registeredApplicationDao.getAll(currentUserId())
         } else {
-            val item = registeredApplicationDao.getByPackageName(pkg!!)
+            val item = registeredApplicationDao.getByPackageName(pkg!!, currentUserId())
             if (item == null) {
                 emptyList()
             } else {
@@ -86,44 +95,61 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun update(application: RegisteredApplication): Long = runBlocking {
+        val userId = currentUserId()
+        // Never let a stale object id turn REPLACE into a cross-user delete.
+        application.id = registeredApplicationDao
+            .getByPackageName(application.packageName, userId)
+            ?.id
+        application.userId = userId
         val id = registeredApplicationDao.insertOrReplace(application)
         application.id = if (application.id == null || application.id == 0L) id else application.id
+        islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = application.toIslandSettings()
         application.id ?: id
     }
 
     @JvmStatic
     private fun insert(application: RegisteredApplication): Long = runBlocking {
-        registeredApplicationDao.insert(application)
+        val userId = currentUserId()
+        application.userId = userId
+        registeredApplicationDao.insert(application).also {
+            islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = application.toIslandSettings()
+        }
     }
 
     @JvmStatic
     fun updateBlocked(id: Long, blocked: Boolean): Int = runBlocking {
-        registeredApplicationDao.updateBlocked(id, blocked)
+        registeredApplicationDao.updateBlocked(id, blocked, currentUserId())
     }
 
     @JvmStatic
     fun isBlocked(pkg: String): Boolean = runBlocking {
-        registeredApplicationDao.isBlocked(pkg) ?: false
+        registeredApplicationDao.isBlocked(pkg, currentUserId()) ?: false
     }
 
     @JvmStatic
     fun getIslandEnabled(pkg: String): Boolean? = runCatching {
-        runBlocking {
-            registeredApplicationDao.isIslandEnabled(pkg)
-        }
+        getIslandSettings(pkg)?.enabled
     }.getOrNull()
 
     @JvmStatic
     fun getIslandFocusNotificationEnabled(pkg: String): Boolean? = runCatching {
-        runBlocking {
-            registeredApplicationDao.isIslandFocusNotificationEnabled(pkg)
-        }
+        getIslandSettings(pkg)?.focusNotification
     }.getOrNull()
 
     @JvmStatic
-    fun markUnregistered(pkg: String): Boolean = runBlocking {
+    internal fun getIslandSettings(pkg: String, requestedUserId: Int? = null): IslandSettings? {
+        val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
+        val key = IslandSettingsKey(userId, pkg)
+        return islandSettingsCache[key] ?: runBlocking {
+            registeredApplicationDao.getByPackageName(pkg, userId)?.toIslandSettings()
+        }?.also { islandSettingsCache[key] = it }
+    }
+
+    @JvmStatic
+    fun markUnregistered(pkg: String, requestedUserId: Int? = null): Boolean = runBlocking {
+        val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
         val startedAt = System.nanoTime()
-        val application = registeredApplicationDao.getByPackageName(pkg)
+        val application = registeredApplicationDao.getByPackageName(pkg, userId)
         if (application == null) {
             MagiskOtel.event(
                 name = "push.register",
@@ -155,6 +181,7 @@ object RegisteredApplicationDb {
             return@runBlocking false
         }
         application.registeredType = RegisteredApplication.RegisteredType.Unregistered
+        application.userId = userId
         val ok = registeredApplicationDao.update(application) > 0
         MagiskOtel.event(
             name = "push.register",
@@ -170,4 +197,11 @@ object RegisteredApplicationDb {
         )
         ok
     }
+
+    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+
+    private fun RegisteredApplication.toIslandSettings(): IslandSettings = IslandSettings(
+        enabled = islandEnabled,
+        focusNotification = islandFocusNotification,
+    )
 }

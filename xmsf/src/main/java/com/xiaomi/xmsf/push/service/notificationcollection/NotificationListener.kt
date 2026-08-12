@@ -8,9 +8,11 @@ import android.service.notification.StatusBarNotification
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.notification.TopNotificationCoordinator
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 
+@Suppress("DEPRECATION")
 class NotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
@@ -24,7 +26,7 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
-        val eventUserId = sbn.user.hashCode()
+        val eventUserId = sbn.userId
         if (!acceptsUser(eventUserId)) {
             Napier.d("skip notification from another user key=${sbn.key} user=$eventUserId", tag = TAG)
             return
@@ -43,14 +45,14 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-        if (!acceptsUser(sbn.user.hashCode())) return
+        if (!acceptsUser(sbn.userId)) return
         // Pre-21 callbacks do not include a removal reason. Stock 7.4.67-C leaves focus-sort state
         // untouched on this overload, so preserve existing top-notification cleanup only.
         recordRemoval(sbn)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
-        if (!acceptsUser(sbn.user.hashCode())) return
+        if (!acceptsUser(sbn.userId)) return
         // NotificationListenerService's default three-argument method delegates to the one-argument
         // overload. Calling super here would run product cleanup twice, so handle the reason-aware
         // stock path once and stop at this boundary.
@@ -79,7 +81,7 @@ class NotificationListener : NotificationListenerService() {
          */
         internal fun acceptsUser(
             eventUserId: Int,
-            currentUserId: Int = android.os.Process.myUserHandle().hashCode(),
+            currentUserId: Int = Utils.myUserId(),
         ): Boolean {
             return currentUserId < 0 || eventUserId < 0 || currentUserId == eventUserId
         }

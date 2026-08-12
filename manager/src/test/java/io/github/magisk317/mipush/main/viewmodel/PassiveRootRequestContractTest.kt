@@ -14,6 +14,7 @@ class PassiveRootRequestContractTest {
 
         assertFalse(load.contains("requestRootAccess"))
         assertTrue(load.contains("refreshRootAccessIfGranted"))
+        assertTrue(load.contains("else null"))
         assertTrue(update.contains("if (!permissionGateway.requestRootAccess())"))
     }
 

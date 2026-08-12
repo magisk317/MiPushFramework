@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolic
 import io.github.magisk317.mipush.hook.systemui.HookFocusAuthorization
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
+import io.github.magisk317.mipush.hook.systemui.MiPushIslandVisualHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
@@ -41,6 +42,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.island.IslandRendererMode
 
 class LibXposedEntry : BaseLibXposedEntry {
 
@@ -164,7 +166,10 @@ class LibXposedEntry : BaseLibXposedEntry {
     }
 
     // -- SystemUI island hooks --
-    private fun installFocusAuthorizationBypass(loadParam: LoadParam) {
+    private fun installFocusAuthorizationBypass(
+        loadParam: LoadParam,
+        visualHook: MiPushIslandVisualHook?,
+    ) {
         HookNotificationSettingsManager().hook(loadParam.classLoader)
 
         val focusNotifUtilsHooker = ISystemUIPluginHooker { pluginLoader ->
@@ -202,11 +207,15 @@ class LibXposedEntry : BaseLibXposedEntry {
             }
         }
 
-        HookSystemUIPlugin(
-            "miui.systemui.plugin",
+        val pluginHookers = mutableListOf<ISystemUIPluginHooker>(
             HookNotificationSettingsManager(),
             HookFocusAuthorization(),
             focusNotifUtilsHooker,
+        )
+        visualHook?.let(pluginHookers::add)
+        HookSystemUIPlugin(
+            "miui.systemui.plugin",
+            *pluginHookers.toTypedArray(),
         ).hook(loadParam.classLoader)
     }
 
@@ -215,20 +224,28 @@ class LibXposedEntry : BaseLibXposedEntry {
         // An external HyperIsland module may own rendering, but it does not own that receiver.
         IslandDispatcherHook().hook()
         // Authorization is configured by this module even if an external renderer is installed.
-        installFocusAuthorizationBypass(loadParam)
-        if (isHyperIslandInstalled(loadParam.classLoader)) {
+        val externalRendererOwnsVisuals = hyperIslandOwnsRendering(loadParam.classLoader)
+        val visualHook = if (externalRendererOwnsVisuals) null else MiPushIslandVisualHook()
+        installFocusAuthorizationBypass(loadParam, visualHook)
+        if (externalRendererOwnsVisuals) {
             XLog.i(TAG, "registered island dispatcher; skip built-in rendering hooks because HyperIsland is installed")
             return
         }
         MiPushIslandHook().onLoadPackage(loadParam)
+        visualHook?.onLoadPackage(loadParam)
     }
 
     private fun hookXmsfFocusAuth(loadParam: LoadParam) {
-        if (isHyperIslandInstalled(loadParam.classLoader)) {
+        if (hyperIslandOwnsRendering(loadParam.classLoader)) {
             XLog.i(TAG, "skip xmsf focus auth hook because HyperIsland is installed")
             return
         }
         UnlockFocusAuthHook().onLoadPackage(loadParam)
+    }
+
+    private fun hyperIslandOwnsRendering(classLoader: ClassLoader): Boolean {
+        return isHyperIslandInstalled(classLoader) &&
+            IslandPreferences.rendererModeForOwnership() != IslandRendererMode.MIPUSH
     }
 
     private fun isHyperIslandInstalled(classLoader: ClassLoader): Boolean {

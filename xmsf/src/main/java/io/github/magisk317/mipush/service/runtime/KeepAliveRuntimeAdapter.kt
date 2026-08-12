@@ -12,6 +12,7 @@ import android.os.Looper
 import android.util.Log
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmsf.services.IMainProcBridge
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 import org.json.JSONObject
 
@@ -59,7 +60,9 @@ object KeepAliveRuntimeAdapter {
     private var oneTrackEnabled = true
     private var pollScheduled = false
     private var observerRegistered = false
+    private var observerFallbackLogged = false
     private var foregroundActivityProcesses = emptySet<String>()
+    private var lifecycleGeneration = 0L
 
     private val reconcileRunnable = object : Runnable {
         override fun run() {
@@ -91,6 +94,9 @@ object KeepAliveRuntimeAdapter {
     fun updateOnlineConfig(context: Context, keepAliveEnabled: Boolean, oneTrackEnabled: Boolean) {
         ensureInitialized(context)
         synchronized(lock) {
+            // A new ServiceBox configuration invalidates any queued shutdown cleanup from the
+            // previous service instance.
+            lifecycleGeneration++
             // Stock creates its keep-alive manager only after ServiceBox has resolved KASwitch.
             // A strategy Binder call may arrive first, but it must not activate or bind anything.
             onlineConfigKnown = true
@@ -154,15 +160,21 @@ object KeepAliveRuntimeAdapter {
 
     fun shutdown() {
         handler.removeCallbacks(reconcileRunnable)
-        synchronized(lock) {
+        val shutdownGeneration = synchronized(lock) {
+            lifecycleGeneration++
             active = false
             onlineConfigKnown = false
             pollScheduled = false
             observerRegistered = false
+            observerFallbackLogged = false
+            lifecycleGeneration
         }
         handler.post {
-            stopProcessObserver()
-            unbindAll()
+            val shouldCleanup = synchronized(lock) { lifecycleGeneration == shutdownGeneration }
+            if (shouldCleanup) {
+                stopProcessObserver()
+                unbindAll()
+            }
         }
         MagiskOtel.event(
             name = "push.keepalive",
@@ -172,6 +184,54 @@ object KeepAliveRuntimeAdapter {
                 "process" to "main",
                 "stage" to "shutdown",
                 "reason" to "adapter_shutdown",
+            ),
+            statusOk = true,
+        )
+    }
+
+    /** Removes stale keep-alive state after the target package clears its data. */
+    fun clearPackageState(
+        context: Context,
+        targetPackage: String,
+        userId: Int = currentUserId(),
+    ) {
+        if (targetPackage.isBlank()) return
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val processUserId = currentUserId()
+        // KeepAlive state is process-local. A package-data callback resolved for another user
+        // must not clear a same-named target in this process.
+        if (normalizedUserId != processUserId) {
+            Log.w(
+                TAG,
+                "skip keep-alive cleanup for foreign user=$normalizedUserId " +
+                    "currentUser=$processUserId package=$targetPackage",
+            )
+            return
+        }
+        ensureInitialized(context)
+        val removed = synchronized(lock) {
+            strategies.remove(targetPackage) != null ||
+                bindings.containsKey(targetPackage) ||
+                pendingBinds.containsKey(targetPackage) ||
+                pendingUnbinds.containsKey(targetPackage) ||
+                pendingRetries.containsKey(targetPackage)
+        }
+        appContext?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            ?.edit()
+            ?.remove(STRATEGY_PREFIX + targetPackage)
+            ?.apply()
+        if (removed) {
+            handler.post { unbindTarget(context.applicationContext, targetPackage) }
+        }
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "clear",
+                "reason" to "package_data_cleared",
+                "target_package" to targetPackage,
             ),
             statusOk = true,
         )
@@ -228,7 +288,12 @@ object KeepAliveRuntimeAdapter {
         handler.removeCallbacks(reconcileRunnable)
         val shouldSchedule = synchronized(lock) {
             pollScheduled = false
-            initialized && active && enabled && strategies.isNotEmpty()
+            shouldReconcile(
+                onlineConfigKnown = onlineConfigKnown,
+                active = active,
+                enabled = enabled,
+                strategyCount = strategies.size,
+            )
         }
         if (!shouldSchedule) {
             stopProcessObserver()
@@ -236,14 +301,38 @@ object KeepAliveRuntimeAdapter {
         }
         val context = synchronized(lock) { appContext } ?: return
         if (ensureProcessObserver(context)) {
+            synchronized(lock) { observerFallbackLogged = false }
             return
+        }
+        val shouldLogFallback = synchronized(lock) {
+            if (observerFallbackLogged) false else {
+                observerFallbackLogged = true
+                true
+            }
+        }
+        if (shouldLogFallback) {
+            Log.w(TAG, "Process observer unavailable; using ${RECONCILE_INTERVAL_MS}ms polling fallback")
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "fallback",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "process_observer",
+                    "reason" to "polling_fallback",
+                    "poll_interval_ms" to RECONCILE_INTERVAL_MS.toString(),
+                ),
+                statusOk = true,
+            )
         }
         handler.postDelayed(reconcileRunnable, RECONCILE_INTERVAL_MS)
         synchronized(lock) { pollScheduled = true }
     }
 
     private fun reconcileNow() {
-        val context = synchronized(lock) { if (active) appContext else null } ?: return
+        val context = synchronized(lock) {
+            if (onlineConfigKnown && active) appContext else null
+        } ?: return
         val state = synchronized(lock) { enabled to strategies.values.toList() }
         if (!state.first) {
             unbindAll()
@@ -298,6 +387,7 @@ object KeepAliveRuntimeAdapter {
         val initialSnapshot = processSnapshot(context)
         synchronized(lock) {
             observerRegistered = true
+            observerFallbackLogged = false
             pollScheduled = false
             observerForegroundProcesses.clear()
             observerProcessNames.clear()
@@ -308,6 +398,18 @@ object KeepAliveRuntimeAdapter {
                 }
             }
         }
+        Log.i(TAG, "Process observer registered; polling fallback disabled")
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "process_observer",
+                "reason" to "registered",
+            ),
+            statusOk = true,
+        )
         reconcileSnapshot(
             context,
             initialSnapshot.copy(
@@ -512,10 +614,38 @@ object KeepAliveRuntimeAdapter {
                         if (it) record.connected = true
                     }
                 }
-                if (isCurrent) cancelPendingRetry(strategy.targetPackage)
+                if (isCurrent) {
+                    cancelPendingRetry(strategy.targetPackage)
+                    Log.i(
+                        TAG,
+                        "Keep-alive target connected package=${strategy.targetPackage} trigger=$triggerProcess",
+                    )
+                    MagiskOtel.event(
+                        name = "push.keepalive",
+                        attributes = mapOf(
+                            "result" to "ok",
+                            "duration_ms" to "0",
+                            "process" to "main",
+                            "stage" to "bind",
+                            "reason" to "service_connected",
+                            "target_package" to strategy.targetPackage,
+                        ),
+                        statusOk = true,
+                    )
+                }
             }
 
-            override fun onServiceDisconnected(name: ComponentName?) = Unit
+            override fun onServiceDisconnected(name: ComponentName?) {
+                handleBindingLost(context, strategy, triggerProcess, record, "service_disconnected")
+            }
+
+            override fun onBindingDied(name: ComponentName?) {
+                handleBindingLost(context, strategy, triggerProcess, record, "binding_died")
+            }
+
+            override fun onNullBinding(name: ComponentName?) {
+                handleBindingLost(context, strategy, triggerProcess, record, "null_binding")
+            }
         }
         record = BindingRecord(triggerProcess, connection)
         synchronized(lock) { bindings[strategy.targetPackage] = record }
@@ -525,11 +655,50 @@ object KeepAliveRuntimeAdapter {
             .onFailure { Log.w(TAG, "Keep-alive target binding failed", it) }
             .getOrDefault(false)
         if (!bound) {
+            Log.w(TAG, "Keep-alive target bindService returned false package=${strategy.targetPackage}")
             synchronized(lock) {
                 if (bindings[strategy.targetPackage] === record) {
                     bindings.remove(strategy.targetPackage)
                 }
             }
+        }
+    }
+
+    private fun handleBindingLost(
+        context: Context,
+        strategy: Strategy,
+        triggerProcess: String,
+        record: BindingRecord,
+        reason: String,
+    ) {
+        val shouldRetry = synchronized(lock) {
+            if (bindings[strategy.targetPackage] !== record) {
+                false
+            } else {
+                record.connected = false
+                active && enabled &&
+                    strategies[strategy.targetPackage] == strategy &&
+                    triggerProcess in foregroundActivityProcesses
+            }
+        }
+        if (shouldRetry) {
+            Log.w(
+                TAG,
+                "Keep-alive target binding lost package=${strategy.targetPackage} reason=$reason; retry scheduled",
+            )
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "retry",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "bind",
+                    "reason" to reason,
+                    "target_package" to strategy.targetPackage,
+                ),
+                statusOk = true,
+            )
+            scheduleBindRetry(context, strategy, triggerProcess, retryCount = 1)
         }
     }
 
@@ -688,6 +857,13 @@ object KeepAliveRuntimeAdapter {
         return trigger.takeIf { strategy.bindEvenAlive || targetProcess !in snapshot.allProcessNames }
     }
 
+    internal fun shouldReconcile(
+        onlineConfigKnown: Boolean,
+        active: Boolean,
+        enabled: Boolean,
+        strategyCount: Int,
+    ): Boolean = onlineConfigKnown && active && enabled && strategyCount > 0
+
     internal fun buildBindIntent(strategy: Strategy, triggerProcess: String): Intent {
         // Stock 7.4.67-C bc.b selects the explicit action whenever it is non-empty, even when the
         // strategy also carries a class. This matters for targets whose action is resolved to a
@@ -726,6 +902,10 @@ object KeepAliveRuntimeAdapter {
         return targetPackage in bindings || targetPackage in pendingBinds ||
             targetPackage in pendingUnbinds || targetPackage in pendingRetries
     }
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrDefault(0)
+        .coerceAtLeast(0)
 
     private data class PendingAction(
         val ownerProcess: String,

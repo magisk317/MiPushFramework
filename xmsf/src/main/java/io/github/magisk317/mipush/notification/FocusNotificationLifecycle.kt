@@ -23,20 +23,14 @@ object FocusNotificationLifecycle {
         notificationId: Int,
         tag: String? = MyMIPushNotificationHelper.getNotificationTag(packageName),
         cancelNotification: Boolean = true,
+        userId: Int = io.github.magisk317.mipush.common.utils.Utils.myUserId(),
     ) {
-        val appContext = context.applicationContext ?: context
         val resolvedTag = tag
         if (cancelNotification) {
             runCatching {
-                NotificationManagerEx.cancel(packageName, resolvedTag, notificationId)
+                NotificationManagerEx.cancel(packageName, resolvedTag, notificationId, userId)
             }.onFailure {
                 Napier.w("focus end target cancel failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
-            }
-            runCatching {
-                appContext.getSystemService(android.app.NotificationManager::class.java)
-                    ?.cancel(resolvedTag, notificationId)
-            }.onFailure {
-                Napier.w("focus end local cancel failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
             }
         }
     }

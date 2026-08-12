@@ -4,19 +4,19 @@ import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import java.util.LinkedHashMap
 
 internal object IslandProxyNotificationIds {
-    fun fromPackage(packageName: String?): Int {
+    fun fromPackage(packageName: String?, userId: Int): Int {
         val key = packageName?.takeIf { it.isNotBlank() }
             ?: IslandDispatchContract.SYSTEM_UI_PACKAGE
-        return "mipush_island:$key".hashCode()
+        return "mipush_island:$userId:$key".hashCode()
     }
 
-    @Suppress("UNUSED_PARAMETER")
     fun fromStatusBarKey(
         key: String?,
         packageName: String,
         notificationId: Int,
         tag: String?,
-    ): Int = fromPackage(packageName)
+        userId: Int,
+    ): Int = fromPackage(packageName, userId)
 }
 
 internal object IslandProxySourceKeys {
@@ -25,11 +25,26 @@ internal object IslandProxySourceKeys {
         packageName: String?,
         notificationId: Int,
         tag: String?,
+        userId: Int,
     ): String {
-        key?.takeIf { it.isNotBlank() }?.let { return it }
+        key?.takeIf { it.isNotBlank() }?.let { return "$userId|$it" }
         val pkg = packageName?.takeIf { it.isNotBlank() }
             ?: IslandDispatchContract.SYSTEM_UI_PACKAGE
-        return "$pkg#$notificationId#${tag.orEmpty()}"
+        return "$userId|$pkg#$notificationId#${tag.orEmpty()}"
+    }
+}
+
+internal object IslandProxyDedupKeys {
+    fun fromStatusBarKey(
+        key: String?,
+        packageName: String?,
+        notificationId: Int,
+        tag: String?,
+        userId: Int,
+    ): Int {
+        val identity = key?.takeIf { it.isNotBlank() }
+            ?: "${packageName.orEmpty()}#$notificationId#${tag.orEmpty()}"
+        return "$userId|$identity".hashCode()
     }
 }
 

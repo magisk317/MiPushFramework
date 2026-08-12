@@ -64,7 +64,7 @@ object SecurityCoreXSpacePackageInfoHook {
                     ?: firstStringArg()
                     ?: return@doAfter
                 val flags = firstFlagsArg() ?: return@doAfter
-                val userId = lastUserIdArg()
+                val userId = userIdArg(method)
                 val callerProcess = callerProcessName()
                 val decision = decidePackageInfoPatch(
                     callerProcessName = callerProcess,
@@ -165,8 +165,9 @@ object SecurityCoreXSpacePackageInfoHook {
         }
     }
 
-    private fun MethodHookParam.lastUserIdArg(): Int? {
-        return args.lastOrNull { it is Int } as? Int
+    private fun MethodHookParam.userIdArg(method: Method): Int? {
+        val userIdIndex = userIdArgIndex(method.parameterTypes.toList()) ?: return null
+        return args.getOrNull(userIdIndex) as? Int
     }
 
     private fun callerProcessName(): String? {
@@ -195,6 +196,17 @@ object SecurityCoreXSpacePackageInfoHook {
             type == Long::class.javaObjectType ||
             type == Int::class.javaPrimitiveType ||
             type == Int::class.javaObjectType
+    }
+
+    internal fun userIdArgIndex(parameterTypes: List<Class<*>>): Int? {
+        val flagsIndex = parameterTypes.indexOfFirst(::isFlagsType)
+        val lastIndex = parameterTypes.lastIndex
+        if (flagsIndex < 0 || lastIndex <= flagsIndex) return null
+        val lastType = parameterTypes[lastIndex]
+        return lastIndex.takeIf {
+            lastType == Int::class.javaPrimitiveType ||
+                lastType == Int::class.javaObjectType
+        }
     }
 
     internal fun packageManagerHookTargets(): List<String> = packageManagerClasses.toList()

@@ -11,7 +11,7 @@ class PushRuntimeRegistrationTaskStoreTest {
     @Test
     fun `cache keeps latest task per package and updates runtime state`() {
         AndroidPushRuntime.clearStateForTests()
-        PushRuntimeRegistrationTaskStore.clear()
+        PushRuntimeRegistrationTaskStore.clearForTests()
 
         PushRuntimeRegistrationTaskStore.cache(
             packageName = "com.example.app",
@@ -39,7 +39,7 @@ class PushRuntimeRegistrationTaskStoreTest {
     @Test
     fun `failed dispatch is requeued and successful dispatch clears queue`() {
         AndroidPushRuntime.clearStateForTests()
-        PushRuntimeRegistrationTaskStore.clear()
+        PushRuntimeRegistrationTaskStore.clearForTests()
         val dispatched = mutableListOf<String>()
 
         PushRuntimeRegistrationTaskStore.cache(

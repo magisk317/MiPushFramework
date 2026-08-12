@@ -18,6 +18,9 @@ import io.github.d4viddf.hyperisland_kit.models.ProgressInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.d4viddf.hyperisland_kit.models.TimerInfo
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
+import io.github.magisk317.mipush.common.island.IslandRendererPolicy
+import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import com.xiaomi.xmsf.R
@@ -54,7 +57,19 @@ internal object MiPushIslandPayloadBuilder {
         val (title, content) = resolveDisplayText(metaInfo) ?: return null
         val icon = resolveNotificationIcon(context, packageName, notificationIcon, largeIcon)
         val style = styleOverride ?: resolveStyle(metaInfo, packageName, channelId, channelName, liveUpdateResult)
-        return createBuilder(context, title, content, icon, options, style, liveUpdateResult = liveUpdateResult).buildJsonParam()
+        val dynamicColor = resolveVisualColor(context, packageName, icon, options)
+        return createBuilder(
+            context,
+            title,
+            content,
+            icon,
+            options,
+            style,
+            liveUpdateResult = liveUpdateResult,
+        ).buildJsonParam().injectVisualAppearance(
+            highlightColor = dynamicColor,
+            outerGlow = options.visualEnabled && options.outerGlowEnabled,
+        )
     }
 
     fun build(
@@ -86,6 +101,7 @@ internal object MiPushIslandPayloadBuilder {
             options
         }
 
+        val dynamicColor = resolveVisualColor(context, packageName, icon, payloadOptions)
         return Bundle().apply {
             putString(
                 FOCUS_PARAM,
@@ -101,8 +117,24 @@ internal object MiPushIslandPayloadBuilder {
                     liveUpdateResult = liveUpdateResult,
                 )
                     .buildJsonParam()
+                    .injectVisualAppearance(
+                        highlightColor = dynamicColor,
+                        outerGlow = payloadOptions.visualEnabled && payloadOptions.outerGlowEnabled,
+                    )
                     .withNotificationIdentity(packageName, notificationId),
             )
+            val owner = IslandRendererPolicy.owner(context, payloadOptions)
+            val rendererMode = IslandRendererPolicy.mode(context, payloadOptions)
+            putString(IslandVisualContract.OWNER_KEY, owner)
+            putInt(IslandVisualContract.VISUAL_VERSION_KEY, IslandVisualContract.VERSION)
+            putString(IslandVisualContract.VISUAL_MODE_KEY, rendererMode.wireValue)
+            putString(IslandVisualContract.VISUAL_MARKER_KEY, IslandVisualContract.VISUAL_MARKER)
+            dynamicColor?.let {
+                putString(IslandVisualContract.HIGHLIGHT_COLOR_KEY, it)
+                putString(IslandVisualContract.GLOW_COLOR_KEY, it)
+                putString(IslandVisualContract.ISLAND_GLOW_COLOR_KEY, it)
+                putString(IslandVisualContract.FOCUS_GLOW_COLOR_KEY, it)
+            }
             putString("hyperisland_source_pkg", packageName)
             putString("hyperisland_source_label", appLabel)
             putString(PIC_ICON, PIC_ICON)
@@ -145,6 +177,41 @@ internal object MiPushIslandPayloadBuilder {
         return largeIcon?.let(Icon::createWithBitmap)
             ?: resolveAppIcon(context, packageName)
             ?: Icon.createWithResource(context, CommonR.drawable.ic_notifications_black_24dp)
+    }
+
+    private fun resolveVisualColor(
+        context: Context,
+        packageName: String,
+        icon: Icon,
+        options: MiPushIslandOptions,
+    ): String? {
+        if (!options.visualEnabled || !options.dynamicColor) return null
+        return DynamicIslandColorResolver.resolve(
+            context = context,
+            packageName = packageName,
+            notificationIcon = icon,
+        )
+    }
+
+    internal fun String.injectVisualAppearance(
+        highlightColor: String?,
+        outerGlow: Boolean,
+    ): String {
+        if (highlightColor.isNullOrBlank() && !outerGlow) return this
+        return runCatching {
+            val root = JSONObject(this)
+            val paramV2 = root.optJSONObject("param_v2") ?: JSONObject().also {
+                root.put("param_v2", it)
+            }
+            val paramIsland = paramV2.optJSONObject("param_island") ?: JSONObject().also {
+                paramV2.put("param_island", it)
+            }
+            highlightColor?.takeIf { it.isNotBlank() }?.let {
+                paramIsland.put("highlightColor", it)
+            }
+            if (outerGlow) paramIsland.put("outEffectSrc", "outer_glow")
+            root.toString()
+        }.getOrDefault(this)
     }
 
     /**

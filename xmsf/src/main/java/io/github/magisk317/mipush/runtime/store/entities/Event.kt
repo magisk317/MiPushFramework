@@ -16,7 +16,13 @@ import kotlin.annotation.AnnotationRetention.SOURCE
  * App event model
  * @author Trumeet
  */
-@Entity(tableName = "EVENT", indices = [Index(value = ["pkg"]), Index(value = ["date"])])
+@Entity(
+    tableName = "EVENT",
+    indices = [
+        Index(value = ["user_id", "pkg"]),
+        Index(value = ["user_id", "date"]),
+    ],
+)
 class Event {
 
     @get:Ignore
@@ -89,6 +95,9 @@ class Event {
     @ColumnInfo(name = "pkg")
     var pkg: String = ""
 
+    @ColumnInfo(name = "user_id", defaultValue = "0")
+    var userId: Int = 0
+
     @ColumnInfo(name = "type")
     @Type
     var type: Int = 0
@@ -118,7 +127,7 @@ class Event {
     var regSec: String? = null
         get() = if (TextUtils.isEmpty(field)) {
             if (!regSecLoaded) {
-                field = Utils.getRegSec(pkg)
+                field = Utils.getRegSec(pkg, userId)
                 regSecLoaded = true
             }
             field
@@ -143,7 +152,8 @@ class Event {
         info: String?,
         payload: ByteArray?,
         regSec: String?,
-        searchText: String? = null
+        searchText: String? = null,
+        userId: Int = 0,
     ) {
         this.id = id
         this.pkg = pkg
@@ -154,6 +164,7 @@ class Event {
         this.payload = payload
         this.regSec = regSec
         this.searchText = searchText
+        this.userId = userId
     }
 
     constructor()

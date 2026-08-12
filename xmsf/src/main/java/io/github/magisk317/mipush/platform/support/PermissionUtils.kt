@@ -145,10 +145,8 @@ object PermissionUtils {
             if (grant.isSuccess) anySuccess = true
         }
         // deviceidle whitelist is process/global, not per-user, but still helps keep-alives.
-        listOf(
-            "cmd deviceidle whitelist +$packageName",
-            "dumpsys deviceidle whitelist +$packageName",
-        ).forEach { AppRootAccessFacade.runRootCommand(it) }
+        // This best-effort grant is intentionally not part of the target app AppOps result.
+        grantDeviceIdleWhitelist(packageName)
         logI("grantSilentPermissions done pkg=$packageName user=$userId anySuccess=$anySuccess")
         emitPermission(
             result = if (anySuccess) "ok" else "error",
@@ -233,15 +231,50 @@ object PermissionUtils {
             return false
         }
         val packages = linkedSetOf(context.packageName, Constants.SERVICE_APP_NAME, Constants.MANAGER_APP_NAME)
-        packages.forEach { pkg ->
+        return grantDeviceIdleWhitelistForPackages(packages, context)
+    }
+
+    /**
+     * Root-grant the process-global deviceidle whitelist and verify it through PowerManager.
+     * Root authorization alone is not evidence that a whitelist command was accepted.
+     */
+    @JvmStatic
+    fun grantDeviceIdleWhitelistForFramework(
+        userId: Int = USER_AUTO,
+        packages: Collection<String> = FRAMEWORK_PACKAGES,
+    ): Boolean {
+        if (!hasExistingRootAccess()) return false
+        val context = Utils.context?.applicationContext ?: return false
+        val targetPackages = packages.toList().filter { pkg ->
+            userId == USER_PRIMARY || userId == USER_AUTO || isPackageInstalledForUser(pkg, userId)
+        }
+        return grantDeviceIdleWhitelistForPackages(targetPackages, context)
+    }
+
+    private fun grantDeviceIdleWhitelist(packageName: String): Boolean {
+        val context = Utils.context?.applicationContext ?: return false
+        return grantDeviceIdleWhitelistForPackages(listOf(packageName), context)
+    }
+
+    private fun grantDeviceIdleWhitelistForPackages(
+        packages: Collection<String>,
+        context: Context,
+    ): Boolean {
+        val targetPackages = packages.distinct()
+        if (targetPackages.isEmpty()) return false
+        targetPackages.forEach { packageName ->
             listOf(
-                "cmd deviceidle whitelist +$pkg",
-                "dumpsys deviceidle whitelist +$pkg",
-            ).forEach { AppRootAccessFacade.runRootCommand(it) }
+                "cmd deviceidle whitelist +$packageName",
+                "dumpsys deviceidle whitelist +$packageName",
+            ).forEach { command -> AppRootAccessFacade.runRootCommand(command) }
         }
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-        return powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true ||
-            hasCachedRootAccess()
+            ?: return false
+        return DeviceIdleWhitelistPolicy.areAllWhitelisted(targetPackages) { packageName ->
+            runCatching {
+                powerManager.isIgnoringBatteryOptimizations(packageName)
+            }.getOrDefault(false)
+        }
     }
 
     @JvmStatic

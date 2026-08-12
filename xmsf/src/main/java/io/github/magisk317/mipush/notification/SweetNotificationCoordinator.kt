@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.os.Process
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.view.Display
@@ -18,6 +19,7 @@ import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -30,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong
  * The private Xiaomi RemoteViews remain a presentation detail; this class restores the observable
  * lifecycle without moving newer behavior into the pinned 3.7.9 compatibility sources.
  */
+@Suppress("DEPRECATION")
 internal object SweetNotificationCoordinator {
     private const val TAG = "SweetNotification"
 
@@ -82,9 +85,16 @@ internal object SweetNotificationCoordinator {
     private data class ActiveReminder(
         val packageName: String,
         val notificationId: Int,
+        val userId: Int,
         val status: String,
         val sequence: String?,
         val generation: Long,
+    )
+
+    internal data class TrackedNotification(
+        val packageName: String,
+        val notificationId: Int,
+        val userId: Int,
     )
 
     fun initialize(context: Context) {
@@ -116,12 +126,13 @@ internal object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         nowMs: Long = System.currentTimeMillis(),
+        userId: Int = Utils.myUserId(),
     ): Boolean {
         if (!isEligibleEnvironment(context)) return false
         val extras = metaInfo.extra ?: return false
         val status = extras[EXTRA_REMIND_STATUS]?.takeIf(String::isNotEmpty) ?: return false
-        val key = stateKey(packageName, notificationId)
-        val active = hasActiveReminder(packageName, notificationId)
+        val key = stateKey(packageName, notificationId, userId)
+        val active = hasActiveReminder(packageName, notificationId, userId)
         val decision = synchronized(stateLock) {
             pruneExpiredMilepostsLocked(context, nowMs)
             val previousSequence = readString(context, PREF_SEQUENCE, key)?.toLongOrNull() ?: 0L
@@ -147,7 +158,7 @@ internal object SweetNotificationCoordinator {
             }
         }
         if (decision.refreshMilepost) {
-            cancelTimeout(context, packageName, notificationId)
+            cancelTimeout(context, packageName, notificationId, userId)
         }
         if (decision.suppress) {
             Napier.d(
@@ -164,12 +175,13 @@ internal object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         builder: NotificationCompat.Builder,
+        userId: Int = Utils.myUserId(),
     ): Boolean {
         if (!isEligibleEnvironment(context)) return false
         val extras = metaInfo.extra ?: return false
         if (extras[EXTRA_STYLE_TYPE] != STYLE_TYPE_SWEET) return false
         val spec = resolveReminderSpec(extras) ?: return false
-        val key = stateKey(packageName, notificationId)
+        val key = stateKey(packageName, notificationId, userId)
         val statusChanged = synchronized(stateLock) {
             pruneExpiredMilepostsLocked(context, System.currentTimeMillis())
             readMilepost(context, key)?.status != spec.status
@@ -191,12 +203,13 @@ internal object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         notification: Notification,
+        userId: Int = Utils.myUserId(),
     ) {
         if (!isEligibleEnvironment(context)) return
         val source = metaInfo.extra ?: emptyMap()
-        cancelTimeout(context, packageName, notificationId)
+        cancelTimeout(context, packageName, notificationId, userId)
         synchronized(stateLock) {
-            val key = stateKey(packageName, notificationId)
+            val key = stateKey(packageName, notificationId, userId)
             if (source.containsKey(EXTRA_REMIND_END)) {
                 clearStateLocked(context, key)
             }
@@ -206,11 +219,11 @@ internal object SweetNotificationCoordinator {
         // expiry. The first implementation removed the milepost here and broke repeat suppression.
         if (shouldCancelPriorReminder(
                 remindStatus = source[EXTRA_REMIND_STATUS],
-                activeReminder = hasActiveReminder(packageName, notificationId),
+                activeReminder = hasActiveReminder(packageName, notificationId, userId),
             )
         ) {
-            findActiveNotification(packageName, notificationId)?.let { active ->
-                NotificationManagerEx.cancel(packageName, active.tag, active.id)
+            findActiveNotification(packageName, notificationId, userId)?.let { active ->
+                NotificationManagerEx.cancel(packageName, active.tag, active.id, userId)
             }
         }
         if (!notification.extras?.getString(EXTRA_REMIND_STATUS).isNullOrEmpty()) {
@@ -229,7 +242,13 @@ internal object SweetNotificationCoordinator {
         }
         val notification = statusBarNotification.notification ?: return
         val packageName = targetPackage(notification) ?: return
-        onNotificationPosted(context, packageName, statusBarNotification.id, notification)
+        onNotificationPosted(
+            context,
+            packageName,
+            statusBarNotification.id,
+            notification,
+            userId = statusBarNotification.userId,
+        )
     }
 
     fun onNotificationPosted(
@@ -238,6 +257,7 @@ internal object SweetNotificationCoordinator {
         notificationId: Int,
         notification: Notification,
         nowMs: Long = System.currentTimeMillis(),
+        userId: Int = Utils.myUserId(),
     ) {
         if (!isEligibleEnvironment(context)) return
         val extras = notification.extras ?: return
@@ -246,7 +266,7 @@ internal object SweetNotificationCoordinator {
         val sequence = extras.getString(EXTRA_SEQUENCE)
         val generation = extras.getLong(LOCAL_GENERATION, 0L).takeIf { it > 0L }
             ?: generationCounter.incrementAndGet().also { extras.putLong(LOCAL_GENERATION, it) }
-        val key = stateKey(packageName, notificationId)
+        val key = stateKey(packageName, notificationId, userId)
         synchronized(stateLock) {
             sequence?.toLongOrNull()?.takeIf { it >= 0L }?.let {
                 writeString(context, PREF_SEQUENCE, key, it.toString())
@@ -258,6 +278,7 @@ internal object SweetNotificationCoordinator {
             reminder = ActiveReminder(
                 packageName = packageName,
                 notificationId = notificationId,
+                userId = userId,
                 status = status,
                 sequence = sequence,
                 generation = generation,
@@ -281,7 +302,8 @@ internal object SweetNotificationCoordinator {
         val extras = notification.extras ?: return
         val status = extras.getString(EXTRA_REMIND_STATUS)?.takeIf(String::isNotEmpty) ?: return
         val packageName = targetPackage(notification) ?: return
-        val jobId = jobId(packageName, statusBarNotification.id)
+        val userId = statusBarNotification.userId
+        val jobId = jobId(packageName, statusBarNotification.id, userId)
         val generation = extras.getLong(LOCAL_GENERATION, 0L)
         val accepted = synchronized(jobLock) {
             val active = activeJobs[jobId]
@@ -304,7 +326,46 @@ internal object SweetNotificationCoordinator {
         if (!accepted) return
         ScheduledJobManager.getInstance(context.applicationContext).cancelJob(jobId)
         synchronized(stateLock) {
-            writeString(context, PREF_CLICKED_STATUS, stateKey(packageName, statusBarNotification.id), status)
+            writeString(context, PREF_CLICKED_STATUS, stateKey(packageName, statusBarNotification.id, userId), status)
+        }
+    }
+
+    /** Cancels the timeout state immediately for an explicit server notification cancel. */
+    fun cancelNotification(
+        context: Context,
+        packageName: String,
+        notificationId: Int,
+        userId: Int = Utils.myUserId(),
+    ) {
+        cancelTimeout(context, packageName, notificationId, userId)
+    }
+
+    fun clearPackageState(
+        context: Context,
+        packageName: String,
+        userId: Int = Utils.myUserId(),
+    ) {
+        val jobIds = synchronized(jobLock) {
+            activeJobs.entries
+                .filter { it.value.packageName == packageName && it.value.userId == userId }
+                .map { it.key }
+                .also { ids -> ids.forEach(activeJobs::remove) }
+        }
+        val manager = ScheduledJobManager.getInstance(context.applicationContext)
+        jobIds.forEach(manager::cancelJob)
+
+        val userPrefix = if (userId == 0) "" else "$userId|"
+        val statePrefix = "$userPrefix$packageName-"
+        synchronized(stateLock) {
+            listOf(PREF_CLICKED_STATUS, PREF_SEQUENCE, PREF_MILEPOST_STATUS).forEach { name ->
+                val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+                val keys = preferences.all.keys.filter { it.startsWith(statePrefix) }
+                if (keys.isNotEmpty()) {
+                    preferences.edit().apply {
+                        keys.forEach(::remove)
+                    }.apply()
+                }
+            }
         }
     }
 
@@ -432,8 +493,13 @@ internal object SweetNotificationCoordinator {
         return stateMatches && (candidateGeneration <= 0L || expectedGeneration == candidateGeneration)
     }
 
-    internal fun jobId(packageName: String, notificationId: Int): String {
-        return "n_sweet_timeout_${notificationId}_$packageName"
+    internal fun jobId(
+        packageName: String,
+        notificationId: Int,
+        userId: Int = Utils.myUserId(),
+    ): String {
+        val userPrefix = if (userId == 0) "" else "${userId}_"
+        return "n_sweet_timeout_${userPrefix}${notificationId}_$packageName"
     }
 
     private fun scheduleTimeout(
@@ -442,7 +508,7 @@ internal object SweetNotificationCoordinator {
         durationSeconds: Int,
     ) {
         val manager = ScheduledJobManager.getInstance(context)
-        val id = jobId(reminder.packageName, reminder.notificationId)
+        val id = jobId(reminder.packageName, reminder.notificationId, reminder.userId)
         synchronized(jobLock) {
             activeJobs[id] = reminder
             manager.cancelJob(id)
@@ -472,9 +538,9 @@ internal object SweetNotificationCoordinator {
         val current = synchronized(jobLock) {
             activeJobs[id]?.takeIf { it.generation == reminder.generation }
         } ?: return
-        val active = findActiveNotification(current.packageName, current.notificationId)
+        val active = findActiveNotification(current.packageName, current.notificationId, current.userId)
         if (active != null && matches(active, current)) {
-            NotificationManagerEx.cancel(current.packageName, null, current.notificationId)
+            NotificationManagerEx.cancel(current.packageName, null, current.notificationId, current.userId)
         }
         val removed = synchronized(jobLock) {
             if (activeJobs[id]?.generation == current.generation) {
@@ -486,13 +552,13 @@ internal object SweetNotificationCoordinator {
         }
         if (removed) {
             synchronized(stateLock) {
-                clearStateLocked(context, stateKey(current.packageName, current.notificationId))
+                clearStateLocked(context, stateKey(current.packageName, current.notificationId, current.userId))
             }
         }
     }
 
-    private fun cancelTimeout(context: Context, packageName: String, notificationId: Int) {
-        val id = jobId(packageName, notificationId)
+    private fun cancelTimeout(context: Context, packageName: String, notificationId: Int, userId: Int) {
+        val id = jobId(packageName, notificationId, userId)
         synchronized(jobLock) {
             activeJobs.remove(id)
         }
@@ -510,16 +576,27 @@ internal object SweetNotificationCoordinator {
         val liveMileposts = synchronized(stateLock) {
             pruneExpiredMilepostsLocked(context, System.currentTimeMillis())
         }
-        val idsByPackage = liveMileposts.keys.mapNotNull(::parseStateKey).groupBy(
-            keySelector = { it.first },
-            valueTransform = { it.second },
-        )
-        idsByPackage.forEach { (packageName, trackedIds) ->
+        val trackedByPackage = liveMileposts.keys.mapNotNull(::parseStateKey).groupBy { it.packageName }
+        trackedByPackage.forEach { (packageName, trackedNotifications) ->
             runCatching {
                 NotificationManagerEx.getActiveNotifications(packageName)
                     ?.filterNotNull()
                     ?.forEach { active ->
-                        restoreKeyguardIfNeeded(context, packageName, active, trackedIds.toSet())
+                        if (trackedNotifications.any {
+                                it.userId == active.userId && it.notificationId == active.id
+                            }
+                        ) {
+                            restoreKeyguardIfNeeded(
+                                context = context,
+                                packageName = packageName,
+                                active = active,
+                                trackedIds = trackedNotifications
+                                    .asSequence()
+                                    .filter { it.userId == active.userId }
+                                    .map(TrackedNotification::notificationId)
+                                    .toSet(),
+                            )
+                        }
                     }
             }.onFailure {
                 Napier.w("failed to inspect sweet notifications pkg=$packageName", it, tag = TAG)
@@ -552,22 +629,26 @@ internal object SweetNotificationCoordinator {
         }.onFailure {
             Napier.w("failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}", it, tag = TAG)
         }.getOrNull() ?: return
-        NotificationManagerEx.notify(packageName, active.tag, active.id, restored)
+        NotificationManagerEx.notify(packageName, active.tag, active.id, restored, active.userId)
     }
 
-    private fun hasActiveReminder(packageName: String, notificationId: Int): Boolean {
-        return findActiveNotification(packageName, notificationId)
+    private fun hasActiveReminder(packageName: String, notificationId: Int, userId: Int): Boolean {
+        return findActiveNotification(packageName, notificationId, userId)
             ?.notification
             ?.extras
             ?.getString(EXTRA_REMIND_STATUS)
             ?.isNotEmpty() == true
     }
 
-    private fun findActiveNotification(packageName: String, notificationId: Int): StatusBarNotification? {
+    private fun findActiveNotification(
+        packageName: String,
+        notificationId: Int,
+        userId: Int,
+    ): StatusBarNotification? {
         return runCatching {
             NotificationManagerEx.getActiveNotifications(packageName)
                 ?.filterNotNull()
-                ?.firstOrNull { it.id == notificationId }
+                ?.firstOrNull { it.userId == userId && it.id == notificationId }
         }.getOrNull()
     }
 
@@ -652,14 +733,24 @@ internal object SweetNotificationCoordinator {
             ?: notification.extras?.getString("miui.targetPkg")?.takeIf(String::isNotEmpty)
     }
 
-    private fun stateKey(packageName: String, notificationId: Int): String {
-        return "$packageName-$notificationId"
+    private fun stateKey(packageName: String, notificationId: Int, userId: Int): String {
+        val userPrefix = if (userId == 0) "" else "$userId|"
+        return "$userPrefix$packageName-$notificationId"
     }
 
-    private fun parseStateKey(key: String): Pair<String, Int>? {
+    internal fun parseStateKey(key: String): TrackedNotification? {
         val separator = key.lastIndexOf('-')
         if (separator <= 0 || separator >= key.lastIndex) return null
-        return key.substring(0, separator) to (key.substring(separator + 1).toIntOrNull() ?: return null)
+        val packagePart = key.substring(0, separator)
+        val userSeparator = packagePart.indexOf('|')
+        val userId = if (userSeparator >= 0) {
+            packagePart.substring(0, userSeparator).toIntOrNull() ?: return null
+        } else {
+            0
+        }
+        val packageName = packagePart.substringAfter('|').takeIf(String::isNotBlank) ?: return null
+        val notificationId = key.substring(separator + 1).toIntOrNull() ?: return null
+        return TrackedNotification(packageName, notificationId, userId.coerceAtLeast(0))
     }
 
     private fun isEligibleEnvironment(context: Context): Boolean {

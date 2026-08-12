@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.content.Context
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Process
+import android.os.UserHandle
 import io.github.magisk317.mipush.common.NotificationClassifier
 import io.github.magisk317.mipush.hook.XLog
 import java.util.concurrent.TimeUnit
@@ -16,13 +18,16 @@ internal object IslandDispatcherNotifier {
     private const val GROUP_KEY_PREFIX = "mipush_island"
     private const val DEFAULT_AUTO_CANCEL_SECS = 5
     private const val AUTO_CANCEL_GRACE_MS = 1_000L
+    private const val PER_USER_RANGE = 100_000L
 
-    fun post(context: Context, request: IslandRequest) {
-        runCatching {
-            ensureChannel(context)
+    fun post(context: Context, request: IslandRequest): Boolean {
+        return runCatching {
+            val notificationContext = contextForUser(context, request.userId)
+                ?: error("notification user context unavailable user=${request.userId}")
+            ensureChannel(notificationContext)
             val groupKey = request.sourcePackage?.takeIf { it.isNotBlank() }
                 ?.let { "$GROUP_KEY_PREFIX:$it" }
-            val notification = Notification.Builder(context, IslandDispatchContract.CHANNEL_ID)
+            val notification = Notification.Builder(notificationContext, IslandDispatchContract.CHANNEL_ID)
                 .setSmallIcon(request.icon ?: fallbackSmallIcon())
                 .setContentTitle(request.title)
                 .setContentText(request.content)
@@ -36,9 +41,10 @@ internal object IslandDispatcherNotifier {
                 }
                 .build()
 
-            notification.extras.putAll(request.toIslandExtras(context))
+            notification.extras.putAll(request.toIslandExtras(notificationContext))
 
-            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            val manager = notificationContext.getSystemService(NotificationManager::class.java)
+                ?: error("notification manager unavailable user=${request.userId}")
             if (request.clearBeforePost) {
                 manager.cancel(request.notificationId)
             }
@@ -54,6 +60,7 @@ internal object IslandDispatcherNotifier {
                 ),
                 statusOk = true,
             )
+            true
         }.onFailure {
             XLog.e(TAG, "post failed: ${it.message}", it)
             MagiskOtel.event(
@@ -68,7 +75,7 @@ internal object IslandDispatcherNotifier {
                 ),
                 statusOk = false,
             )
-        }
+        }.getOrDefault(false)
     }
 
     /**
@@ -81,6 +88,27 @@ internal object IslandDispatcherNotifier {
      */
     private fun fallbackSmallIcon(): Icon =
         Icon.createWithResource("android", android.R.drawable.sym_def_app_icon)
+
+    private fun contextForUser(context: Context, userId: Int): Context? {
+        if (userId < 0) return null
+        val normalizedUserId = userId
+        val currentUserId = Process.myUid().toLong().div(PER_USER_RANGE).toInt().coerceAtLeast(0)
+        if (normalizedUserId == currentUserId) return context
+        return runCatching {
+            val uid = normalizedUserId.toLong() * PER_USER_RANGE + Process.FIRST_APPLICATION_UID
+            val userHandle = UserHandle.getUserHandleForUid(uid.toInt())
+            val method = context.javaClass.getMethod(
+                "createContextAsUser",
+                UserHandle::class.java,
+                Int::class.javaPrimitiveType,
+            )
+            method.invoke(context, userHandle, 0) as? Context
+        }.getOrNull().also { resolved ->
+            if (resolved == null) {
+                XLog.w(TAG, "user context unavailable; refusing notification user=$normalizedUserId")
+            }
+        }
+    }
 
     internal fun autoCancelAfterMillis(timeoutSecs: Int): Long {
         val displaySecs = timeoutSecs.takeIf { it > 0 } ?: DEFAULT_AUTO_CANCEL_SECS
@@ -99,6 +127,7 @@ internal object IslandDispatcherNotifier {
             enableFloat = enableFloat,
             showNotification = showNotification,
             sourcePackage = sourcePackage,
+            userId = userId,
             sourceChannelId = sourceChannelId,
             actions = actions,
             showIslandIcon = showIslandIcon,
@@ -109,9 +138,13 @@ internal object IslandDispatcherNotifier {
         )
     }
 
-    fun cancel(context: Context, notificationId: Int) {
-        runCatching {
-            context.getSystemService(NotificationManager::class.java)?.cancel(notificationId)
+    fun cancel(context: Context, notificationId: Int, userId: Int): Boolean {
+        return runCatching {
+            val notificationContext = contextForUser(context, userId)
+                ?: error("notification user context unavailable user=$userId")
+            val manager = notificationContext.getSystemService(NotificationManager::class.java)
+                ?: error("notification manager unavailable user=$userId")
+            manager.cancel(notificationId)
             MagiskOtel.event(
                 name = "push.island",
                 attributes = mapOf(
@@ -122,6 +155,7 @@ internal object IslandDispatcherNotifier {
                 ),
                 statusOk = true,
             )
+            true
         }.onFailure {
             XLog.e(TAG, "cancel failed: ${it.message}", it)
             MagiskOtel.event(
@@ -135,7 +169,7 @@ internal object IslandDispatcherNotifier {
                 ),
                 statusOk = false,
             )
-        }
+        }.getOrDefault(false)
     }
 
     fun ensureChannel(context: Context) {

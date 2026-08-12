@@ -7,6 +7,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.utils.Utils
 
 data class IslandRequest(
     val title: String,
@@ -18,6 +19,7 @@ data class IslandRequest(
     val enableFloat: Boolean = true,
     val showNotification: Boolean = true,
     val sourcePackage: String? = null,
+    val userId: Int = Utils.myUserId().coerceAtLeast(0),
     val sourceChannelId: String? = null,
     val contentIntent: PendingIntent? = null,
     val isOngoing: Boolean = false,
@@ -39,6 +41,7 @@ data class IslandRequest(
         putBoolean(KEY_ENABLE_FLOAT, enableFloat)
         putBoolean(KEY_SHOW_NOTIFICATION, showNotification)
         putString(KEY_SOURCE_PACKAGE, sourcePackage)
+        putInt(KEY_USER_ID, userId)
         putString(KEY_SOURCE_CHANNEL_ID, sourceChannelId)
         putParcelable(KEY_CONTENT_INTENT, contentIntent)
         putBoolean(KEY_ONGOING, isOngoing)
@@ -63,6 +66,7 @@ data class IslandRequest(
         private const val KEY_ENABLE_FLOAT = "enableFloat"
         private const val KEY_SHOW_NOTIFICATION = "showNotification"
         private const val KEY_SOURCE_PACKAGE = "sourcePackage"
+        private const val KEY_USER_ID = "userId"
         private const val KEY_SOURCE_CHANNEL_ID = "sourceChannelId"
         private const val KEY_CONTENT_INTENT = "contentIntent"
         private const val KEY_ONGOING = "isOngoing"
@@ -92,6 +96,7 @@ data class IslandRequest(
                 enableFloat = bundle.getBoolean(KEY_ENABLE_FLOAT, true),
                 showNotification = bundle.getBoolean(KEY_SHOW_NOTIFICATION, true),
                 sourcePackage = bundle.getString(KEY_SOURCE_PACKAGE),
+                userId = bundle.getInt(KEY_USER_ID, -1),
                 sourceChannelId = bundle.getString(KEY_SOURCE_CHANNEL_ID),
                 contentIntent = bundle.parcelable(KEY_CONTENT_INTENT, PendingIntent::class.java),
                 isOngoing = bundle.getBoolean(KEY_ONGOING, false),

@@ -2,8 +2,10 @@ package io.github.magisk317.mipush.notification
 
 import android.content.Context
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
+@Suppress("DEPRECATION")
 object LegacyNotificationIdentityMigration {
     private const val TAG = "LegacyNotificationIdentityMigration"
     private const val PREFS = "mipush_notification_identity_migration"
@@ -19,6 +21,7 @@ object LegacyNotificationIdentityMigration {
             .map { it.packageName }
             .filter { it.isNotBlank() }
             .distinct()
+        val currentUserId = Utils.myUserId().coerceAtLeast(0)
         var removed = 0
         var allPackagesInspected = true
         for (packageName in packages) {
@@ -29,8 +32,9 @@ object LegacyNotificationIdentityMigration {
             }
             for (sbn in active) {
                 val notification = sbn ?: continue
+                if (!belongsToUser(notification.userId, currentUserId)) continue
                 if (!isLegacyIdentity(notification.tag)) continue
-                NotificationManagerEx.cancel(packageName, notification.tag, notification.id)
+                NotificationManagerEx.cancel(packageName, notification.tag, notification.id, notification.userId)
                 removed++
             }
         }
@@ -43,4 +47,7 @@ object LegacyNotificationIdentityMigration {
     }
 
     internal fun isLegacyIdentity(tag: String?): Boolean = tag?.startsWith(LEGACY_TAG_PREFIX) == true
+
+    internal fun belongsToUser(notificationUserId: Int, currentUserId: Int): Boolean =
+        notificationUserId == currentUserId
 }

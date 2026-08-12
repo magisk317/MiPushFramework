@@ -24,6 +24,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -201,6 +202,7 @@ internal class ExtensionPendingRegistry(
     data class Entry(
         val startedAtMs: Long,
         val packageName: String,
+        val userId: Int,
         val container: XmPushActionContainer,
         val payload: ByteArray,
         val publish: (XmPushActionContainer, ByteArray) -> Unit,
@@ -214,31 +216,59 @@ internal class ExtensionPendingRegistry(
     private val entries = ConcurrentHashMap<String, Entry>()
 
     fun register(
-        messageId: String,
         packageName: String,
+        messageId: String,
         container: XmPushActionContainer,
         payload: ByteArray,
+        userId: Int,
         publish: (XmPushActionContainer, ByteArray) -> Unit,
     ) {
-        entries[messageId] = Entry(elapsedRealtime(), packageName, container, payload, publish)
+        val normalizedUserId = userId.coerceAtLeast(0)
+        entries[key(normalizedUserId, packageName, messageId)] =
+            Entry(elapsedRealtime(), packageName, normalizedUserId, container, payload, publish)
     }
 
-    fun get(messageId: String): Entry? = entries[messageId]
+    fun get(packageName: String, messageId: String, userId: Int): Entry? =
+        entries[key(userId, packageName, messageId)]
 
-    fun complete(messageId: String, content: RemoteNotificationContent?): Completion? {
+    fun complete(
+        packageName: String,
+        messageId: String,
+        content: RemoteNotificationContent?,
+        userId: Int,
+    ): Completion? {
         if (content == null) return null
-        val entry = entries[messageId] ?: return null
+        val key = key(userId, packageName, messageId)
+        val entry = entries[key] ?: return null
         if (abs(elapsedRealtime() - entry.startedAtMs) >= timeoutMs) return null
-        if (!entries.remove(messageId, entry)) return null
+        if (!entries.remove(key, entry)) return null
         return Completion(entry, content)
     }
 
-    fun fail(messageId: String): Completion? {
-        val entry = entries.remove(messageId) ?: return null
+    fun fail(packageName: String, messageId: String, userId: Int): Completion? {
+        val entry = entries.remove(key(userId, packageName, messageId)) ?: return null
         return Completion(entry, null)
     }
 
-    fun timeout(messageId: String): Completion? = fail(messageId)
+    fun timeout(packageName: String, messageId: String, userId: Int): Completion? =
+        fail(packageName, messageId, userId)
+
+    fun clearPackage(packageName: String, userId: Int): Set<String> {
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val prefix = "$normalizedUserId|$packageName\u0000"
+        return entries.keys
+            .filter { it.startsWith(prefix) }
+            .map { it.removePrefix(prefix) }
+            .toSet()
+            .also { messageIds ->
+                messageIds.forEach { messageId ->
+                    entries.remove(key(normalizedUserId, packageName, messageId))
+                }
+            }
+    }
+
+    private fun key(userId: Int, packageName: String, messageId: String): String =
+        "${userId.coerceAtLeast(0)}|$packageName\u0000$messageId"
 }
 
 /**
@@ -276,6 +306,7 @@ internal object ExtensionNotificationCoordinator {
             return false
         }
         val packageName = container.packageName?.takeIf(String::isNotEmpty) ?: return false
+        val userId = currentUserId()
         if (!declaresCompatibleService(context, packageName)) return false
         if (!ExtensionNotificationContract.isSupportedHyperOs()) return false
 
@@ -292,19 +323,36 @@ internal object ExtensionNotificationCoordinator {
             .getOrNull()
             ?: return false
         val appContext = context.applicationContext ?: context
-        pending.register(messageId, packageName, container, payload, publish)
-        scheduleTimeouts(messageId)
+        pending.register(
+            packageName = packageName,
+            messageId = messageId,
+            container = container,
+            payload = payload,
+            userId = userId,
+            publish = publish,
+        )
+        scheduleTimeouts(packageName, messageId, userId)
         handler.post {
             connections.connect(
                 context = appContext,
                 packageName = packageName,
                 messageId = messageId,
-                onConnected = { service -> sendInitial(messageId, packageName, remoteInfo, service) },
-                onFailure = { failAndFallback(messageId, "bind_failed") },
+                userId = userId,
+                onConnected = { service -> sendInitial(messageId, packageName, userId, remoteInfo, service) },
+                onFailure = { failAndFallback(packageName, messageId, userId, "bind_failed") },
             )
         }
-        logD("extension notification intercepted pkg=$packageName id=$messageId")
+        logD("extension notification intercepted user=$userId pkg=$packageName id=$messageId")
         return true
+    }
+
+    fun clearPackageState(packageName: String, userId: Int = currentUserId()) {
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val messageIds = pending.clearPackage(packageName, normalizedUserId)
+        messageIds.forEach { messageId ->
+            handler.removeCallbacksAndMessages(token(packageName, messageId, normalizedUserId))
+            connections.release(packageName, messageId, normalizedUserId)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -328,16 +376,16 @@ internal object ExtensionNotificationCoordinator {
         }.getOrDefault(false)
     }
 
-    private fun scheduleTimeouts(messageId: String) {
+    private fun scheduleTimeouts(packageName: String, messageId: String, userId: Int) {
         val now = SystemClock.uptimeMillis()
         handler.postAtTime(
-            { sendNearTimeout(messageId) },
-            messageId,
+            { sendNearTimeout(packageName, messageId, userId) },
+            token(packageName, messageId, userId),
             now + ExtensionNotificationContract.NEAR_TIMEOUT_MS,
         )
         handler.postAtTime(
-            { timeoutAndFallback(messageId) },
-            messageId,
+            { timeoutAndFallback(packageName, messageId, userId) },
+            token(packageName, messageId, userId),
             now + ExtensionNotificationContract.INITIAL_TIMEOUT_MS,
         )
     }
@@ -345,24 +393,25 @@ internal object ExtensionNotificationCoordinator {
     private fun sendInitial(
         messageId: String,
         packageName: String,
+        userId: Int,
         info: RemoteNotificationInfo,
         service: IExtensionInterface,
     ) {
-        if (pending.get(messageId) == null) {
-            connections.release(packageName, messageId)
+        if (pending.get(packageName, messageId, userId) == null) {
+            connections.release(packageName, messageId, userId)
             return
         }
         runCatching {
-            service.baseReceiveRemoteNotification(info, callback(messageId))
+            service.baseReceiveRemoteNotification(info, callback(packageName, messageId, userId))
         }.onFailure {
             logE("extension initial callback dispatch failed id=$messageId", it)
-            failAndFallback(messageId, "initial_dispatch_failed")
+            failAndFallback(packageName, messageId, userId, "initial_dispatch_failed")
         }
     }
 
-    private fun sendNearTimeout(messageId: String) {
-        val entry = pending.get(messageId) ?: return
-        val service = connections.get(entry.packageName)
+    private fun sendNearTimeout(packageName: String, messageId: String, userId: Int) {
+        val entry = pending.get(packageName, messageId, userId) ?: return
+        val service = connections.get(entry.packageName, entry.userId)
         if (service == null) {
             logD("extension near-timeout service unavailable pkg=${entry.packageName} id=$messageId")
             return
@@ -370,42 +419,49 @@ internal object ExtensionNotificationCoordinator {
         val info = runCatching { ExtensionNotificationContract.createRemoteInfo(entry.container) }
             .getOrNull() ?: return
         runCatching {
-            service.baseExtensionTimeWillExpire(info, callback(messageId))
+            service.baseExtensionTimeWillExpire(info, callback(packageName, messageId, userId))
         }.onFailure {
             // Stock waits for the 10-second original-notification fallback after this failure.
             logW("extension near-timeout callback failed id=$messageId reason=${it.message}")
         }
     }
 
-    private fun callback(messageId: String): IExtensionCallback = object : IExtensionCallback.Stub() {
+    private fun callback(packageName: String, messageId: String, userId: Int): IExtensionCallback = object : IExtensionCallback.Stub() {
         override fun onFinish(content: RemoteNotificationContent?) {
-            finishFromCallback(messageId, content)
+            finishFromCallback(packageName, messageId, userId, content)
         }
     }
 
-    private fun finishFromCallback(messageId: String, content: RemoteNotificationContent?) {
-        val completion = pending.complete(messageId, content) ?: return
-        finish(messageId, completion, "callback")
+    private fun finishFromCallback(
+        packageName: String,
+        messageId: String,
+        userId: Int,
+        content: RemoteNotificationContent?,
+    ) {
+        val completion = pending.complete(packageName, messageId, content, userId) ?: return
+        finish(packageName, messageId, userId, completion, "callback")
     }
 
-    private fun failAndFallback(messageId: String, reason: String) {
-        val completion = pending.fail(messageId) ?: return
-        finish(messageId, completion, reason)
+    private fun failAndFallback(packageName: String, messageId: String, userId: Int, reason: String) {
+        val completion = pending.fail(packageName, messageId, userId) ?: return
+        finish(packageName, messageId, userId, completion, reason)
     }
 
-    private fun timeoutAndFallback(messageId: String) {
-        val completion = pending.timeout(messageId) ?: return
-        finish(messageId, completion, "timeout")
+    private fun timeoutAndFallback(packageName: String, messageId: String, userId: Int) {
+        val completion = pending.timeout(packageName, messageId, userId) ?: return
+        finish(packageName, messageId, userId, completion, "timeout")
     }
 
     private fun finish(
+        packageName: String,
         messageId: String,
+        userId: Int,
         completion: ExtensionPendingRegistry.Completion,
         reason: String,
     ) {
-        handler.removeCallbacksAndMessages(messageId)
+        handler.removeCallbacksAndMessages(token(packageName, messageId, userId))
         val entry = completion.entry
-        connections.release(entry.packageName, messageId)
+        connections.release(entry.packageName, messageId, entry.userId)
         val content = completion.content
         if (content != null && !content.isShowNotification) {
             logD("extension notification suppressed pkg=${entry.packageName} id=$messageId reason=$reason")
@@ -429,6 +485,11 @@ internal object ExtensionNotificationCoordinator {
         logD("extension notification completed pkg=${entry.packageName} id=$messageId reason=$reason")
     }
 
+    private fun token(packageName: String, messageId: String, userId: Int): String =
+        "${userId.coerceAtLeast(0)}|$packageName\u0000$messageId"
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+
 }
 
 private class ExtensionServiceConnectionPool {
@@ -445,11 +506,13 @@ private class ExtensionServiceConnectionPool {
         context: Context,
         packageName: String,
         messageId: String,
+        userId: Int,
         onConnected: (IExtensionInterface) -> Unit,
         onFailure: () -> Unit,
     ) {
+        val recordKey = userKey(userId, packageName)
         val existing = synchronized(records) {
-            records[packageName]?.also { it.messageIds += messageId }
+            records[recordKey]?.also { it.messageIds += messageId }
         }
         if (existing != null) {
             onConnected(existing.service)
@@ -466,13 +529,13 @@ private class ExtensionServiceConnectionPool {
                     return
                 }
                 val selected = synchronized(records) {
-                    val connected = records[packageName]
+                    val connected = records[recordKey]
                     if (connected != null) {
                         connected.messageIds += messageId
                         connected
                     } else {
                         Record(context, service, this, mutableSetOf(messageId)).also {
-                            records[packageName] = it
+                            records[recordKey] = it
                         }
                     }
                 }
@@ -484,15 +547,15 @@ private class ExtensionServiceConnectionPool {
             }
 
             override fun onServiceDisconnected(name: ComponentName) {
-                if (disconnect(context, packageName, this) || !connected) onFailure()
+                if (disconnect(context, packageName, userId, this) || !connected) onFailure()
             }
 
             override fun onBindingDied(name: ComponentName) {
-                if (disconnect(context, packageName, this) || !connected) onFailure()
+                if (disconnect(context, packageName, userId, this) || !connected) onFailure()
             }
 
             override fun onNullBinding(name: ComponentName) {
-                if (disconnect(context, packageName, this) || !connected) onFailure()
+                if (disconnect(context, packageName, userId, this) || !connected) onFailure()
             }
         }
         val bound = runCatching {
@@ -505,17 +568,18 @@ private class ExtensionServiceConnectionPool {
         if (!bound) onFailure()
     }
 
-    fun get(packageName: String): IExtensionInterface? = synchronized(records) {
-        records[packageName]?.service
+    fun get(packageName: String, userId: Int): IExtensionInterface? = synchronized(records) {
+        records[userKey(userId, packageName)]?.service
     }
 
-    fun release(packageName: String, messageId: String) {
+    fun release(packageName: String, messageId: String, userId: Int) {
         if (packageName.isEmpty()) return
+        val recordKey = userKey(userId, packageName)
         val recordToRelease = synchronized(records) {
-            val record = records[packageName] ?: return@synchronized null
+            val record = records[recordKey] ?: return@synchronized null
             record.messageIds -= messageId
             if (record.messageIds.isNotEmpty()) return@synchronized null
-            records.remove(packageName)
+            records.remove(recordKey)
             record
         }
         if (recordToRelease != null) runCatching {
@@ -528,16 +592,21 @@ private class ExtensionServiceConnectionPool {
     private fun disconnect(
         context: Context,
         packageName: String,
+        userId: Int,
         connection: ServiceConnection,
     ): Boolean {
+        val recordKey = userKey(userId, packageName)
         val removed = synchronized(records) {
-            val current = records[packageName]
+            val current = records[recordKey]
             if (current?.connection !== connection) false else {
-                records.remove(packageName)
+                records.remove(recordKey)
                 true
             }
         }
         runCatching { context.unbindService(connection) }
         return removed
     }
+
+    private fun userKey(userId: Int, packageName: String): String =
+        "${userId.coerceAtLeast(0)}|$packageName"
 }

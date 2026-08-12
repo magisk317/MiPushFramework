@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.notification
 import android.app.Notification
 import android.content.Context
 import android.os.Bundle
+import android.os.Process
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import com.xiaomi.channel.commonutils.android.MIUIUtils
@@ -12,9 +13,11 @@ import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicLong
 
 /** Restores stock XMSF 7.4.67-C's bounded top-notification lifecycle on the product publish path. */
+@Suppress("DEPRECATION")
 internal object TopNotificationCoordinator {
     private const val TAG = "TopNotificationCoordinator"
     internal const val EXTRA_REPEAT = "notification_top_repeat"
@@ -47,6 +50,7 @@ internal object TopNotificationCoordinator {
         val packageName: String,
         val tag: String?,
         val notificationId: Int,
+        val userId: Int,
     )
 
     private data class ActiveJob(
@@ -87,14 +91,17 @@ internal object TopNotificationCoordinator {
         notificationId: Int,
         messageId: String?,
         notification: Notification,
+        userId: Int = Utils.myUserId(),
     ): Boolean {
-        val slot = NotificationSlot(packageName, tag, notificationId)
+        val slot = NotificationSlot(packageName, tag, notificationId, userId)
         val postedMessageId = resolveLifecycleMessageId(
             extras = notification.extras,
             expectedMessageId = messageId,
             eligibleEnvironment = MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context),
         )
-        val topJobId = postedMessageId?.let { jobId(notificationId, it) }
+        val topJobId = postedMessageId?.let {
+            scopedJobId(packageName, notificationId, it, userId)
+        }
         val originalWhenMs = notification.extras?.getLong(LOCAL_ORIGINAL_WHEN, 0L) ?: 0L
 
         var generation: Long? = null
@@ -104,7 +111,7 @@ internal object TopNotificationCoordinator {
             // job could therefore overwrite a newer notification with the same slot. Serialize
             // the stock-derived reposts and the initial post, then transfer ownership only after
             // NotificationManager accepted the replacement.
-            val accepted = NotificationManagerEx.notify(packageName, tag, notificationId, notification)
+            val accepted = NotificationManagerEx.notify(packageName, tag, notificationId, notification, userId)
             if (accepted) {
                 removeSlotLocked(slot)?.let(replacedJobs::add)
                 if (topJobId != null) {
@@ -145,7 +152,13 @@ internal object TopNotificationCoordinator {
             ?.getString(EXTRA_MESSAGE_ID)
             ?.takeIf(String::isNotEmpty)
             ?: return
-        val jobId = jobId(statusBarNotification.id, messageId)
+        val packageName = targetPackage(notification) ?: return
+        val jobId = scopedJobId(
+            packageName,
+            statusBarNotification.id,
+            messageId,
+            statusBarNotification.userId,
+        )
         val originalWhenMs = extras.getLong(LOCAL_ORIGINAL_WHEN, 0L)
         val shouldCancel = synchronized(stateLock) {
             // Stock 7.4.67-C m2 cancels by job ID alone. Product generations additionally compare
@@ -164,6 +177,21 @@ internal object TopNotificationCoordinator {
             ScheduledJobManager.getInstance(context.applicationContext).cancelJob(jobId)
         }
         Napier.d("cancel removed top notification job=$jobId accepted=$shouldCancel", tag = TAG)
+    }
+
+    /** Cancels lifecycle state immediately when MiPush receives an explicit server cancel. */
+    fun cancelNotification(
+        context: Context,
+        packageName: String,
+        tag: String?,
+        notificationId: Int,
+        userId: Int = Utils.myUserId(),
+    ) {
+        val slot = NotificationSlot(packageName, tag, notificationId, userId)
+        val jobId = synchronized(stateLock) { removeSlotLocked(slot) }
+        if (jobId != null) {
+            ScheduledJobManager.getInstance(context.applicationContext).cancelJob(jobId)
+        }
     }
 
     internal fun resolveSpec(extras: Map<String, String>?): Spec? {
@@ -255,9 +283,40 @@ internal object TopNotificationCoordinator {
         localStateKeys.forEach(extras::remove)
     }
 
-    internal fun jobId(notificationId: Int, messageId: String): String {
-        return ScheduledJobConstants.TOP_NOTIFICATION_UPDATE_JOB_ID + notificationId + "_" + messageId
+    fun clearPackageState(
+        context: Context,
+        packageName: String,
+        userId: Int = Utils.myUserId(),
+    ) {
+        val jobIds = synchronized(stateLock) {
+            activeJobs.entries
+                .filter { it.value.slot.packageName == packageName && it.value.slot.userId == userId }
+                .map { it.key }
+                .also { ids -> ids.forEach(::removeJobLocked) }
+        }
+        val manager = ScheduledJobManager.getInstance(context.applicationContext)
+        jobIds.forEach(manager::cancelJob)
     }
+
+    internal fun jobId(
+        notificationId: Int,
+        messageId: String,
+        userId: Int = Utils.myUserId(),
+    ): String {
+        val userPrefix = if (userId == 0) "" else "${userId}_"
+        return ScheduledJobConstants.TOP_NOTIFICATION_UPDATE_JOB_ID + userPrefix + notificationId + "_" + messageId
+    }
+
+    /**
+     * Keep the stock job identity available for compatibility, but scope actual product jobs by
+     * target package so two apps reusing a notification and message ID cannot replace each other.
+     */
+    internal fun scopedJobId(
+        packageName: String,
+        notificationId: Int,
+        messageId: String,
+        userId: Int,
+    ): String = jobId(notificationId, messageId, userId) + "_" + packageName
 
     private fun updateTopNotification(
         context: Context,
@@ -266,7 +325,7 @@ internal object TopNotificationCoordinator {
         sourceNotification: Notification?,
         generation: Long,
     ) {
-        val jobId = jobId(slot.notificationId, messageId)
+        val jobId = scopedJobId(slot.packageName, slot.notificationId, messageId, slot.userId)
         if (!isCurrent(jobId, slot, generation)) {
             return
         }
@@ -341,7 +400,7 @@ internal object TopNotificationCoordinator {
         generation: Long,
     ) {
         val manager = ScheduledJobManager.getInstance(context)
-        val jobId = jobId(slot.notificationId, messageId)
+        val jobId = scopedJobId(slot.packageName, slot.notificationId, messageId, slot.userId)
         val register = Runnable {
             val added: Boolean? = synchronized(stateLock) {
                 if (!isCurrentLocked(jobId, slot, generation)) {
@@ -376,7 +435,8 @@ internal object TopNotificationCoordinator {
         generation: Long,
     ): ScheduledJobManager.Job {
         return object : ScheduledJobManager.Job() {
-            override fun getJobId(): String = jobId(slot.notificationId, messageId)
+            override fun getJobId(): String =
+                scopedJobId(slot.packageName, slot.notificationId, messageId, slot.userId)
 
             override fun run() {
                 updateTopNotification(
@@ -399,7 +459,8 @@ internal object TopNotificationCoordinator {
                 ?.asSequence()
                 ?.filterNotNull()
                 ?.firstOrNull { active ->
-                    active.id == slot.notificationId &&
+                    active.userId == slot.userId &&
+                        active.id == slot.notificationId &&
                         active.notification?.extras?.getString(EXTRA_MESSAGE_ID) == messageId
                 }
                 ?.notification
@@ -463,6 +524,7 @@ internal object TopNotificationCoordinator {
                     slot.tag,
                     slot.notificationId,
                     notification,
+                    slot.userId,
                 )
             }
         }
@@ -513,5 +575,12 @@ internal object TopNotificationCoordinator {
             ScheduledJobManager.getInstance(context).cancelJob(jobId)
         }
         return removed
+    }
+
+    private fun targetPackage(notification: Notification): String? {
+        val extras = notification.extras ?: return null
+        return sequenceOf("target_package", "miui.targetPkg", "xmsf_target_package")
+            .mapNotNull { extras.getString(it)?.takeIf(String::isNotBlank) }
+            .firstOrNull()
     }
 }

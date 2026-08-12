@@ -83,6 +83,21 @@ class ZygiskConfigTest {
             """.trimIndent(),
         )
 
-        assertEquals("com.example.one\ncom.example.two\n", config.toFileContent())
+        assertEquals(
+            "profile=miui14\nobserve=false\nauto_scan=false\ncom.example.one\ncom.example.two\n",
+            config.toFileContent(),
+        )
+    }
+
+    @Test
+    fun `metadata and deny rules round trip`() {
+        val config = ZygiskConfig.parse(
+            "profile=hyperos1\nobserve=true\nauto_scan=true\ncom.example.app\n-com.example.app|com.example.app:push\n",
+        )
+        assertEquals("hyperos1", config.profile)
+        assertTrue(config.observe)
+        assertTrue(config.autoScan)
+        assertFalse(config.entries.first { it.processName != null }.enabled)
+        assertEquals(config, ZygiskConfig.parse(config.toFileContent()))
     }
 }

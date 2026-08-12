@@ -7,12 +7,18 @@ import org.junit.jupiter.api.Test
 class KeepAliveHookTargetsTest {
     @Test
     fun `api 33 targets retain the exact parameter roles`() {
-        val bucket = KeepAliveHookTargets.standbyBucket.single()
         val appIdle = KeepAliveHookTargets.appIdle.single()
         val forceIdle = KeepAliveHookTargets.forceIdle.single()
 
-        assertEquals(2, bucket.valueIndex)
-        assertEquals(0, bucket.packageIndex)
+        assertEquals(
+            listOf(1, 2, 2),
+            KeepAliveHookTargets.standbyBucket.map { it.valueIndex },
+        )
+        assertTrue(KeepAliveHookTargets.standbyBucket.all { it.packageIndex == 0 })
+        val packageKill = KeepAliveHookTargets.packageKill.single()
+        assertEquals(0, packageKill.packageIndex)
+        assertEquals(10, packageKill.valueIndex)
+        assertEquals(11, packageKill.secondaryValueIndex)
         assertEquals(1, appIdle.valueIndex)
         assertEquals(2, forceIdle.valueIndex)
     }

@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.hook.island
 
 import android.content.Context
 import android.content.Intent
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object IslandDispatcherBroadcaster {
@@ -28,11 +29,13 @@ object IslandDispatcherBroadcaster {
 
     fun cancel(
         context: Context,
-        notificationId: Int = IslandDispatchContract.DEFAULT_NOTIFICATION_ID
+        notificationId: Int = IslandDispatchContract.DEFAULT_NOTIFICATION_ID,
+        userId: Int = Utils.myUserId().coerceAtLeast(0),
     ) {
         context.sendBroadcast(
             Intent(IslandDispatchContract.ACTION_CANCEL).apply {
                 putExtra(IslandDispatchContract.EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(IslandDispatchContract.EXTRA_USER_ID, userId.coerceAtLeast(0))
                 setPackage(IslandDispatchContract.SYSTEM_UI_PACKAGE)
             },
         )

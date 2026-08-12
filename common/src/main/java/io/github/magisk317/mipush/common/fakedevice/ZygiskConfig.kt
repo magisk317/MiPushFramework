@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.common.fakedevice
 data class ZygiskConfigEntry(
     val packageName: String,
     val processName: String? = null,
+    val enabled: Boolean = true,
 ) {
     val isPackageWide: Boolean
         get() = processName.isNullOrBlank()
@@ -10,23 +11,28 @@ data class ZygiskConfigEntry(
     fun matchesPackage(packageName: String): Boolean = this.packageName == packageName
 
     fun toLine(): String {
-        return if (processName.isNullOrBlank()) {
+        val value = if (processName.isNullOrBlank()) {
             packageName
         } else {
             "$packageName|$processName"
         }
+        return if (enabled) value else "-$value"
     }
 }
 
 data class ZygiskConfig(
     val entries: List<ZygiskConfigEntry> = emptyList(),
+    val profile: String = DEFAULT_PROFILE,
+    val observe: Boolean = false,
+    val autoScan: Boolean = false,
 ) {
     fun isEnabledForPackage(packageName: String): Boolean {
-        return entries.any { it.matchesPackage(packageName) }
+        return entries.any { it.enabled && it.matchesPackage(packageName) } &&
+            entries.none { !it.enabled && it.processName.isNullOrBlank() && it.matchesPackage(packageName) }
     }
 
     fun enabledPackages(): Set<String> {
-        return entries.mapTo(linkedSetOf()) { it.packageName }
+        return entries.filter { it.enabled }.mapTo(linkedSetOf()) { it.packageName }
     }
 
     fun withPackageEnabled(packageName: String, enabled: Boolean): ZygiskConfig {
@@ -35,7 +41,7 @@ data class ZygiskConfig(
         if (enabled && ZygiskPackagePolicy.isManagedPackage(normalizedPackage)) {
             kept += ZygiskConfigEntry(normalizedPackage)
         }
-        return ZygiskConfig(kept).normalized()
+        return copy(entries = kept).normalized()
     }
 
     fun normalized(): ZygiskConfig {
@@ -45,16 +51,20 @@ data class ZygiskConfig(
             val processName = entry.processName?.trim()?.takeIf { it.isNotEmpty() }
             if (!ZygiskPackagePolicy.isManagedPackage(packageName)) return@forEach
             if (processName != null && !ZygiskPackagePolicy.isValidProcessName(packageName, processName)) return@forEach
-            val normalized = ZygiskConfigEntry(packageName, processName)
+            val normalized = ZygiskConfigEntry(packageName, processName, entry.enabled)
             unique[normalized.toLine()] = normalized
         }
-        return ZygiskConfig(unique.values.sortedWith(compareBy<ZygiskConfigEntry> { it.packageName }.thenBy { it.processName ?: "" }))
+        return copy(entries = unique.values.sortedWith(compareBy<ZygiskConfigEntry> { it.packageName }.thenBy { it.processName ?: "" }.thenBy { it.enabled }))
     }
 
     fun toFileContent(): String {
         val normalizedEntries = normalized().entries
-        if (normalizedEntries.isEmpty()) return ""
-        return normalizedEntries.joinToString(separator = "\n", postfix = "\n") { it.toLine() }
+        val metadata = listOf(
+            "profile=${profile.takeIf { it in SUPPORTED_PROFILES } ?: DEFAULT_PROFILE}",
+            "observe=$observe",
+            "auto_scan=$autoScan",
+        )
+        return (metadata + normalizedEntries.map { it.toLine() }).joinToString(separator = "\n", postfix = "\n")
     }
 
     companion object {
@@ -63,7 +73,11 @@ data class ZygiskConfig(
                 .lineSequence()
                 .mapNotNull(::parseEntry)
                 .toList()
-            return ZygiskConfig(entries).normalized()
+            val metadata = content.lineSequence().map { it.trim() }
+            val profile = metadata.firstOrNull { it.startsWith("profile=") }?.substringAfter('=') ?: DEFAULT_PROFILE
+            val observe = metadata.firstOrNull { it.startsWith("observe=") }?.substringAfter('=')?.toBooleanStrictOrNull() ?: false
+            val autoScan = metadata.firstOrNull { it.startsWith("auto_scan=") }?.substringAfter('=')?.toBooleanStrictOrNull() ?: false
+            return ZygiskConfig(entries, profile, observe, autoScan).normalized()
         }
 
         fun fromPackages(packages: Iterable<String>): ZygiskConfig {
@@ -76,10 +90,15 @@ data class ZygiskConfig(
             val parts = line.split('|', limit = 2)
             val packageName = parts[0].trim()
             val processName = parts.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }
-            if (!ZygiskPackagePolicy.isManagedPackage(packageName)) return null
-            if (processName != null && !ZygiskPackagePolicy.isValidProcessName(packageName, processName)) return null
-            return ZygiskConfigEntry(packageName, processName)
+            val enabled = !packageName.startsWith("-")
+            val normalizedPackage = packageName.removePrefix("-")
+            if (!ZygiskPackagePolicy.isManagedPackage(normalizedPackage)) return null
+            if (processName != null && !ZygiskPackagePolicy.isValidProcessName(normalizedPackage, processName)) return null
+            return ZygiskConfigEntry(normalizedPackage, processName, enabled)
         }
+
+        const val DEFAULT_PROFILE = "miui14"
+        val SUPPORTED_PROFILES = setOf("miui14", "hyperos1", "legacy-v11")
     }
 }
 

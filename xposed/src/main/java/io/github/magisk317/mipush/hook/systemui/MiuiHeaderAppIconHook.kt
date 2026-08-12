@@ -78,6 +78,7 @@ class MiuiHeaderAppIconHook {
             notification = notification,
             extras = extras,
             targetPackage = targetPackage,
+            userId = userId,
         )
         if (
             !MiuiHeaderAppIconPolicy.shouldReplace(
@@ -126,6 +127,7 @@ class MiuiHeaderAppIconHook {
         notification: Notification,
         extras: Bundle,
         targetPackage: String,
+        userId: Int?,
     ): HeaderReplacement {
         // Notification.smallIcon is the only permitted header transport for a third-party pack.
         // The explicit identity marker prevents an ordinary/original smallIcon from being
@@ -145,7 +147,7 @@ class MiuiHeaderAppIconHook {
             return HeaderReplacement(MiuiHeaderAppIconSource.THIRD_PARTY_PACK, passedSmallIcon)
         }
 
-        val targetAppIcon = resolveTargetAppIconDrawable(context, targetPackage)
+        val targetAppIcon = resolveTargetAppIconDrawable(context, targetPackage, userId)
         val source = MiuiHeaderAppIconPolicy.selectReplacementSource(
             hasPassedThirdPartySmallIcon = false,
             hasTargetAppIcon = targetAppIcon != null,
@@ -158,13 +160,46 @@ class MiuiHeaderAppIconHook {
         }
     }
 
-    private fun resolveTargetAppIconDrawable(context: Context, packageName: String): Drawable? {
+    private fun resolveTargetAppIconDrawable(
+        context: Context,
+        packageName: String,
+        userId: Int?,
+    ): Drawable? {
+        val lookupContext = if (userId == null) {
+            context
+        } else {
+            resolveUserContext(context, userId) ?: return null
+        }
         return runCatching {
-            context.packageManager.getApplicationIcon(packageName)
+            lookupContext.packageManager.getApplicationIcon(packageName)
         }.onFailure {
             XLog.e(
                 TAG,
                 "failed to resolve target app icon pkgDigest=${digestIdentity(packageName)}",
+                it,
+            )
+        }.getOrNull()
+    }
+
+    private fun resolveUserContext(context: Context, userId: Int): Context? {
+        if (userId == 0) return context
+        return runCatching {
+            val userHandleClass = UserHandle::class.java
+            val userHandle = userHandleClass
+                .getMethod("of", Int::class.javaPrimitiveType)
+                .invoke(null, userId)
+            Context::class.java
+                .getMethod(
+                    "createContextAsUser",
+                    userHandleClass,
+                    Int::class.javaPrimitiveType,
+                )
+                .invoke(context, userHandle, 0) as Context
+        }.onFailure {
+            XLog.e(
+                TAG,
+                "skip target app icon for unavailable notification user=" +
+                    digestIdentity("user:$userId"),
                 it,
             )
         }.getOrNull()

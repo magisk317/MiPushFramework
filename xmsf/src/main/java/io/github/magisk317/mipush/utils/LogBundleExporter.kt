@@ -6,6 +6,8 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.content.Intent
+import android.app.ActivityManager
+import android.os.Build
 import android.os.SystemClock
 import java.io.File
 import java.util.Collections
@@ -15,6 +17,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
 import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
 import io.github.magisk317.mipush.diagnostics.DiagnosticFileSanitizer
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -28,6 +31,7 @@ object LogBundleExporter {
     private const val STAGING_STALE_MAX_AGE_MS = 30L * 60L * 1000L
     private const val XMSF_KEEPER_PACKAGE = "com.xiaomi.xmsfkeeper"
     private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
+    private const val APPLICATION_EXIT_HISTORY_FILE = "application_exit_history.txt"
     private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
     private const val PRIVATE_LOG_DIR_NAME = "log"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
@@ -153,6 +157,9 @@ object LogBundleExporter {
                 submit("copyAppLogs") { copyAppLogs(context, stagingDir, safeDetails) },
                 submit("copyCrashLogs") { copyCrashLogs(context, stagingDir, safeDetails) },
                 submit("copyMiPushSdkLogs") { copyMiPushSdkLogs(context, stagingDir, safeDetails) },
+                submit("captureApplicationExitHistory") {
+                    captureApplicationExitHistory(context, stagingDir, safeDetails)
+                },
                 submit("captureLogcat") { captureLogcat(stagingDir, safeDetails) },
             )
             localJobs.forEach { it.get() }
@@ -522,6 +529,52 @@ object LogBundleExporter {
         if (su) {
             details += "logcat: su"
         }
+    }
+
+    private fun captureApplicationExitHistory(
+        context: Context,
+        stagingDir: File,
+        details: MutableList<String>,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            details += "application exit history skipped: api<30"
+            return
+        }
+        val output = File(stagingDir, "system/$APPLICATION_EXIT_HISTORY_FILE")
+        val parent = output.parentFile
+        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
+            details += "application exit history failed: output dir unavailable"
+            return
+        }
+        val manager = context.getSystemService(ActivityManager::class.java)
+        if (manager == null) {
+            details += "application exit history skipped: activity manager unavailable"
+            return
+        }
+        val exits = runCatching {
+            manager.getHistoricalProcessExitReasons(context.packageName, 12, 0)
+        }.getOrElse { error ->
+            details += "application exit history failed: ${error.javaClass.simpleName}"
+            return
+        }
+        output.writeText(buildString {
+            appendLine("# ApplicationExitInfo history for ${context.packageName}")
+            appendLine("# Memory-related rows are marked for Android 17 limiter diagnosis.")
+            appendLine("count=${exits.size}")
+            exits.forEachIndexed { index, info ->
+                val memoryRelated = MemoryLimitDiagnostics.isMemoryRelatedExitReason(info.reason)
+                appendLine()
+                appendLine("[$index]")
+                appendLine("memoryRelated=$memoryRelated")
+                appendLine("reason=${info.reason}")
+                appendLine("status=${info.status}")
+                appendLine("timestamp=${info.timestamp}")
+                appendLine("pssKb=${info.pss}")
+                appendLine("rssKb=${info.rss}")
+                appendLine("description=${info.description.orEmpty()}")
+            }
+        })
+        details += "application exit history: system/$APPLICATION_EXIT_HISTORY_FILE entries=${exits.size}"
     }
 
     private fun captureXmsfKeepaliveDiagnostics(stagingDir: File, details: MutableList<String>) {

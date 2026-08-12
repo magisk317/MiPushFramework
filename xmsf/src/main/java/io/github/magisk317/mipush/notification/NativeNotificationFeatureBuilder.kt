@@ -15,7 +15,8 @@ import com.xiaomi.xmsf.R
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
-import java.util.concurrent.ConcurrentHashMap
+import io.github.magisk317.mipush.common.utils.Utils
+import java.util.LinkedHashMap
 
 internal object NativeNotificationFeatureBuilder {
     private const val TAG = "NativeNotificationFeatureBuilder"
@@ -147,28 +148,54 @@ internal object NativeNotificationFeatureBuilder {
         }
     }
 
-    fun notificationKey(packageName: String, notificationId: Int, tag: String?): String {
-        return "$packageName:$notificationId:${tag.orEmpty()}"
+    fun notificationKey(
+        packageName: String,
+        notificationId: Int,
+        tag: String?,
+        userId: Int = currentUserId(),
+    ): String {
+        return "$userId:$packageName:$notificationId:${tag.orEmpty()}"
     }
 
-    fun releaseMediaSession(packageName: String, notificationId: Int, tag: String?) {
-        releaseMediaSession(notificationKey(packageName, notificationId, tag))
+    fun releaseMediaSession(
+        packageName: String,
+        notificationId: Int,
+        tag: String?,
+        userId: Int = currentUserId(),
+    ) {
+        releaseMediaSession(notificationKey(packageName, notificationId, tag, userId))
     }
 
-    fun releaseMediaSessionsForTag(packageName: String, tag: String?) {
-        val prefix = "$packageName:"
+    fun releaseMediaSessionsForTag(
+        packageName: String,
+        tag: String?,
+        userId: Int = currentUserId(),
+    ) {
+        val prefix = "$userId:$packageName:"
         val suffix = ":${tag.orEmpty()}"
-        mediaSessions.keys
-            .filter { it.startsWith(prefix) && it.endsWith(suffix) }
-            .forEach(::releaseMediaSession)
+        val keys = synchronized(mediaSessionLock) {
+            mediaSessions.keys.filter { it.startsWith(prefix) && it.endsWith(suffix) }
+        }
+        keys.forEach(::releaseMediaSession)
+    }
+
+    fun clearPackageState(packageName: String, userId: Int = currentUserId()) {
+        val prefix = "$userId:$packageName:"
+        val keys = synchronized(mediaSessionLock) {
+            mediaSessions.keys.filter { it.startsWith(prefix) }
+        }
+        keys.forEach(::releaseMediaSession)
     }
 
     private fun releaseMediaSession(key: String) {
-        mediaSessions.remove(key)?.runCatching {
+        val session = synchronized(mediaSessionLock) { mediaSessions.remove(key) }
+        session?.runCatching {
             isActive = false
             release()
         }
     }
+
+    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
     private fun nativeCategory(
         style: NotificationStyle?,
@@ -288,32 +315,34 @@ internal object NativeNotificationFeatureBuilder {
         metaInfo: PushMetaInfo,
         contentIntent: PendingIntent?,
     ): MediaSession.Token {
-        evictOldestMediaSessionsIfNeeded()
-        val session = mediaSessions.compute(key) { _, existing ->
-            existing ?: MediaSession(context.applicationContext, "MiPushFramework:$packageName").apply {
-                @Suppress("DEPRECATION")
-                setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+        return synchronized(mediaSessionLock) {
+            val session = mediaSessions[key] ?: run {
+                evictOldestMediaSessionsIfNeeded()
+                MediaSession(context.applicationContext, "MiPushFramework:$packageName").apply {
+                    @Suppress("DEPRECATION")
+                    setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+                }.also { mediaSessions[key] = it }
             }
-        }!!
-        contentIntent?.let(session::setSessionActivity)
-        session.setMetadata(
-            MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, metaInfo.title.orEmpty())
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, metaInfo.description.orEmpty())
-                .build(),
-        )
-        session.setPlaybackState(
-            PlaybackState.Builder()
-                .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
-                .setActions(
-                    PlaybackState.ACTION_PLAY_PAUSE or
-                        PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-                        PlaybackState.ACTION_SKIP_TO_NEXT,
-                )
-                .build(),
-        )
-        session.isActive = true
-        return session.sessionToken
+            contentIntent?.let(session::setSessionActivity)
+            session.setMetadata(
+                MediaMetadata.Builder()
+                    .putString(MediaMetadata.METADATA_KEY_TITLE, metaInfo.title.orEmpty())
+                    .putString(MediaMetadata.METADATA_KEY_ARTIST, metaInfo.description.orEmpty())
+                    .build(),
+            )
+            session.setPlaybackState(
+                PlaybackState.Builder()
+                    .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
+                    .setActions(
+                        PlaybackState.ACTION_PLAY_PAUSE or
+                            PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackState.ACTION_SKIP_TO_NEXT,
+                    )
+                    .build(),
+            )
+            session.isActive = true
+            session.sessionToken
+        }
     }
 
     private fun markNativeFeature(
@@ -328,16 +357,18 @@ internal object NativeNotificationFeatureBuilder {
     }
 
     private const val MAX_MEDIA_SESSIONS = 50
-    private val mediaSessions = ConcurrentHashMap<String, MediaSession>()
+    private val mediaSessionLock = Any()
+    private val mediaSessions = LinkedHashMap<String, MediaSession>(16, 0.75f, true)
 
     private fun evictOldestMediaSessionsIfNeeded() {
-        if (mediaSessions.size > MAX_MEDIA_SESSIONS) {
-            val keysToEvict = mediaSessions.keys.take(mediaSessions.size - MAX_MEDIA_SESSIONS)
-            keysToEvict.forEach { key ->
-                mediaSessions.remove(key)?.runCatching {
-                    isActive = false
-                    release()
-                }
+        while (mediaSessions.size >= MAX_MEDIA_SESSIONS) {
+            val iterator = mediaSessions.entries.iterator()
+            if (!iterator.hasNext()) return
+            val session = iterator.next().value
+            iterator.remove()
+            runCatching {
+                session.isActive = false
+                session.release()
             }
         }
     }

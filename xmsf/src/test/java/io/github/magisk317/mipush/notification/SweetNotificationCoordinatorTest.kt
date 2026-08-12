@@ -154,8 +154,20 @@ class SweetNotificationCoordinatorTest {
         )
         assertNull(SweetNotificationCoordinator.parseMilepost("broken"))
         assertEquals(
+            "n_sweet_timeout_999_42_com.example.app",
+            SweetNotificationCoordinator.jobId("com.example.app", 42, 999),
+        )
+        assertEquals(
             "n_sweet_timeout_42_com.example.app",
             SweetNotificationCoordinator.jobId("com.example.app", 42),
+        )
+        assertEquals(
+            SweetNotificationCoordinator.TrackedNotification("com.example.app", 42, 999),
+            SweetNotificationCoordinator.parseStateKey("999|com.example.app-42"),
+        )
+        assertEquals(
+            SweetNotificationCoordinator.TrackedNotification("com.example.app", 42, 0),
+            SweetNotificationCoordinator.parseStateKey("com.example.app-42"),
         )
     }
 

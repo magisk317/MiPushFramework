@@ -11,6 +11,8 @@ import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 import java.util.concurrent.atomic.AtomicInteger
 
+// Keep Robolectric: this test relies on Android framework implementations indirectly;
+// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class NotificationChannelNameRuntimeEnricherTest {
@@ -107,15 +109,20 @@ class NotificationChannelNameRuntimeEnricherTest {
             dumpTtlMillis = 0L,
             probeSettleMillis = 0L,
             sleeper = {},
-            channelProber = ChannelNameProber { pkg, ids ->
+            channelProber = ChannelNameProber { pkg, ids, userId ->
                 probeCalls.incrementAndGet()
                 assertEquals(packageName, pkg)
                 assertEquals(listOf("ch_com.ruanmei.ithome_118566"), ids)
+                assertEquals(999, userId)
                 true
             },
         )
 
-        val enriched = enricher.enrich(packageName, listOf(channel))
+        val enriched = enricher.enrich(
+            packageName,
+            listOf(channel),
+            packageUid = 999 * 100_000 + 10_357,
+        )
 
         assertEquals(1, probeCalls.get())
         assertEquals("热点新闻通知", enriched.single().name.toString())

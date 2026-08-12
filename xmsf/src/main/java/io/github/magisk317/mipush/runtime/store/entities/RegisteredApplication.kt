@@ -31,7 +31,7 @@ import kotlin.annotation.AnnotationRetention.SOURCE
  */
 @Entity(
     tableName = "REGISTERED_APPLICATION",
-    indices = [Index(value = ["pkg"], unique = true)]
+    indices = [Index(value = ["user_id", "pkg"], unique = true)]
 )
 class RegisteredApplication : Parcelable {
 
@@ -73,6 +73,9 @@ class RegisteredApplication : Parcelable {
 
     @ColumnInfo(name = "pkg")
     var packageName: String = ""
+
+    @ColumnInfo(name = "user_id", defaultValue = "0")
+    var userId: Int = 0
 
     @Type
     @ColumnInfo(name = "type")

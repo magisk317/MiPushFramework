@@ -64,4 +64,12 @@ class IslandPreferenceProviderPolicyTest {
             ),
         )
     }
+
+    @Test
+    fun `package scoped reads require an explicit Android user`() {
+        assertTrue(provider.requiresExplicitUserScope("com.example.app", null))
+        assertFalse(provider.requiresExplicitUserScope("com.example.app", 0))
+        assertFalse(provider.requiresExplicitUserScope(null, null))
+        assertFalse(provider.requiresExplicitUserScope("", null))
+    }
 }

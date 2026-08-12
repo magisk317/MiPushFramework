@@ -35,4 +35,10 @@ class PushRuntimeDuplicateStoreTest {
         assertFalse(PushRuntimeDuplicateStore.checkAndMark(entries, "msg-1", nowMs = 1_000L))
         assertTrue(PushRuntimeDuplicateStore.checkAndMark(entries, "msg-1", nowMs = 2_000L))
     }
+
+    @Test
+    fun `storage keys isolate cloned users while preserving primary key`() {
+        assertEquals("com.example.app", PushRuntimeDuplicateStore.storageKey("com.example.app", 0))
+        assertEquals("999:com.example.app", PushRuntimeDuplicateStore.storageKey("com.example.app", 999))
+    }
 }

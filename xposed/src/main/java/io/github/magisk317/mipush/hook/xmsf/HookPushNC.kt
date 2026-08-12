@@ -63,23 +63,17 @@ object HookPushNC {
             return
         }
 
-        try {
-            classNotificationManager["isHooked"] = true
-            XLog.i(TAG, "marked NotificationManagerEx.isHooked = true")
-        } catch (e: Throwable) {
-            XLog.e(TAG, "failed to mark NotificationManagerEx.isHooked", e)
-        }
-
         //notify(
         //        packageName: String,
-        //        tag: String?, id: Int, notification: Notification
+        //        tag: String?, id: Int, notification: Notification, userId: Int
         //    ): Boolean
         classNotificationManager.hookMethod(
             "notify",
             String::class.java,
             String::class.java,
             Int::class.java,
-            Notification::class.java
+            Notification::class.java,
+            Int::class.java,
         ) {
             doBefore {
                 SystemNotificationManager.prepareMonochromeTargetNotification(
@@ -101,13 +95,14 @@ object HookPushNC {
 
         //cancel(
         //        packageName: String,
-        //        tag: String?, id: Int
+        //        tag: String?, id: Int, userId: Int
         //    )
         classNotificationManager.hookMethod(
             "cancel",
             String::class.java,
             String::class.java,
-            Int::class.java
+            Int::class.java,
+            Int::class.java,
         ) {
             replace(hookCheck) {
                 tryInvoke {
@@ -310,7 +305,17 @@ object HookPushNC {
             }
         }
 
-        hookIdentityBridge(classLoader)
+        val identityBridgeHooked = hookIdentityBridge(classLoader)
+        if (identityBridgeHooked) {
+            try {
+                classNotificationManager["isHooked"] = true
+                XLog.i(TAG, "marked NotificationManagerEx.isHooked = true")
+            } catch (e: Throwable) {
+                XLog.e(TAG, "failed to mark NotificationManagerEx.isHooked", e)
+            }
+        } else {
+            XLog.w(TAG, "identity bridge hooks unavailable; keeping NotificationManagerEx.isHooked = false")
+        }
         XLog.i(TAG, "host notification takeover hooks installed")
         MagiskOtel.event(
             name = "notify.intercept",
@@ -325,11 +330,11 @@ object HookPushNC {
         )
     }
 
-    private fun hookIdentityBridge(classLoader: ClassLoader) {
+    private fun hookIdentityBridge(classLoader: ClassLoader): Boolean {
         val identityBridgeClass = runCatching { classLoader.findClass(IdentityBridgeClass) }
             .getOrElse {
                 XLog.d(TAG, "identity bridge class not found, skip")
-                return
+                return false
             }
         val bridgeHookApiVersion = runCatching {
             identityBridgeClass.getOrNull<Int>("HOOK_API_VERSION") ?: 0
@@ -340,18 +345,12 @@ object HookPushNC {
                 "NotificationIdentityBridge hook api mismatch: expected=$ExpectedHookApiVersion actual=$bridgeHookApiVersion",
                 null
             )
-            return
-        }
-        try {
-            identityBridgeClass["isHooked"] = true
-            XLog.i(TAG, "marked NotificationIdentityBridge.isHooked = true")
-        } catch (e: Throwable) {
-            XLog.e(TAG, "failed to mark NotificationIdentityBridge.isHooked", e)
+            return false
         }
         val identityStrategyClass = runCatching { classLoader.findClass(IdentityStrategyClass) }
             .getOrElse {
                 XLog.d(TAG, "identity strategy enum not found, skip")
-                return
+                return false
             }
 
         val frameworkStrategy = runCatching {
@@ -359,7 +358,7 @@ object HookPushNC {
             java.lang.Enum.valueOf(identityStrategyClass as Class<out Enum<*>>, "FRAMEWORK")
         }.getOrElse {
             XLog.e(TAG, "resolve FRAMEWORK strategy failed", it)
-            return
+            return false
         }
         XLog.i(TAG, "installing identity bridge hooks")
 
@@ -496,7 +495,15 @@ object HookPushNC {
                 }
             }
         }
+        try {
+            identityBridgeClass["isHooked"] = true
+            XLog.i(TAG, "marked NotificationIdentityBridge.isHooked = true")
+        } catch (e: Throwable) {
+            XLog.e(TAG, "failed to mark NotificationIdentityBridge.isHooked", e)
+            return false
+        }
         XLog.i(TAG, "identity bridge hooks installed")
+        return true
     }
 
     private inline fun <R> tryInvoke(invoke: () -> R): R {

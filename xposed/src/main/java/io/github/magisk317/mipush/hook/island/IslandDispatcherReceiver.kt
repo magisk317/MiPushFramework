@@ -40,8 +40,9 @@ internal object IslandDispatcherReceiver {
                         IslandDispatchContract.EXTRA_NOTIFICATION_ID,
                         IslandDispatchContract.DEFAULT_NOTIFICATION_ID,
                     )
+                    val userId = intent.getIntExtra(IslandDispatchContract.EXTRA_USER_ID, -1)
                     runCatching {
-                        IslandDispatcher.cancel(appContext, notificationId)
+                        IslandDispatcher.cancel(appContext, notificationId, userId)
                     }.fold(
                         onSuccess = {
                             emitIsland(startedAt, result = "ok", reason = "cancel")

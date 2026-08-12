@@ -95,6 +95,75 @@ object AppDatabaseMigrations {
     }
 
     @JvmField
+    val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `EVENT` ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL(
+                "ALTER TABLE `REGISTERED_APPLICATION` " +
+                    "ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL("DROP INDEX IF EXISTS `index_EVENT_pkg`")
+            db.execSQL("DROP INDEX IF EXISTS `index_EVENT_date`")
+            db.execSQL("DROP INDEX IF EXISTS `index_REGISTERED_APPLICATION_pkg`")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_user_id_pkg` " +
+                    "ON `REGISTERED_APPLICATION` (`user_id`, `pkg`)"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_EVENT_user_id_pkg` ON `EVENT` (`user_id`, `pkg`)"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_EVENT_user_id_date` ON `EVENT` (`user_id`, `date`)"
+            )
+        }
+    }
+
+    @JvmField
+    val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `DELETED_EVENT` (
+                    `id` INTEGER NOT NULL,
+                    `user_id` INTEGER NOT NULL,
+                    `pkg` TEXT NOT NULL,
+                    `type` INTEGER NOT NULL,
+                    `date` INTEGER NOT NULL,
+                    `result` INTEGER NOT NULL,
+                    `dev_info` TEXT,
+                    `search_text` TEXT,
+                    `payload` BLOB,
+                    `reg_sec` TEXT,
+                    PRIMARY KEY(`id`, `user_id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_DELETED_EVENT_user_id_date` " +
+                    "ON `DELETED_EVENT` (`user_id`, `date`)"
+            )
+        }
+    }
+
+    @JvmField
+    val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `DELETED_EVENT` ADD COLUMN `deleted_at` INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    @JvmField
     val ALL: Array<Migration> =
-        arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+        )
 }

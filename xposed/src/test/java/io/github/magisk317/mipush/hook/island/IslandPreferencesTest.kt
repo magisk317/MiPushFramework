@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class IslandPreferencesTest {
     @BeforeEach
@@ -43,8 +44,33 @@ class IslandPreferencesTest {
 
         val refresh = IslandPreferences.prepareRefresh()
 
-        assertEquals(packageOptions, IslandPreferences.current(packageName))
-        assertTrue(packageName in refresh.packageNames)
+        assertEquals(packageOptions, IslandPreferences.current(packageName, userId = 0))
+        assertTrue(IslandPreferences.PackageKey(0, packageName) in refresh.packageNames)
+    }
+
+    @Test
+    fun `package settings cache is isolated by user`() {
+        val packageName = "example.app"
+        val ownerOptions = IslandOptions(enabled = false, visualEnabled = false)
+        val cloneOptions = IslandOptions(enabled = true, visualEnabled = true)
+        IslandPreferences.cachePackageOptionsForTest(packageName, ownerOptions, userId = 0)
+        IslandPreferences.cachePackageOptionsForTest(packageName, cloneOptions, userId = 999)
+
+        assertEquals(ownerOptions, IslandPreferences.current(packageName, userId = 0))
+        assertEquals(cloneOptions, IslandPreferences.current(packageName, userId = 999))
+    }
+
+    @Test
+    fun `unknown package user does not reuse the primary user cache`() {
+        val packageName = "example.app"
+        val ownerOptions = IslandOptions(enabled = true, focusNotification = true, visualEnabled = true)
+        IslandPreferences.cachePackageOptionsForTest(packageName, ownerOptions, userId = 0)
+
+        val options = IslandPreferences.current(packageName)
+
+        assertFalse(options.enabled)
+        assertFalse(options.focusNotification)
+        assertFalse(options.visualEnabled)
     }
 
     @Test
@@ -54,5 +80,32 @@ class IslandPreferencesTest {
         )
 
         assertFalse(IslandPreferences.current("uncached.app").canInjectFocusPayload)
+    }
+
+    @Test
+    fun `uncached package does not inherit globally enabled visual rendering`() {
+        IslandPreferences.resetForTest(IslandOptions(visualEnabled = true))
+
+        assertFalse(IslandPreferences.current("uncached.app").visualEnabled)
+    }
+
+    @Test
+    fun `provider read does not convert missing results into default options`() {
+        val source = sourceFile().readText()
+
+        assertTrue(source.contains("} ?: error(\"island preference provider returned no cursor\")"))
+        assertTrue(source.contains("check(values.isNotEmpty()) { \"island preference provider returned no values\" }"))
+        assertFalse(source.contains("}.orEmpty()"))
+    }
+
+    private fun sourceFile(): File {
+        var directory = File(System.getProperty("user.dir") ?: error("user.dir is unavailable"))
+        while (!File(directory, "settings.gradle.kts").isFile) {
+            directory = directory.parentFile ?: error("repository root not found")
+        }
+        return File(
+            directory,
+            "xposed/src/main/java/io/github/magisk317/mipush/hook/island/IslandPreferences.kt",
+        )
     }
 }

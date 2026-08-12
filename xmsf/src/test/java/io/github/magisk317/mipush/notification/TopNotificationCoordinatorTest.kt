@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -198,5 +199,14 @@ class TopNotificationCoordinatorTest {
     @Test
     fun `job id matches stock m2 contract`() {
         assertEquals("n_top_update_42_message", TopNotificationCoordinator.jobId(42, "message"))
+        assertEquals("n_top_update_999_42_message", TopNotificationCoordinator.jobId(42, "message", 999))
+    }
+
+    @Test
+    fun `runtime job id isolates target packages`() {
+        val first = TopNotificationCoordinator.scopedJobId("com.example.first", 42, "message", 0)
+        val second = TopNotificationCoordinator.scopedJobId("com.example.second", 42, "message", 0)
+
+        assertNotEquals(first, second)
     }
 }

@@ -101,7 +101,7 @@ class Property1PayloadDedupeConsistencyTest {
         @ForAll("startTimestamps") startTime: Long,
     ) {
         StockMiPushPayloadDeduper.reset()
-        val result = StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime)
+        val result = StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime, userId = 0)
         assertFalse(
             result,
             "First submission of pkg=[$pkg] must not be dropped",
@@ -122,11 +122,11 @@ class Property1PayloadDedupeConsistencyTest {
     ) {
         StockMiPushPayloadDeduper.reset()
         // First submission — admitted
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime, userId = 0))
         // Same key within window — dropped
         val secondTime = startTime + delta
         assertTrue(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, secondTime),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, secondTime, userId = 0),
             "Same (pkg=[$pkg], payload) within ${delta}ms (<=60s) must be dropped",
         )
     }
@@ -146,18 +146,18 @@ class Property1PayloadDedupeConsistencyTest {
     ) {
         StockMiPushPayloadDeduper.reset()
         // First submission — admitted
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime, userId = 0))
 
         // After 60s: expired hit — still reports duplicate (stock behavior)
         val expiredTime = startTime + expiredDelta
         assertTrue(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime, userId = 0),
             "Expired hit at +${expiredDelta}ms must still report duplicate (stock behavior)",
         )
 
         // After expired entry removal: next same key is admitted as NEW
         assertFalse(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 1),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 1, userId = 0),
             "After expired entry is removed, same key must be admitted as NEW",
         )
     }
@@ -175,10 +175,10 @@ class Property1PayloadDedupeConsistencyTest {
     ) {
         StockMiPushPayloadDeduper.reset()
         // Submit payload A
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payloads.payloadA, startTime))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkg, payloads.payloadA, startTime, userId = 0))
         // Submit payload B — should be admitted independently
         assertFalse(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payloads.payloadB, startTime + 1),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payloads.payloadB, startTime + 1, userId = 0),
             "Different payload for same pkg=[$pkg] must use independent key",
         )
     }
@@ -196,10 +196,10 @@ class Property1PayloadDedupeConsistencyTest {
     ) {
         StockMiPushPayloadDeduper.reset()
         // Submit for package A
-        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkgs.pkgA, payload, startTime))
+        assertFalse(StockMiPushPayloadDeduper.shouldDrop(pkgs.pkgA, payload, startTime, userId = 0))
         // Submit same payload for package B — should be admitted independently
         assertFalse(
-            StockMiPushPayloadDeduper.shouldDrop(pkgs.pkgB, payload, startTime + 1),
+            StockMiPushPayloadDeduper.shouldDrop(pkgs.pkgB, payload, startTime + 1, userId = 0),
             "Same payload for different packages (${pkgs.pkgA} vs ${pkgs.pkgB}) must use independent keys",
         )
     }
@@ -222,32 +222,32 @@ class Property1PayloadDedupeConsistencyTest {
 
         // Phase 1: First submission — NEW
         assertFalse(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime, userId = 0),
             "Phase 1: First submission must be NEW",
         )
 
         // Phase 2: Within window — DUPLICATE
         assertTrue(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime + withinDelta),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, startTime + withinDelta, userId = 0),
             "Phase 2: Within-window resubmission must be DUPLICATE",
         )
 
         // Phase 3: Expired hit — still DUPLICATE (stock behavior), removes entry
         val expiredTime = startTime + expiredDelta
         assertTrue(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime, userId = 0),
             "Phase 3: Expired hit must still be DUPLICATE",
         )
 
         // Phase 4: After removal — NEW again
         assertFalse(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 1),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 1, userId = 0),
             "Phase 4: After expired removal, must be NEW",
         )
 
         // Phase 5: New entry within window — DUPLICATE again
         assertTrue(
-            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 2),
+            StockMiPushPayloadDeduper.shouldDrop(pkg, payload, expiredTime + 2, userId = 0),
             "Phase 5: Within window of new entry, must be DUPLICATE again",
         )
     }

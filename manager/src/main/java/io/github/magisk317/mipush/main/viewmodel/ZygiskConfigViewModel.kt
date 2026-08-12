@@ -6,6 +6,9 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
@@ -20,7 +23,16 @@ data class ZygiskConfigState(
     val isZygiskEnabled: Boolean = false,
     val hasRootAccess: Boolean = true,
     val spoofPackages: Set<String> = emptySet(),
-    val installedApps: List<ManagerApplication> = emptyList()
+    val installedApps: List<ManagerApplication> = emptyList(),
+    val profile: String = ZygiskConfig.DEFAULT_PROFILE,
+    val observe: Boolean = false,
+    val autoScan: Boolean = false,
+    val scanCandidates: List<String> = emptyList(),
+    val configReadAvailable: Boolean = false,
+    val configReadError: String? = null,
+    val zygiskStatusAvailable: Boolean = false,
+    val zygiskStatusError: String? = null,
+    val scanError: String? = null,
 )
 
 class ZygiskConfigViewModel(
@@ -41,9 +53,11 @@ class ZygiskConfigViewModel(
                     permissionGateway.refreshRootAccessIfGranted()
             }
 
-            val isZygiskEnabled = withContext(Dispatchers.IO) {
-                if (!hasRoot) false else settingsManager.isZygiskModuleEnabled()
+            val moduleResult = withContext(Dispatchers.IO) {
+                if (!hasRoot) ZygiskModuleReadResult.Unavailable("zygisk_root_missing")
+                else settingsManager.isZygiskModuleEnabled()
             }
+            val isZygiskEnabled = (moduleResult as? ZygiskModuleReadResult.Available)?.enabled ?: false
 
             val applications = withContext(Dispatchers.IO) {
                 when (val result = applicationSource.load(ApplicationListRequest())) {
@@ -60,21 +74,36 @@ class ZygiskConfigViewModel(
                 !it.blocked && ZygiskPackagePolicy.isManagedPackage(it.packageName)
             }
 
-            val zygiskConfig = withContext(Dispatchers.IO) {
-                if (!hasRoot) ZygiskConfig() else settingsManager.getZygiskConfig()
+            val configResult = withContext(Dispatchers.IO) {
+                if (!hasRoot) ZygiskConfigReadResult.Unavailable("zygisk_root_missing")
+                else settingsManager.getZygiskConfig()
             }
+            val availableConfig = (configResult as? ZygiskConfigReadResult.Available)?.config
 
-            _state.value = _state.value.copy(
+            val nextState = _state.value.copy(
                 isLoading = false,
                 isZygiskEnabled = isZygiskEnabled,
                 hasRootAccess = hasRoot,
-                spoofPackages = zygiskConfig.enabledPackages() - blockedPackages,
                 installedApps = appsList,
+                configReadAvailable = configResult is ZygiskConfigReadResult.Available,
+                configReadError = (configResult as? ZygiskConfigReadResult.Unavailable)?.reason,
+                zygiskStatusAvailable = moduleResult is ZygiskModuleReadResult.Available,
+                zygiskStatusError = (moduleResult as? ZygiskModuleReadResult.Unavailable)?.reason,
+                scanError = null,
             )
+            _state.value = availableConfig?.let { config ->
+                nextState.copy(
+                    spoofPackages = config.enabledPackages() - blockedPackages,
+                    profile = config.profile,
+                    observe = config.observe,
+                    autoScan = config.autoScan,
+                )
+            } ?: nextState
         }
     }
 
     fun togglePackage(packageName: String, enabled: Boolean) {
+        if (!_state.value.configReadAvailable) return
         val currentPackages = _state.value.spoofPackages.toMutableSet()
         if (enabled) {
             currentPackages.add(packageName)
@@ -86,10 +115,23 @@ class ZygiskConfigViewModel(
 
     fun saveConfig(onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
+            if (!_state.value.configReadAvailable) {
+                onError()
+                return@launch
+            }
             val (hasRoot, success) = withContext(Dispatchers.IO) {
                 val granted = permissionGateway.requestRootAccess()
+                val current = (settingsManager.getZygiskConfig() as? ZygiskConfigReadResult.Available)?.config
+                if (!granted || current == null) return@withContext granted to false
+                val installedPackages = _state.value.installedApps.map { it.packageName }.toSet()
+                val preserved = current.entries.filterNot { it.packageName in installedPackages }
+                val packageEntries = _state.value.spoofPackages.map { io.github.magisk317.mipush.common.fakedevice.ZygiskConfigEntry(it) }
                 val saved = granted && settingsManager.saveZygiskConfig(
-                    ZygiskConfig.fromPackages(_state.value.spoofPackages),
+                    current.copy(entries = preserved + packageEntries).copy(
+                        profile = _state.value.profile,
+                        observe = _state.value.observe,
+                        autoScan = _state.value.autoScan,
+                    ),
                 )
                 granted to saved
             }
@@ -98,6 +140,36 @@ class ZygiskConfigViewModel(
                 onSuccess()
             } else {
                 onError()
+            }
+        }
+    }
+
+    fun setProfile(profile: String) {
+        if (_state.value.configReadAvailable && profile in ZygiskConfig.SUPPORTED_PROFILES) {
+            _state.value = _state.value.copy(profile = profile)
+        }
+    }
+
+    fun setObserve(enabled: Boolean) {
+        if (_state.value.configReadAvailable) _state.value = _state.value.copy(observe = enabled)
+    }
+
+    fun setAutoScan(enabled: Boolean) {
+        if (_state.value.configReadAvailable) _state.value = _state.value.copy(autoScan = enabled)
+    }
+
+    fun scan() {
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val result = settingsManager.scanZygiskPackages()) {
+                is ZygiskPackageScanResult.Available -> {
+                    _state.value = _state.value.copy(
+                        scanCandidates = result.output.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
+                        scanError = null,
+                    )
+                }
+                is ZygiskPackageScanResult.Unavailable -> {
+                    _state.value = _state.value.copy(scanError = result.reason)
+                }
             }
         }
     }

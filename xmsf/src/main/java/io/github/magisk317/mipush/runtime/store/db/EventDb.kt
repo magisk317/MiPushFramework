@@ -21,6 +21,8 @@ import io.github.magisk317.mipush.runtime.store.event.EventType
 object EventDb {
     /** 事件记录默认保留天数(与既有硬编码行为保持一致)。 */
     const val DEFAULT_RETENTION_DAYS = 7
+    private const val UNDO_RETENTION_MS = 24L * 60L * 60L * 1000L
+    private const val MAX_UNDO_EVENTS = 64
 
     class RegistrationInfo {
         @JvmField
@@ -32,8 +34,9 @@ object EventDb {
 
     suspend fun insertEventAsync(event: Event): Long {
         Napier.d("insertEvent() called with: $event", tag = "EventDb")
+        event.userId = currentUserId()
         if (event.type == Event.Type.SendMessage) {
-            Utils.setLastReceiveTime(event.pkg, event.date)
+            Utils.setLastReceiveTime(event.pkg, event.date, event.userId)
         }
         val id = eventDao.insert(event)
         // 入库咽喉节流触发按天清理,避免事件表无上界增长(内部有时间间隔节流)。
@@ -41,12 +44,14 @@ object EventDb {
         return id
     }
 
-    suspend fun getByIdAsync(id: Long): Event? = eventDao.getById(id)
+    suspend fun getByIdAsync(id: Long, userId: Int = currentUserId()): Event? =
+        eventDao.getById(id, userId.coerceAtLeast(0))
 
     suspend fun insertOrReplaceEventAsync(event: Event): Long {
         Napier.d("insertOrReplaceEvent() called with: $event", tag = "EventDb")
+        event.userId = currentUserId()
         if (event.type == Event.Type.SendMessage) {
-            Utils.setLastReceiveTime(event.pkg, event.date)
+            Utils.setLastReceiveTime(event.pkg, event.date, event.userId)
         }
         val id = eventDao.insertOrReplace(event)
         EventRetentionManager.maybePruneAfterInsert()
@@ -69,6 +74,7 @@ object EventDb {
             payload = type.payload,
             regSec = Utils.getRegSec(type.pkg ?: ""),
             searchText = EventSearchTextBuilder.build(type),
+            userId = currentUserId(),
         )
     }
 
@@ -77,10 +83,11 @@ object EventDb {
         size: Int,
         types: Set<Int>?,
         pkg: String?,
-        text: String?
+        text: String?,
+        userId: Int = currentUserId(),
     ): List<Event> {
-        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE 1=1")
-        val args = mutableListOf<Any>()
+        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
+        val args = mutableListOf<Any>(userId.coerceAtLeast(0))
         if (lastId != null) {
             queryBuilder.append(" AND id < ?")
             args.add(lastId)
@@ -125,8 +132,8 @@ object EventDb {
         pkg: String?,
         text: String?
     ): List<Event> {
-        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE 1=1")
-        val args = mutableListOf<Any>()
+        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
+        val args = mutableListOf<Any>(currentUserId())
         if (!pkg.isNullOrBlank()) {
             queryBuilder.append(" AND pkg = ?")
             args.add(pkg)
@@ -158,16 +165,41 @@ object EventDb {
     suspend fun deleteHistoryAsync(retentionDays: Int = DEFAULT_RETENTION_DAYS) {
         val days = retentionDays.coerceAtLeast(1)
         val cutoff = System.currentTimeMillis() - 1000L * 3600L * 24 * days
-        eventDao.deleteHistory(cutoff)
+        eventDao.deleteHistory(cutoff, currentUserId())
     }
 
     suspend fun deleteByIdAsync(id: Long): Boolean {
-        return eventDao.deleteById(id) > 0
+        return eventDao.deleteById(id, currentUserId()) > 0
+    }
+
+    suspend fun deleteByIdWithUndoSnapshotAsync(
+        id: Long,
+        packageName: String,
+        userId: Int = currentUserId(),
+    ): Boolean {
+        val scopedUserId = userId.coerceAtLeast(0)
+        val deleted = eventDao.deleteByIdWithUndoSnapshotForPackage(id, scopedUserId, packageName)
+        if (deleted) {
+            eventDao.pruneDeletedEvents(
+                cutoff = System.currentTimeMillis() - UNDO_RETENTION_MS,
+                maxCount = MAX_UNDO_EVENTS,
+                userId = scopedUserId,
+            )
+        }
+        return deleted
+    }
+
+    suspend fun restoreDeletedEventAsync(
+        id: Long,
+        packageName: String,
+        userId: Int = currentUserId(),
+    ): Long? {
+        return eventDao.restoreDeletedEventForPackage(id, userId.coerceAtLeast(0), packageName)
     }
 
     /** 按本地日历日聚合可清理事件的条数(排除注册态),供日历清理界面高亮与计数。 */
     suspend fun countEventsByDayAsync(): List<DayCount> {
-        return eventDao.countEventsByDay()
+        return eventDao.countEventsByDay(currentUserId())
     }
 
     /**
@@ -175,7 +207,7 @@ object EventDb {
      * @return 实际删除条数。
      */
     suspend fun deleteHistoryInRangeAsync(start: Long, end: Long): Int {
-        return eventDao.deleteHistoryInRange(start, end)
+        return eventDao.deleteHistoryInRange(start, end, currentUserId())
     }
 
     /**
@@ -183,11 +215,11 @@ object EventDb {
      * @return 实际删除条数。
      */
     suspend fun deleteHistoryBeforeAsync(cutoff: Long): Int {
-        return eventDao.deleteHistory(cutoff)
+        return eventDao.deleteHistory(cutoff, currentUserId())
     }
 
     suspend fun queryRegisteredAsync(): RegistrationInfo {
-        val events = eventDao.queryRegisteredStatus()
+        val events = eventDao.queryRegisteredStatus(currentUserId())
         val info = RegistrationInfo()
         for (event in events) {
             val container = XMPushUtils.packToContainer(event.payload)
@@ -195,7 +227,7 @@ object EventDb {
             try {
                 data = ConvertUtils.getResponseMessageBodyFromContainer(
                     container,
-                    RegSecUtils.getRegSec(container)
+                    RegSecUtils.getRegSec(container, event.userId)
                 ) as XmPushActionRegistrationResult
             } catch (_: Exception) {
             }
@@ -209,18 +241,21 @@ object EventDb {
     }
 
     suspend fun getLastReceiveTimeAsync(packageName: String): Long {
-        val time = Utils.getLastReceiveTime(packageName)
+        val userId = currentUserId()
+        val time = Utils.getLastReceiveTime(packageName, userId)
         if (time != null) {
             return time
         }
 
-        val event = eventDao.getLastEventByType(packageName, Event.Type.SendMessage)
+        val event = eventDao.getLastEventByType(packageName, Event.Type.SendMessage, userId)
         val lastReceiveTime = event?.date ?: 0L
-        Utils.setLastReceiveTime(packageName, lastReceiveTime)
+        Utils.setLastReceiveTime(packageName, lastReceiveTime, userId)
         return lastReceiveTime
     }
 
     suspend fun getAllLastReceiveTimesAsync(): Map<String, Long> {
-        return eventDao.getAllLastReceiveTimes().associate { it.pkg to it.date }
+        return eventDao.getAllLastReceiveTimes(currentUserId()).associate { it.pkg to it.date }
     }
+
+    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 }

@@ -68,4 +68,47 @@ class KeepAlivePolicyTest {
             )
         )
     }
+
+    @Test
+    fun `package kill policy only suppresses automatic cleanup before removal`() {
+        assertTrue(
+            KeepAlivePolicy.shouldSuppressPackageKill(
+                flags = enabled,
+                packageName = XMSF_PACKAGE_NAME,
+                reason = 13,
+                subReason = 6,
+                callerWillRestart = false,
+                doit = true,
+                evenPersistent = false,
+                setRemoved = false,
+                uninstalling = false,
+            ),
+        )
+        assertFalse(
+            KeepAlivePolicy.shouldSuppressPackageKill(
+                flags = enabled,
+                packageName = XMSF_PACKAGE_NAME,
+                reason = 13,
+                subReason = 6,
+                callerWillRestart = false,
+                doit = true,
+                evenPersistent = false,
+                setRemoved = true,
+                uninstalling = false,
+            ),
+        )
+        assertFalse(
+            KeepAlivePolicy.shouldSuppressPackageKill(
+                flags = enabled,
+                packageName = XMSF_PACKAGE_NAME,
+                reason = 13,
+                subReason = 0,
+                callerWillRestart = false,
+                doit = true,
+                evenPersistent = false,
+                setRemoved = false,
+                uninstalling = false,
+            ),
+        )
+    }
 }

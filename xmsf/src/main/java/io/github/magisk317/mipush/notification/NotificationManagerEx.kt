@@ -123,6 +123,43 @@ object NotificationManagerEx {
             .toTypedArray()
     }
 
+    @Suppress("DEPRECATION")
+    private fun hasLocalTargetNotification(
+        packageName: String,
+        tag: String?,
+        id: Int,
+        userId: Int,
+    ): Boolean {
+        if (!::appContext.isInitialized || packageName == appContext.packageName) return false
+        return runCatching {
+            notificationManager.activeNotifications.any { sbn ->
+                if (sbn.userId != userId ||
+                    sbn.packageName != appContext.packageName ||
+                    sbn.tag != tag ||
+                    sbn.id != id
+                ) {
+                    return@any false
+                }
+                val extras = sbn.notification.extras ?: return@any false
+                sequenceOf(EXTRA_XMSF_TARGET_PACKAGE, EXTRA_MIUI_TARGET_PACKAGE, "target_package")
+                    .any { extras.getString(it) == packageName }
+            }
+        }.getOrDefault(false)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hasLocalNotification(tag: String?, id: Int, userId: Int): Boolean {
+        if (!::appContext.isInitialized) return false
+        return runCatching {
+            notificationManager.activeNotifications.any { sbn ->
+                sbn.userId == userId &&
+                    sbn.packageName == appContext.packageName &&
+                    sbn.tag == tag &&
+                    sbn.id == id
+            }
+        }.getOrDefault(false)
+    }
+
     private fun markLocalTargetPackage(packageName: String, notification: Notification) {
         if (!::appContext.isInitialized || packageName == appContext.packageName) {
             return
@@ -309,10 +346,19 @@ object NotificationManagerEx {
 
     fun notify(
         packageName: String,
-        tag: String?, id: Int, notification: Notification
+        tag: String?, id: Int, notification: Notification,
+        userId: Int = Utils.myUserId(),
     ): Boolean {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
+        val currentUserId = Utils.myUserId().coerceAtLeast(0)
+        if (!canNotifyForUser(userId, currentUserId)) {
+            logW(
+                "skip notification publish for foreign user=$userId currentUser=$currentUserId " +
+                    "pkg=$packageName tag=$tag id=$id",
+            )
+            return false
+        }
         // Attribution marker: when isHooked is true the system NMS hook owns publishing and this
         // app-process body is normally bypassed. Seeing this line run with isHooked=true means the
         // hook did not intercept and we are about to publish as a local (non-owned) fallback.
@@ -410,7 +456,7 @@ object NotificationManagerEx {
             notification.extras?.getBoolean("android.requestPromotedOngoing", false) == true
         if (!isLiveUpdate) return false
         val granted = runCatching {
-            PermissionUtils.grantSilentPermissions(packageName = appContext.packageName)
+            PermissionUtils.grantSilentPermissions(packageName = packageName)
         }.getOrDefault(false)
         if (!granted) {
             logD("live-update identity retry skipped: silent grant failed pkg=$packageName id=$id")
@@ -432,18 +478,31 @@ object NotificationManagerEx {
 
     fun cancel(
         packageName: String,
-        tag: String?, id: Int
+        tag: String?, id: Int,
+        userId: Int = Utils.myUserId(),
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id", tag = TAG)
+        val currentUserId = Utils.myUserId().coerceAtLeast(0)
+        if (!canCancelForUser(userId, currentUserId)) {
+            logW(
+                "skip notification cancel for foreign user=$userId currentUser=$currentUserId " +
+                    "pkg=$packageName tag=$tag id=$id",
+            )
+            return
+        }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.cancelAsTargetPackage(appContext, packageName, tag, id)) {
                 logD("cancel() completed via target identity pkg=$packageName tag=$tag id=$id")
                 return
             }
             maybeLogDiagnosticsOnce("identity-cancel-fallback", packageName, null, null)
-            notificationManager.cancel(tag, id)
-            logD("cancel() completed locally after identity fallback pkg=$packageName tag=$tag id=$id")
+            if (hasLocalTargetNotification(packageName, tag, id, userId)) {
+                notificationManager.cancel(tag, id)
+                logD("cancel() completed locally after identity fallback pkg=$packageName tag=$tag id=$id")
+            } else {
+                logW("skip local cancel for foreign target without matching local marker pkg=$packageName tag=$tag id=$id")
+            }
             return
         }
         var targetCancelSucceeded = false
@@ -461,12 +520,25 @@ object NotificationManagerEx {
                 logE("Failed to invoke cancelAsPackage", e)
             }
         }
-        notificationManager.cancel(tag, id)
+        val canCancelLocal = if (packageName == appContext.packageName) {
+            hasLocalNotification(tag, id, userId)
+        } else {
+            hasLocalTargetNotification(packageName, tag, id, userId)
+        }
+        if (canCancelLocal) {
+            notificationManager.cancel(tag, id)
+        }
         logD(
             "cancel() completed locally pkg=$packageName tag=$tag id=$id " +
                 "targetCancelSucceeded=$targetCancelSucceeded"
         )
     }
+
+    internal fun canCancelForUser(requestedUserId: Int, currentUserId: Int): Boolean =
+        requestedUserId.coerceAtLeast(0) == currentUserId.coerceAtLeast(0)
+
+    internal fun canNotifyForUser(requestedUserId: Int, currentUserId: Int): Boolean =
+        requestedUserId.coerceAtLeast(0) == currentUserId.coerceAtLeast(0)
 
     fun createNotificationChannels(
         packageName: String,
@@ -481,7 +553,11 @@ object NotificationManagerEx {
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannels(appContext, packageName, nonNullChannels)) {
                 if (!isHooked) {
-                    createLocalNotificationChannels(nonNullChannels)
+                    createLocalNotificationChannels(
+                        nonNullChannels.filter {
+                            shouldUseLocalChannelFallback(packageName, it.id, appContext.packageName)
+                        },
+                    )
                 }
                 return
             }
@@ -492,7 +568,11 @@ object NotificationManagerEx {
                 nonNullChannels.firstOrNull()?.group
             )
             if (!isHooked) {
-                createLocalNotificationChannels(nonNullChannels)
+                createLocalNotificationChannels(
+                    nonNullChannels.filter {
+                        shouldUseLocalChannelFallback(packageName, it.id, appContext.packageName)
+                    },
+                )
             }
             return
         }
@@ -521,7 +601,11 @@ object NotificationManagerEx {
             }
         }
         if (!isHooked) {
-            notificationManager.createNotificationChannels(nonNullChannels)
+            notificationManager.createNotificationChannels(
+                nonNullChannels.filter {
+                    shouldUseLocalChannelFallback(packageName, it.id, appContext.packageName)
+                },
+            )
         }
     }
 
@@ -646,19 +730,24 @@ object NotificationManagerEx {
     fun deleteNotificationChannel(
         packageName: String,
         channelId: String?
-    ) {
+    ): Boolean {
         logD("deleteNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
         if (channelId.isNullOrEmpty()) {
-            return
+            return false
         }
         if (packageName == appContext.packageName) {
-            notificationManager.deleteNotificationChannel(channelId)
-            return
+            return runCatching {
+                notificationManager.deleteNotificationChannel(channelId)
+                getNotificationChannel(packageName, channelId) == null
+            }.getOrElse {
+                logE("Failed to delete local notification channel $channelId", it)
+                false
+            }
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             // Prefer deleting under the target package identity when possible.
             if (NotificationIdentityBridge.deleteTargetNotificationChannel(appContext, packageName, channelId)) {
-                return
+                return true
             }
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
@@ -666,7 +755,7 @@ object NotificationManagerEx {
                     packageNotificationManager.deleteNotificationChannel(channelId)
                     // Same no-op risk as createPackageContext; only stop if channel is gone.
                     if (getNotificationChannel(packageName, channelId) == null) {
-                        return
+                        return true
                     }
                 } catch (e: Exception) {
                     logE("Failed to delete channel via package context for $packageName/$channelId", e)
@@ -674,11 +763,17 @@ object NotificationManagerEx {
             }
             // Only fall back to local XMSF NM for MiPush-managed channels that may live here.
             if (io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId)) {
-                notificationManager.deleteNotificationChannel(channelId)
+                return runCatching {
+                    notificationManager.deleteNotificationChannel(channelId)
+                    getNotificationChannel(packageName, channelId) == null
+                }.getOrElse {
+                    logE("Failed to delete managed notification channel $packageName/$channelId", it)
+                    false
+                }
             } else {
                 maybeLogDiagnosticsOnce("target-channel-delete-unsupported", packageName, channelId, null)
             }
-            return
+            return false
         }
         if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
@@ -686,7 +781,7 @@ object NotificationManagerEx {
                 try {
                     packageNotificationManager.deleteNotificationChannel(channelId)
                     if (getNotificationChannel(packageName, channelId) == null) {
-                        return
+                        return true
                     }
                 } catch (e: Exception) {
                     logE("Failed to delete channel via package context for $packageName/$channelId", e)
@@ -696,8 +791,15 @@ object NotificationManagerEx {
         if (io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId) ||
             packageName == appContext.packageName
         ) {
-            notificationManager.deleteNotificationChannel(channelId)
+            return runCatching {
+                notificationManager.deleteNotificationChannel(channelId)
+                getNotificationChannel(packageName, channelId) == null
+            }.getOrElse {
+                logE("Failed to delete managed notification channel $packageName/$channelId", it)
+                false
+            }
         }
+        return false
     }
 
 
@@ -714,7 +816,11 @@ object NotificationManagerEx {
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannelGroups(appContext, packageName, nonNullGroups)) {
                 if (!isHooked) {
-                    createLocalNotificationChannelGroups(nonNullGroups)
+                    createLocalNotificationChannelGroups(
+                        nonNullGroups.filter {
+                            shouldUseLocalGroupFallback(packageName, it.id, appContext.packageName)
+                        },
+                    )
                 }
                 return
             }
@@ -725,7 +831,11 @@ object NotificationManagerEx {
                 nonNullGroups.firstOrNull()?.id
             )
             if (!isHooked) {
-                createLocalNotificationChannelGroups(nonNullGroups)
+                createLocalNotificationChannelGroups(
+                    nonNullGroups.filter {
+                        shouldUseLocalGroupFallback(packageName, it.id, appContext.packageName)
+                    },
+                )
             }
             return
         }
@@ -740,7 +850,11 @@ object NotificationManagerEx {
                 }
             }
         }
-        notificationManager.createNotificationChannelGroups(nonNullGroups)
+        notificationManager.createNotificationChannelGroups(
+            nonNullGroups.filter {
+                shouldUseLocalGroupFallback(packageName, it.id, appContext.packageName)
+            },
+        )
     }
 
     fun getNotificationChannelGroup(
@@ -854,7 +968,23 @@ object NotificationManagerEx {
     ) {
         logD("deleteNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
         if (shouldUseModernIdentityStrategy(packageName)) {
-            notificationManager.deleteNotificationChannelGroup(groupId)
+            // The host NotificationManager is scoped to XMSF. Never use it for an arbitrary
+            // target package, or a same-named group in XMSF can be deleted instead.
+            val packageNotificationManager = getNotificationManagerForPackage(packageName)
+            if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
+                try {
+                    packageNotificationManager.deleteNotificationChannelGroup(groupId)
+                    return
+                } catch (e: Exception) {
+                    logE("Failed to delete group via package context for $packageName/$groupId", e)
+                }
+            }
+            if (shouldUseLocalGroupFallback(packageName, groupId, appContext.packageName)) {
+                runCatching { notificationManager.deleteNotificationChannelGroup(groupId) }
+                    .onFailure { logE("Failed to delete managed notification group $packageName/$groupId", it) }
+            } else {
+                maybeLogDiagnosticsOnce("target-group-delete-unsupported", packageName, null, groupId)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -868,8 +998,30 @@ object NotificationManagerEx {
                 }
             }
         }
-        notificationManager.deleteNotificationChannelGroup(groupId)
+        if (shouldUseLocalGroupFallback(packageName, groupId, appContext.packageName)) {
+            runCatching { notificationManager.deleteNotificationChannelGroup(groupId) }
+                .onFailure { logE("Failed to delete notification group $packageName/$groupId", it) }
+        }
     }
+
+    internal fun shouldUseLocalChannelFallback(
+        packageName: String,
+        channelId: String?,
+        hostPackageName: String,
+    ): Boolean = packageName == hostPackageName ||
+        io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId)
+
+    internal fun shouldUseLocalGroupFallback(
+        packageName: String,
+        groupId: String?,
+        hostPackageName: String,
+    ): Boolean = packageName == hostPackageName ||
+        io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedGroupId(packageName, groupId)
+
+    internal fun shouldUseLocalNotificationStateFallback(
+        packageName: String,
+        hostPackageName: String,
+    ): Boolean = packageName == hostPackageName
 
     fun areNotificationsEnabled(
         packageName: String
@@ -878,11 +1030,13 @@ object NotificationManagerEx {
         logD("areNotificationsEnabled() called with: packageName = $packageName")
 
         // 1. Check if the target app has notifications enabled in the system
-        val systemEnabled = try {
-            val packageNM = getNotificationManagerForPackage(packageName)
-            packageNM?.areNotificationsEnabled() ?: notificationManager.areNotificationsEnabled()
-        } catch (_: Exception) {
+        val systemEnabled = runCatching {
+            getNotificationManagerForPackage(packageName)?.areNotificationsEnabled()
+        }.getOrNull() ?: if (shouldUseLocalNotificationStateFallback(packageName, appContext.packageName)) {
             notificationManager.areNotificationsEnabled()
+        } else {
+            maybeLogDiagnosticsOnce("target-notification-state-unavailable", packageName, null, null)
+            false
         }
         
         if (!systemEnabled) {
@@ -908,6 +1062,17 @@ object NotificationManagerEx {
     ): Array<StatusBarNotification?>? {
         logD("getActiveNotifications() called with: packageName = $packageName")
         if (shouldUseModernIdentityStrategy(packageName)) {
+            // Framework/delegated identity posts are owned by the target package. Query that
+            // package first; looking only at XMSF-local markers misses real ongoing notifications
+            // and prevents lifecycle code from cancelling them on timeout.
+            val targetActive = runCatching {
+                NotificationManagerPlatformSupport.getActiveNotifications(packageName)
+            }.onFailure {
+                maybeLogDiagnosticsOnce("target-active-unavailable", packageName, null, null, it)
+            }.getOrNull()
+            if (!targetActive.isNullOrEmpty()) {
+                return targetActive.map { it as StatusBarNotification? }.toTypedArray()
+            }
             return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
         } else if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
@@ -919,7 +1084,10 @@ object NotificationManagerEx {
                 }
             }
         }
-        return notificationManager.getActiveNotifications()
+        // Legacy package-scoped APIs are unavailable on these paths, so the host
+        // NotificationManager can contain delegated records for several target apps.
+        // Keep the same target marker fence used by the modern compatibility path.
+        return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
     }
 
     /**
