@@ -72,6 +72,15 @@ tasks.withType<Test>().configureEach {
         "-Xshare:off",
         "--enable-native-access=ALL-UNNAMED",
         "--sun-misc-unsafe-memory-access=allow",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED",
+        "--add-opens=java.base/java.io=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+        "--add-opens=java.base/java.security=ALL-UNNAMED",
+        "--add-opens=java.base/java.text=ALL-UNNAMED",
+        "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+        "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "-XX:+EnableDynamicAgentLoading",
         "-Xmx4g",
     )
@@ -118,6 +127,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)
+    testImplementation(libs.conscrypt.openjdk.uber)
     testImplementation(libs.jqwik)
     testRuntimeOnly(libs.junit.platform.launcher)
 

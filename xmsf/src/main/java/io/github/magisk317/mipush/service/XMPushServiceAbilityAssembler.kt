@@ -35,6 +35,7 @@ object XMPushServiceAbilityAssembler {
  * The vendor revival implementation republishes through the XMSF context and cannot preserve the
  * original notification package. Only revive notifications that were owned by XMSF originally.
  */
+@Suppress("DEPRECATION")
 internal fun shouldReviveXmsfNotification(
     sbn: StatusBarNotification,
     ownerPackageName: String,

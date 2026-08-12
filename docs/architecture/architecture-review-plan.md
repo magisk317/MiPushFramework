@@ -1,5 +1,11 @@
 # MiPushFramework Architecture Review Plan
 
+Status: active architecture record. Last source cross-check: 2026-08-11 at `d8e4cf2d0`.
+
+The former workspace-level implementation plan was consolidated here. This document records
+architecture state and priorities; the long-running stock/device probe list lives in
+[stock-parity-verification.md](stock-parity-verification.md).
+
 Status: active review. This document is the working checklist for the runtime-only dual-APK
 architecture. It does not authorize removing existing notification, island, HyperIsland, proxy, or
 click-routing behavior.

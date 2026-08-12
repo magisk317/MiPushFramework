@@ -1,6 +1,7 @@
 # Vendor/XMSF Boundary Compliance Audit
 
-Status: active — audit complete, phased fixes in progress.
+Status: active — source audit refreshed 2026-08-11 at `d8e4cf2d0`; residual platform and policy
+work remains.
 
 ## Layering Contract
 
@@ -27,57 +28,55 @@ xmsf 层（运行时策略）
 | Blob inbound | `planInboundBlob()` | ping/close/challenge classification |
 | Exact alarm | `AlarmManagerTimer` override | canScheduleExactAlarms policy |
 
-## Violation Inventory
+## Resolved Since The Original Audit
 
-### Category A: Vendor decides after notifying observer (dual decision)
+The original inventory is not a current violation list. The observer-plan refactor now makes the
+vendor lifecycle delegate notify the runtime observer for `connectionClosed`, `reconnectionFailed`,
+and `reconnectionSuccessful`; the observer bridge evaluates the corresponding plans and executes
+the resulting reconnect/alarm action. The old Category A entries and the old "dead xmsf plan"
+claims are therefore closed at source level.
 
-| # | Path | File | Risk |
-|---|------|------|------|
-| 1 | `connectionClosed` | `XMPushServiceLifecycleDelegate.kt:151-158` | Vendor + bridge both schedule reconnect |
-| 2 | `reconnectionFailed` | `XMPushServiceLifecycleDelegate.kt:168-176` | Same pattern |
+The relevant source anchors are:
 
-### Category B: Vendor has full policy, no observer callback (policy not delegated)
+- `vendor/.../XMPushServiceLifecycleDelegate.kt`
+- `xmsf/.../MiPushRuntimeObserverBridge.kt`
+- `vendor/.../PushRuntimeModels.kt`
+
+These are still source-level results. A connected device is required to prove timing, alarm,
+falldown, and network behavior.
+
+## Residual Inventory
+
+### Category A: Vendor-owned compatibility policy remains
 
 | # | Path | File | Impact |
 |---|------|------|--------|
-| 3 | `networkChanged()` | `XMPushServiceStockLifecycle.kt:71-106` | xmsf cannot influence network transition behavior |
-| 4 | `handleScreenState()` | `XMPushServiceIntentDelegate.kt:206-222` | xmsf cannot influence screen-on reconnect |
-| 5 | `handleTimer()` | `XMPushServiceIntentDelegate.kt:224-238` | xmsf cannot influence timer-triggered reconnect |
-| 6 | `installPowerModeObservers` | `XMPushServiceLifecycleInfrastructure.kt:57-100` | xmsf cannot influence power-mode disconnect |
-| 7 | `configureClientChangeListener` | `XMPushServiceStockLifecycle.kt:59-69` | xmsf cannot influence zero-client disconnect |
-| 8 | `reconnectionSuccessful` | `XMPushServiceLifecycleDelegate.kt:178-191` | xmsf cannot influence alarm/reactivation |
+| 1 | `networkChanged()` / screen / timer / power observers | `vendor/.../XMPushService*` | Observer plans exist for several paths, but target-ROM behavior is not device-proven |
+| 2 | `shouldReconnect()` and `shouldFalldown()` | `vendor/.../XMPushServiceStateSupport.kt`, `XMPushServiceCore.kt` | Compatibility gates remain vendor-facing inputs to runtime decisions |
+| 3 | Connecting and ping timeout constants | `vendor/.../Connection.kt`, `SocketConnection.kt` | Frozen transport timing remains vendor-owned |
 
-### Category C: Policy locked inside vendor (no observer interface)
+### Category B: Intentionally retained vendor implementation
 
 | # | Path | File | Impact |
 |---|------|------|--------|
-| 9 | `shouldReconnect()` | `XMPushServiceStateSupport.kt:23-29` | xmsf completely cannot override reconnect gate |
-| 10 | Heartbeat strategy | `heartbeat/StableIntelligentHeartbeatStrategy.kt` | xmsf cannot adjust interval/learning/timeout |
-| 11 | Ping timeout disconnect | `SocketConnection.kt:136-161` | xmsf cannot decide timeout/retry policy |
+| 4 | Heartbeat strategy | `heartbeat/StableIntelligentHeartbeatStrategy.kt` | Stock-derived transport strategy; focused tests exist, device learning/network evidence remains open |
+| 5 | Ping timeout disconnect | `SocketConnection.kt` | Stock transport behavior; reason-specific runtime policy must stay in the adapter |
 
-### Category D: Hardcoded policy constants in vendor
+### Category C: Hardcoded stock compatibility constants
 
 | # | Constant | File | Value |
 |---|----------|------|-------|
-| 12 | `PING_TIMEOUT_MS` | `SocketConnection.kt` | 10s |
-| 13 | `CONNECTING_TIMEOUT` | `XMPushServiceConnectionDelegate.kt` | 15s |
-| 14 | `SHORT_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 235s |
-| 15 | `DEFAULT_LONG_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 600s |
+| 6 | `PING_TIMEOUT_MS` | `SocketConnection.kt` | 10s |
+| 7 | `CONNECTING_TIMEOUT` | `XMPushServiceConnectionDelegate.kt` | 15s |
+| 8 | `SHORT_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 235s |
+| 9 | `DEFAULT_LONG_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 600s |
 
-### Category E: xmsf reaches into vendor internals
+### Category D: Explicit adapter calls into vendor actions
 
 | # | Path | File | Impact |
 |---|------|------|--------|
-| 16 | `service.shouldFalldown()` | `MiPushRuntimeObserverBridge.kt:277` | xmsf calls vendor policy method |
-| 17 | `service.scheduleConnect(true)` | `PushRuntimeExecutionBridge.kt:299` | xmsf calls vendor method directly |
-
-### Dead xmsf plan methods (defined but not called by vendor)
-
-| Plan method | Status |
-|------------|--------|
-| `planReconnectionFailure()` | Not called by vendor's `reconnectionFailed` |
-| `planReconnectionSuccess()` | Not called by vendor's `reconnectionSuccessful` |
-| `planConnectionClosed()` | Only partially used (falldown+fault case) |
+| 10 | `service.shouldFalldown()` | `MiPushRuntimeObserverBridge.kt` | Runtime needs a vendor compatibility predicate while translating observer events |
+| 11 | `service.scheduleConnect(...)` | `MiPushRuntimeObserverBridge.kt`, `PushRuntimeExecutionBridge.kt` | Action execution remains an adapter responsibility; do not spread this call into product policy |
 
 ## Cross-Module Consistency Issues
 
@@ -92,14 +91,15 @@ xmsf 层（运行时策略）
 
 ## Fix Roadmap
 
-### Batch 1: Eliminate competition / risk
-- Remove dual decisions in `connectionClosed`/`reconnectionFailed` (vendor only notifies, bridge owns all decisions)
-- Unify dedup mechanism
+### Batch 1: Preserve the resolved ownership boundary
+- Keep vendor lifecycle callbacks notification-only for observer-owned decisions.
+- Add regression coverage when a new callback or direct scheduling path is introduced.
+- Keep deduplication changes separate from lifecycle ownership changes.
 
 ### Batch 2: Architecture convergence
-- Delegate `shouldReconnect()` to xmsf via observer plan
-- Connect `networkChanged`/`handleScreenState`/`handleTimer`/`powerModeObservers`/`clientChangeListener`/`reconnectionSuccessful` to observer plans
-- Activate dead plan methods
+- Add device evidence for network, screen, timer, power-mode, and client-count transitions.
+- Decide separately whether remaining vendor gates need observer plans; do not infer that from
+  the presence of a source callback alone.
 
 ### Batch 3: Code quality
 - Unify `"com.xiaomi.xmsf"` constant to single definition in `common/Constant.kt`

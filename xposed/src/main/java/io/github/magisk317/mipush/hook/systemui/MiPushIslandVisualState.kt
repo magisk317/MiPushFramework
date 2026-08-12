@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import java.util.concurrent.ConcurrentHashMap
 
+@Suppress("DEPRECATION")
 internal object MiPushIslandVisualState {
     private const val DEFAULT_ACCENT = "#FF00C8FF"
     private val active = ConcurrentHashMap<String, IslandVisualSnapshot>()

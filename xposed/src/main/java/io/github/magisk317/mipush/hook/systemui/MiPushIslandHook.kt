@@ -259,6 +259,7 @@ class MiPushIslandHook : BaseHook() {
         return IslandProxyNotificationIds.fromPackage(sbn.packageName, sbn.userId)
     }
 
+    @Suppress("DEPRECATION")
     private fun dedupKeyFor(sbn: StatusBarNotification): Int {
         return IslandProxyDedupKeys.fromStatusBarKey(
             key = sbn.key,
@@ -269,6 +270,7 @@ class MiPushIslandHook : BaseHook() {
         )
     }
 
+    @Suppress("DEPRECATION")
     private fun sourceKeyFor(sbn: StatusBarNotification): String {
         return IslandProxySourceKeys.fromStatusBarKey(
             key = sbn.key,
@@ -346,6 +348,7 @@ class MiPushIslandHook : BaseHook() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun handleNotificationRemoved(
         listener: NotificationListenerService?,
         sbn: StatusBarNotification?,

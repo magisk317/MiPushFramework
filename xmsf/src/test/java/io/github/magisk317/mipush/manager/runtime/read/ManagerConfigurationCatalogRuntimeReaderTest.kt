@@ -25,6 +25,5 @@ class ManagerConfigurationCatalogRuntimeReaderTest {
                 ManagerConfigurationCatalogRuntimeReader(catalogService, syncStateStore).readCatalog()
             }
         }
-        Unit
     }
 }

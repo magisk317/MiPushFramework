@@ -40,7 +40,7 @@ class NotificationManagerExRobolectricTest {
 
     private fun notification(targetPackage: String?, title: String): Notification {
         val context = RuntimeEnvironment.getApplication()
-        return Notification.Builder(context)
+        return Notification.Builder(context, "test")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .apply {
