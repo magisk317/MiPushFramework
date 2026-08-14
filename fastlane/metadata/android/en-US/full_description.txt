@@ -1,0 +1,11 @@
+MiPush Manager provides a system-level Xiaomi push service for non-MIUI Android devices.
+
+Core capabilities:
+- Centralize Xiaomi push connections through a system-level service.
+- Improve notification compatibility across Android devices.
+- Inspect registered applications, push events, connection state, and diagnostics.
+- Configure notification rules, titles, content, actions, and display behavior.
+- Support notification groups, buttons, VoIP styles, rich text, and progress notifications.
+- Integrate focus notifications, HyperIsland presentation, and Android live notifications where supported.
+
+MiPush Manager is designed for users who want Xiaomi push compatibility without running a separate push service in every application.

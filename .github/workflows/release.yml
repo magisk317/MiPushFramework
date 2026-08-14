@@ -61,6 +61,18 @@ jobs:
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+      - name: Resolve Play release version
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        shell: bash
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+        run: |
+          bash .magisk-ci-toolkit/release/resolve_play_release.sh \
+            --package-name io.github.magisk317.mipush \
+            --version-file gradle/libs.versions.toml \
+            --output play-release.env \
+            --initial-version-code 1569
+          cat play-release.env >> "$GITHUB_ENV"
 
       - name: Skip unsupported release signing
         if: env.HAS_RELEASE_SIGNING != 'true'
@@ -177,7 +189,7 @@ jobs:
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: :mipush:bundlePlayRelease -Pkotlin.incremental=false
+          arguments: :mipush:bundlePlayRelease -Pkotlin.incremental=false -PversionName=${{ env.MAGISK_PLAY_VERSION_NAME }} -PversionCode=${{ env.MAGISK_PLAY_VERSION_CODE }}
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -191,6 +203,8 @@ jobs:
           path: |
             mipush/build/outputs/bundle/playRelease/*.aab
             mipush/build/outputs/mapping/**/mapping.txt
+            mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
+            play-release.env
 
   build-zygisk-module:
     name: Build Zygisk Module
@@ -382,11 +396,20 @@ jobs:
       HAS_GOOGLE_PLAY_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS != '' }}
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Resolve CI toolkit
+        run: bash scripts/resolve_ci_toolkit.sh
       - uses: actions/download-artifact@v8
         if: env.HAS_RELEASE_SIGNING == 'true'
         with:
           name: apks-mipush-play
           path: artifacts/bundle
+      - name: Load Play release version
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        run: cat artifacts/bundle/play-release.env >> "$GITHUB_ENV"
       - name: Resolve Play bundle
         if: env.HAS_RELEASE_SIGNING == 'true'
         id: resolve_play
@@ -406,17 +429,6 @@ jobs:
           else
             echo "has_mapping=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Set up Ruby
-        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 'ruby'
-      - name: Install fastlane
-        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
-        run: |
-          gem_user_dir="$(ruby -r rubygems -e 'print Gem.user_dir')"
-          echo "$gem_user_dir/bin" >> "$GITHUB_PATH"
-          gem install --user-install multi_json fastlane --no-document
       - name: Publish to Google Play
         if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
         env:
@@ -426,22 +438,13 @@ jobs:
           CI: 'true'
         run: |
           set -euo pipefail
-          gem_user_bin="$(ruby -r rubygems -e 'print Gem.user_dir')/bin"
-          cmd=(
-            "$gem_user_bin/fastlane" supply
-            --aab "${{ steps.resolve_play.outputs.aab_file }}"
-            --package_name "io.github.magisk317.mipush"
-            --track "production"
-            --release_status "completed"
-            --json_key_data "$ANDROID_PUBLISHER_CREDENTIALS"
-            --skip_upload_metadata true
-            --skip_upload_images true
-            --skip_upload_screenshots true
-          )
-          if [[ "${{ steps.resolve_play.outputs.has_mapping }}" == "true" ]]; then
-            cmd+=(--mapping "${{ steps.resolve_play.outputs.mapping_file }}")
-          fi
-          "${cmd[@]}"
+          MAGISK_ANDROID_RELEASE_PACKAGE_NAME="io.github.magisk317.mipush"
+          MAGISK_PLAY_AAB_FILE="$(find artifacts/bundle -type f -name '*.aab' | sort | head -n 1)"
+          MAGISK_PLAY_MAPPING_FILE="$(find artifacts/bundle -type f -name mapping.txt | sort | head -n 1 || true)"
+          MAGISK_PLAY_SYMBOLS_FILE="$(find artifacts/bundle -type f -name native-debug-symbols.zip | sort | head -n 1 || true)"
+          export MAGISK_ANDROID_RELEASE_PACKAGE_NAME MAGISK_PLAY_AAB_FILE MAGISK_PLAY_MAPPING_FILE MAGISK_PLAY_SYMBOLS_FILE
+          export MAGISK_RELEASE_ENV_FILE=play-release-status.env
+          bash .magisk-ci-toolkit/release/publish_play.sh
       - name: Skip Google Play publication
         if: env.HAS_RELEASE_SIGNING != 'true' || env.HAS_GOOGLE_PLAY_CREDENTIALS != 'true'
         run: echo "SKIP Google Play publication; signing or publisher credentials are not configured."

@@ -1,0 +1,3 @@
+- Split the manager application from the XMSF runtime while preserving the system-level Xiaomi push service.
+- Improved registration, notification compatibility, Live Update, HyperIsland, and runtime diagnostics.
+- Added notification rule, configuration, and multi-user compatibility improvements.
