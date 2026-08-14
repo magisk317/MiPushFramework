@@ -305,6 +305,7 @@ fun EventList(
                 TextInputDialog(
                     title = stringResource(R.string.event_retention_dialog_title),
                     initialValue = eventRetentionDays.toString(),
+                    selectAllOnOpen = true,
                     supportingText = stringResource(R.string.event_retention_dialog_hint),
                     onDismiss = { showRetentionDialog = false },
                     validator = { input ->
