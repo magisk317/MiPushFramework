@@ -1,18 +1,18 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
+    ref: 4d4c0997501faf2c2fa7427066e240b11fc32fd3
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
+    ref: 4d4c0997501faf2c2fa7427066e240b11fc32fd3
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
+    ref: 4d4c0997501faf2c2fa7427066e240b11fc32fd3
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
+    ref: 4d4c0997501faf2c2fa7427066e240b11fc32fd3
     file: /.gitlab/ci/renovate.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
+    ref: 4d4c0997501faf2c2fa7427066e240b11fc32fd3
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -42,7 +42,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "5bf71b0d43bb0a95149e73e68be0cd95838c18b5"
+  MAGISK_CI_TOOLKIT_REF: "4d4c0997501faf2c2fa7427066e240b11fc32fd3"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -75,8 +75,6 @@ variables:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^renovate\//'
       when: never
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
-      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
 
@@ -95,8 +93,6 @@ variables:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^renovate\//'
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG'

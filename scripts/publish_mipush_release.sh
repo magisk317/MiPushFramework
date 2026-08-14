@@ -301,8 +301,7 @@ publish_gitlab_release() {
     return 0
   fi
 
-  local tag_name notes_file asset_dir package_name encoded_project encoded_tag encoded_package
-  local links_json payload_json update_json upload_response
+  local tag_name notes_file asset_dir package_name
   tag_name="$(release_tag)"
   notes_file="${MAGISK_RELEASE_NOTES_FILE:-release-notes.md}"
   asset_dir="${MAGISK_GITLAB_RELEASE_ASSET_DIR:-release-assets}"
@@ -313,166 +312,12 @@ publish_gitlab_release() {
   collect_and_validate_release_assets "$tag_name"
   copy_assets "$asset_dir" "${release_assets[@]}"
 
-  encoded_project="$(urlencode "$CI_PROJECT_ID")"
-  encoded_tag="$(urlencode "$tag_name")"
-  encoded_package="$(urlencode "$package_name")"
-
-  make_tmp_file links_json
-  make_tmp_file payload_json
-  make_tmp_file update_json
-  make_tmp_file upload_response
-
-  printf '[\n' > "$links_json"
-  first_link=true
-  for asset_path in "$asset_dir"/*; do
-    asset_name="$(basename "$asset_path")"
-    encoded_asset="$(urlencode "$asset_name")"
-    package_url="${CI_API_V4_URL}/projects/${encoded_project}/packages/generic/${encoded_package}/${encoded_tag}/${encoded_asset}"
-    download_url="${CI_PROJECT_URL}/-/packages/generic/${package_name}/${tag_name}/${asset_name}"
-
-    package_status="$(gitlab_curl --output "$upload_response" --write-out "%{http_code}" "$package_url" || true)"
-    case "$package_status" in
-      200)
-        verify_existing_package_asset "$asset_path" "$package_url" "$upload_response" || exit 1
-        ;;
-      404)
-        upload_status="$(
-          gitlab_curl --output "$upload_response" --write-out "%{http_code}" \
-            --request PUT \
-            --upload-file "$asset_path" \
-            "$package_url" || true
-        )"
-        case "$upload_status" in
-          200|201) ;;
-          409)
-            verify_existing_package_asset "$asset_path" "$package_url" || exit 1
-            ;;
-          400)
-            if ! grep -qiE 'already|taken|exist' "$upload_response"; then
-              echo "ERROR: failed to upload $asset_name (HTTP $upload_status)" >&2
-              cat "$upload_response" >&2 || true
-              exit 1
-            fi
-            verify_existing_package_asset "$asset_path" "$package_url" || exit 1
-            ;;
-          *)
-            echo "ERROR: failed to upload $asset_name (HTTP $upload_status)" >&2
-            cat "$upload_response" >&2 || true
-            exit 1
-            ;;
-        esac
-        ;;
-      *)
-        echo "ERROR: failed to inspect package asset $asset_name (HTTP $package_status)" >&2
-        cat "$upload_response" >&2 || true
-        exit 1
-        ;;
-    esac
-
-    if [[ "$first_link" != true ]]; then
-      printf ',\n' >> "$links_json"
-    fi
-    first_link=false
-    python3 - "$asset_name" "$download_url" "/mipush/${asset_name}" >> "$links_json" <<'PY'
-import json
-import sys
-
-name, url, direct_asset_path = sys.argv[1:4]
-print(json.dumps({
-    "name": name,
-    "url": url,
-    "direct_asset_path": direct_asset_path,
-    "link_type": "package",
-}))
-PY
-  done
-  printf '\n]\n' >> "$links_json"
-
-  python3 - "$tag_name" "$notes_file" "$links_json" > "$payload_json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-tag_name, notes_file, links_file = sys.argv[1:4]
-print(json.dumps({
-    "name": tag_name,
-    "tag_name": tag_name,
-    "description": Path(notes_file).read_text(),
-    "assets": {"links": json.loads(Path(links_file).read_text())},
-}))
-PY
-
-  python3 - "$tag_name" "$notes_file" > "$update_json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-tag_name, notes_file = sys.argv[1:3]
-print(json.dumps({
-    "name": tag_name,
-    "description": Path(notes_file).read_text(),
-}))
-PY
-
-  release_url="${CI_API_V4_URL}/projects/${encoded_project}/releases/${encoded_tag}"
-  create_url="${CI_API_V4_URL}/projects/${encoded_project}/releases"
-  status="$(gitlab_curl --output /tmp/mipush-gitlab-release-get.json --write-out "%{http_code}" "$release_url" || true)"
-  case "$status" in
-    200)
-      gitlab_curl --fail \
-        --request PUT \
-        --header "Content-Type: application/json" \
-        --data @"$update_json" \
-        "$release_url" >/dev/null
-
-      links_url="${release_url}/assets/links"
-      python3 - "$links_json" > /tmp/mipush-gitlab-release-links.tsv <<'PY'
-import json
-import sys
-from pathlib import Path
-
-for link in json.loads(Path(sys.argv[1]).read_text()):
-    print("\t".join([link["name"], link["url"], link["direct_asset_path"], link["link_type"]]))
-PY
-      while IFS=$'\t' read -r link_name link_url direct_asset_path link_type; do
-        link_status="$(
-          gitlab_curl --output /tmp/mipush-gitlab-release-link.json --write-out "%{http_code}" \
-            --request POST \
-            --data-urlencode "name=${link_name}" \
-            --data-urlencode "url=${link_url}" \
-            --data-urlencode "direct_asset_path=${direct_asset_path}" \
-            --data "link_type=${link_type}" \
-            "$links_url" || true
-        )"
-        case "$link_status" in
-          201) ;;
-          400|409)
-            verify_existing_release_link \
-              "$links_url" "$link_name" "$link_url" "$direct_asset_path" "$link_type" || exit 1
-            ;;
-          *)
-            echo "ERROR: failed to create release link $link_name (HTTP $link_status)" >&2
-            cat /tmp/mipush-gitlab-release-link.json >&2 || true
-            exit 1
-            ;;
-        esac
-      done < /tmp/mipush-gitlab-release-links.tsv
-      ;;
-    404)
-      gitlab_curl --fail \
-        --request POST \
-        --header "Content-Type: application/json" \
-        --data @"$payload_json" \
-        "$create_url" >/dev/null
-      ;;
-    *)
-      echo "ERROR: failed to inspect GitLab release $tag_name (HTTP $status)" >&2
-      cat /tmp/mipush-gitlab-release-get.json >&2 || true
-      exit 1
-      ;;
-  esac
-
-  echo "Published GitLab release: $tag_name"
+  MAGISK_RELEASE_NOTES_FILE="$notes_file" \
+  MAGISK_RELEASE_NAME="$tag_name" \
+  MAGISK_GITLAB_RELEASE_PACKAGE_NAME="$package_name" \
+  MAGISK_GITLAB_RELEASE_PREPARED_ASSET_DIR="$asset_dir" \
+  MAGISK_GITLAB_RELEASE_DIRECT_ASSET_PREFIX="/mipush" \
+    bash "$MAGISK_CI_TOOLKIT_DIR/release/gitlab_release.sh"
 }
 
 mode="${1:-}"
