@@ -14,6 +14,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.text.TextPaint
 import android.text.TextUtils
+import android.os.Build
 import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
@@ -163,8 +164,16 @@ internal object ConnectionStatusWidgetRenderer {
         )
         views.setTextViewText(R.id.widget_duration_label, context.getString(R.string.widget_connection_duration))
         if (isConnected && snapshot.connectedAtMs > 0L) {
-            val elapsedSinceBoot = System.currentTimeMillis() - SystemClock.elapsedRealtime()
-            val chronometerBase = snapshot.connectedAtMs - elapsedSinceBoot
+            // Android 17's launcher host treats a RemoteViews Chronometer base as wall-clock
+            // milliseconds, while Android 16 uses the documented elapsedRealtime base. Passing
+            // the converted elapsed base on API 37 makes the host display the Unix epoch as the
+            // connection duration (the observed ~500k-hour value).
+            val chronometerBase = if (Build.VERSION.SDK_INT >= 37) {
+                snapshot.connectedAtMs
+            } else {
+                val elapsedSinceBoot = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+                snapshot.connectedAtMs - elapsedSinceBoot
+            }
             views.setChronometer(R.id.widget_duration_value, chronometerBase, "%s", true)
         } else {
             views.setChronometer(R.id.widget_duration_value, SystemClock.elapsedRealtime(), "%s", false)
