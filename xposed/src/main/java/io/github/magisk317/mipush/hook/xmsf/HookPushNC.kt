@@ -75,12 +75,6 @@ object HookPushNC {
             Notification::class.java,
             Int::class.java,
         ) {
-            doBefore {
-                SystemNotificationManager.prepareMonochromeTargetNotification(
-                    args[0] as String,
-                    args[3] as Notification
-                )
-            }
             replace(hookCheck) {
                 tryInvoke {
                     SystemNotificationManager.notify(
@@ -459,12 +453,6 @@ object HookPushNC {
             Int::class.java,
             Notification::class.java
         ) {
-            doBefore {
-                SystemNotificationManager.prepareMonochromeTargetNotification(
-                    args[1] as String,
-                    args[4] as Notification
-                )
-            }
             replace(hookCheck) {
                 tryInvoke {
                     SystemNotificationManager.notify(

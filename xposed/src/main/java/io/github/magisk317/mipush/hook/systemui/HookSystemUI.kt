@@ -8,6 +8,7 @@ import android.app.Notification
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.PorterDuff
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.notification.StatusBarNotification
@@ -15,6 +16,7 @@ import android.view.View
 import android.widget.ImageView
 import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -27,6 +29,7 @@ import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
+import io.github.magisk317.xposed.setHookObjectField
 
 class HookSystemUI : BaseHook() {
     companion object {
@@ -52,6 +55,8 @@ class HookSystemUI : BaseHook() {
         val classLoader = param.classLoader
         XLog.i(TAG, "HookSystemUI.hook() called")
         MiuiHeaderAppIconHook().hook(classLoader)
+        hookNativeCustomAppIcon(classLoader)
+        hookAndroid17StatusBarIconDescriptor(classLoader)
         hookGlobalStatusBarIconTint(classLoader)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -167,6 +172,8 @@ class HookSystemUI : BaseHook() {
                     }
                 }
                 XLog.i(TAG, "hooked NotifImageUtil.getSmallIcon (dynamic color mode check)")
+            } catch (e: NoSuchMethodException) {
+                XLog.i(TAG, "NotifImageUtil.getSmallIcon unavailable; Android 17 uses getCustomAppIcon")
             } catch (e: Exception) {
                 XLog.e(TAG, "Failed to hook NotifImageUtil.getSmallIcon", e)
             }
@@ -269,6 +276,91 @@ class HookSystemUI : BaseHook() {
                 }
         }
 
+    }
+
+    /**
+     * Android 17 removed NotifImageUtil.getSmallIcon. IconManager now obtains the status-bar
+     * candidate through getCustomAppIcon, which applies the MIUI custom-icon package whitelist.
+     * Reuse the focus authorization switch for the same trusted XMSF producer boundary.
+     */
+    private fun hookNativeCustomAppIcon(classLoader: ClassLoader) {
+        runCatching {
+            val owner = classLoader.findClass(
+                "com.android.systemui.statusbar.notification.utils.NotifImageUtil",
+            )
+            owner.hookMethod(
+                "getCustomAppIcon",
+                Notification::class.java,
+                Context::class.java,
+            ) {
+                doAfter {
+                    if (result != null || !FocusNotificationPermissionPolicy.isGlobalBypassEnabled()) {
+                        return@doAfter
+                    }
+                    val notification = args.getOrNull(0) as? Notification ?: return@doAfter
+                    val context = args.getOrNull(1) as? Context ?: return@doAfter
+                    val extras = notification.extras ?: return@doAfter
+                    if (extras.getString("miui.opPkg") != XMSF_PACKAGE_NAME) return@doAfter
+                    val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        extras.getParcelable("miui.appIcon", Icon::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        extras.getParcelable("miui.appIcon") as? Icon
+                    } ?: return@doAfter
+                    result = runCatching { icon.loadDrawable(context) }
+                        .onSuccess { drawable: Drawable? ->
+                            if (drawable != null) {
+                                XLog.d(TAG, "bypassed custom app icon whitelist for XMSF")
+                            }
+                        }
+                        .getOrNull()
+                }
+            }
+            XLog.i(TAG, "hooked NotifImageUtil.getCustomAppIcon for XMSF")
+        }.onFailure {
+            XLog.e(TAG, "Failed to hook NotifImageUtil.getCustomAppIcon", it)
+        }
+    }
+
+    /**
+     * Android 17's IconManager prefers the MIUI launcher/custom app icon for the status bar too.
+     * Those launcher bitmaps commonly contain an opaque background and become white blocks when
+     * the monochrome pipeline tints them. Keep the custom icon for notification headers, but use
+     * the already-validated transparent MiPush smallIcon for the status bar descriptor.
+     */
+    private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
+        runCatching {
+            val entryClass = classLoader.findClass(
+                "com.android.systemui.statusbar.notification.collection.NotificationEntry",
+            )
+            classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
+                .hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
+                    doAfter {
+                        val options = IslandPreferences.current()
+                        if (options.colorStatusBarIcon) return@doAfter
+                        val entry = args.getOrNull(0) ?: return@doAfter
+                        val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
+                        val notification = sbn.notification ?: return@doAfter
+                        if (!SystemUiNotificationPolicy.isMiPushManagedNotification(notification.extras)) {
+                            return@doAfter
+                        }
+                        val smallIcon = notification.smallIcon ?: return@doAfter
+                        val descriptor = result ?: return@doAfter
+                        runCatching {
+                            setHookObjectField(descriptor, "icon", smallIcon)
+                            XLog.d(
+                                TAG,
+                                "restored MiPush smallIcon for Android 17 status bar descriptor",
+                            )
+                        }.onFailure {
+                            XLog.e(TAG, "failed to restore Android 17 status bar smallIcon", it)
+                        }
+                    }
+                }
+            XLog.i(TAG, "hooked IconManager.getIconDescriptor for Android 17 monochrome")
+        }.onFailure {
+            XLog.e(TAG, "Failed to hook Android 17 IconManager.getIconDescriptor", it)
+        }
     }
 
     private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {

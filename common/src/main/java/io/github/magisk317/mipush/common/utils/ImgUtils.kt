@@ -81,6 +81,12 @@ object ImgUtils {
         for (i in 0 until height) {
             for (j in 0 until width) {
                 val dot = pixels[width * i + j]
+                // Transparent launcher/adaptive-icon backgrounds often carry black RGB data.
+                // They must not enter the threshold calculation or they become opaque white.
+                if (Color.alpha(dot) == 0) {
+                    pixels[width * i + j] = Color.TRANSPARENT
+                    continue
+                }
                 val red = (dot and 0x00FF0000) shr 16
                 val green = (dot and 0x0000FF00) shr 8
                 val blue = dot and 0x000000FF

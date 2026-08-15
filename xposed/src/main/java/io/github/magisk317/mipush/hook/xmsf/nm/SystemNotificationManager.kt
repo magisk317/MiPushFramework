@@ -191,33 +191,14 @@ object SystemNotificationManager {
         }.getOrNull()
     }
 
-    fun prepareMonochromeTargetNotification(packageName: String, notification: Notification) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
-        if (IslandPreferences.current().colorStatusBarIcon) return
-        val extras = notification.extras ?: return
-        extras.remove(EXTRA_MIUI_APP_ICON)
-        extras.remove(EXTRA_MIUI_OP_PKG)
-        XLog.d(TAG, "Prepared notification for default MIUI monochrome target path pkg=$packageName")
-    }
-
     private fun injectAppIcons(packageName: String, notification: Notification) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val colorMode = IslandPreferences.current().colorStatusBarIcon
         XLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
-        if (!colorMode) {
-            // Keep the posted smallIcon intact. SystemUI owns the status-bar-only monochrome
-            // conversion; mutating this object makes expanded shade rows render white icons too.
-            prepareMonochromeTargetNotification(packageName, notification)
-            XLog.d(TAG, "Kept original smallIcon for status-bar-only monochrome pkg=$packageName")
-            return
-        }
         try {
             val pm = currentApplication()?.packageManager ?: return
             val appInfo = pm.getApplicationInfo(packageName, 0)
             if (appInfo.icon == 0) return
-
-            val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-            fieldSmallIcon.isAccessible = true
 
             val appIconBitmap = createAppIconBitmap(pm, appInfo)
             if (appIconBitmap != null) {
@@ -225,6 +206,17 @@ object SystemNotificationManager {
                 notification.extras?.putString(EXTRA_MIUI_OP_PKG, XMSF_PACKAGE_NAME)
                 XLog.d(TAG, "Successfully injected MIUI custom app icon extras userId=${getUserId()}")
             }
+
+            // Android 17 SystemUI accepts XMSF in config_canCustomNotificationAppIcon and uses
+            // these extras for the header icon. In monochrome mode only publish the custom header
+            // source; keep Notification.smallIcon for the status-bar monochrome hook.
+            if (!colorMode) {
+                XLog.d(TAG, "Kept original smallIcon and retained MIUI custom app icon extras userId=${getUserId()}")
+                return
+            }
+
+            val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+            fieldSmallIcon.isAccessible = true
 
             val badgedBitmap = createUserBadgedAppIconBitmap(pm, appInfo)
             if (badgedBitmap != null) {

@@ -26,8 +26,9 @@ class HookSystemUIPlugin(
             classPluginFactory.declaredMethods.find { it.name == "createPluginContext" }!!.hook {
                 doAfter {
                     val owner = thisObject ?: return@doAfter
-                    val componentName =
+                    val componentName = runCatching {
                         io.github.magisk317.xposed.getHookObjectField(owner, "mComponentName") as? ComponentName
+                    }.getOrNull()
                     if (componentName?.packageName != pluginPackageName) return@doAfter
                     val pluginContext = result as? ContextWrapper ?: return@doAfter
                     val pluginLoader = pluginContext.classLoader ?: return@doAfter

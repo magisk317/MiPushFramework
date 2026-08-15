@@ -226,8 +226,21 @@ class HookSystemService : BaseHook() {
     }
 
     override fun onLoadPackage(param: LoadParam) {
-        if (param.packageName != ANDROID_PACKAGE_NAME) return
-        if (param.processName != ANDROID_PACKAGE_NAME) return // only run in system_server
+        XLog.i(
+            TAG,
+            "onLoadPackage pkg=${param.packageName} proc=${param.processName}",
+        )
+        if (param.packageName != ANDROID_PACKAGE_NAME) {
+            XLog.d(TAG, "skip system hook: package mismatch pkg=${param.packageName}")
+            return
+        }
+        if (param.processName != ANDROID_PACKAGE_NAME &&
+            param.processName != "system" &&
+            param.processName != "system_server"
+        ) {
+            XLog.w(TAG, "skip system hook: process mismatch proc=${param.processName}")
+            return
+        }
         val classLoader = param.classLoader
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(TAG, "installing system notification hooks")

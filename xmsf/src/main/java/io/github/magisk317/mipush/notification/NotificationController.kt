@@ -29,6 +29,7 @@ import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
 import io.github.magisk317.mipush.common.notification.iconpack.ResolveFailure
 import io.github.magisk317.mipush.common.notification.iconpack.ResolveResult
+import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
 import io.github.aakira.napier.Napier
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.aakira.napier.DebugAntilog
@@ -1000,6 +1001,39 @@ object NotificationController {
         resolver: IconPackResolver = iconPackResolver,
     ): ResolveResult? {
         if (targetPackage.isBlank()) return null
+
+        // The configured directory is the existing product icon-pack source. ConfigCenter loads
+        // <tree>/icon/*.json into IconConfigurations; use it before the optional protocol seam.
+        // A non-null, enabled, decodable entry is the concrete "path exists" signal.
+        val configuredIcon = runCatching {
+            Global.iconConfigurations().get(targetPackage)
+        }.getOrNull()
+        val configuredBitmap = configuredIcon?.bitmap()
+        if (configuredIcon?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
+            runCatching {
+                notificationBuilder.setSmallIcon(
+                    IconCompat.createFromIcon(Icon.createWithBitmap(configuredBitmap)),
+                )
+                notificationBuilder.addExtras(
+                    Bundle().apply {
+                        putString(
+                            ICON_PACK_SOURCE_IDENTITY_EXTRA,
+                            thirdPartyPackSourceIdentity(targetPackage),
+                        )
+                    },
+                )
+                if (colorStatusBarIcon) {
+                    val iconColor = configuredIcon.color()
+                    if (iconColor != NotificationCompat.COLOR_DEFAULT) {
+                        notificationBuilder.setColor(iconColor)
+                    }
+                }
+                logI("applied configured icon pack target=$targetPackage")
+            }.onFailure {
+                logW("failed to apply configured icon pack target=$targetPackage", it)
+            }.getOrNull()?.let { return null }
+        }
+
         val result = runCatching {
             resolver.resolve(targetPackage, userId, context)
         }.getOrNull() ?: return null

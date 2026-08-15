@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import android.app.Notification
+import android.content.Context
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.Icon
+import android.os.Build
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.findHookClass
@@ -34,7 +40,48 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
             hookPackageFocusMethod(owner, "canShowFocus")
             hookPackageFocusMethod(owner, "canCustomFocus")
         }
+        hookCustomAppIcon(pluginLoader)
         XLog.d(TAG, "hook end")
+    }
+
+    /**
+     * Android 17 gates miui.appIcon behind config_canCustomNotificationAppIcon. Reuse the
+     * existing global focus-auth bypass switch as an explicit compatibility escape hatch, but
+     * only for notifications whose trusted producer is our XMSF package.
+     */
+    private fun hookCustomAppIcon(pluginLoader: ClassLoader) {
+        val owner = runCatching {
+            findHookClass(
+                "com.android.systemui.statusbar.notification.utils.NotifImageUtil",
+                pluginLoader,
+            )
+        }.onFailure {
+            XLog.d(TAG, "skip custom app icon bypass: ${it.message}")
+        }.getOrNull() ?: return
+        owner.declaredMethods.filter { method ->
+            method.name == "getCustomAppIcon" &&
+                method.parameterTypes.contentEquals(arrayOf(Notification::class.java, Context::class.java)) &&
+                Drawable::class.java.isAssignableFrom(method.returnType)
+        }.forEach { method ->
+            method.hook {
+                doAfter {
+                    if (result != null || !FocusNotificationPermissionPolicy.isGlobalBypassEnabled()) return@doAfter
+                    val notification = args.getOrNull(0) as? Notification ?: return@doAfter
+                    val context = args.getOrNull(1) as? Context ?: return@doAfter
+                    val extras = notification.extras ?: return@doAfter
+                    if (extras.getString("miui.opPkg") != XMSF_PACKAGE_NAME) return@doAfter
+                    val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        extras.getParcelable("miui.appIcon", Icon::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        extras.getParcelable("miui.appIcon") as? Icon
+                    } ?: return@doAfter
+                    result = runCatching { icon.loadDrawable(context) }.onSuccess {
+                        if (it != null) XLog.d(TAG, "bypassed custom app icon whitelist for XMSF")
+                    }.getOrNull()
+                }
+            }
+        }
     }
 
     private fun hookPackageFocusMethod(owner: Class<*>, methodName: String) {
