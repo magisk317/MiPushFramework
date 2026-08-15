@@ -33,6 +33,9 @@
             android:name="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
             android:protectionLevel="signature" />
     <permission
+            android:name="com.xiaomi.xmsf.permission.READ_ICON_PACK"
+            android:protectionLevel="signatureOrSystem" />
+    <permission
             android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
             android:protectionLevel="signature" />
     <permission
@@ -173,6 +176,10 @@
                 android:name="com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider"
                 android:authorities="com.xiaomi.xmsf.keepalive.prefs"
                 android:readPermission="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.provider.IconPackProvider"
+                android:authorities="com.xiaomi.xmsf.iconpack"
                 android:exported="true" />
         <provider
                 android:name="com.xiaomi.xmsf.provider.IslandPreferenceProvider"

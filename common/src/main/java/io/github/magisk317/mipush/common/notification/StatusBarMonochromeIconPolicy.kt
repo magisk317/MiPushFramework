@@ -2,9 +2,16 @@ package io.github.magisk317.mipush.common.notification
 
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.graphics.BitmapFactory
+import android.net.Uri
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import java.util.Collections
 import java.util.LinkedHashMap
+import io.github.magisk317.mipush.common.ICON_PACK_PREF_AUTHORITY
+import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_BITMAP
+import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_PACKAGE
+import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_USER
+import io.github.magisk317.mipush.common.ICON_PACK_PREF_PATH_ICON
 
 /** Status-bar-only monochrome icon helpers.
  *
@@ -36,6 +43,27 @@ object StatusBarMonochromeIconPolicy {
     fun whiteIconForPackageOrNull(context: Context, packageName: String): Icon? {
         if (packageName.isBlank()) return null
         return whiteIconForPackage(context, packageName)
+    }
+
+    @JvmStatic
+    fun iconPackIconForPackageOrNull(context: Context, packageName: String, userId: Int): Icon? {
+        if (packageName.isBlank() || userId < 0) return null
+        return runCatching {
+            val uri = Uri.Builder()
+                .scheme("content")
+                .authority(ICON_PACK_PREF_AUTHORITY)
+                .appendPath(ICON_PACK_PREF_PATH_ICON)
+                .appendQueryParameter(ICON_PACK_PREF_COLUMN_PACKAGE, packageName)
+                .appendQueryParameter(ICON_PACK_PREF_COLUMN_USER, userId.toString())
+                .build()
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val index = cursor.getColumnIndex(ICON_PACK_PREF_COLUMN_BITMAP)
+                if (index < 0) return@use null
+                val bytes = cursor.getBlob(index)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(Icon::createWithBitmap)
+            }
+        }.getOrNull()
     }
 
     private fun whiteIconForPackage(context: Context, packageName: String): Icon? {

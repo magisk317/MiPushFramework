@@ -130,19 +130,21 @@ fun StatusBarIconSettingsPage(
                                     },
                                 )
 
-                                val globalTitle = stringResource(R.string.pref_color_status_bar_icon_global_title)
-                                SettingsSwitchItem(
-                                    title = globalTitle,
-                                    summary = stringResource(R.string.pref_color_status_bar_icon_global_summary),
-                                    checked = colorStatusBarIconGlobal,
-                                    onCheckedChange = { enabled ->
-                                        pendingToggle = PendingStatusBarToggle(
-                                            global = enabled,
-                                            title = globalTitle,
-                                            enabled = enabled,
-                                        )
-                                    },
-                                )
+                                if (!colorStatusBarIcon) {
+                                    val globalTitle = stringResource(R.string.pref_color_status_bar_icon_global_title)
+                                    SettingsSwitchItem(
+                                        title = globalTitle,
+                                        summary = stringResource(R.string.pref_color_status_bar_icon_global_summary),
+                                        checked = colorStatusBarIconGlobal,
+                                        onCheckedChange = { enabled ->
+                                            pendingToggle = PendingStatusBarToggle(
+                                                global = enabled,
+                                                title = globalTitle,
+                                                enabled = enabled,
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

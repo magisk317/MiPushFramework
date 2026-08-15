@@ -15,10 +15,13 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.app.ConfigCenter
 
 class IconConfigurations constructor(
-    @Suppress("unused") configCenter: ConfigCenter
+    @Suppress("unused") configCenter: ConfigCenter? = null
 ) {
     @Volatile
     private var iconConfigs: Map<String, IconConfig> = emptyMap()
+
+    @Volatile
+    private var embeddedIconConfigs: Map<String, IconConfig> = emptyMap()
 
     @Serializable
     class IconConfig {
@@ -49,16 +52,40 @@ class IconConfigurations constructor(
 
     fun init(context: Context?, treeUri: Uri?): Boolean {
         if (context == null || treeUri == null) {
-            iconConfigs = emptyMap()
-            return false
+            iconConfigs = embeddedIconConfigs
+            return true
         }
         val loaded = loadDirectory(context, treeUri).getOrElse { error ->
             logE("Failed to load icon configurations", error)
-            iconConfigs = emptyMap()
+            iconConfigs = embeddedIconConfigs
             return false
         }
-        iconConfigs = loaded
+        // A user directory may override an embedded entry, but it is never required for the
+        // built-in catalog to work after a reboot or before SAF permissions are restored.
+        iconConfigs = embeddedIconConfigs + loaded
         return true
+    }
+
+    fun initFromAssets(context: Context?): Boolean {
+        if (context == null) return false
+        val loaded: Map<String, IconConfig> = runCatching {
+            buildMap {
+                for (fileName in context.assets.list(EMBEDDED_ASSET_DIRECTORY).orEmpty()) {
+                    if (!fileName.endsWith(".json", ignoreCase = true)) continue
+                    val json = context.assets.open(
+                        "$EMBEDDED_ASSET_DIRECTORY/$fileName",
+                    ).bufferedReader().use { it.readText() }
+                    putAll(parse(json))
+                }
+            }
+        }.getOrElse { error ->
+            logE("Failed to load embedded icon configurations", error)
+            emptyMap<String, IconConfig>()
+        }
+        embeddedIconConfigs = loaded
+        iconConfigs = loaded
+        logI("Loaded embedded icon configurations: ${loaded.size}")
+        return loaded.isNotEmpty()
     }
 
     fun get(pkg: String): IconConfig? = iconConfigs[pkg]
@@ -92,4 +119,8 @@ class IconConfigurations constructor(
                 config.packageName?.takeIf { it.isNotBlank() }?.let { it to config }
             }
             .toMap()
+
+    private companion object {
+        const val EMBEDDED_ASSET_DIRECTORY = "icon"
+    }
 }

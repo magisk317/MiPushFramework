@@ -88,12 +88,35 @@ class HookSystemUI : BaseHook() {
                             sbn.packageName,
                             notification.extras,
                         )
+                        val userId = runCatching {
+                            sbn.callMethod("getUserId") as? Int
+                        }.getOrNull() ?: 0
                         fun monochromeFallback(): Icon? {
-                            return StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, owner)
-                                ?: StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
-                                    context,
-                                    sbn.packageName,
-                                )
+                            if (options.colorStatusBarIconGlobal) {
+                                StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                    context = context,
+                                    packageName = owner,
+                                    userId = userId,
+                                )?.let {
+                                    XLog.d(TAG, "status bar icon source=icon-pack owner=$owner")
+                                    return it
+                                }
+                                if (owner != sbn.packageName) {
+                                    StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                        context = context,
+                                        packageName = sbn.packageName,
+                                        userId = userId,
+                                    )?.let {
+                                        XLog.d(TAG, "status bar icon source=icon-pack pkg=${sbn.packageName}")
+                                        return it
+                                    }
+                                }
+                            }
+                            // When no configured icon exists, keep the notification's own
+                            // status glyph. Converting a launcher icon here can turn adaptive
+                            // backgrounds into white blocks; SystemUI will apply the monochrome
+                            // tint to the original notification icon.
+                            return notification.smallIcon
                         }
                         // AUTOGROUP/system summaries: resId=0 white-block, or android
                         // ic_notification_summary_auto generic glyph (Alipay aggregate case).
@@ -341,16 +364,48 @@ class HookSystemUI : BaseHook() {
                         val entry = args.getOrNull(0) ?: return@doAfter
                         val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
                         val notification = sbn.notification ?: return@doAfter
-                        if (!SystemUiNotificationPolicy.isMiPushManagedNotification(notification.extras)) {
-                            return@doAfter
-                        }
-                        val smallIcon = notification.smallIcon ?: return@doAfter
                         val descriptor = result ?: return@doAfter
                         runCatching {
-                            setHookObjectField(descriptor, "icon", smallIcon)
+                            val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(notification.extras)
+                            val systemUiContext = currentApplication() ?: return@runCatching
+                            val userId = runCatching {
+                                sbn.callMethod("getUserId") as? Int
+                            }.getOrNull() ?: 0
+                            val owner = NotificationOwnerResolver.resolve(
+                                sbn.packageName,
+                                notification.extras,
+                            )
+                            fun iconPackIcon(): Icon? {
+                                if (!options.colorStatusBarIconGlobal) return null
+                                return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                    context = systemUiContext,
+                                    packageName = owner,
+                                    userId = userId,
+                                ) ?: if (owner != sbn.packageName) {
+                                    StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                        context = systemUiContext,
+                                        packageName = sbn.packageName,
+                                        userId = userId,
+                                    )
+                                } else {
+                                    null
+                                }
+                            }
+                            val icon = if (isMiPushManaged) {
+                                iconPackIcon() ?: notification.smallIcon
+                            } else if (options.colorStatusBarIconGlobal) {
+                                // The notification smallIcon is the status glyph. The launcher
+                                // icon fallback can contain an opaque adaptive background and
+                                // turns into a white block when SystemUI applies monochrome tint.
+                                iconPackIcon() ?: notification.smallIcon
+                            } else {
+                                null
+                            } ?: return@runCatching
+                            setHookObjectField(descriptor, "icon", icon)
                             XLog.d(
                                 TAG,
-                                "restored MiPush smallIcon for Android 17 status bar descriptor",
+                                "injected status bar descriptor icon managed=$isMiPushManaged owner=$owner force=${options.colorStatusBarIconGlobal}",
+                            )
                             )
                         }.onFailure {
                             XLog.e(TAG, "failed to restore Android 17 status bar smallIcon", it)

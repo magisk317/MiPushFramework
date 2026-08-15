@@ -8,7 +8,6 @@ internal object SystemUiNotificationPolicy {
     private const val DEFAULT_STATUS_BAR_ICON_TINT = -0x1
     private const val PER_USER_RANGE = 100_000
     private const val FIRST_APPLICATION_UID = 10_000
-    private const val SECURITY_CENTER_PACKAGE = "com.miui.securitycenter"
 
     /** Mirrors [android.graphics.drawable.Icon.TYPE_RESOURCE]. */
     const val ICON_TYPE_RESOURCE = 2
@@ -51,6 +50,9 @@ internal object SystemUiNotificationPolicy {
         getBoolean: (String, Boolean) -> Boolean,
         getString: (String) -> String?,
     ): Boolean {
+        // XMSF writes target_package for its managed notifications. Keep this legacy marker for
+        // compatibility with the existing MiPush notification contract; strong mode separately
+        // handles notifications without any MiPush marker.
         return containsKey(EXTRA_TARGET_PACKAGE) ||
             containsKey(EXTRA_MIUI_TARGET_PACKAGE) ||
             containsKey(EXTRA_XMSF_TARGET_PACKAGE) ||
@@ -340,8 +342,6 @@ internal object SystemUiNotificationPolicy {
             return false
         }
         if (isMiPushManaged) return true
-        // SecurityCenter keeps OEM colorized glyphs; do not hard-mono it.
-        if (packageName == SECURITY_CENTER_PACKAGE) return false
         // Pure system/server uids are eligible only when the posted smallIcon was positively
         // identified as a loadable grayscale resource. Never synthesize a launcher silhouette for
         // them: if no native monochrome glyph exists, preserve the OEM rendering unchanged.

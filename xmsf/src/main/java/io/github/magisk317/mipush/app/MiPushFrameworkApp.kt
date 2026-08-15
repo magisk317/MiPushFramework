@@ -55,6 +55,7 @@ import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.catch
@@ -81,6 +82,7 @@ open class MiPushFrameworkApp : Application() {
         }
 
         AppDependencies.start(this)
+        Global.iconConfigurations().initFromAssets(this)
         val analyticsPrefEnabled = runCatching {
             runBlocking { preferenceRepository.isAnalyticsEnabled.first() }
         }.getOrDefault(true)

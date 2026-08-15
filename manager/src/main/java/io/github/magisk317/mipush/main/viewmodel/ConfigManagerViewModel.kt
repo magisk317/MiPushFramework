@@ -1,10 +1,13 @@
 package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
@@ -27,6 +30,10 @@ class ConfigManagerViewModel constructor(
     private val context: Context,
     private val configurationCatalogSource: RemoteConfigurationCatalogSource,
 ) : ViewModel() {
+    private companion object {
+        const val TAG = "MiPushConfigManager"
+    }
+
     data class UiState(
         val directoryUri: String? = null,
         val remoteSource: ConfigRemoteSource = ConfigRemoteSource(),
@@ -87,6 +94,7 @@ class ConfigManagerViewModel constructor(
                         iconRemoteSource = settings.iconRemoteSource,
                     )
                 }
+                settings.directoryUri?.let { grantXmsfTreePermission(Uri.parse(it)) }
                 refreshInternal(forceRemote = false)
             }
         }
@@ -107,9 +115,24 @@ class ConfigManagerViewModel constructor(
 
     fun updateConfigurationDirectory(uri: Uri) {
         viewModelScope.launch {
+            grantXmsfTreePermission(uri)
             preferenceRepository.setConfigDirectory(uri.toString())
             configGateway.loadConfigurations(context)
             _uiState.update { it.copy(message = "配置目录已更新") }
+        }
+    }
+
+    private fun grantXmsfTreePermission(uri: Uri) {
+        runCatching {
+            context.grantUriPermission(
+                XMSF_PACKAGE_NAME,
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+            )
+            Log.i(TAG, "granted XMSF configuration directory permission uri=$uri")
+        }.onFailure { error ->
+            Log.w(TAG, "unable to grant XMSF configuration directory permission uri=$uri", error)
         }
     }
 

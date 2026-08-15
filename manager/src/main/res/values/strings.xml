@@ -56,12 +56,12 @@
     <string name="settings_log_sanitization">Sanitize logs</string>
     <string name="settings_log_sanitization_summary">Redact tokens, regIds, device identifiers and other sensitive content. Default is off.</string>
     <string name="settings_show_all_events">Display all events</string>
-    <string name="pref_color_status_bar_icon_title">Color status bar icon</string>
+    <string name="pref_color_status_bar_icon_title">Status bar notification icons</string>
     <string name="pref_color_status_bar_icon_summary">Configure MiPush and global status bar icon color policy</string>
-    <string name="pref_color_status_bar_icon_mipush_title">MiPush managed notifications</string>
-    <string name="pref_color_status_bar_icon_mipush_summary">When disabled, MiPush-managed status bar icons will be monochrome</string>
-    <string name="pref_color_status_bar_icon_global_title">Strong mode</string>
-    <string name="pref_color_status_bar_icon_global_summary">Apply the same color policy to all status bar notification icons</string>
+    <string name="pref_color_status_bar_icon_mipush_title">Color icons</string>
+    <string name="pref_color_status_bar_icon_mipush_summary">Monochrome by default; colored when enabled</string>
+    <string name="pref_color_status_bar_icon_global_title">Monochrome enhancement</string>
+    <string name="pref_color_status_bar_icon_global_summary">Also apply monochrome rendering to non-MiPush proxy notifications</string>
     <string name="pref_color_status_bar_icon_restart_title">Device reboot required</string>
     <string name="pref_color_status_bar_icon_restart_message">Changing this switch reboots the device so the status-bar icon policy takes effect system-wide.</string>
     <string name="pref_color_status_bar_icon_restart_confirm">Apply and reboot</string>

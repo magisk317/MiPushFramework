@@ -22,6 +22,13 @@ const val KEEPALIVE_PREF_ANTI_KILL = "pref_keepalive_anti_kill"
 const val KEEPALIVE_PREF_STANDBY_BYPASS = "pref_keepalive_standby_bypass"
 const val KEEPALIVE_PREF_DOZE_BYPASS = "pref_keepalive_doze_bypass"
 
+const val ICON_PACK_PREF_AUTHORITY = "com.xiaomi.xmsf.iconpack"
+const val ICON_PACK_PREF_READ_PERMISSION = "com.xiaomi.xmsf.permission.READ_ICON_PACK"
+const val ICON_PACK_PREF_PATH_ICON = "icon"
+const val ICON_PACK_PREF_COLUMN_PACKAGE = "package"
+const val ICON_PACK_PREF_COLUMN_USER = "user"
+const val ICON_PACK_PREF_COLUMN_BITMAP = "bitmap"
+
 const val ISLAND_PREF_AUTHORITY = "com.xiaomi.xmsf.island.prefs"
 const val ISLAND_PREF_READ_PERMISSION = "com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
 const val ISLAND_PREF_PATH_FLAGS = "flags"

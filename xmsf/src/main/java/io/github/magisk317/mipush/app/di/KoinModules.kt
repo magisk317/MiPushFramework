@@ -46,7 +46,7 @@ val xmsfCoreKoinModule = module {
     single { get<AppDatabase>().registeredApplicationDao() }
 
     single { PreferenceRepository(get()) }
-    single { ConfigCenter(get()) }
+    single { ConfigCenter(androidContext(), get()) }
     single<ManagerConfigGateway> { XmsfManagerConfigGateway(get(), get()) }
     single<ManagerConfigSyncGateway> { XmsfManagerConfigSyncGateway(get(), get()) }
     single<ManagerApplicationGateway> { XmsfManagerApplicationGateway() }

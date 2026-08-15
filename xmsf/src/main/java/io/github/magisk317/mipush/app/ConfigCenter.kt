@@ -2,6 +2,8 @@ package io.github.magisk317.mipush.app
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
+import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.control.PushControllerUtils
@@ -16,14 +18,28 @@ import io.github.magisk317.mipush.common.Constants
  * Push 配置
  */
 class ConfigCenter constructor(
+    private val context: Context,
     private val preferenceRepository: PreferenceRepository
 ) {
+    private companion object {
+        const val TAG = "MiPushConfigCenter"
+    }
+    @Volatile
+    private var permissionDirectory: String? = null
+
     suspend fun getConfigurationDirectoryAsync(): Uri? {
         val uri = preferenceRepository.configDirectory.first()
-        return if (uri.isNullOrBlank()) null else Uri.parse(uri)
+        if (uri.isNullOrBlank()) return null
+        if (uri != permissionDirectory) {
+            val parsed = Uri.parse(uri)
+            persistDirectoryPermission(parsed)
+            permissionDirectory = uri
+        }
+        return Uri.parse(uri)
     }
 
     suspend fun setConfigurationDirectoryAsync(treeUri: Uri): Boolean {
+        persistDirectoryPermission(treeUri)
         preferenceRepository.setConfigDirectory(treeUri.toString())
         return true
     }
@@ -52,6 +68,7 @@ class ConfigCenter constructor(
         }
 
     internal fun loadConfigurationsFromDirectory(context: Context, directory: Uri?): Boolean {
+        directory?.let { persistDirectoryPermission(it) }
         val appContext = context.applicationContext
         val configLoaded = Configurations.getInstance().init(appContext, directory)
         val iconLoaded = Global.iconConfigurations().init(appContext, directory)
@@ -63,5 +80,29 @@ class ConfigCenter constructor(
             PushServiceStarter.start(appContext, intent)
         }
         return configLoaded && iconLoaded
+    }
+
+    private fun persistDirectoryPermission(treeUri: Uri) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                treeUri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }.onSuccess {
+            Log.i(TAG, "persisted configuration directory permission uri=$treeUri")
+        }.onFailure { error ->
+            Log.w(TAG, "unable to persist configuration directory permission uri=$treeUri", error)
+        }
+        runCatching {
+            context.grantUriPermission(
+                LegacyComponentNames.MANAGER_PACKAGE,
+                treeUri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+            )
+            Log.i(TAG, "granted manager configuration directory permission uri=$treeUri")
+        }.onFailure { error ->
+            Log.w(TAG, "unable to grant manager configuration directory permission uri=$treeUri", error)
+        }
     }
 }

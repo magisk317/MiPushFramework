@@ -219,8 +219,7 @@ object NotificationController {
         val islandOptions = MiPushIslandPreferences.read(context, packageName, userId)
         val isMockReplay = metaInfo.isMockReplay()
         val extras = Bundle()
-        extras.putString("target_package", packageName)
-        extras.putString("miui.targetPkg", packageName)
+        addTargetPackageIdentity(extras, packageName)
         if (applyPayloadDecorations) {
             StockNotificationMetadataBridge.apply(metaInfo, extras)
         }
@@ -231,17 +230,6 @@ object NotificationController {
             notificationBuilder,
             islandOptions.colorStatusBarIcon,
         )
-        // This is the single final smallIcon seam for all MiPush target builders. It runs after
-        // the existing status-bar policy so a resolver failure leaves the app-icon fallback
-        // untouched, while an available pack becomes the framework smallIcon source.
-        applyIconPackSmallIcon(
-            context = context,
-            targetPackage = packageName,
-            notificationBuilder = notificationBuilder,
-            colorStatusBarIcon = islandOptions.colorStatusBarIcon,
-            userId = userId,
-        )
-
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         val largeIcon = if (
             applyPayloadDecorations &&
@@ -493,6 +481,12 @@ object NotificationController {
             ?.equals("true", ignoreCase = true) == true
     }
 
+    /** Keep normal and replay notifications on the same SystemUI owner-resolution path. */
+    private fun addTargetPackageIdentity(extras: Bundle, packageName: String) {
+        extras.putString("target_package", packageName)
+        extras.putString("miui.targetPkg", packageName)
+    }
+
     private fun applyMockReplayVisibility(
         notificationBuilder: NotificationCompat.Builder,
         packageName: String,
@@ -591,6 +585,7 @@ object NotificationController {
             .setDefaults(Notification.DEFAULT_ALL)
             .addExtras(
                 Bundle().apply {
+                    addTargetPackageIdentity(this, packageName)
                     putBoolean("mipush_mock_replay_receipt", true)
                     putString("mipush_mock_replay_source_package", packageName)
                 }

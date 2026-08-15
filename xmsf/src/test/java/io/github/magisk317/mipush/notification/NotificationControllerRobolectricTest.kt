@@ -617,13 +617,13 @@ class NotificationControllerRobolectricTest {
         assertEquals("Replay body", posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertTrue(posted.extras.getBoolean("mipush_mock_replay_receipt", false))
         assertEquals(packageName, posted.extras.getString("mipush_mock_replay_source_package"))
-        assertNull(posted.extras.getString("target_package"))
+        assertEquals(packageName, posted.extras.getString("target_package"))
         assertNull(posted.extras.getString("miui.focus.param"))
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
     }
 
     @Test
-    fun `mock replay hidden island posts local visible receipt without target package extras`() {
+    fun `mock replay hidden island posts local visible receipt with target package extras`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val sourceColor = Color.rgb(0x33, 0x70, 0xff)
@@ -687,7 +687,7 @@ class NotificationControllerRobolectricTest {
         assertEquals("Replay body", receipt.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertTrue(receipt.extras.getBoolean("mipush_mock_replay_receipt", false))
         assertEquals(packageName, receipt.extras.getString("mipush_mock_replay_source_package"))
-        assertNull(receipt.extras.getString("target_package"))
+        assertEquals(packageName, receipt.extras.getString("target_package"))
         assertNull(receipt.extras.getString("miui.focus.param"))
         assertFalse(receipt.extras.getBoolean("mipush_island_allow_proxy", false))
     }
