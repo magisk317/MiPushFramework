@@ -58,7 +58,7 @@ variables:
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
-  MIPUSH_ZYGISK_REF: "7b57adbc0f7078885169d18b0705d621dfc36462"
+  MIPUSH_ZYGISK_REF: "b350ca6bd0467af389e2473cabc308cedd2e2317"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
   # Public SHA-256 fingerprint of the production APK signing certificate.
