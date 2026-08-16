@@ -13,35 +13,32 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -76,9 +73,7 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.uikit.theme.UiKitStyle
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -86,12 +81,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
@@ -99,6 +94,9 @@ import io.github.magisk317.mipush.feature.main.MainActivity
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.android.ext.android.inject
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 
 private val TAG = "WizardPermission"
 
@@ -147,116 +145,53 @@ fun PermissionMainActivity(
 ) {
     val context = LocalContext.current
     val permissionViewModel: RequestPermissionViewModel = koinViewModel()
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
-                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-                    )
-                )
-            )
-            .navigationBarsPadding()
-    ) {
-        val permissionInfos = remember {
-            getPermissionInfos(context).filter { it !is DisplayOnlyPhonyPermissionInfo }
-        }
-        val permissionStates by permissionViewModel.permissionStates.collectAsState()
-        val rootAccessSnapshot by permissionViewModel.rootAccessSnapshot.collectAsState()
+    val permissionInfos = remember {
+        getPermissionInfos(context).filter { it !is DisplayOnlyPhonyPermissionInfo }
+    }
+    val permissionStates by permissionViewModel.permissionStates.collectAsState()
+    val rootAccessSnapshot by permissionViewModel.rootAccessSnapshot.collectAsState()
 
-        var checkTrigger by remember { mutableIntStateOf(0) }
-        val lifecycleOwner = LocalLifecycleOwner.current
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    checkTrigger++
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+    var checkTrigger by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                checkTrigger++
             }
         }
-
-        val allGranted = checkTrigger.let { _ ->
-            areAllPermissionRequirementsSatisfied(permissionInfos, permissionStates)
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
 
-        val autoRequestedSet = remember { mutableStateOf(setOf<Int>()) }
+    val allGranted = areAllPermissionRequirementsSatisfied(permissionInfos, permissionStates)
+    val autoRequestedSet = remember { mutableStateOf(setOf<Int>()) }
 
-        LaunchedEffect(checkTrigger) {
-            permissionViewModel.autoRequestPermissions(permissionInfos, autoRequestedSet.value)
-        }
+    LaunchedEffect(checkTrigger) {
+        permissionViewModel.autoRequestPermissions(permissionInfos, autoRequestedSet.value)
+    }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.app_name),
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp, top = 32.dp)
-            )
-            Text(
-                text = stringResource(id = R.string.wizard_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(permissionInfos) { index, info ->
-                    if (info is RootPermissionInfo) {
-                        RootPermissionItem(
-                            info = info,
-                            snapshot = rootAccessSnapshot,
-                            onRequest = { target ->
-                                permissionViewModel.requestRootAccess(target) { isGranted ->
-                                    checkTrigger++
-                                    val targetName = context.getString(
-                                        if (target == ManagerRootTarget.MANAGER) {
-                                            R.string.wizard_root_manager_title
-                                        } else {
-                                            R.string.wizard_root_runtime_title
-                                        },
-                                    )
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(
-                                            if (isGranted) {
-                                                R.string.wizard_root_permission_target_granted_toast
-                                            } else {
-                                                R.string.wizard_root_permission_target_denied_toast
-                                            },
-                                            targetName,
-                                        ),
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            },
-                        )
-                    } else {
-                        PermissionItem(
-                            info = info,
-                            isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
-                        ) {
-                            permissionViewModel.requestPermission(info) {
-                                checkTrigger++
-                            }
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_permission_check)) },
+                navigationIcon = {
+                    if (recheckOnly) {
+                        IconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.action_back),
+                            )
                         }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+                },
+                windowInsets = WindowInsets.statusBars,
+                colors = chromeTopAppBarColors(),
+            )
+        },
+        bottomBar = {
             Button(
                 onClick = {
                     if (recheckOnly) {
@@ -266,16 +201,75 @@ fun PermissionMainActivity(
                         context.startActivity(Intent(context, MainActivity::class.java))
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = true
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Text(
                     text = if (allGranted) {
                         stringResource(id = R.string.wizard_title_finish_button)
                     } else {
                         stringResource(id = R.string.wizard_title_continue_button)
-                    }
+                    },
                 )
+            }
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                Text(
+                    text = stringResource(id = R.string.wizard_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            itemsIndexed(permissionInfos) { index, info ->
+                if (info is RootPermissionInfo) {
+                    RootPermissionItem(
+                        info = info,
+                        snapshot = rootAccessSnapshot,
+                        onRequest = { target ->
+                            permissionViewModel.requestRootAccess(target) { isGranted ->
+                                checkTrigger++
+                                val targetName = context.getString(
+                                    if (target == ManagerRootTarget.MANAGER) {
+                                        R.string.wizard_root_manager_title
+                                    } else {
+                                        R.string.wizard_root_runtime_title
+                                    },
+                                )
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (isGranted) {
+                                            R.string.wizard_root_permission_target_granted_toast
+                                        } else {
+                                            R.string.wizard_root_permission_target_denied_toast
+                                        },
+                                        targetName,
+                                    ),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
+                } else {
+                    PermissionItem(
+                        info = info,
+                        isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
+                    ) {
+                        permissionViewModel.requestPermission(info) {
+                            checkTrigger++
+                        }
+                    }
+                }
             }
         }
     }
@@ -306,6 +300,7 @@ private fun RootPermissionItem(
             Text(
                 text = info.permissionTitle,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = spaceLabel,
@@ -363,7 +358,7 @@ private fun RootSubjectItem(
     }
     ListItem(
         supportingContent = {
-            Text(text = details)
+            Text(text = details, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         leadingContent = {
             Icon(
@@ -392,7 +387,11 @@ private fun RootSubjectItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(text = title, fontWeight = FontWeight.Medium)
+            Text(
+                text = title,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.labelMedium,
@@ -443,7 +442,8 @@ fun PermissionItem(
     ) {
         Text(
             text = info.permissionTitle,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
