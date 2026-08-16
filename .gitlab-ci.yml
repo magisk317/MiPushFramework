@@ -106,6 +106,11 @@ android:build:
   extends:
     - .magisk_android_build
     - .mipush_signed_android_rules
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - when: never
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_ANDROID_BUILD_TASKS: >-
@@ -124,6 +129,18 @@ android:build:
     paths:
       - app/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
+
+android:check:
+  extends: .magisk_android_build
+  stage: quality
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - when: never
+  variables:
+    MAGISK_ANDROID_BUILD_TASKS: >-
+      :app:compileDebugKotlin
+      :mipush:compileGithubDebugKotlin
+      -Pkotlin.incremental=false
 
 cancel:older:mr:pipelines:
   extends: .magisk_cancel_older_mr_pipelines
@@ -279,6 +296,9 @@ telegram:ci:
     - .mipush_signed_android_rules
   stage: notify
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - when: never
   tags:
     - magisk-arm64-linux
   variables:
@@ -291,7 +311,7 @@ telegram:ci:
   needs:
     - job: android:build
       artifacts: true
-      optional: false
+      optional: true
     - job: android:ci:play-alpha
       artifacts: false
       optional: true
@@ -330,8 +350,8 @@ android:detekt:
     - .magisk_android_base
     - .mipush_android_rules
   # Robolectric's native runtime is not supported on Linux/AArch64. Run the
-  # complete Robolectric set once on the AMD64/JDK 26 environment. It does not
-  # compete with the ARM release runner.
+  # package-filtered shards on the AMD64/JDK 26 environment. No unfiltered
+  # module-wide test task is allowed here, and this does not compete with ARM.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
@@ -341,15 +361,16 @@ android:detekt:
   script:
     - |
       set -euo pipefail
-      : "${MAGISK_ANDROID_TEST_TASKS:?MAGISK_ANDROID_TEST_TASKS is required}"
+      : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      bash scripts/ci/run_test_shards.sh $MAGISK_ANDROID_TEST_SHARDS
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-        $MAGISK_ANDROID_TEST_TASKS \
-        -PminifyDebug \
-        -Pkotlin.incremental=false \
-        -x detekt \
-        -x qualityGateDetekt \
-        -x verifyModuleBoundaries
+        :common:koverGenerateArtifactDebug \
+        :core:koverGenerateArtifactDebug \
+        :xposed:koverGenerateArtifactDebug \
+        :xmsf:koverGenerateArtifactNormalDebug \
+        :xmsf:koverGenerateArtifactVc105Debug \
+        -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries
   artifacts:
     name: "MiPushFramework-robolectric-$CI_JOB_NAME_SLUG-$CI_COMMIT_REF_SLUG"
     when: always
@@ -366,12 +387,11 @@ android:detekt:
 android:test:robolectric:
   extends: .mipush_robolectric_tests
   variables:
-    MAGISK_ANDROID_TEST_TASKS: >-
-      :common:testDebugUnitTest :common:koverGenerateArtifactDebug
-      :core:testDebugUnitTest :core:koverGenerateArtifactDebug
-      :xposed:testDebugUnitTest :xposed:koverGenerateArtifactDebug
-      :xmsf:testNormalDebugUnitTest :xmsf:koverGenerateArtifactNormalDebug
-      :xmsf:testVc105DebugUnitTest :xmsf:koverGenerateArtifactVc105Debug
+    MAGISK_ANDROID_TEST_SHARDS: >-
+      common-notification common-utils common-other core
+      xposed-systemui xposed-island xposed-other
+      xmsf-stock xmsf-notification xmsf-service xmsf-manager xmsf-runtime xmsf-other
+      manager-events manager-main manager-connection manager-other
   needs:
     - job: android:ci:play-alpha
       artifacts: false
@@ -404,11 +424,6 @@ android:test:
         qualityGateKoverVerify \
         -PminifyDebug \
         -Pkotlin.incremental=false \
-        -x :common:testDebugUnitTest \
-        -x :core:testDebugUnitTest \
-        -x :xposed:testDebugUnitTest \
-        -x :xmsf:testNormalDebugUnitTest \
-        -x :xmsf:testVc105DebugUnitTest \
         -x detekt \
         -x qualityGateDetekt \
         -x verifyModuleBoundaries

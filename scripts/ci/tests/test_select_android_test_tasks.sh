@@ -7,11 +7,11 @@ assert_contains() { grep -Fx -- "$1" "$2" >/dev/null || { echo "missing $1" >&2;
 assert_empty() { [[ ! -s "$1" ]] || { echo "expected empty output" >&2; exit 1; }; }
 printf 'impact\ncommon/Example.kt\n' > "$tmp_dir/common"
 bash "$selector" /dev/null "$tmp_dir/common" > "$tmp_dir/out"
-assert_contains ':common:check' "$tmp_dir/out"; assert_contains ':xmsf:testNormalDebugUnitTest' "$tmp_dir/out"
+assert_contains 'common-notification' "$tmp_dir/out"; assert_contains 'common-utils' "$tmp_dir/out"
 printf 'impact\nxposed/Example.kt\n' > "$tmp_dir/xposed"
-bash "$selector" /dev/null "$tmp_dir/xposed" > "$tmp_dir/out"; assert_contains ':xposed:testDebugUnitTest' "$tmp_dir/out"
+bash "$selector" /dev/null "$tmp_dir/xposed" > "$tmp_dir/out"; assert_contains 'xposed-systemui' "$tmp_dir/out"
 printf 'impact\ndocs/ci.md\n' > "$tmp_dir/docs"
 bash "$selector" /dev/null "$tmp_dir/docs" > "$tmp_dir/out"; assert_empty "$tmp_dir/out"
 printf 'full\n' > "$tmp_dir/full"
-bash "$selector" /dev/null "$tmp_dir/full" > "$tmp_dir/out"; assert_contains 'qualityGateKoverVerify' "$tmp_dir/out"
+bash "$selector" /dev/null "$tmp_dir/full" > "$tmp_dir/out"; assert_contains 'xmsf-stock' "$tmp_dir/out"
 echo 'MiPush selector tests passed'

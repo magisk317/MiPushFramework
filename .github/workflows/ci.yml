@@ -54,14 +54,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t selected_tasks < <(bash scripts/ci/select_android_test_tasks.sh "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}")
-          if ((${#selected_tasks[@]} == 0)); then
+          mapfile -t selected_shards < <(bash scripts/ci/select_android_test_tasks.sh "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}")
+          if ((${#selected_shards[@]} == 0)); then
             echo "No Android test tasks selected for this change."
             exit 0
           fi
-          bash "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}/gradle/run_gradle_with_retry.sh" \
-            --warning-mode all --no-parallel "${selected_tasks[@]}" \
-            -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
+          bash scripts/ci/run_test_shards.sh "${selected_shards[@]}"
 
   build:
     runs-on: ubuntu-latest
