@@ -24,7 +24,6 @@ data class ZygiskConfig(
     val entries: List<ZygiskConfigEntry> = emptyList(),
     val profile: String = DEFAULT_PROFILE,
     val observe: Boolean = false,
-    val autoScan: Boolean = false,
 ) {
     fun isEnabledForPackage(packageName: String): Boolean {
         return entries.any { it.enabled && it.matchesPackage(packageName) } &&
@@ -62,7 +61,6 @@ data class ZygiskConfig(
         val metadata = listOf(
             "profile=${profile.takeIf { it in SUPPORTED_PROFILES } ?: DEFAULT_PROFILE}",
             "observe=$observe",
-            "auto_scan=$autoScan",
         )
         return (metadata + normalizedEntries.map { it.toLine() }).joinToString(separator = "\n", postfix = "\n")
     }
@@ -76,8 +74,9 @@ data class ZygiskConfig(
             val metadata = content.lineSequence().map { it.trim() }
             val profile = metadata.firstOrNull { it.startsWith("profile=") }?.substringAfter('=') ?: DEFAULT_PROFILE
             val observe = metadata.firstOrNull { it.startsWith("observe=") }?.substringAfter('=')?.toBooleanStrictOrNull() ?: false
-            val autoScan = metadata.firstOrNull { it.startsWith("auto_scan=") }?.substringAfter('=')?.toBooleanStrictOrNull() ?: false
-            return ZygiskConfig(entries, profile, observe, autoScan).normalized()
+            // Older Manager builds wrote auto_scan, but native Zygisk never scheduled it.
+            // Ignore that legacy metadata instead of continuing to advertise a no-op setting.
+            return ZygiskConfig(entries, profile, observe).normalized()
         }
 
         fun fromPackages(packages: Iterable<String>): ZygiskConfig {
@@ -98,20 +97,19 @@ data class ZygiskConfig(
         }
 
         const val DEFAULT_PROFILE = "miui14"
-        val SUPPORTED_PROFILES = setOf("miui14", "hyperos1", "legacy-v11")
+        val SUPPORTED_PROFILES = setOf("miui14", "os4")
     }
 }
 
 object ZygiskPackagePolicy {
-    // No vendor/system package denylist: any well-formed package may be configured.
-    // Unwanted apps are handled by per-app blocked flag, not static prefixes.
-
     private val packageNameRegex = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
     private val processNameRegex = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+(\\:[A-Za-z0-9_.-]+)?")
 
     fun isManagedPackage(packageName: String): Boolean {
         val normalized = packageName.trim()
         if (normalized.isEmpty() || normalized == "android") return false
+        // Package ownership and blocked-app policy are resolved by the caller;
+        // this shared policy only validates the config identity syntax.
         return packageNameRegex.matches(normalized)
     }
 

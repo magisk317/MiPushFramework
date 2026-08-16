@@ -26,7 +26,6 @@ data class ZygiskConfigState(
     val installedApps: List<ManagerApplication> = emptyList(),
     val profile: String = ZygiskConfig.DEFAULT_PROFILE,
     val observe: Boolean = false,
-    val autoScan: Boolean = false,
     val scanCandidates: List<String> = emptyList(),
     val configReadAvailable: Boolean = false,
     val configReadError: String? = null,
@@ -79,12 +78,15 @@ class ZygiskConfigViewModel(
                 else settingsManager.getZygiskConfig()
             }
             val availableConfig = (configResult as? ZygiskConfigReadResult.Available)?.config
+            val enabledPackages = availableConfig?.enabledPackages().orEmpty()
+            // Keep the source order within each group so refreshing the page does not reshuffle apps.
+            val sortedApps = appsList.sortedByDescending { it.packageName in enabledPackages }
 
             val nextState = _state.value.copy(
                 isLoading = false,
                 isZygiskEnabled = isZygiskEnabled,
                 hasRootAccess = hasRoot,
-                installedApps = appsList,
+                installedApps = sortedApps,
                 configReadAvailable = configResult is ZygiskConfigReadResult.Available,
                 configReadError = (configResult as? ZygiskConfigReadResult.Unavailable)?.reason,
                 zygiskStatusAvailable = moduleResult is ZygiskModuleReadResult.Available,
@@ -93,10 +95,9 @@ class ZygiskConfigViewModel(
             )
             _state.value = availableConfig?.let { config ->
                 nextState.copy(
-                    spoofPackages = config.enabledPackages() - blockedPackages,
+                    spoofPackages = enabledPackages - blockedPackages,
                     profile = config.profile,
                     observe = config.observe,
-                    autoScan = config.autoScan,
                 )
             } ?: nextState
         }
@@ -130,7 +131,6 @@ class ZygiskConfigViewModel(
                     current.copy(entries = preserved + packageEntries).copy(
                         profile = _state.value.profile,
                         observe = _state.value.observe,
-                        autoScan = _state.value.autoScan,
                     ),
                 )
                 granted to saved
@@ -152,10 +152,6 @@ class ZygiskConfigViewModel(
 
     fun setObserve(enabled: Boolean) {
         if (_state.value.configReadAvailable) _state.value = _state.value.copy(observe = enabled)
-    }
-
-    fun setAutoScan(enabled: Boolean) {
-        if (_state.value.configReadAvailable) _state.value = _state.value.copy(autoScan = enabled)
     }
 
     fun scan() {

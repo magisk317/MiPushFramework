@@ -8,6 +8,7 @@ import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
@@ -85,7 +86,21 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             ?.let { RegistrationEventSnapshot(type = it.type, result = it.result) }
 
     private fun loadPackagesOnDevice(): List<PackageInfo> = try {
-        PackageManagerCompatBridge.getInstalledPackages(packageManager, 0).map { info ->
+        val visiblePackages = PackageManagerCompatBridge.getInstalledPackages(packageManager, 0)
+        // HyperOS 4 can return only the caller package after its PKMS visibility check, even
+        // when QUERY_ALL_PACKAGES is granted. Rebuild the package-name set through root `pm`.
+        val packageInfos = if (visiblePackages.size <= MIN_EXPECTED_VISIBLE_PACKAGES) {
+            loadPackageNamesThroughRoot()?.let { packageNames ->
+                packageNames.mapNotNull { packageName ->
+                    runCatching {
+                        PackageManagerCompatBridge.getPackageInfo(packageManager, packageName, PACKAGE_INFO_FLAGS)
+                    }.getOrNull()
+                }.takeIf { it.isNotEmpty() }
+            } ?: visiblePackages
+        } else {
+            visiblePackages
+        }
+        packageInfos.map { info ->
             runCatching {
                 PackageManagerCompatBridge.getPackageInfo(packageManager, info.packageName, PACKAGE_INFO_FLAGS)
             }.getOrElse { info }
@@ -93,6 +108,23 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
     } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
         Napier.e("Failed to load installed packages for manager runtime", error, tag = TAG)
         emptyList()
+    }
+
+    private fun loadPackageNamesThroughRoot(): List<String>? {
+        if (!AppRootAccessFacade.refreshRootAccessIfGranted()) return null
+        val result = AppRootAccessFacade.runRootCommand(
+            "pm list packages --user ${Utils.myUserId().coerceAtLeast(0)}",
+            timeoutMs = ROOT_PACKAGE_SCAN_TIMEOUT_MS,
+        )
+        if (!result.isSuccess) {
+            Napier.w("Root package scan failed: ${result.stderrText}", tag = TAG)
+            return null
+        }
+        val packages = result.stdout.mapNotNull { line ->
+            line.trim().removePrefix("package:").takeIf { it.isNotBlank() }
+        }.distinct()
+        Napier.i("Root package scan returned ${packages.size} packages", tag = TAG)
+        return packages
     }
 
     private fun isListCandidate(info: PackageInfo, includeSystemApps: Boolean): Boolean {
@@ -134,6 +166,8 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
 
     companion object {
         private const val TAG = "ManagerApplicationReadSource"
+        private const val MIN_EXPECTED_VISIBLE_PACKAGES = 1
+        private const val ROOT_PACKAGE_SCAN_TIMEOUT_MS = 15_000L
         private const val PACKAGE_INFO_FLAGS =
             PackageManager.MATCH_DISABLED_COMPONENTS or
                 PackageManager.GET_SERVICES or

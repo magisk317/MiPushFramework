@@ -4,30 +4,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,14 +35,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,6 +76,8 @@ class ZygiskConfigPage : ComponentActivity() {
         val state by viewModel.state.collectAsStateWithLifecycle()
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+        val saveSuccessMessage = stringResource(R.string.zygisk_save_success)
+        val saveFailedMessage = stringResource(R.string.zygisk_save_failed)
         
         LaunchedEffect(Unit) {
             viewModel.load()
@@ -107,18 +97,27 @@ class ZygiskConfigPage : ComponentActivity() {
                         viewModel.saveConfig(
                             onSuccess = {
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("Saved successfully", duration = SnackbarDuration.Short)
+                                    snackbarHostState.showSnackbar(
+                                        saveSuccessMessage,
+                                        duration = SnackbarDuration.Short,
+                                    )
                                 }
                             },
                             onError = {
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("Failed to save (Root required?)", duration = SnackbarDuration.Short)
+                                    snackbarHostState.showSnackbar(
+                                        saveFailedMessage,
+                                        duration = SnackbarDuration.Short,
+                                    )
                                 }
                             }
                         )
                     }
                 ) {
-                    Icon(Icons.Filled.Save, contentDescription = "Save")
+                    Icon(
+                        Icons.Filled.Save,
+                        contentDescription = stringResource(R.string.zygisk_save),
+                    )
                 }
             },
             snackbarHost = {
@@ -141,7 +140,7 @@ class ZygiskConfigPage : ComponentActivity() {
                         item {
                             state.configReadError?.let { error ->
                                 Text(
-                                    text = "Unable to read Zygisk configuration: $error",
+                                    text = stringResource(R.string.zygisk_config_read_error, error),
                                     color = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.padding(MaterialTheme.spacing.large),
                                 )
@@ -158,10 +157,8 @@ class ZygiskConfigPage : ComponentActivity() {
                             ZygiskOptions(
                                 profile = state.profile,
                                 observe = state.observe,
-                                autoScan = state.autoScan,
                                 onProfileChanged = viewModel::setProfile,
                                 onObserveChanged = viewModel::setObserve,
-                                onAutoScanChanged = viewModel::setAutoScan,
                                 enabled = state.configReadAvailable,
                                 candidates = state.scanCandidates,
                                 scanError = state.scanError,
@@ -188,10 +185,8 @@ class ZygiskConfigPage : ComponentActivity() {
     private fun ZygiskOptions(
         profile: String,
         observe: Boolean,
-        autoScan: Boolean,
         onProfileChanged: (String) -> Unit,
         onObserveChanged: (Boolean) -> Unit,
-        onAutoScanChanged: (Boolean) -> Unit,
         candidates: List<String>,
         scanError: String?,
         onScan: () -> Unit,
@@ -199,10 +194,16 @@ class ZygiskConfigPage : ComponentActivity() {
     ) {
         var expanded by remember { mutableStateOf(false) }
         Column(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.large)) {
-            Text("Device profile", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.zygisk_profile_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
             Box {
                 Text(
-                    text = profile,
+                    text = when (profile) {
+                        "miui14" -> stringResource(R.string.zygisk_profile_miui14)
+                        else -> stringResource(R.string.zygisk_profile_os4)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = enabled) { expanded = true }
@@ -210,29 +211,36 @@ class ZygiskConfigPage : ComponentActivity() {
                     color = MaterialTheme.colorScheme.primary,
                 )
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf("miui14", "hyperos1", "legacy-v11").forEach { option ->
+                    listOf(
+                        "miui14" to R.string.zygisk_profile_miui14,
+                        "os4" to R.string.zygisk_profile_os4,
+                    ).forEach { (value, label) ->
                         DropdownMenuItem(
-                            text = { Text(option) },
+                            text = { Text(stringResource(label)) },
                             enabled = enabled,
-                            onClick = { onProfileChanged(option); expanded = false },
+                            onClick = { onProfileChanged(value); expanded = false },
                         )
                     }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Observe property keys", modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
                 Switch(checked = observe, enabled = enabled, onCheckedChange = onObserveChanged)
             }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Automatic scan", modifier = Modifier.weight(1f))
-                Switch(checked = autoScan, enabled = enabled, onCheckedChange = onAutoScanChanged)
-            }
-            Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
-                Text("Scan installed packages")
+            Text(
+                stringResource(R.string.zygisk_scan_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            androidx.compose.material3.Button(
+                onClick = onScan,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.zygisk_scan))
             }
             scanError?.let { error ->
                 Text(
-                    text = "Unable to scan packages: $error",
+                    text = stringResource(R.string.zygisk_scan_error, error),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -249,7 +257,7 @@ class ZygiskConfigPage : ComponentActivity() {
         error: String?,
     ) {
         val statusText = when {
-            !isAvailable -> "Module status unavailable: ${error.orEmpty()}"
+            !isAvailable -> stringResource(R.string.zygisk_unavailable_detail, error.orEmpty())
             isZygiskEnabled -> stringResource(R.string.zygisk_enabled)
             else -> stringResource(R.string.zygisk_disabled)
         }
@@ -261,7 +269,7 @@ class ZygiskConfigPage : ComponentActivity() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Module Status: $statusText",
+                text = stringResource(R.string.zygisk_module_status, statusText),
                 style = MaterialTheme.typography.titleMedium,
                 color = color
             )

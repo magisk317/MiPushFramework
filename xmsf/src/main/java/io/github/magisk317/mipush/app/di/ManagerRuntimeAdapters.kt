@@ -974,7 +974,7 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
             return io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Unavailable("zygisk_root_missing")
         }
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
-            "/data/adb/modules/mipush_zygisk/bin/mipushctl scan",
+            "/system/bin/sh /data/adb/modules/mipush_zygisk/bin/mipushctl scan",
             timeoutMs = 30_000L,
         )
         return if (result.isSuccess) {

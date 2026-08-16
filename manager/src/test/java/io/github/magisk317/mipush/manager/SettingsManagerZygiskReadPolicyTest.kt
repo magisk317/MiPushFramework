@@ -16,7 +16,7 @@ class SettingsManagerZygiskReadPolicyTest {
 
     @Test
     fun `available config exposes enabled packages and package state`() {
-        val config = ZygiskConfig.parse("profile=miui14\ncom.example.enabled\n")
+        val config = ZygiskConfig.parse("profile=os4\ncom.example.enabled\n")
         val result = ZygiskConfigReadResult.Available(config)
 
         assertEquals(setOf("com.example.enabled"), zygiskSpoofPackagesOrNull(result))

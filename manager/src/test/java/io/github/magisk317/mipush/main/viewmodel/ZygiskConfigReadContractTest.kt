@@ -65,7 +65,16 @@ class ZygiskConfigReadContractTest {
 
         assertTrue(source.contains("enabled = state.configReadAvailable"))
         assertTrue(source.contains("Switch(checked = observe, enabled = enabled"))
-        assertTrue(source.contains("Switch(checked = autoScan, enabled = enabled"))
+        assertFalse(source.contains("autoScan"))
+    }
+
+    @Test
+    fun `view model places enabled packages first without reshuffling groups`() {
+        val source = readSource(
+            "io/github/magisk317/mipush/main/viewmodel/ZygiskConfigViewModel.kt",
+        )
+
+        assertTrue(source.contains("appsList.sortedByDescending { it.packageName in enabledPackages }"))
     }
 
     @Test

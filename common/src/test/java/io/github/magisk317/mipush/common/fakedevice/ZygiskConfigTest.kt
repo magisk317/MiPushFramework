@@ -28,7 +28,7 @@ class ZygiskConfigTest {
     }
 
     @Test
-    fun `parse keeps Xiaomi family packages and drops invalid names`() {
+    fun `parse keeps syntactically valid vendor packages`() {
         val config = ZygiskConfig.parse(
             """
             android
@@ -84,7 +84,7 @@ class ZygiskConfigTest {
         )
 
         assertEquals(
-            "profile=miui14\nobserve=false\nauto_scan=false\ncom.example.one\ncom.example.two\n",
+            "profile=miui14\nobserve=false\ncom.example.one\ncom.example.two\n",
             config.toFileContent(),
         )
     }
@@ -92,11 +92,10 @@ class ZygiskConfigTest {
     @Test
     fun `metadata and deny rules round trip`() {
         val config = ZygiskConfig.parse(
-            "profile=hyperos1\nobserve=true\nauto_scan=true\ncom.example.app\n-com.example.app|com.example.app:push\n",
+            "profile=miui14\nobserve=true\nauto_scan=true\ncom.example.app\n-com.example.app|com.example.app:push\n",
         )
-        assertEquals("hyperos1", config.profile)
+        assertEquals("miui14", config.profile)
         assertTrue(config.observe)
-        assertTrue(config.autoScan)
         assertFalse(config.entries.first { it.processName != null }.enabled)
         assertEquals(config, ZygiskConfig.parse(config.toFileContent()))
     }
