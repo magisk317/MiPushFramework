@@ -120,6 +120,12 @@
                 android:resource="@xml/mipush_widget_connection_status" />
         </receiver>
 
+        <provider
+            android:name="io.github.magisk317.mipush.app.EventListCacheProvider"
+            android:authorities="io.github.magisk317.mipush.event-cache"
+            android:exported="true"
+            android:permission="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME" />
+
         <receiver
             android:name="io.github.magisk317.mipush.app.widget.RecentEventsWidgetProvider"
             android:exported="true"

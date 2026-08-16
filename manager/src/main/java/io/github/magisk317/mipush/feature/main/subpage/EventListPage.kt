@@ -647,6 +647,20 @@ private fun EventGroupList(
         rebuildGroups()
     }
 
+    LaunchedEffect(query, refreshSignal) {
+        viewModel.cacheUpdates.collect { key ->
+            if (key != viewModel.cacheKey(query, "", refreshSignal)) return@collect
+            val cached = viewModel.reloadFromCache(query, "", refreshSignal) ?: return@collect
+            allEvents.clear()
+            allEvents.addAll(cached.events)
+            lastId = cached.lastId
+            hasMore = cached.hasMore
+            initialLoadFailed = false
+            isNeedRefresh = false
+            rebuildGroups()
+        }
+    }
+
     suspend fun loadNextPage(isRefresh: Boolean) {
         if (isLoading) return
         isLoading = true
@@ -711,6 +725,7 @@ private fun EventGroupList(
         doLoadMore = doLoadMore,
         isNeedRefresh = isNeedRefresh,
         scrollToTopSignal = refreshSignal,
+        scrollToTopAfterRefresh = true,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
         modifier = Modifier,
@@ -1046,6 +1061,18 @@ private fun EventList(
         }
     }
 
+    LaunchedEffect(query, packageName, refreshSignal) {
+        viewModel.cacheUpdates.collect { key ->
+            if (key != viewModel.cacheKey(query, packageName, refreshSignal)) return@collect
+            val cached = viewModel.reloadFromCache(query, packageName, refreshSignal) ?: return@collect
+            items.clear()
+            items.appendDistinct(cached.events)
+            hasMore = cached.hasMore
+            initialLoadFailed = false
+            isNeedRefresh = false
+        }
+    }
+
     val doLoadMore: (onRefreshed: () -> Unit) -> Unit = doLoadMore@{ onRefreshed ->
         if (isLoading || !hasMore) {
             onRefreshed()
@@ -1148,6 +1175,7 @@ private fun EventList(
         doLoadMore,
         isNeedRefresh,
         scrollToTopSignal = refreshSignal,
+        scrollToTopAfterRefresh = true,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
         modifier = Modifier,

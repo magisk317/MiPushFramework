@@ -41,6 +41,7 @@ fun RefreshableLazyColumn(
     doLoadMore: (onRefreshed: () -> Unit) -> Unit,
     isNeedRefresh: Boolean = false,
     scrollToTopSignal: Int = 0,
+    scrollToTopAfterRefresh: Boolean = false,
     scrollChromeState: ScrollChromeState? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier,
@@ -55,8 +56,9 @@ fun RefreshableLazyColumn(
     var refreshStartedAt by remember { mutableStateOf(0L) }
     val onRefreshed = remember { { isRefreshing = false } }
     val scope = rememberCoroutineScope()
+    val lazyListState = listState ?: rememberLazyListState()
 
-    val onRefreshedWithMinDuration = remember {
+    val finishRefresh = remember(lazyListState, scrollToTopAfterRefresh) {
         {
             val elapsed = if (refreshStartedAt > 0L) {
                 SystemClock.elapsedRealtime() - refreshStartedAt
@@ -66,6 +68,17 @@ fun RefreshableLazyColumn(
             val remaining = (LoadingIndicatorTokens.MIN_VISIBLE_DURATION_MILLIS - elapsed).coerceAtLeast(0L)
             scope.launch {
                 if (remaining > 0L) delay(remaining)
+                if (scrollToTopAfterRefresh && lazyListState.layoutInfo.totalItemsCount > 0) {
+                    lazyListState.scrollToItem(0)
+                }
+                onRefreshed()
+            }
+            Unit
+        }
+    }
+    val finishLoadMore = remember {
+        {
+            scope.launch {
                 onRefreshed()
             }
             Unit
@@ -76,7 +89,7 @@ fun RefreshableLazyColumn(
         if (!isNeedRefresh) return@LaunchedEffect
         isRefreshing = true
         refreshStartedAt = SystemClock.elapsedRealtime()
-        currentDoRefresh(onRefreshedWithMinDuration)
+        currentDoRefresh(finishRefresh)
     }
 
     val state = rememberPullToRefreshState()
@@ -86,7 +99,7 @@ fun RefreshableLazyColumn(
         onRefresh = {
             isRefreshing = true
             refreshStartedAt = SystemClock.elapsedRealtime()
-            doRefresh(onRefreshedWithMinDuration)
+            doRefresh(finishRefresh)
         },
         state = state,
         modifier = modifier.fillMaxSize(),
@@ -100,7 +113,6 @@ fun RefreshableLazyColumn(
             )
         }
     ) {
-        val lazyListState = listState ?: rememberLazyListState()
         LaunchedEffect(scrollToTopSignal) {
             if (scrollToTopSignal > 0) {
                 lazyListState.scrollToItem(0)
@@ -115,7 +127,7 @@ fun RefreshableLazyColumn(
                     if (currentIsNeedMore(lastIndex)) {
                         isRefreshing = true
                         refreshStartedAt = SystemClock.elapsedRealtime()
-                        currentDoLoadMore(onRefreshedWithMinDuration)
+                        currentDoLoadMore(finishLoadMore)
                     }
                 }
         }

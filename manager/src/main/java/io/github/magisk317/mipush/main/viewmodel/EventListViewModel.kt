@@ -78,6 +78,9 @@ class EventListViewModel constructor(
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
 
+    /** Emits the cache key whenever background or manual refresh writes new data. */
+    val cacheUpdates = cacheStore.updates
+
 
     /** Bumped when runtime becomes Available after a gap so Event pages reload. */
     private val _runtimeReadySignal = MutableStateFlow(0)
@@ -134,13 +137,14 @@ class EventListViewModel constructor(
         events: List<EventInfoForDisplay>,
         lastId: Long?,
         hasMore: Boolean,
-    ) {
+    ): EventListSnapshot {
         snapshotQuery = query
         snapshotPackageName = packageName
         snapshotRefreshSignal = refreshSignal
         // Full list is persisted to disk cache; this is just for instant UI restore.
         listSnapshot = buildEventListSnapshot(events, lastId, hasMore)
         snapshotValid = true
+        return listSnapshot ?: error("event list snapshot was not stored")
     }
 
     fun invalidateEventListSnapshot() {
@@ -159,11 +163,25 @@ class EventListViewModel constructor(
         ) {
             return true
         }
-        val cached = cacheStore.getCached(queryKey(query, packageName, refreshSignal)) ?: return false
+        val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)) ?: return false
         // Reconstruct a snapshot; lastId/hasMore unknown from cache -> full page, no more.
         putEventListSnapshot(query, packageName, refreshSignal, cached, cached.lastOrNull()?.id, false)
         _events.value = cached
         return true
+    }
+
+    suspend fun reloadFromCache(query: String, packageName: String, refreshSignal: Int): EventListSnapshot? {
+        val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)) ?: return null
+        val snapshot = putEventListSnapshot(
+            query,
+            packageName,
+            refreshSignal,
+            cached,
+            cached.lastOrNull()?.id,
+            false,
+        )
+        _events.value = cached
+        return snapshot
     }
 
     /**
@@ -184,9 +202,9 @@ class EventListViewModel constructor(
             ).map { toEventInfoForDisplay(it) }
             // A refresh returns only the newest page. Merge it with older cached pages
             // so a later cache-first open does not lose history.
-            val cached = cacheStore.getCached(queryKey(query, packageName, refreshSignal)).orEmpty()
+            val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)).orEmpty()
             cacheStore.putCached(
-                queryKey(query, packageName, refreshSignal),
+                cacheKey(query, packageName, refreshSignal),
                 mergeEventItems(cached, fresh).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
             )
             // Silent refresh warms the disk cache only; it must NOT write the
@@ -204,7 +222,7 @@ class EventListViewModel constructor(
         }
     }
 
-    private fun queryKey(query: String, packageName: String, refreshSignal: Int = 0): String {
+    fun cacheKey(query: String, packageName: String, refreshSignal: Int = 0): String {
         // Cache content is keyed by (query, packageName) only; refreshSignal is an
         // external reload trigger and must not fragment the cache.
         return "q=${query};p=$packageName"
@@ -244,7 +262,7 @@ class EventListViewModel constructor(
                     _events.value = _events.value + loadedEvents
                 }
                 // Persist the refreshed first page so cold starts are instant.
-                cacheStore.putCached(queryKey(query, packageName, 0), _events.value.take(Constants.PAGE_SIZE))
+                    cacheStore.putCached(cacheKey(query, packageName, 0), _events.value.take(Constants.PAGE_SIZE))
             } catch (error: CancellationException) {
                 throw error
             } catch (error: RuntimeReadUnavailableException) {
@@ -315,9 +333,9 @@ class EventListViewModel constructor(
                 val events = loadEventsRemote(request).map { toEventInfoForDisplay(it) }
                 // Keep pages already loaded locally when this request returns only one page.
                 if (events.isNotEmpty()) {
-                    val cached = cacheStore.getCached(queryKey(query, packageName)).orEmpty()
+                    val cached = cacheStore.getCached(cacheKey(query, packageName)).orEmpty()
                     cacheStore.putCached(
-                        queryKey(query, packageName),
+                        cacheKey(query, packageName),
                         mergeEventItems(cached, events).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
                     )
                 }

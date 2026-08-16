@@ -28,6 +28,8 @@ import io.github.magisk317.mipush.main.viewmodel.XmppServerViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.events.EventListCacheStore
+import io.github.magisk317.mipush.manager.events.EventListBackgroundSyncCoordinator
+import io.github.magisk317.mipush.manager.events.EventListCacheStoreRegistry
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
@@ -109,7 +111,15 @@ val managerKoinModule = module {
             get<EventListCacheStore>(),
         )
     }
-    single { EventListCacheStore(androidContext()) }
+    single { EventListCacheStoreRegistry.get(androidContext()) }
+    single {
+        EventListBackgroundSyncCoordinator(
+            context = androidContext(),
+            source = get<RemoteEventListSource>(),
+            cacheStore = get<EventListCacheStore>(),
+            parentScope = get<ManagerRuntimeClient>().scopeForBackgroundWork(),
+        )
+    }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
@@ -157,6 +167,9 @@ object ManagerDependencies {
     @Volatile
     private var analyticsSyncStarted = false
 
+    @Volatile
+    private var maintenanceSyncStarted = false
+
     /** Load manager definitions into the Koin host already created by MiPushFrameworkApp. */
     @Synchronized
     fun startFromAppShell(context: Context) {
@@ -170,6 +183,19 @@ object ManagerDependencies {
         requireAppShellKoin(context)
         loadKoinModules(managerKoinModule)
         bootstrapMode = BootstrapMode.APP_SHELL
+    }
+
+    fun onMaintenanceTick(sequence: Long, action: String) {
+        if (!maintenanceSyncStarted) {
+            synchronized(this) {
+                if (!maintenanceSyncStarted) {
+                    maintenanceSyncStarted = true
+                }
+            }
+        }
+        if (bootstrapMode != BootstrapMode.APP_SHELL) return
+        GlobalContext.getOrNull()?.get<EventListBackgroundSyncCoordinator>()
+            ?.onMaintenanceTick(sequence, action)
     }
 
     /**

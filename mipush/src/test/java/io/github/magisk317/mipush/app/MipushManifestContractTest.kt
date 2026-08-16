@@ -217,6 +217,35 @@ class MipushManifestContractTest {
         )
     }
 
+    @Test
+    fun `event cache handoff uses a signed provider instead of a wakeup broadcast`() {
+        val document = parseManifest()
+        val providers = document.getElementsByTagName("provider")
+        val eventCacheProvider = (0 until providers.length)
+            .map(providers::item)
+            .single { node ->
+                node.attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
+                    "io.github.magisk317.mipush.app.EventListCacheProvider"
+            }
+
+        assertEquals(
+            "io.github.magisk317.mipush.event-cache",
+            eventCacheProvider.attributes.getNamedItemNS(ANDROID_NS, "authorities").nodeValue,
+        )
+        assertEquals("true", eventCacheProvider.attributes.getNamedItemNS(ANDROID_NS, "exported").nodeValue)
+        assertEquals(
+            "com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME",
+            eventCacheProvider.attributes.getNamedItemNS(ANDROID_NS, "permission").nodeValue,
+        )
+
+        val receiverNames = document.getElementsByTagName("receiver").let { nodes ->
+            (0 until nodes.length).mapNotNull { index ->
+                nodes.item(index).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue
+            }
+        }
+        assertFalse("io.github.magisk317.mipush.app.EventListCacheUpdatedReceiver" in receiverNames)
+    }
+
     private fun parseManifest() = DocumentBuilderFactory.newInstance()
         .apply { isNamespaceAware = true }
         .newDocumentBuilder()
