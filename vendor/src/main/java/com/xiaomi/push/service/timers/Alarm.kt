@@ -23,12 +23,35 @@ object Alarm {
     private var sLevel = 0
     private var sAlarmInstance: IAlarm? = null
 
+    data class DiagnosticSnapshot(
+        val timerClassName: String?,
+        val alarmAlive: Boolean,
+        val alarmMode: String?,
+        val alarmFallbackReason: String?,
+        val alarmRegisteredAtMs: Long,
+        val nextTriggerAtMs: Long,
+        val lastTimerCallbackAtMs: Long,
+        val lastTimerCallbackDelayMs: Long,
+    )
+
     interface IAlarm {
         fun isAlive(): Boolean
         fun registerPing(force: Boolean)
         fun stop()
         /** Stock ia.a.a: re-register when the heartbeat interval provider changes. */
         fun refreshPingInterval() {}
+        fun markTimerCallback(nowElapsedRealtime: Long, nowWallClockMs: Long) {}
+        fun diagnosticSnapshot(nowElapsedRealtime: Long, nowWallClockMs: Long): DiagnosticSnapshot =
+            DiagnosticSnapshot(
+                timerClassName = javaClass.name,
+                alarmAlive = isAlive(),
+                alarmMode = null,
+                alarmFallbackReason = null,
+                alarmRegisteredAtMs = 0L,
+                nextTriggerAtMs = 0L,
+                lastTimerCallbackAtMs = 0L,
+                lastTimerCallbackDelayMs = 0L,
+            )
     }
 
     @JvmStatic
@@ -104,6 +127,23 @@ object Alarm {
             sAlarmInstance?.refreshPingInterval()
         }
     }
+
+    @JvmStatic
+    fun timerClassName(): String? = synchronized(this) {
+        sAlarmInstance?.javaClass?.name
+    }
+
+    @JvmStatic
+    fun markTimerCallback(nowElapsedRealtime: Long, nowWallClockMs: Long) = synchronized(this) {
+        sAlarmInstance?.markTimerCallback(nowElapsedRealtime, nowWallClockMs)
+    }
+
+    @JvmStatic
+    fun diagnosticSnapshot(nowElapsedRealtime: Long, nowWallClockMs: Long): DiagnosticSnapshot =
+        synchronized(this) {
+            sAlarmInstance?.diagnosticSnapshot(nowElapsedRealtime, nowWallClockMs)
+                ?: DiagnosticSnapshot(null, false, null, null, 0L, 0L, 0L, 0L)
+        }
 
     private fun createProductAlarm(context: Context): IAlarm? {
         return runCatching {

@@ -135,6 +135,7 @@ abstract class Connection(
     @Synchronized
     fun setReadAlive() {
         readAlive = android.os.SystemClock.elapsedRealtime()
+        runCatching { mPushAction.runtimeObserver.onReadAlive(System.currentTimeMillis()) }
     }
 
     @Synchronized

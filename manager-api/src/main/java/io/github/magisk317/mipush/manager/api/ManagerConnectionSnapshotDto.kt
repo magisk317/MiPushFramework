@@ -22,6 +22,30 @@ data class ManagerConnectionSnapshotDto(
     val trackedChannelCount: Int,
     val boundChannelCount: Int,
     val frameworkRegistered: Boolean = false,
+    val timerClassName: String? = null,
+    val exactAlarmAvailable: Boolean = false,
+    val ignoringBatteryOptimizations: Boolean = false,
+    val deviceIdle: Boolean = false,
+    val lastHealthCycleAtMs: Long = 0L,
+    val lastHealthCycleAction: String? = null,
+    val alarmAlive: Boolean = false,
+    val alarmMode: String? = null,
+    val alarmFallbackReason: String? = null,
+    val alarmRegisteredAtMs: Long = 0L,
+    val nextTimerAtMs: Long = 0L,
+    val lastTimerCallbackAtMs: Long = 0L,
+    val lastTimerCallbackDelayMs: Long = 0L,
+    val deviceIdleWhitelistXmsf: Boolean = false,
+    val checkedPackageName: String = "com.xiaomi.xmsf",
+    val lastPingSentAtMs: Long = 0L,
+    val lastReadAliveAtMs: Long = 0L,
+    val lastPingTimeoutAtMs: Long = 0L,
+    val lastDisconnectReason: Int? = null,
+    val lastReconnectStartedAtMs: Long = 0L,
+    val lastReconnectConnectedAtMs: Long = 0L,
+    val lastReconnectLatencyMs: Long = 0L,
+    val lastDisconnectToReconnectLatencyMs: Long = 0L,
+    val lastReconnectToConnectedLatencyMs: Long = 0L,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -42,6 +66,30 @@ data class ManagerConnectionSnapshotDto(
             writeInt(trackedChannelCount)
             writeInt(boundChannelCount)
             writeBoolean(frameworkRegistered)
+            writeString(timerClassName)
+            writeBoolean(exactAlarmAvailable)
+            writeBoolean(ignoringBatteryOptimizations)
+            writeBoolean(deviceIdle)
+            writeLong(lastHealthCycleAtMs)
+            writeString(lastHealthCycleAction)
+            writeBoolean(alarmAlive)
+            writeString(alarmMode)
+            writeString(alarmFallbackReason)
+            writeLong(alarmRegisteredAtMs)
+            writeLong(nextTimerAtMs)
+            writeLong(lastTimerCallbackAtMs)
+            writeLong(lastTimerCallbackDelayMs)
+            writeBoolean(deviceIdleWhitelistXmsf)
+            writeString(checkedPackageName)
+            writeLong(lastPingSentAtMs)
+            writeLong(lastReadAliveAtMs)
+            writeLong(lastPingTimeoutAtMs)
+            writeInt(lastDisconnectReason ?: Int.MIN_VALUE)
+            writeLong(lastReconnectStartedAtMs)
+            writeLong(lastReconnectConnectedAtMs)
+            writeLong(lastReconnectLatencyMs)
+            writeLong(lastDisconnectToReconnectLatencyMs)
+            writeLong(lastReconnectToConnectedLatencyMs)
         }
     }
 
@@ -70,6 +118,30 @@ data class ManagerConnectionSnapshotDto(
                         trackedChannelCount = readInt(),
                         boundChannelCount = readInt(),
                         frameworkRegistered = readBoolean(false),
+                        timerClassName = readString(),
+                        exactAlarmAvailable = readBoolean(false),
+                        ignoringBatteryOptimizations = readBoolean(false),
+                        deviceIdle = readBoolean(false),
+                        lastHealthCycleAtMs = readLong(),
+                        lastHealthCycleAction = readString(),
+                        alarmAlive = readBoolean(false),
+                        alarmMode = readString(),
+                        alarmFallbackReason = readString(),
+                        alarmRegisteredAtMs = readLong(),
+                        nextTimerAtMs = readLong(),
+                        lastTimerCallbackAtMs = readLong(),
+                        lastTimerCallbackDelayMs = readLong(),
+                        deviceIdleWhitelistXmsf = readBoolean(false),
+                        checkedPackageName = readString("com.xiaomi.xmsf") ?: "com.xiaomi.xmsf",
+                        lastPingSentAtMs = readLong(),
+                        lastReadAliveAtMs = readLong(),
+                        lastPingTimeoutAtMs = readLong(),
+                        lastDisconnectReason = readInt(Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                        lastReconnectStartedAtMs = readLong(),
+                        lastReconnectConnectedAtMs = readLong(),
+                        lastReconnectLatencyMs = readLong(),
+                        lastDisconnectToReconnectLatencyMs = readLong(),
+                        lastReconnectToConnectedLatencyMs = readLong(),
                     )
                 }
 

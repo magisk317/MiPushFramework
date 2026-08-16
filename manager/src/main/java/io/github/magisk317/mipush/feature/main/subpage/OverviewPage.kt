@@ -79,6 +79,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
+import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
@@ -144,8 +145,11 @@ private fun OverviewScreen(
     val scrollState = rememberScrollState()
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
-    val appVersionName = packageInfo.versionName ?: context.getString(io.github.magisk317.uikit.R.string.unknown)
-    val appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+    val appVersionName = packageInfo.versionName
+        ?: context.getString(io.github.magisk317.uikit.R.string.unknown)
+    val appVersionCode = CommonBuildConfig.GIT_COMMIT
+        .takeIf { it.isNotBlank() && it != "unknown" }
+        ?: PackageInfoCompat.getLongVersionCode(packageInfo).toString()
 
     Box(modifier = Modifier.fillMaxSize()) {
         SectionColumn(
@@ -173,6 +177,7 @@ private fun OverviewScreen(
             io.github.magisk317.uikit.surface.OverviewAppInfoCard(
                 appVersionName = appVersionName,
                 appVersionCode = appVersionCode,
+                appVersionCodeLabel = stringResource(R.string.commit_info),
             )
 
             io.github.magisk317.uikit.surface.OverviewDeviceInfoCard()

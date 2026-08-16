@@ -147,6 +147,8 @@ class ManagerRuntimeServiceAidlTest {
         assertEquals(0L, snapshot.connectedAtMs)
         assertEquals(0, snapshot.pingIntervalMs)
         assertEquals(false, snapshot.frameworkRegistered)
+        assertEquals(0L, snapshot.lastDisconnectToReconnectLatencyMs)
+        assertEquals(0L, snapshot.lastReconnectToConnectedLatencyMs)
         parcel.recycle()
     }
 
@@ -235,6 +237,8 @@ class ManagerRuntimeServiceAidlTest {
         trackedChannelCount = 3,
         boundChannelCount = 2,
         frameworkRegistered = true,
+        lastDisconnectToReconnectLatencyMs = 321L,
+        lastReconnectToConnectedLatencyMs = 654L,
     )
 
     private fun applicationSummary() = ManagerApplicationSummaryDto(

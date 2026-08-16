@@ -57,6 +57,24 @@ object PushRuntime {
         AndroidPushRuntime.requestConnectionReset(source, reason)
 
     @JvmStatic
+    fun observePingSent(atMs: Long) = AndroidPushRuntime.observePingSent(atMs)
+
+    @JvmStatic
+    fun observeReadAlive(atMs: Long) = AndroidPushRuntime.observeReadAlive(atMs)
+
+    @JvmStatic
+    fun observePingTimeout(atMs: Long) = AndroidPushRuntime.observePingTimeout(atMs)
+
+    @JvmStatic
+    fun observeReconnectStarted(atMs: Long) = AndroidPushRuntime.observeReconnectStarted(atMs)
+
+    @JvmStatic
+    fun observeDisconnectReason(reason: Int?) = AndroidPushRuntime.observeDisconnectReason(reason)
+
+    @JvmStatic
+    fun observeReconnectConnected(atMs: Long) = AndroidPushRuntime.observeReconnectConnected(atMs)
+
+    @JvmStatic
     fun dispatchDownstreamPayload(
         packageName: String?,
         action: String,

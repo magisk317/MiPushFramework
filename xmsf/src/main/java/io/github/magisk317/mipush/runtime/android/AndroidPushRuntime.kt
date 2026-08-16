@@ -92,6 +92,15 @@ object AndroidPushRuntime {
     private var lastDisconnectedAtMs: Long = 0L
     private var connectionSessionCount: Long = 0L
     private var lastResolvedIp: String? = null
+    private var lastPingSentAtMs: Long = 0L
+    private var lastReadAliveAtMs: Long = 0L
+    private var lastPingTimeoutAtMs: Long = 0L
+    private var lastDisconnectReason: Int? = null
+    private var lastReconnectStartedAtMs: Long = 0L
+    private var lastReconnectConnectedAtMs: Long = 0L
+    private var lastReconnectLatencyMs: Long = 0L
+    private var lastDisconnectToReconnectLatencyMs: Long = 0L
+    private var lastReconnectToConnectedLatencyMs: Long = 0L
     private var downstreamMessageCount: Long = 0
     private var deliveredToAppCount: Long = 0
     private var duplicateMessageCount: Long = 0
@@ -207,6 +216,15 @@ object AndroidPushRuntime {
         val registeredPackageCount: Int,
         val trackedChannelCount: Int,
         val boundChannelCount: Int,
+        val lastPingSentAtMs: Long,
+        val lastReadAliveAtMs: Long,
+        val lastPingTimeoutAtMs: Long,
+        val lastDisconnectReason: Int?,
+        val lastReconnectStartedAtMs: Long,
+        val lastReconnectConnectedAtMs: Long,
+        val lastReconnectLatencyMs: Long,
+        val lastDisconnectToReconnectLatencyMs: Long,
+        val lastReconnectToConnectedLatencyMs: Long,
     )
 
     @JvmStatic
@@ -225,7 +243,50 @@ object AndroidPushRuntime {
             registeredPackageCount = registrationRecords.values.count { it.state == PushRegistrationState.Registered },
             trackedChannelCount = channelRecords.size,
             boundChannelCount = channelRecords.values.count { it.state == PushChannelState.Bound },
+            lastPingSentAtMs = lastPingSentAtMs,
+            lastReadAliveAtMs = lastReadAliveAtMs,
+            lastPingTimeoutAtMs = lastPingTimeoutAtMs,
+            lastDisconnectReason = lastDisconnectReason,
+            lastReconnectStartedAtMs = lastReconnectStartedAtMs,
+            lastReconnectConnectedAtMs = lastReconnectConnectedAtMs,
+            lastReconnectLatencyMs = lastReconnectLatencyMs,
+            lastDisconnectToReconnectLatencyMs = lastDisconnectToReconnectLatencyMs,
+            lastReconnectToConnectedLatencyMs = lastReconnectToConnectedLatencyMs,
         )
+    }
+
+    @JvmStatic
+    fun observePingSent(atMs: Long) = synchronized(lock) { lastPingSentAtMs = atMs }
+
+    @JvmStatic
+    fun observeReadAlive(atMs: Long) = synchronized(lock) { lastReadAliveAtMs = atMs }
+
+    @JvmStatic
+    fun observePingTimeout(atMs: Long) = synchronized(lock) { lastPingTimeoutAtMs = atMs }
+
+    @JvmStatic
+    fun observeReconnectStarted(atMs: Long) = synchronized(lock) {
+        lastReconnectStartedAtMs = atMs
+        val disconnectAtMs = maxOf(lastPingTimeoutAtMs, lastDisconnectedAtMs)
+        lastDisconnectToReconnectLatencyMs = if (disconnectAtMs > 0L) {
+            (atMs - disconnectAtMs).coerceAtLeast(0L)
+        } else {
+            0L
+        }
+    }
+
+    @JvmStatic
+    fun observeDisconnectReason(reason: Int?) = synchronized(lock) { lastDisconnectReason = reason }
+
+    @JvmStatic
+    fun observeReconnectConnected(atMs: Long) = synchronized(lock) {
+        lastReconnectConnectedAtMs = atMs
+        lastReconnectLatencyMs = if (lastReconnectStartedAtMs > 0L) {
+            (atMs - lastReconnectStartedAtMs).coerceAtLeast(0L)
+        } else {
+            0L
+        }
+        lastReconnectToConnectedLatencyMs = lastReconnectLatencyMs
     }
 
     @JvmStatic
@@ -865,6 +926,15 @@ object AndroidPushRuntime {
             lastDisconnectedAtMs = 0L
             connectionSessionCount = 0L
             lastResolvedIp = null
+            lastPingSentAtMs = 0L
+            lastReadAliveAtMs = 0L
+            lastPingTimeoutAtMs = 0L
+            lastDisconnectReason = null
+            lastReconnectStartedAtMs = 0L
+            lastReconnectConnectedAtMs = 0L
+            lastReconnectLatencyMs = 0L
+            lastDisconnectToReconnectLatencyMs = 0L
+            lastReconnectToConnectedLatencyMs = 0L
             downstreamMessageCount = 0
             deliveredToAppCount = 0
             duplicateMessageCount = 0

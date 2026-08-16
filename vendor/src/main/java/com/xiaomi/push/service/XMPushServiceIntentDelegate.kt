@@ -227,6 +227,10 @@ internal class XMPushServiceIntentDelegate(
 
     private fun handleTimer() {
         MyLog.w("Service called on timer")
+        Alarm.markTimerCallback(
+            nowElapsedRealtime = android.os.SystemClock.elapsedRealtime(),
+            nowWallClockMs = System.currentTimeMillis(),
+        )
         val plan = service.runtimeObserver.resolveTimerPlan(
             shouldFalldown = service.shouldFalldown(),
             alarmAlive = Alarm.isAlive(),
@@ -248,6 +252,7 @@ internal class XMPushServiceIntentDelegate(
         if (plan.shouldCheckAlive) {
             service.checkAlive(false)
         }
+        MaintenanceCycle.publish(plan.eventAction)
     }
 
     private fun handleCheckAlive() {

@@ -12,6 +12,9 @@ import com.xiaomi.smack.packet.Packet
  * This acts as the bridge for all runtime policy decisions and event reporting.
  */
 interface IPushRuntimeObserver {
+    fun onPingSent(atMs: Long) {}
+    fun onReadAlive(atMs: Long) {}
+    fun onPingTimeout(atMs: Long) {}
     // --- Connection Events ---
     fun onConnectionStateChanged(stateName: String, reason: String, host: String?, message: String)
     fun onConnectionStatusChanged(status: ConnectionStatus)

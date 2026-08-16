@@ -2,14 +2,21 @@ package io.github.magisk317.mipush.service.runtime
 
 import android.content.Context
 import android.content.Intent
+import android.app.AlarmManager
+import android.os.Build
+import android.os.PowerManager
+import android.os.SystemClock
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.push.service.PushServiceConstants
+import com.xiaomi.push.service.MaintenanceCycle
+import com.xiaomi.push.service.timers.Alarm
 import com.xiaomi.smack.ConnectionConfiguration
 import com.xiaomi.smack.SmackConfiguration
 import com.xiaomi.smack.SocketConnection
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
@@ -73,6 +80,9 @@ class RuntimeSettingsAdapter constructor(
             val connection = service?.currentConnection
             (connection as? SocketConnection)?.resolvedIp
         }.getOrNull()
+        val nowElapsedRealtime = SystemClock.elapsedRealtime()
+        val nowWallClockMs = System.currentTimeMillis()
+        val alarmSnapshot = Alarm.diagnosticSnapshot(nowElapsedRealtime, nowWallClockMs)
 
         return ManagerConnectionSnapshot(
             connectionState = snapshot.connectionState,
@@ -91,6 +101,41 @@ class RuntimeSettingsAdapter constructor(
             trackedChannelCount = snapshot.trackedChannelCount,
             boundChannelCount = snapshot.boundChannelCount,
             frameworkRegistered = runCatching { MiPushClient.getRegId(appContext).isNotBlank() }.getOrDefault(false),
+            timerClassName = Alarm.timerClassName(),
+            exactAlarmAvailable = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                runCatching {
+                    appContext.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
+                }.getOrDefault(false),
+            ignoringBatteryOptimizations = runCatching {
+                appContext.getSystemService(PowerManager::class.java)
+                    ?.isIgnoringBatteryOptimizations(appContext.packageName) == true
+            }.getOrDefault(false),
+            deviceIdle = runCatching {
+                appContext.getSystemService(PowerManager::class.java)?.isDeviceIdleMode == true
+            }.getOrDefault(false),
+            lastHealthCycleAtMs = MaintenanceCycle.lastTick?.atMs ?: 0L,
+            lastHealthCycleAction = MaintenanceCycle.lastTick?.action,
+            alarmAlive = alarmSnapshot.alarmAlive,
+            alarmMode = alarmSnapshot.alarmMode,
+            alarmFallbackReason = alarmSnapshot.alarmFallbackReason,
+            alarmRegisteredAtMs = alarmSnapshot.alarmRegisteredAtMs,
+            nextTimerAtMs = alarmSnapshot.nextTriggerAtMs,
+            lastTimerCallbackAtMs = alarmSnapshot.lastTimerCallbackAtMs,
+            lastTimerCallbackDelayMs = alarmSnapshot.lastTimerCallbackDelayMs,
+            deviceIdleWhitelistXmsf = runCatching {
+                appContext.getSystemService(PowerManager::class.java)
+                    ?.isIgnoringBatteryOptimizations(Constants.SERVICE_APP_NAME) == true
+            }.getOrDefault(false),
+            checkedPackageName = Constants.SERVICE_APP_NAME,
+            lastPingSentAtMs = snapshot.lastPingSentAtMs,
+            lastReadAliveAtMs = snapshot.lastReadAliveAtMs,
+            lastPingTimeoutAtMs = snapshot.lastPingTimeoutAtMs,
+            lastDisconnectReason = snapshot.lastDisconnectReason,
+            lastReconnectStartedAtMs = snapshot.lastReconnectStartedAtMs,
+            lastReconnectConnectedAtMs = snapshot.lastReconnectConnectedAtMs,
+            lastReconnectLatencyMs = snapshot.lastReconnectLatencyMs,
+            lastDisconnectToReconnectLatencyMs = snapshot.lastDisconnectToReconnectLatencyMs,
+            lastReconnectToConnectedLatencyMs = snapshot.lastReconnectToConnectedLatencyMs,
         )
     }
 }

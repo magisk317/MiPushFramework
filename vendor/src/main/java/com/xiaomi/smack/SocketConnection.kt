@@ -139,6 +139,8 @@ abstract class SocketConnection(
         sendPingInternal(isServerPing)
         if (isServerPing) return
 
+        runCatching { mPushAction.runtimeObserver.onPingSent(sentAtWallClock) }
+
         // Stock qa.h.p calls v.j() after sending a client ping so timeout learning keys off
         // the net id observed at send time.
         runCatching { HeartbeatStrategyManager.getInstance(mContext).onPingSent() }
@@ -153,6 +155,7 @@ abstract class SocketConnection(
                     // Stock qa.h$a calls v.k() before disconnecting on ping-pong timeout so the
                     // stable strategy can learn a short interval after enough failures.
                     runCatching { HeartbeatStrategyManager.getInstance(mContext).onPingTimeout() }
+                    runCatching { mPushAction.runtimeObserver.onPingTimeout(System.currentTimeMillis()) }
                     mPushAction.disconnect(PING_TIMEOUT_REASON, null)
                 }
             },

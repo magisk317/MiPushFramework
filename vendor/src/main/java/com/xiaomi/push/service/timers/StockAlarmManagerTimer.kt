@@ -39,6 +39,21 @@ open class StockAlarmManagerTimer(
     @Volatile
     private var registeredIntervalMs: Long = 0L
 
+    @Volatile
+    private var alarmMode: String? = null
+
+    @Volatile
+    private var alarmFallbackReason: String? = null
+
+    @Volatile
+    private var alarmRegisteredAtMs: Long = 0L
+
+    @Volatile
+    private var lastTimerCallbackAtMs: Long = 0L
+
+    @Volatile
+    private var lastTimerCallbackDelayMs: Long = 0L
+
     open fun getPingInteval(): Long {
         return try {
             HeartbeatStrategyManager.getInstance(context).pingIntervalMs()
@@ -100,6 +115,35 @@ open class StockAlarmManagerTimer(
         nextPingElapsedRealtime = 0L
     }
 
+    override fun markTimerCallback(nowElapsedRealtime: Long, nowWallClockMs: Long) {
+        lastTimerCallbackAtMs = nowWallClockMs
+        lastTimerCallbackDelayMs = if (nextPingElapsedRealtime == 0L) {
+            0L
+        } else {
+            nowElapsedRealtime - nextPingElapsedRealtime
+        }
+    }
+
+    override fun diagnosticSnapshot(
+        nowElapsedRealtime: Long,
+        nowWallClockMs: Long,
+    ): Alarm.DiagnosticSnapshot = Alarm.DiagnosticSnapshot(
+        timerClassName = javaClass.name,
+        alarmAlive = isAlive(),
+        alarmMode = alarmMode,
+        alarmFallbackReason = alarmFallbackReason,
+        alarmRegisteredAtMs = alarmRegisteredAtMs,
+        nextTriggerAtMs = if (nextPingElapsedRealtime == 0L) 0L else
+            nowWallClockMs + (nextPingElapsedRealtime - nowElapsedRealtime),
+        lastTimerCallbackAtMs = lastTimerCallbackAtMs,
+        lastTimerCallbackDelayMs = lastTimerCallbackDelayMs,
+    )
+
+    protected fun recordAlarmMode(mode: String, fallbackReason: String? = null) {
+        alarmMode = mode
+        alarmFallbackReason = fallbackReason
+    }
+
     protected open fun scheduleAlarm(
         alarmManager: AlarmManager,
         triggerAtMillis: Long,
@@ -154,6 +198,7 @@ open class StockAlarmManagerTimer(
         val operation = PendingIntent.getBroadcast(context, 0, intent, flags)
         pendingIntent = operation
         scheduleAlarm(alarmManager, triggerAtMillis, operation)
+        alarmRegisteredAtMs = System.currentTimeMillis()
         MyLog.v(
             "register timer $triggerAtMillis, delta=" +
                 "${triggerAtMillis - SystemClock.elapsedRealtime()}ms",

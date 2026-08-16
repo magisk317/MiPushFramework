@@ -168,6 +168,7 @@ fun ConnectionStatusPage(
                         }
                         TimingSection(data, currentTimeMs)
                         HeartbeatSection(data)
+                        RecoverySection(data)
                         MessagesSection(data)
                         ChannelsSection(data)
                     }
@@ -273,7 +274,124 @@ private fun HeartbeatSection(data: ManagerConnectionSnapshot) {
             value = "${data.pingIntervalMs / 1000}s",
             summary = stringResource(R.string.connection_status_ping_interval_summary),
         )
+        InfoRow(
+            label = stringResource(R.string.connection_status_timer),
+            value = data.timerClassName?.substringAfterLast('.') ?: stringResource(R.string.connection_status_unknown),
+            summary = stringResource(R.string.connection_status_timer_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_exact_alarm),
+            value = stringResource(
+                if (data.exactAlarmAvailable) R.string.connection_status_available
+                else R.string.connection_status_unavailable,
+            ),
+            summary = stringResource(R.string.connection_status_exact_alarm_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_alarm_mode),
+            value = data.alarmMode ?: stringResource(R.string.connection_status_unknown),
+            summary = data.alarmFallbackReason ?: stringResource(R.string.connection_status_alarm_mode_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_alarm_alive),
+            value = stringResource(
+                if (data.alarmAlive) R.string.connection_status_active
+                else R.string.connection_status_inactive,
+            ),
+            summary = stringResource(R.string.connection_status_alarm_alive_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_next_timer),
+            value = formatTimestamp(data.nextTimerAtMs, stringResource(R.string.connection_status_unknown)),
+            summary = stringResource(R.string.connection_status_next_timer_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_last_timer_callback),
+            value = formatTimestamp(data.lastTimerCallbackAtMs, stringResource(R.string.connection_status_unknown)),
+            summary = stringResource(
+                R.string.connection_status_timer_callback_delay,
+                data.lastTimerCallbackDelayMs,
+            ),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_doze_whitelist),
+            value = stringResource(
+                if (data.deviceIdleWhitelistXmsf) R.string.connection_status_enabled
+                else R.string.connection_status_disabled,
+            ),
+            summary = stringResource(
+                R.string.connection_status_doze_whitelist_summary,
+                data.checkedPackageName,
+            ),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_device_idle),
+            value = stringResource(
+                if (data.deviceIdle) R.string.connection_status_active
+                else R.string.connection_status_inactive,
+            ),
+            summary = stringResource(R.string.connection_status_device_idle_summary),
+        )
     }
+}
+
+@Composable
+private fun RecoverySection(data: ManagerConnectionSnapshot) {
+    val na = stringResource(R.string.connection_status_unknown)
+    DetailSectionCard(title = stringResource(R.string.connection_status_section_recovery)) {
+        InfoRow(
+            label = stringResource(R.string.connection_status_last_disconnect_reason),
+            value = data.lastDisconnectReason?.let(::formatDisconnectReason) ?: na,
+            summary = stringResource(R.string.connection_status_last_disconnect_reason_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_last_ping),
+            value = formatTimestamp(data.lastPingSentAtMs, na),
+            summary = stringResource(R.string.connection_status_last_ping_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_last_read_alive),
+            value = formatTimestamp(data.lastReadAliveAtMs, na),
+            summary = stringResource(R.string.connection_status_last_read_alive_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_last_timeout),
+            value = formatTimestamp(data.lastPingTimeoutAtMs, na),
+            summary = stringResource(R.string.connection_status_last_timeout_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_reconnect_started),
+            value = formatTimestamp(data.lastReconnectStartedAtMs, na),
+            summary = stringResource(R.string.connection_status_reconnect_started_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_reconnect_latency),
+            value = if (data.lastReconnectLatencyMs > 0) {
+                formatDuration(data.lastReconnectLatencyMs)
+            } else {
+                na
+            },
+            summary = stringResource(R.string.connection_status_reconnect_latency_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_disconnect_to_reconnect),
+            value = data.lastDisconnectToReconnectLatencyMs.takeIf { it > 0L }
+                ?.let(::formatDuration) ?: na,
+            summary = stringResource(R.string.connection_status_disconnect_to_reconnect_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_reconnect_to_connected),
+            value = data.lastReconnectToConnectedLatencyMs.takeIf { it > 0L }
+                ?.let(::formatDuration) ?: na,
+            summary = stringResource(R.string.connection_status_reconnect_to_connected_summary),
+        )
+    }
+}
+
+private fun formatDisconnectReason(reason: Int): String = when (reason) {
+    22 -> "PING_TIMEOUT (22)"
+    9 -> "READ_ERROR (9)"
+    else -> reason.toString()
 }
 
 @Composable

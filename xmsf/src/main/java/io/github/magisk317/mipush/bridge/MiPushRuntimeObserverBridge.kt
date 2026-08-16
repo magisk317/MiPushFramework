@@ -220,6 +220,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
     }
 
+    override fun onPingSent(atMs: Long) = PushRuntime.observePingSent(atMs)
+
+    override fun onReadAlive(atMs: Long) = PushRuntime.observeReadAlive(atMs)
+
+    override fun onPingTimeout(atMs: Long) = PushRuntime.observePingTimeout(atMs)
+
     override fun onConnectionStatusChanged(status: ConnectionStatus) {
         io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onConnectionStatusChanged(status)
         PushRuntime.observeConnectionState(
@@ -256,6 +262,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun reconnectionSuccessful(connection: Connection) {
+        PushRuntime.observeReconnectConnected(System.currentTimeMillis())
         val service = activeServiceFor(connection)
         if (service == null) {
             logW("ignore reconnect success from stale connection")
@@ -306,6 +313,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         }
         val wasFalldown = service.shouldFalldown()
         val closePlan = PushServiceConnectionRuntime.planConnectionClosed(wasFalldown, reason, error)
+        PushRuntime.observeDisconnectReason(reason)
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
@@ -328,6 +336,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             return
         }
         synchronized(this) { activeConnection = connection }
+        PushRuntime.observeReconnectStarted(System.currentTimeMillis())
         publishConnectionStatus(ConnectionStatus.connecting)
 
         // Stock XMSF 7.4.67-C keeps qa.b in Connecting after the TCP socket opens and changes it to

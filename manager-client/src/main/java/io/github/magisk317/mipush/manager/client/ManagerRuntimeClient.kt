@@ -61,6 +61,8 @@ class ManagerRuntimeClient(
     private val reconnectDelayProvider: (Int) -> Long = ManagerRuntimeClientPolicy::reconnectDelayMillis,
     private val eventPageCallTimeoutMillis: Long? = null,
 ) : Closeable {
+    /** Scope for app-shell background work that must share this client's lifetime. */
+    fun scopeForBackgroundWork(): CoroutineScope = clientScope
     private val appContext = context.applicationContext ?: context
     private val clientJob = SupervisorJob(scope.coroutineContext[Job])
     private val clientScope = CoroutineScope(scope.coroutineContext + clientJob)

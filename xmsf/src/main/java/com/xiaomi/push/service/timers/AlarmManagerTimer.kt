@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
+import com.xiaomi.channel.commonutils.logger.MyLog
 
 /**
  * Product exact-alarm adaptation layered over stock 7.4.67-C heartbeat behavior.
@@ -24,11 +25,16 @@ open class AlarmManagerTimer(context: Context) : StockAlarmManagerTimer(context)
         if (exactAlarmAvailable) {
             try {
                 scheduleExactAlarm(alarmManager, triggerAtMillis, operation)
+                recordAlarmMode("exact")
+                MyLog.v("health alarm mode=exact")
                 return
             } catch (_: SecurityException) {
                 // Capability can change between the check and the scheduling call.
+                recordAlarmMode("inexact", "exact_alarm_security_exception")
             }
         }
         scheduleInexactAlarm(alarmManager, triggerAtMillis, operation)
+        if (!exactAlarmAvailable) recordAlarmMode("inexact", "exact_alarm_unavailable")
+        MyLog.w("health alarm mode=inexact exactAvailable=$exactAlarmAvailable")
     }
 }
