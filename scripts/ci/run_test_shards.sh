@@ -10,8 +10,11 @@ if [[ ! -x "$gradle_runner" ]]; then
   exit 2
 fi
 
-common_args=(--warning-mode all -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries)
-read -r -a gradle_env_args <<< "${MAGISK_GRADLE_ARGS:-}"
+# Keep shared Gradle options in one place. CI supplies --warning-mode through
+# MAGISK_GRADLE_ARGS; putting it in common_args as well makes Gradle reject the
+# invocation as a duplicate option. The default keeps local shard runs useful.
+common_args=(-PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries)
+read -r -a gradle_env_args <<< "${MAGISK_GRADLE_ARGS:---warning-mode all}"
 
 run_test() {
   local task="$1"
