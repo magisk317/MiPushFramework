@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.keepalive
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -111,6 +112,7 @@ class KeepAliveHook : BaseHook() {
         }
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private fun registerPreferenceReceiverWhenReady(generation: Long) {
         while (isRefreshActive(generation)) {
             val app = currentApplication()

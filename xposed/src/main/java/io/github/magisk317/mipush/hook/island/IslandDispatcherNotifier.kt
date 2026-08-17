@@ -173,7 +173,6 @@ internal object IslandDispatcherNotifier {
     }
 
     fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val existing = manager.getNotificationChannel(IslandDispatchContract.CHANNEL_ID)
         if (existing != null) return

@@ -389,10 +389,13 @@ private fun RecoverySection(data: ManagerConnectionSnapshot) {
 }
 
 private fun formatDisconnectReason(reason: Int): String = when (reason) {
-    22 -> "PING_TIMEOUT (22)"
-    9 -> "READ_ERROR (9)"
+    DISCONNECT_REASON_PING_TIMEOUT -> "PING_TIMEOUT ($DISCONNECT_REASON_PING_TIMEOUT)"
+    DISCONNECT_REASON_READ_ERROR -> "READ_ERROR ($DISCONNECT_REASON_READ_ERROR)"
     else -> reason.toString()
 }
+
+private const val DISCONNECT_REASON_PING_TIMEOUT = 22
+private const val DISCONNECT_REASON_READ_ERROR = 9
 
 @Composable
 private fun MessagesSection(data: ManagerConnectionSnapshot) {

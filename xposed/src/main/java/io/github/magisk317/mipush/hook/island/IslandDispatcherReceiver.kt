@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.island
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 
+@SuppressLint("StaticFieldLeak")
 internal object IslandDispatcherReceiver {
     private const val TAG = "IslandDispatcherReceiver"
 
@@ -82,6 +84,7 @@ internal object IslandDispatcherReceiver {
     @Volatile
     private var registeredContext: Context? = null
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     fun register(context: Context) {
         if (registeredContext != null) return
         val filter = IntentFilter(IslandDispatchContract.ACTION_SHOW).apply {

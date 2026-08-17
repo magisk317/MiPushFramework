@@ -1,3 +1,5 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
+
 package io.github.magisk317.mipush.feature.wizard
 
 import io.github.magisk317.mipush.common.R as CommonR

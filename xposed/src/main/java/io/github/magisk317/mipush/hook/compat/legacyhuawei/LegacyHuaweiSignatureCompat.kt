@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.hook.compat.legacyhuawei
 
 import android.content.pm.PackageInfo
-import android.os.Build
 import android.util.Base64
 import dalvik.system.DexClassLoader
 import io.github.magisk317.mipush.common.LEGACY_HUAWEI_CORE_SIGNATURE
@@ -42,15 +41,13 @@ object LegacyHuaweiSignatureCompat {
                     setHookObjectField(firstSignature, "mSignature", fakeSignatureBytes)
                 }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val signingInfo = info.signingInfo
-                    if (signingInfo != null) {
-                        runCatching {
-                            val apkSigners = signingInfo.apkContentsSigners
-                            val signer = apkSigners?.firstOrNull()
-                            if (signer != null) {
-                                setHookObjectField(signer, "mSignature", fakeSignatureBytes)
-                            }
+                val signingInfo = info.signingInfo
+                if (signingInfo != null) {
+                    runCatching {
+                        val apkSigners = signingInfo.apkContentsSigners
+                        val signer = apkSigners?.firstOrNull()
+                        if (signer != null) {
+                            setHookObjectField(signer, "mSignature", fakeSignatureBytes)
                         }
                     }
                 }

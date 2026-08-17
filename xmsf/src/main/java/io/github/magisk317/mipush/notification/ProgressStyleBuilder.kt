@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.Context
 import android.os.Build
@@ -141,6 +142,7 @@ object ProgressStyleBuilder {
     }
 
     @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    @SuppressLint("NewApi")
     private fun applySemanticStyle(
         segment: Notification.ProgressStyle.Segment,
         point: Notification.ProgressStyle.Point,
@@ -152,6 +154,7 @@ object ProgressStyleBuilder {
     }
 
     @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    @SuppressLint("NewApi")
     private fun annotateContentText(
         builder: Notification.Builder,
         notification: Notification,

@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.system
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import io.github.magisk317.xposed.logging.MagiskOtel
 
+@SuppressLint("StaticFieldLeak")
 object XSpacePackageSyncHook {
     private const val USER_ID_DIVISOR = 100_000
     private const val TAG = "XSpacePackageSyncHook"
@@ -305,6 +307,7 @@ object XSpacePackageSyncHook {
             .invoke(context, receiver, allUsers, filter, null, null)
     }
 
+    @SuppressLint("MissingPermission", "WrongConstant", "NewApi")
     private fun runPackageSync(context: Context, syncAction: PackageSyncAction, broadcastAction: String) {
         runCatching {
             val userContext = createContextForUser(context, XSPACE_USER_ID)
@@ -377,6 +380,7 @@ object XSpacePackageSyncHook {
         return PendingIntent.getBroadcast(context, action.requestCode, intent, flags).intentSender
     }
 
+    @SuppressLint("PrivateApi")
     private fun deletePackageForXSpaceUser() {
         val packageManager = Class.forName("android.app.AppGlobals")
             .getMethod("getPackageManager")

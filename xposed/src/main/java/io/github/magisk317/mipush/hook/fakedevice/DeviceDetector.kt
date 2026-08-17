@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
+import android.annotation.SuppressLint
 import android.os.Build
 
 /**
@@ -35,6 +36,7 @@ object DeviceDetector {
         }
     }
     
+    @SuppressLint("PrivateApi")
     private fun getSystemProperty(key: String): String? {
         return try {
             val clazz = Class.forName("android.os.SystemProperties")

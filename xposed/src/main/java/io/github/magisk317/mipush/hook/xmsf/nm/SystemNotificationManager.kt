@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.xmsf.nm
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -45,9 +46,7 @@ object SystemNotificationManager {
     }
 
     init {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.addHiddenApiExemptions("")
-        }
+        HiddenApiBypass.addHiddenApiExemptions("")
     }
 
     private val notificationManager: Any? by lazy {
@@ -147,7 +146,6 @@ object SystemNotificationManager {
         packageManager: PackageManager,
         appInfo: ApplicationInfo,
     ): Bitmap? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
         return runCatching {
             val rawIcon = appInfo.loadIcon(packageManager)
             val userHandle = resolveUserHandle(getUserId())
@@ -191,8 +189,8 @@ object SystemNotificationManager {
         }.getOrNull()
     }
 
+    @SuppressLint("DiscouragedPrivateApi")
     private fun injectAppIcons(packageName: String, notification: Notification) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val colorMode = IslandPreferences.current().colorStatusBarIcon
         XLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
         try {

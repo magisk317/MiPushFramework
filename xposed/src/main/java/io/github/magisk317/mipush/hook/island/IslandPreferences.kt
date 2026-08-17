@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.island
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
+@SuppressLint("StaticFieldLeak")
 object IslandPreferences {
     private const val TAG = "IslandPreferences"
     private const val PREF_REFRESH_INTERVAL_MS = 60_000L
@@ -248,6 +250,7 @@ object IslandPreferences {
         }
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private fun registerPreferenceReceiverWhenReady(generation: Long) {
         while (isRefreshActive(generation)) {
             val app = currentApplication()

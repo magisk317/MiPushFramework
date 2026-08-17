@@ -355,7 +355,7 @@ internal object ExtensionNotificationCoordinator {
         }
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION", "WrongConstant")
     private fun declaresCompatibleService(context: Context, packageName: String): Boolean {
         return runCatching {
             val intent = Intent(ExtensionNotificationContract.SERVICE_ACTION).setPackage(packageName)

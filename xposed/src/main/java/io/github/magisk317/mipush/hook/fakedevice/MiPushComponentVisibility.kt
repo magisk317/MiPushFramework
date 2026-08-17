@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
@@ -837,6 +838,7 @@ class MiPushComponentVisibility : IFakeDevice {
         return if (queryPackage == XMSF_PACKAGE) XIAOMI_MARKET_PACKAGE else GOOGLE_PLAY_PACKAGE
     }
 
+    @SuppressLint("NewApi")
     private fun fakeInstallSourceInfo(method: Method, queryPackage: String, ownPackage: String): InstallSourceInfo? {
         val installerPackage = installerPackageFor(queryPackage, ownPackage)
         val constructors = method.returnType.declaredConstructors

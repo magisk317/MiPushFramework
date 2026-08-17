@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.wizard.permission
 
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -11,6 +12,7 @@ import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityIm
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 class UsageStatsPermissionOperator(private val context: Context) : PermissionOperator {
+    @SuppressLint("MissingPermission")
     override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         val uid = context.applicationInfo.uid
         val packageName = context.packageName

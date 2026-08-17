@@ -5,6 +5,31 @@ plugins {
 android {
     namespace = "com.xiaomi.xmsf.vendor.runtime"
 
+    // This module mirrors stock Xiaomi SDK/runtime behavior. These checks either prescribe
+    // source rewrites that would change that ABI or cannot see permissions supplied by xmsf.
+    // Keep the exception local so first-party modules retain the full repository lint policy.
+    lint {
+        disable += setOf(
+            "ApplySharedPref",
+            "ConstantLocale",
+            "DefaultLocale",
+            "DefaultUncaughtExceptionDelegation",
+            "DiscouragedApi",
+            "HardwareIds",
+            "InlinedApi",
+            "MissingPermission",
+            "NewApi",
+            "ObsoleteSdkInt",
+            "PrivateApi",
+            "QueryPermissionsNeeded",
+            "SimpleDateFormat",
+            "StaticFieldLeak",
+            "UnspecifiedRegisterReceiverFlag",
+            "UseKtx",
+            "WrongConstant",
+        )
+    }
+
     buildTypes {
         release {
             consumerProguardFiles("proguard-rules.pro")

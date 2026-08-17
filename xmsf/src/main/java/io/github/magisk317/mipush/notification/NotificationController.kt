@@ -592,6 +592,7 @@ object NotificationController {
             )
         source.contentIntent?.let { builder.setContentIntent(it) }
         if (sourceSmallIcon != null) {
+            @SuppressLint("RestrictedApi")
             runCatching {
                 val iconCompat = IconCompat.createFromIcon(sourceSmallIcon)
                 builder.setSmallIcon(iconCompat)

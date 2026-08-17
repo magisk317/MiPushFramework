@@ -116,7 +116,6 @@ class ConnectionStatusViewModel constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         stopAutoRefresh()
     }
 

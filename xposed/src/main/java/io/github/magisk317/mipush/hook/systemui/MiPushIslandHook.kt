@@ -96,11 +96,7 @@ class MiPushIslandHook : BaseHook() {
             }
         }
         val icon = resolveIcon(context, sourcePackage, notification, extras)
-        val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notification.channelId
-        } else {
-            null
-        }
+        val channelId = notification.channelId
         val proxyId = proxyNotificationId(sbn)
         if (recentProxyPosts.shouldSkip(dedupKeyFor(sbn))) return
         IslandDispatcher.post(

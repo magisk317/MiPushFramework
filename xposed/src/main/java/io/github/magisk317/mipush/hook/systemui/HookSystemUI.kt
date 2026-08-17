@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import android.annotation.SuppressLint
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.MethodHookParam
@@ -39,7 +40,8 @@ class HookSystemUI : BaseHook() {
         private const val FLAG_CAN_COLORIZE = 0x00000800
     }
 
-    private val ID_ICON_IS_PRE_L: Int by lazy {
+    @get:SuppressLint("DiscouragedApi")
+    private val idIconIsPreL: Int by lazy {
         val app = currentApplication() ?: return@lazy 0
         app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName)
     }
@@ -196,7 +198,10 @@ class HookSystemUI : BaseHook() {
                 }
                 XLog.i(TAG, "hooked NotifImageUtil.getSmallIcon (dynamic color mode check)")
             } catch (e: NoSuchMethodException) {
-                XLog.i(TAG, "NotifImageUtil.getSmallIcon unavailable; Android 17 uses getCustomAppIcon")
+                XLog.i(
+                    TAG,
+                    "NotifImageUtil.getSmallIcon unavailable; Android 17 uses getCustomAppIcon: ${e.message}",
+                )
             } catch (e: Exception) {
                 XLog.e(TAG, "Failed to hook NotifImageUtil.getSmallIcon", e)
             }
@@ -255,7 +260,7 @@ class HookSystemUI : BaseHook() {
                                     isMiPushManaged = isMiPushManaged,
                                 )
                                 val iconView = args[2] as? View ?: return@runCatching
-                                preLTag?.let { iconView.setTag(ID_ICON_IS_PRE_L, it) }
+                                preLTag?.let { iconView.setTag(idIconIsPreL, it) }
                                 val shouldTint = SystemUiNotificationPolicy.shouldApplyMonochromeTintToNotification(
                                     colorStatusBarIcon = options.colorStatusBarIcon,
                                     forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
@@ -281,7 +286,7 @@ class HookSystemUI : BaseHook() {
                 .hookMethod("setIconTag", Int::class.java, Any::class.java) {
                     doBefore {
                         runCatching {
-                            if (args[0] != ID_ICON_IS_PRE_L) return@runCatching
+                            if (args[0] != idIconIsPreL) return@runCatching
                             val options = IslandPreferences.current()
                             val sbn = statusBarNotificationFromEntry(thisObject) ?: return@runCatching
                             val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
@@ -405,7 +410,6 @@ class HookSystemUI : BaseHook() {
                             XLog.d(
                                 TAG,
                                 "injected status bar descriptor icon managed=$isMiPushManaged owner=$owner force=${options.colorStatusBarIconGlobal}",
-                            )
                             )
                         }.onFailure {
                             XLog.e(TAG, "failed to restore Android 17 status bar smallIcon", it)
@@ -536,6 +540,7 @@ class HookSystemUI : BaseHook() {
      * white square (SMS regression). Multi-color logos still get package silhouettes when
      * ContrastColorUtil reports false.
      */
+    @SuppressLint("PrivateApi")
     private fun isGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
         if (icon == null) return true
         val detected = runCatching {

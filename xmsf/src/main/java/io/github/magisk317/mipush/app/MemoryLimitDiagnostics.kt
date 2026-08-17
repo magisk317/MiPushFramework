@@ -1,11 +1,14 @@
 package io.github.magisk317.mipush.app
 
 import android.app.ApplicationExitInfo
+import android.os.Build
+import androidx.annotation.RequiresApi
 
 /** Policies used by startup diagnostics to distinguish memory pressure from unrelated exits. */
 internal object MemoryLimitDiagnostics {
     private const val HIGH_USAGE_PERCENT = 80L
 
+    @RequiresApi(Build.VERSION_CODES.R)
     fun isMemoryRelatedExitReason(reason: Int): Boolean =
         reason == ApplicationExitInfo.REASON_LOW_MEMORY ||
             reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE
@@ -18,6 +21,7 @@ internal object MemoryLimitDiagnostics {
         return usedBytes >= strictThreshold
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     fun describeExit(info: ApplicationExitInfo): String = buildString {
         append("reason=")
         append(info.reason)
