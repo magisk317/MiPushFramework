@@ -205,6 +205,72 @@ if [ -s "$tmp_forbidden_xmsf_edges" ]; then
   exit 1
 fi
 
+# Runtime_Boundary for the navigation-performance work: all working-tree changes
+# must remain in the manager/UI Kit surface or this verifier. This intentionally
+# includes untracked files so a new performance implementation cannot bypass the
+# check before it is staged.
+tmp_changed_paths="$(mktemp)"
+tmp_boundary_violations="$(mktemp)"
+tmp_uikit_violations="$(mktemp)"
+tmp_aidl_changes="$(mktemp)"
+trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps" "$tmp_forbidden_xmsf_edges" "$tmp_vendor_current" "$tmp_vendor_baseline" "$tmp_vendor_new" "$tmp_vendor_stale" "$tmp_changed_paths" "$tmp_boundary_violations" "$tmp_uikit_violations" "$tmp_aidl_changes"' EXIT
+
+{
+  git diff --name-only --diff-filter=ACDMRTUXB HEAD
+  git ls-files --others --exclude-standard
+} | sort -u > "$tmp_changed_paths"
+
+while IFS= read -r changed_path; do
+  [ -n "$changed_path" ] || continue
+  case "$changed_path" in
+    magisk-ui-kit|magisk-ui-kit/*|manager/*|manager-client/*|manager-api/*|xposed/*|xmsf/*|vendor/*|scripts/verify_module_boundaries.sh)
+      ;;
+    *)
+      printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
+      ;;
+  esac
+done < "$tmp_changed_paths"
+
+# AIDL files are in the allowed manager-api module, but their external semantics
+# are explicitly outside this feature's boundary. Any working-tree AIDL change
+# therefore fails until it is reviewed as a separate protocol change.
+while IFS= read -r changed_path; do
+  case "$changed_path" in
+    */src/main/aidl/*|*.aidl)
+      printf '%s\n' "$changed_path" >> "$tmp_aidl_changes"
+      ;;
+  esac
+done < "$tmp_changed_paths"
+
+if [ -s "$tmp_boundary_violations" ]; then
+  echo "Runtime boundary check failed: changed files are outside the allowed modules." >&2
+  echo "Allowed: UI/manager modules, xposed, xmsf/vendor warning fixes, and this verifier." >&2
+  cat "$tmp_boundary_violations" >&2
+  exit 1
+fi
+
+if [ -s "$tmp_aidl_changes" ]; then
+  echo "Runtime boundary check failed: AIDL files changed; external Binder semantics must remain unchanged." >&2
+  cat "$tmp_aidl_changes" >&2
+  exit 1
+fi
+
+# UI Kit is project-neutral. Check both source and its Gradle dependencies so a
+# MiPush route/model/client cannot be introduced through either an import or a
+# module edge. The manager is the only owner of these contracts.
+{
+  rg -n 'io\.github\.magisk317\.mipush|com\.xiaomi\.xmsf' \
+    magisk-ui-kit/src magisk-ui-kit/build.gradle.kts || true
+  rg -n 'project\(":(manager|manager-api|manager-client|xmsf|vendor|pinned)"\)' \
+    magisk-ui-kit/build.gradle.kts || true
+} > "$tmp_uikit_violations"
+
+if [ -s "$tmp_uikit_violations" ]; then
+  echo "UI Kit boundary check failed: MiPush-specific contracts or runtime dependencies were found." >&2
+  cat "$tmp_uikit_violations" >&2
+  exit 1
+fi
+
 manager_notification_framework="$({
   rg -n 'android\.app\.NotificationChannel(Group)?' "manager/src/main/java" || true
 })"
