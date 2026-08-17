@@ -47,8 +47,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -93,6 +95,7 @@ fun Configurations(
     initialQuery: String = "",
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
+    isActive: Boolean = true,
     onOpenEditor: (String) -> Unit,
     viewModel: ConfigManagerViewModel = koinViewModel(),
     scrollChromeState: ScrollChromeState? = null,
@@ -127,12 +130,16 @@ fun Configurations(
             }
         }
 
-        LaunchedEffect(initialQuery) {
+        LaunchedEffect(isActive, initialQuery) {
+            if (!isActive) return@LaunchedEffect
             viewModel.setQuery(initialQuery)
         }
-        LaunchedEffect(refreshSignal) {
-            if (refreshSignal > 0) {
+        var handledRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
+        LaunchedEffect(isActive, refreshSignal) {
+            if (!isActive) return@LaunchedEffect
+            if (refreshSignal > handledRefreshSignal) {
                 viewModel.refresh()
+                handledRefreshSignal = refreshSignal
             }
         }
         LaunchedEffect(uiState.message) {
@@ -152,14 +159,16 @@ fun Configurations(
             }
         }
 
-        val filteredItems = remember(uiState.items, uiState.query) {
-            val query = uiState.query.trim()
-            if (query.isEmpty()) {
-                uiState.items
-            } else {
-                uiState.items.filter { item ->
-                    item.path.contains(query, ignoreCase = true) ||
-                        item.displayName.contains(query, ignoreCase = true)
+        val filteredItems by remember(uiState.items, uiState.query) {
+            derivedStateOf {
+                val query = uiState.query.trim()
+                if (query.isEmpty()) {
+                    uiState.items
+                } else {
+                    uiState.items.filter { item ->
+                        item.path.contains(query, ignoreCase = true) ||
+                            item.displayName.contains(query, ignoreCase = true)
+                    }
                 }
             }
         }

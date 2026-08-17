@@ -1,3 +1,4 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
@@ -54,6 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -131,6 +133,7 @@ fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     groupByApp: Boolean = false,
+    isActive: Boolean = true,
     viewModel: EventListViewModel = koinViewModel(),
     scrollChromeState: ScrollChromeState? = null,
 ) {
@@ -186,6 +189,7 @@ fun EventList(
                     EventGroupList(
                         query = currentQuery,
                         refreshSignal = refreshSignal,
+                        isActive = isActive,
                         contentPadding = PaddingValues(
                             top = listPadding.calculateTopPadding() + 8.dp,
                             bottom = listPadding.calculateBottomPadding(),
@@ -214,6 +218,7 @@ fun EventList(
                         query = currentQuery,
                         packageName = packageName,
                         refreshSignal = refreshSignal,
+                        isActive = isActive,
                         contentPadding = PaddingValues(
                             top = listPadding.calculateTopPadding() + 8.dp,
                             bottom = listPadding.calculateBottomPadding(),
@@ -568,6 +573,7 @@ private fun EventInfoForDisplay.isDisabled(): Boolean = configOptions.contains("
 private fun EventGroupList(
     query: String,
     refreshSignal: Int,
+    isActive: Boolean,
     contentPadding: PaddingValues,
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
@@ -583,30 +589,45 @@ private fun EventGroupList(
     var isNeedRefresh by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var initialLoadFailed by remember { mutableStateOf(false) }
+    val groupingScope = rememberCoroutineScope()
 
     fun rebuildGroups() {
-        val grouped = allEvents
-            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
-            .groupBy { it.packageName }
-            .map { (pkg, events) ->
-                val sortedEvents = events.sortedByDescending { it.receiveDate.time }
-                val first = sortedEvents.first()
-                EventGroupForDisplay(
-                    packageName = pkg,
-                    appName = first.appName?.takeIf { it.isNotBlank() } ?: pkg,
-                    events = sortedEvents,
-                    latestDate = first.receiveDate
-                )
+        val source = allEvents.toList()
+        val typeFilters = selectedTypeFilters
+        val statusFilters = selectedStatusFilters
+        groupingScope.launch(Dispatchers.Default) {
+            val grouped = source
+                .asSequence()
+                .filter { it.matchesFilters(typeFilters, statusFilters) }
+                .groupBy { it.packageName }
+                .values
+                .map { events ->
+                    val sortedEvents = events.sortedByDescending { it.receiveDate.time }
+                    val first = sortedEvents.first()
+                    EventGroupForDisplay(
+                        packageName = first.packageName,
+                        appName = first.appName?.takeIf { it.isNotBlank() } ?: first.packageName,
+                        events = sortedEvents,
+                        latestDate = first.receiveDate,
+                    )
+                }
+                .sortedByDescending { it.latestDate.time }
+            withContext(Dispatchers.Main.immediate) {
+                groupedItems.clear()
+                groupedItems.addAll(grouped)
             }
-            .sortedByDescending { it.latestDate.time }
-        groupedItems.clear()
-        groupedItems.addAll(grouped)
+        }
     }
 
     // Cache-first: on open / tab re-enter, restore from the persistent cache
     // (or in-memory snapshot) and paint immediately. Older pages are loaded only
     // when the user scrolls.
-    LaunchedEffect(query, refreshSignal) {
+    var restoredListKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(isActive, query, refreshSignal) {
+        if (!isActive) return@LaunchedEffect
+        val listKey = viewModel.cacheKey(query, "", refreshSignal)
+        if (restoredListKey == listKey) return@LaunchedEffect
+        withFrameNanos { }
         // Cache-first: serve from the persistent store (or in-memory snapshot)
         // immediately so the page paints without a 3s+ remote round-trip.
         // We do NOT proactively hit the runtime here; remote is only used on
@@ -621,6 +642,7 @@ private fun EventGroupList(
                 initialLoadFailed = false
                 isNeedRefresh = false
                 rebuildGroups()
+                restoredListKey = listKey
                 return@LaunchedEffect
             }
         }
@@ -642,12 +664,14 @@ private fun EventGroupList(
             isNeedRefresh = true
             rebuildGroups()
         }
+        restoredListKey = listKey
     }
     androidx.compose.runtime.LaunchedEffect(selectedTypeFilters, selectedStatusFilters) {
         rebuildGroups()
     }
 
-    LaunchedEffect(query, refreshSignal) {
+    LaunchedEffect(isActive, query, refreshSignal) {
+        if (!isActive) return@LaunchedEffect
         viewModel.cacheUpdates.collect { key ->
             if (key != viewModel.cacheKey(query, "", refreshSignal)) return@collect
             val cached = viewModel.reloadFromCache(query, "", refreshSignal) ?: return@collect
@@ -988,6 +1012,7 @@ private fun EventList(
     query: String,
     packageName: String,
     refreshSignal: Int = 0,
+    isActive: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
@@ -1026,7 +1051,11 @@ private fun EventList(
     // Cache-first: on open / tab re-enter, restore from the persistent store
     // (or in-memory snapshot) and paint immediately. Older pages are loaded only
     // when the user scrolls.
-    LaunchedEffect(query, packageName, refreshSignal) {
+    var restoredListKey by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(isActive, query, packageName, refreshSignal) {
+        if (!isActive) return@LaunchedEffect
+        val listKey = viewModel.cacheKey(query, packageName, refreshSignal)
+        if (restoredListKey == listKey) return@LaunchedEffect
         if (viewModel.loadFromCacheIfPresent(query, packageName, refreshSignal)) {
             val cached = viewModel.getEventListSnapshot(
                 query = query,
@@ -1039,6 +1068,7 @@ private fun EventList(
                 hasMore = cached.hasMore
                 initialLoadFailed = false
                 isNeedRefresh = false
+                restoredListKey = listKey
                 return@LaunchedEffect
             }
         }
@@ -1059,9 +1089,11 @@ private fun EventList(
             initialLoadFailed = false
             isNeedRefresh = true
         }
+        restoredListKey = listKey
     }
 
-    LaunchedEffect(query, packageName, refreshSignal) {
+    LaunchedEffect(isActive, query, packageName, refreshSignal) {
+        if (!isActive) return@LaunchedEffect
         viewModel.cacheUpdates.collect { key ->
             if (key != viewModel.cacheKey(query, packageName, refreshSignal)) return@collect
             val cached = viewModel.reloadFromCache(query, packageName, refreshSignal) ?: return@collect

@@ -1,3 +1,4 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package io.github.magisk317.mipush.feature.main.subpage
@@ -51,12 +52,13 @@ import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import io.github.magisk317.uikit.common.showLatestSnackbar
@@ -109,6 +111,7 @@ private val OverviewCardShape = RoundedCornerShape(28.dp)
 @Composable
 fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    isActive: Boolean = true,
     onShowAboutDialog: (String) -> Unit = {},
     onNavigateToConnectionStatus: () -> Unit = {},
 ) {
@@ -117,6 +120,7 @@ fun Overview(
             contentPadding = contentPadding,
             onShowAboutDialog = onShowAboutDialog,
             onNavigateToConnectionStatus = onNavigateToConnectionStatus,
+            isActive = isActive,
         )
     }
 }
@@ -124,6 +128,7 @@ fun Overview(
 @Composable
 private fun OverviewScreen(
     contentPadding: PaddingValues,
+    isActive: Boolean,
     onShowAboutDialog: (String) -> Unit,
     onNavigateToConnectionStatus: () -> Unit,
 ) {
@@ -137,8 +142,13 @@ private fun OverviewScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
-    LaunchedEffect(Unit) {
+    var hasLoadedStats by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(isActive) {
+        if (!isActive || hasLoadedStats) return@LaunchedEffect
+        // Let the pager settle and draw its first frame before doing page IO/state work.
+        withFrameNanos { }
         overviewViewModel.loadStats()
+        hasLoadedStats = true
     }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

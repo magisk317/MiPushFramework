@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -103,6 +104,7 @@ fun ApplicationList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     filterMode: Int = 0,
+    isActive: Boolean = true,
     onAppClick: (String) -> Unit,
     scrollChromeState: ScrollChromeState? = null,
 ) {
@@ -125,7 +127,9 @@ fun ApplicationList(
 
     // showSystemApps toggles reload inside ViewModel.setShowSystemApps to avoid double IO.
     // currentQuery in keys keeps search live; cache hit short-circuits.
-    LaunchedEffect(currentQuery, refreshSignal, filterMode) {
+    LaunchedEffect(isActive, currentQuery, refreshSignal, filterMode) {
+        if (!isActive) return@LaunchedEffect
+        withFrameNanos { }
         val forceBySignal = refreshSignal > handledRefreshSignal
         if (!forceBySignal && listViewModel.hasCachedList(currentQuery, filterMode)) {
             isNeedRefresh = false

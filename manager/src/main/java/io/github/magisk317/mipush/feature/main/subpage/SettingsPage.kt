@@ -1,3 +1,4 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package io.github.magisk317.mipush.feature.main.subpage
@@ -56,6 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -125,6 +127,7 @@ fun Settings(
     onNavigateToConnectionStatus: () -> Unit = {},
     onNavigateToStatusBarIconSettings: () -> Unit = {},
     sectionBackSignal: Int = 0,
+    isActive: Boolean = true,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -140,6 +143,7 @@ fun Settings(
                 onNavigateToConnectionStatus = onNavigateToConnectionStatus,
                 onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
                 sectionBackSignal = sectionBackSignal,
+                isActive = isActive,
                 snackbarHostState = snackbarHostState,
                 scrollChromeState = scrollChromeState,
                 scrollState = scrollState,
@@ -163,6 +167,7 @@ private fun SettingsScreen(
     onNavigateToStatusBarIconSettings: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
+    isActive: Boolean,
     snackbarHostState: SnackbarHostState,
     scrollChromeState: ScrollChromeState?,
 ) {
@@ -173,13 +178,18 @@ private fun SettingsScreen(
     var zygiskExpanded by rememberSaveable { mutableStateOf(false) }
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
+    var hasLoadedRuntimeState by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     LaunchedEffect(title) {
         onSectionChanged(title)
     }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isActive) {
+        if (!isActive || hasLoadedRuntimeState) return@LaunchedEffect
+        // Settings state is not part of the tab transition; defer the runtime binder read.
+        withFrameNanos { }
         viewModel.refreshDualAppFromRuntime()
+        hasLoadedRuntimeState = true
     }
 
     OverlayHeaderScaffold(

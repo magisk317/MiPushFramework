@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.feature.navigation
 
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
-import androidx.navigation.navOptions
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import io.github.aakira.napier.Napier
 
 /**
@@ -28,15 +28,11 @@ class NavControllerNavigationCoordinator(
     private val navController: NavController
 ) : NavigationCoordinator {
     override fun navigateToOverview() {
-        navController.navigate(AppDestinations.Overview.ROUTE) {
-            popUpTo(AppDestinations.Overview.ROUTE) { inclusive = true }
-        }
+        navController.navigateTopLevel(AppDestinations.Overview.ROUTE)
     }
 
     override fun navigateToEventsList() {
-        navController.navigate(AppDestinations.EventsList.ROUTE) {
-            popUpTo(AppDestinations.EventsList.ROUTE) { inclusive = true }
-        }
+        navController.navigateTopLevel(AppDestinations.EventsList.ROUTE)
     }
 
     override fun navigateToEventDetails(eventId: Long) {
@@ -44,9 +40,7 @@ class NavControllerNavigationCoordinator(
     }
 
     override fun navigateToAppsList() {
-        navController.navigate(AppDestinations.AppsList.ROUTE) {
-            popUpTo(AppDestinations.AppsList.ROUTE) { inclusive = true }
-        }
+        navController.navigateTopLevel(AppDestinations.AppsList.ROUTE)
     }
 
     override fun navigateToAppDetails(packageName: String) {
@@ -54,9 +48,7 @@ class NavControllerNavigationCoordinator(
     }
 
     override fun navigateToSettings() {
-        navController.navigate(AppDestinations.Settings.ROUTE) {
-            popUpTo(AppDestinations.Settings.ROUTE) { inclusive = true }
-        }
+        navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
     }
 
     override fun navigateToSettingsSection(section: String) {
@@ -79,10 +71,24 @@ class NavControllerNavigationCoordinator(
  */
 
 /**
- * 从当前路由导航，支持条件跳转和后退栈清除
+ * Navigates between manager top-level destinations using one canonical policy.
  *
- * @param route 目标路由
- * @param navOptions 导航选项（popUpTo, inclusive 等）
+ * Popping to the graph start removes any deep-route branch before adding the target. Together
+ * with singleTop this leaves at most one entry for each top-level destination while preserving
+ * Navigation Compose's saved state for revisited tabs.
+ */
+fun NavController.navigateTopLevel(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+/**
+ * Navigates from the current route without changing the top-level back-stack policy.
  */
 fun NavController.navigateSafely(
     route: String,
