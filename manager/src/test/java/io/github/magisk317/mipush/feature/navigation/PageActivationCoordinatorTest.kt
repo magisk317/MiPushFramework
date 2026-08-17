@@ -46,9 +46,9 @@ class PageActivationCoordinatorTest {
     fun allEntryPointsUseTheSameTokenAndRouteMapping() {
         val coordinator = PageActivationCoordinator()
 
-        val restore = coordinator.requestNavigation(4, NavigationInputKind.RESTORE) as NavigationRequestResult.Accepted
+        val restore = coordinator.requestNavigation(3, NavigationInputKind.RESTORE) as NavigationRequestResult.Accepted
         assertEquals(NavigationInputKind.RESTORE, restore.token.inputKind)
-        coordinator.onPagerSettled(4, restore.token)
+        coordinator.onPagerSettled(3, restore.token)
         val deepRoute = coordinator.requestFromRoute(AppDestinations.ConfigsSearch.route("filter"))
         assertTrue(deepRoute is NavigationRequestResult.Accepted)
         assertEquals(NavigationInputKind.DEEP_ROUTE, (deepRoute as NavigationRequestResult.Accepted).token.inputKind)
@@ -73,7 +73,7 @@ class PageActivationCoordinatorTest {
             NavigationInputKind.CLICK to 1,
             NavigationInputKind.SWIPE to 2,
             NavigationInputKind.RESTORE to 3,
-            NavigationInputKind.DEEP_ROUTE to 4,
+            NavigationInputKind.DEEP_ROUTE to 0,
         )
 
         inputs.forEachIndexed { index, (input, page) ->
@@ -135,10 +135,10 @@ class PageActivationCoordinatorTest {
             )
         )
         val coordinator = PageActivationCoordinator(policies)
-        val request = coordinator.requestNavigation(4, NavigationInputKind.CLICK) as NavigationRequestResult.Accepted
-        assertTrue(coordinator.onPagerSettled(4, request.token))
+        val request = coordinator.requestNavigation(3, NavigationInputKind.CLICK) as NavigationRequestResult.Accepted
+        assertTrue(coordinator.onPagerSettled(3, request.token))
 
-        val activation = coordinator.activationFor(4)
+        val activation = coordinator.activationFor(3)
         assertTrue(activation.isActive)
         assertFalse(activation.allowsBusinessRead)
         assertFalse(activation.allowsRemoteCall)
@@ -149,7 +149,7 @@ class PageActivationCoordinatorTest {
         val coordinator = PageActivationCoordinator(adjacentPrecompositionEnabled = true)
         val request = coordinator.requestNavigation(2, NavigationInputKind.CLICK) as NavigationRequestResult.Accepted
 
-        assertEquals(setOf(TopLevelPage.APPLICATIONS, TopLevelPage.CONFIGURATIONS), coordinator.adjacentShellPages)
+        assertEquals(setOf(TopLevelPage.APPLICATIONS, TopLevelPage.SETTINGS), coordinator.adjacentShellPages)
         assertTrue(coordinator.shouldComposeShell(1))
         assertTrue(coordinator.shouldComposeShell(3))
         assertFalse(coordinator.shouldComposeShell(2))

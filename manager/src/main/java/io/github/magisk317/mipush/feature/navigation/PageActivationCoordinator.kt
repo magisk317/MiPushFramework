@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.feature.navigation
 
-/** The five manager-owned top-level pages. */
+/** The four manager-owned top-level pages. Configuration routes belong to Settings. */
 enum class TopLevelPage(
     val index: Int,
     val route: String,
@@ -8,8 +8,7 @@ enum class TopLevelPage(
     OVERVIEW(0, AppDestinations.Overview.ROUTE),
     APPLICATIONS(1, AppDestinations.AppsList.ROUTE),
     EVENTS(2, AppDestinations.EventsList.ROUTE),
-    CONFIGURATIONS(3, AppDestinations.Configs.ROUTE),
-    SETTINGS(4, AppDestinations.Settings.ROUTE),
+    SETTINGS(3, AppDestinations.Settings.ROUTE),
     ;
 
     companion object {
@@ -20,8 +19,9 @@ enum class TopLevelPage(
             route == AppDestinations.AppsList.ROUTE || route.startsWith("${AppDestinations.AppDetails.ROUTE}/") -> APPLICATIONS
             route == AppDestinations.EventsList.ROUTE || route.startsWith("${AppDestinations.EventDetails.ROUTE}/") -> EVENTS
             route == AppDestinations.Configs.ROUTE || route.startsWith("${AppDestinations.ConfigsSearch.ROUTE}/") ||
-                route.startsWith("${AppDestinations.ConfigEditor.ROUTE}/") -> CONFIGURATIONS
+                route.startsWith("${AppDestinations.ConfigEditor.ROUTE}/") -> SETTINGS
             route == AppDestinations.Settings.ROUTE || route.startsWith("${AppDestinations.SettingsSection.ROUTE}/") ||
+                route == AppDestinations.ConnectionStatus.ROUTE ||
                 route == AppDestinations.StatusBarIconSettings.ROUTE -> SETTINGS
             else -> null
         }

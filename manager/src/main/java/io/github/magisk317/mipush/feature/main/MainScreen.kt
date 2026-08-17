@@ -11,7 +11,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -98,10 +97,6 @@ fun MainScreen(
             icon = Icons.AutoMirrored.Filled.List,
         ),
         MainTabSpec(
-            label = stringResource(R.string.main_configs),
-            icon = Icons.Default.Tune,
-        ),
-        MainTabSpec(
             label = stringResource(R.string.main_settings),
             icon = Icons.Default.Settings,
         ),
@@ -110,7 +105,6 @@ fun MainScreen(
         AppDestinations.Overview.ROUTE,
         AppDestinations.AppsList.ROUTE,
         AppDestinations.EventsList.ROUTE,
-        AppDestinations.Configs.ROUTE,
         AppDestinations.Settings.ROUTE,
     )
 
@@ -126,7 +120,7 @@ fun MainScreen(
                 route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
                 route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
             route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
+                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 3
             else -> 0
         }
     }
@@ -138,6 +132,7 @@ fun MainScreen(
             route.startsWith(AppDestinations.EventsList.ROUTE) ||
             route.startsWith(AppDestinations.Configs.ROUTE) ||
             route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
+            route.startsWith(AppDestinations.ConfigEditor.ROUTE) ||
             route.startsWith(AppDestinations.Settings.ROUTE)
     }
 
@@ -256,11 +251,9 @@ fun MainScreen(
                     }
                 }
             },
-            // Keep only the current page and its nearest neighbour in the pager's active
-            // measure/draw window. Retained ViewModel/cache state makes farther pages cheap to
-            // recreate, while composing all five feature trees on every pager frame costs more
-            // than it saves on this device (unlike KernelSU's lighter four-page shell).
-            beyondViewportPageCount = 1,
+            // Four top-level pages now match the fully retained pager model: configurations are
+            // a secondary Settings route, so they no longer participate in every pager frame.
+            beyondViewportPageCount = 3,
             retainPageContentAfterFirstFrame = true,
             reserveCompactBottomBarSpace = true,
             animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
@@ -321,20 +314,13 @@ fun MainScreen(
                     isActive = pageIsSettled,
                     scrollChromeState = activePageScrollChromeState,
                 )
-                3 -> Configurations(
-                    initialQuery = "",
-                    contentPadding = contentPadding,
-                    refreshSignal = configRefreshTrigger,
-                    isActive = pageIsSettled,
-                    onOpenEditor = { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
-                    scrollChromeState = activePageScrollChromeState,
-                )
-                4 -> Settings(
+                3 -> Settings(
                     contentPadding = contentPadding,
                     onShowAboutDialog = { content -> aboutDialogContent = content },
                     onSectionChanged = {},
                     onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
                     onNavigateToStatusBarIconSettings = { navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE) },
+                    onNavigateToConfigurations = { navController.navigate(AppDestinations.Configs.ROUTE) },
                     sectionBackSignal = settingsBackSignal,
                     isActive = pageIsSettled,
                     scrollChromeState = activePageScrollChromeState,
@@ -410,7 +396,7 @@ fun MainScreen(
                         scrollChromeState = pageScrollChromeState,
                     )
                 },
-                configsPage = { initialQuery, padding, refreshSignal, onOpenEditor ->
+                configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, onBack ->
                     Configurations(
                         initialQuery = initialQuery,
                         contentPadding = padding,
@@ -418,6 +404,7 @@ fun MainScreen(
                         isActive = currentRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
                             currentRoute?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true,
                         onOpenEditor = onOpenEditor,
+                        onBack = onBack,
                         scrollChromeState = pageScrollChromeState,
                     )
                 },
@@ -440,6 +427,9 @@ fun MainScreen(
                         },
                         onNavigateToStatusBarIconSettings = {
                             navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
+                        },
+                        onNavigateToConfigurations = {
+                            navController.navigate(AppDestinations.Configs.ROUTE)
                         },
                         sectionBackSignal = settingsBackSignal,
                         scrollChromeState = pageScrollChromeState,

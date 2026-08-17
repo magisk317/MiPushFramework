@@ -10,16 +10,16 @@ import org.junit.jupiter.api.assertThrows
 
 class NavigationBenchmarkTest {
     @Test
-    fun `fixed script visits all pages and makes five switches per round`() {
+    fun `fixed script visits all pages and makes four switches per round`() {
         val script = FixedNavigationActionScript.create(config(rounds = 3))
 
-        assertEquals(15, script.actions.size)
+        assertEquals(12, script.actions.size)
         (1..3).forEach { round ->
             val actions = script.actionsForRound(round)
-            assertEquals(5, actions.size)
+            assertEquals(4, actions.size)
             assertEquals(
                 setOf(BenchmarkPage.OVERVIEW, BenchmarkPage.APPLICATIONS, BenchmarkPage.EVENTS,
-                    BenchmarkPage.CONFIGURATIONS, BenchmarkPage.SETTINGS),
+                    BenchmarkPage.SETTINGS),
                 actions.flatMap { listOf(it.from, it.to) }.toSet(),
             )
             assertEquals(BenchmarkPage.OVERVIEW, actions.last().to)
@@ -49,7 +49,7 @@ class NavigationBenchmarkTest {
             )
         })
 
-        assertEquals(15, result.actions.size)
+        assertEquals(12, result.actions.size)
         assertEquals(result.actions.map { it.action.transitionToken }, result.actions.map { it.transitionToken })
         assertEquals(
             setOf(

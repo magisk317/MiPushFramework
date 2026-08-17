@@ -87,9 +87,7 @@ object AppDestinations {
         const val ROUTE = "settings"
     }
 
-    /**
-     * 配置列表页面（顶级路由）
-     */
+    /** 配置列表页面；保留原路由兼容，顶级归属为设置页。 */
     @Serializable
     data object Configs {
         const val ROUTE = "configs"

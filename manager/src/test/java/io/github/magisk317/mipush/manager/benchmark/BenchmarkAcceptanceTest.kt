@@ -42,7 +42,7 @@ class BenchmarkAcceptanceTest {
         val warmActions = script.actions.filter { it.cohort == NavigationCohort.WARM_ROUND_TRIP }
         val result = resultFor(script) { action, index ->
             if (action.cohort == NavigationCohort.WARM_ROUND_TRIP) {
-                // Warm has 11 samples, yielding stable p50=60, p95=110 and p99=110.
+                // Four-page rounds leave eight warm samples, yielding p50=50 and p95/p99=80.
                 warmActions.indexOf(action).let { (it + 1) * 10L }
             } else {
                 10L + index
@@ -68,10 +68,10 @@ class BenchmarkAcceptanceTest {
         )
 
         val warm = report.cohorts.getValue(NavigationCohort.WARM_ROUND_TRIP)
-        assertEquals(11, warm.sampleCount)
-        assertEquals(60L, warm.transitionP50Millis)
-        assertEquals(110L, warm.transitionP95Millis)
-        assertEquals(110L, warm.transitionP99Millis)
+        assertEquals(8, warm.sampleCount)
+        assertEquals(50L, warm.transitionP50Millis)
+        assertEquals(80L, warm.transitionP95Millis)
+        assertEquals(80L, warm.transitionP99Millis)
         assertEquals(1, warm.attribution.sampleCount)
         assertEquals(1, warm.attribution.counts[LongTailAttribution.DATA_WAIT])
         assertFalse(warm.attribution.counts.containsKey(LongTailAttribution.COMPOSE_LAYOUT))
@@ -108,7 +108,7 @@ class BenchmarkAcceptanceTest {
     }
 
     @Test
-    fun `every supported round count executes five switches and visits all pages`() {
+    fun `every supported round count executes four switches and visits all pages`() {
         (NavigationBenchmarkConfig.MIN_ROUNDS..NavigationBenchmarkConfig.MAX_ROUNDS).forEach { rounds ->
             val script = FixedNavigationActionScript.create(config(rounds = rounds))
             val result = kotlinx.coroutines.runBlocking {
@@ -126,7 +126,7 @@ class BenchmarkAcceptanceTest {
             assertEquals(rounds * FixedNavigationActionScript.ACTIONS_PER_ROUND, result.actions.size)
             (1..rounds).forEach { round ->
                 val actions = script.actionsForRound(round)
-                assertEquals(5, actions.size)
+                assertEquals(4, actions.size)
                 assertEquals(BenchmarkPage.OVERVIEW, actions.first().from)
                 assertEquals(BenchmarkPage.OVERVIEW, actions.last().to)
                 assertEquals(BenchmarkPage.entries.toSet(), actions.flatMap { listOf(it.from, it.to) }.toSet())

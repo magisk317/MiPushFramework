@@ -121,6 +121,7 @@ import java.util.Calendar
 import java.util.Date
 
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -135,6 +136,7 @@ fun EventList(
     groupByApp: Boolean = false,
     isActive: Boolean = true,
     viewModel: EventListViewModel = koinViewModel(),
+    settingsViewModel: SettingsViewModel = koinViewModel(),
     scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
@@ -143,6 +145,8 @@ fun EventList(
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
+        var preferenceRefreshSignal by rememberSaveable { mutableStateOf(0) }
+        val effectiveRefreshSignal = refreshSignal + preferenceRefreshSignal
         var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
@@ -151,6 +155,7 @@ fun EventList(
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val eventRetentionDays by viewModel.eventRetentionDays.collectAsState()
+        val showAllEvents by settingsViewModel.showAllEvents.collectAsState()
         var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
         var showRetentionDialog by rememberSaveable { mutableStateOf(false) }
         var showCleanupDialog by rememberSaveable { mutableStateOf(false) }
@@ -188,7 +193,7 @@ fun EventList(
                 if (showGroupedByApp) {
                     EventGroupList(
                         query = currentQuery,
-                        refreshSignal = refreshSignal,
+                        refreshSignal = effectiveRefreshSignal,
                         isActive = isActive,
                         contentPadding = PaddingValues(
                             top = listPadding.calculateTopPadding() + 8.dp,
@@ -210,14 +215,14 @@ fun EventList(
                                 viewModel.getEventListSnapshot(
                                     query = currentQuery,
                                     packageName = packageName,
-                                    refreshSignal = refreshSignal,
+                                    refreshSignal = effectiveRefreshSignal,
                                 )?.lastId
                             }
                             viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery)
                         },
                         query = currentQuery,
                         packageName = packageName,
-                        refreshSignal = refreshSignal,
+                        refreshSignal = effectiveRefreshSignal,
                         isActive = isActive,
                         contentPadding = PaddingValues(
                             top = listPadding.calculateTopPadding() + 8.dp,
@@ -283,6 +288,29 @@ fun EventList(
                 onDismissRequest = { showListSettingsSheet = false },
                 title = stringResource(R.string.action_list_settings),
             ) {
+                val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
+                val showAllEventsUpdateFailed = stringResource(
+                    R.string.settings_runtime_preference_update_failed,
+                    showAllEventsTitle,
+                )
+                StateSwitchItem(
+                    title = showAllEventsTitle,
+                    summary = stringResource(R.string.settings_show_all_events_summary),
+                    checked = showAllEvents,
+                ) { enabled ->
+                    settingsViewModel.setShowAllEvents(enabled) { success ->
+                        if (!success) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(showAllEventsUpdateFailed)
+                            }
+                        } else {
+                            // This preference changes which rows the runtime returns. Force the
+                            // visible query to reload instead of only warming the cache, otherwise
+                            // a non-empty list keeps showing the previous filter until re-entry.
+                            preferenceRefreshSignal++
+                        }
+                    }
+                }
                 StateSwitchItem(
                     title = stringResource(R.string.recent_activity_action_group_by_app),
                     summary = stringResource(R.string.recent_activity_group_by_app_summary),

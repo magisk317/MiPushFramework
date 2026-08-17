@@ -126,6 +126,7 @@ fun Settings(
     onSectionChanged: (String?) -> Unit = {},
     onNavigateToConnectionStatus: () -> Unit = {},
     onNavigateToStatusBarIconSettings: () -> Unit = {},
+    onNavigateToConfigurations: () -> Unit = {},
     sectionBackSignal: Int = 0,
     isActive: Boolean = true,
     scrollChromeState: ScrollChromeState? = null,
@@ -142,6 +143,7 @@ fun Settings(
                 onSectionChanged = onSectionChanged,
                 onNavigateToConnectionStatus = onNavigateToConnectionStatus,
                 onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
+                onNavigateToConfigurations = onNavigateToConfigurations,
                 sectionBackSignal = sectionBackSignal,
                 isActive = isActive,
                 snackbarHostState = snackbarHostState,
@@ -165,6 +167,7 @@ private fun SettingsScreen(
     onSectionChanged: (String?) -> Unit,
     onNavigateToConnectionStatus: () -> Unit,
     onNavigateToStatusBarIconSettings: () -> Unit,
+    onNavigateToConfigurations: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
     isActive: Boolean,
@@ -175,7 +178,9 @@ private fun SettingsScreen(
     var serviceExpanded by rememberSaveable { mutableStateOf(false) }
     var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
-    var zygiskExpanded by rememberSaveable { mutableStateOf(false) }
+    var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
+    var configurationsExpanded by rememberSaveable { mutableStateOf(false) }
+    var integrationsExpanded by rememberSaveable { mutableStateOf(false) }
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     var hasLoadedRuntimeState by rememberSaveable { mutableStateOf(false) }
@@ -220,6 +225,7 @@ private fun SettingsScreen(
             ) {
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_service_title),
+                    summary = stringResource(R.string.settings_home_service_summary),
                     expanded = serviceExpanded,
                     onExpandedChange = { serviceExpanded = !serviceExpanded },
                 ) {
@@ -228,6 +234,7 @@ private fun SettingsScreen(
 
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_keepalive_title),
+                    summary = stringResource(R.string.settings_home_keepalive_summary),
                     expanded = keepAliveExpanded,
                     onExpandedChange = { keepAliveExpanded = !keepAliveExpanded },
                 ) {
@@ -236,6 +243,7 @@ private fun SettingsScreen(
 
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_notifications_title),
+                    summary = stringResource(R.string.settings_home_notifications_summary),
                     expanded = notificationsExpanded,
                     onExpandedChange = { notificationsExpanded = !notificationsExpanded },
                 ) {
@@ -243,125 +251,39 @@ private fun SettingsScreen(
                 }
 
                 SettingsSectionCard(
-                    title = stringResource(R.string.settings_home_misc_title),
-                    expanded = zygiskExpanded,
-                    onExpandedChange = { zygiskExpanded = !zygiskExpanded },
+                    title = stringResource(R.string.settings_home_appearance_title),
+                    summary = stringResource(R.string.settings_home_appearance_summary),
+                    expanded = appearanceExpanded,
+                    onExpandedChange = { appearanceExpanded = !appearanceExpanded },
                 ) {
-                    val context = LocalContext.current
-                    val scope = rememberCoroutineScope()
-                    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
-                    val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
-                    val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
-                    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+                    AppearanceBlock(viewModel, onNavigateToStatusBarIconSettings)
+                }
 
-                    val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
-                    SettingsSwitchItem(
-                        title = showAllEventsTitle,
-                        summary = "",
-                        checked = showAllEvents,
-                        onCheckedChange = { enabled ->
-                            viewModel.setShowAllEvents(enabled) { success ->
-                                showSwitchFeedback(showAllEventsTitle, enabled, success)
-                            }
-                        }
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_configurations_title),
+                    summary = stringResource(R.string.settings_home_configurations_summary),
+                    expanded = configurationsExpanded,
+                    onExpandedChange = { configurationsExpanded = !configurationsExpanded },
+                ) {
+                    ConfigurationsBlock(
+                        viewModel = viewModel,
+                        snackbarHostState = snackbarHostState,
+                        onNavigateToConfigurations = onNavigateToConfigurations,
                     )
+                }
 
-                    SettingsItem(
-                        title = stringResource(R.string.pref_color_status_bar_icon_title),
-                        summary = stringResource(R.string.pref_color_status_bar_icon_summary),
-                        onClick = onNavigateToStatusBarIconSettings,
-                    )
-
-                    val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
-                    val normalizedLauncherIcon =
-                        if (selectedLauncherIcon == "legacy") "legacy" else "default"
-                    val launcherIconSummary = when (normalizedLauncherIcon) {
-                        "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
-                        else -> stringResource(R.string.settings_launcher_icon_default)
-                    }
-                    var showLauncherIconDialog by remember { mutableStateOf(false) }
-                    val currentPreviewRes = when (normalizedLauncherIcon) {
-                        "legacy" -> R.mipmap.ic_launcher_preview_legacy
-                        else -> R.mipmap.ic_launcher_preview_default
-                    }
-                    SettingsItem(
-                        title = stringResource(R.string.settings_launcher_icon),
-                        summary = launcherIconSummary + " · " + stringResource(R.string.settings_launcher_icon_summary),
-                        trailingContent = {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                tonalElevation = 0.dp,
-                            ) {
-                                Image(
-                                    painter = painterResource(currentPreviewRes),
-                                    contentDescription = launcherIconSummary,
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .padding(2.dp)
-                                        .clip(RoundedCornerShape(6.dp)),
-                                )
-                            }
-                        },
-                    ) { showLauncherIconDialog = true }
-                    if (showLauncherIconDialog) {
-                        LauncherIconPickerDialog(
-                            selectedIconId = selectedLauncherIcon,
-                            onSelect = { id ->
-                                viewModel.setSelectedLauncherIcon(context, id)
-                                showLauncherIconDialog = false
-                            },
-                            onDismiss = { showLauncherIconDialog = false },
-                        )
-                    }
-
-                    SettingsItem(
-                        title = stringResource(R.string.settings_migrate_prefs),
-                        summary = stringResource(R.string.settings_migrate_prefs_summary),
-                    ) {
-                        viewModel.migrateManagerPreferencesFromRuntime { written ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = context.getString(R.string.settings_migrate_prefs_done, written),
-                                )
-                            }
-                        }
-                    }
-
-                    val dualAppTitle = stringResource(R.string.settings_dual_app_title)
-                    SettingsSwitchItem(
-                        title = dualAppTitle,
-                        summary = stringResource(
-                            if (viewModel.canManageDualApp) {
-                                R.string.settings_dual_app_summary
-                            } else {
-                                R.string.settings_dual_app_primary_user_only_summary
-                            },
-                        ),
-                        checked = dualAppEnabled,
-                        enabled = viewModel.canManageDualApp && !dualAppProcessing,
-                        onCheckedChange = { enabled ->
-                            viewModel.setDualAppEnabled(enabled) { success, message ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(message)
-                                }
-                            }
-                        },
-                    )
-
-                    SettingsItem(
-                        title = stringResource(R.string.zygisk_status),
-                        summary = stringResource(R.string.zygisk_status_summary),
-                    ) {
-                        context.startActivity(
-                            android.content.Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java)
-                        )
-                    }
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_integrations_title),
+                    summary = stringResource(R.string.settings_home_integrations_summary),
+                    expanded = integrationsExpanded,
+                    onExpandedChange = { integrationsExpanded = !integrationsExpanded },
+                ) {
+                    IntegrationsBlock(viewModel, snackbarHostState)
                 }
 
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_diagnostics_title),
+                    summary = stringResource(R.string.settings_home_diagnostics_summary),
                     expanded = diagnosticsExpanded,
                     onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
                 ) {
@@ -369,7 +291,8 @@ private fun SettingsScreen(
                 }
 
                 SettingsSectionCard(
-                    title = stringResource(R.string.action_about),
+                    title = stringResource(R.string.settings_home_about_title),
+                    summary = stringResource(R.string.settings_home_about_summary),
                     expanded = aboutExpanded,
                     onExpandedChange = { aboutExpanded = !aboutExpanded },
                 ) {
@@ -383,12 +306,14 @@ private fun SettingsScreen(
 @Composable
 private fun SettingsSectionCard(
     title: String,
+    summary: String,
     expanded: Boolean,
     onExpandedChange: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SectionCard(
         title = title,
+        summary = summary,
         accordionMode = true,
         sectionExpanded = expanded,
         onExpandedChange = onExpandedChange,
@@ -448,6 +373,132 @@ private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostSta
         context.startActivity(
             Intent(context, RequestPermissionPage::class.java)
                 .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, true),
+        )
+    }
+}
+
+@Composable
+private fun AppearanceBlock(
+    viewModel: SettingsViewModel,
+    onNavigateToStatusBarIconSettings: () -> Unit,
+) {
+    val context = LocalContext.current
+    val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
+    val normalizedLauncherIcon = if (selectedLauncherIcon == "legacy") "legacy" else "default"
+    val launcherIconSummary = when (normalizedLauncherIcon) {
+        "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
+        else -> stringResource(R.string.settings_launcher_icon_default)
+    }
+    var showLauncherIconDialog by remember { mutableStateOf(false) }
+    val currentPreviewRes = when (normalizedLauncherIcon) {
+        "legacy" -> R.mipmap.ic_launcher_preview_legacy
+        else -> R.mipmap.ic_launcher_preview_default
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.pref_color_status_bar_icon_title),
+        summary = stringResource(R.string.pref_color_status_bar_icon_summary),
+        onClick = onNavigateToStatusBarIconSettings,
+    )
+
+    SettingsItem(
+        title = stringResource(R.string.settings_launcher_icon),
+        summary = launcherIconSummary + " · " + stringResource(R.string.settings_launcher_icon_summary),
+        trailingContent = {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 0.dp,
+            ) {
+                Image(
+                    painter = painterResource(currentPreviewRes),
+                    contentDescription = launcherIconSummary,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .padding(2.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                )
+            }
+        },
+    ) { showLauncherIconDialog = true }
+
+    if (showLauncherIconDialog) {
+        LauncherIconPickerDialog(
+            selectedIconId = selectedLauncherIcon,
+            onSelect = { id ->
+                viewModel.setSelectedLauncherIcon(context, id)
+                showLauncherIconDialog = false
+            },
+            onDismiss = { showLauncherIconDialog = false },
+        )
+    }
+}
+
+@Composable
+private fun ConfigurationsBlock(
+    viewModel: SettingsViewModel,
+    snackbarHostState: SnackbarHostState,
+    onNavigateToConfigurations: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    SettingsItem(
+        title = stringResource(R.string.main_configs),
+        summary = stringResource(R.string.settings_configurations_entry_summary),
+        onClick = onNavigateToConfigurations,
+    )
+
+    SettingsItem(
+        title = stringResource(R.string.settings_migrate_prefs),
+        summary = stringResource(R.string.settings_migrate_prefs_summary),
+    ) {
+        viewModel.migrateManagerPreferencesFromRuntime { written ->
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.settings_migrate_prefs_done, written),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IntegrationsBlock(
+    viewModel: SettingsViewModel,
+    snackbarHostState: SnackbarHostState,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
+    val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.settings_dual_app_title),
+        summary = stringResource(
+            if (viewModel.canManageDualApp) {
+                R.string.settings_dual_app_summary
+            } else {
+                R.string.settings_dual_app_primary_user_only_summary
+            },
+        ),
+        checked = dualAppEnabled,
+        enabled = viewModel.canManageDualApp && !dualAppProcessing,
+    ) { enabled ->
+        viewModel.setDualAppEnabled(enabled) { _, message ->
+            scope.launch {
+                snackbarHostState.showSnackbar(message)
+            }
+        }
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.zygisk_status),
+        summary = stringResource(R.string.zygisk_status_summary),
+    ) {
+        context.startActivity(
+            Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java),
         )
     }
 }

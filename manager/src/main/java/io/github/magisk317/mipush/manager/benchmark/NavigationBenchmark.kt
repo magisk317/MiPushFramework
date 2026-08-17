@@ -2,13 +2,12 @@ package io.github.magisk317.mipush.manager.benchmark
 
 import io.github.magisk317.mipush.manager.telemetry.NavigationCohort
 
-/** The five stable top-level Manager destinations used by the device benchmark. */
+/** The four stable top-level Manager destinations used by the device benchmark. */
 enum class BenchmarkPage(val index: Int) {
     OVERVIEW(0),
     APPLICATIONS(1),
     EVENTS(2),
-    CONFIGURATIONS(3),
-    SETTINGS(4),
+    SETTINGS(3),
 }
 
 data class BenchmarkEnvironment(
@@ -71,11 +70,11 @@ class FixedNavigationActionScript private constructor(
         actions.filter { it.round == round }
 
     companion object {
-        const val ACTIONS_PER_ROUND = 5
-        const val MIN_SWITCHES_PER_ROUND = 5
+        const val ACTIONS_PER_ROUND = 4
+        const val MIN_SWITCHES_PER_ROUND = 4
 
         /**
-         * Builds the same five-switch round for every run. No Android or runtime interaction is
+         * Builds the same four-switch round for every run. No Android or runtime interaction is
          * performed here; a device harness executes the returned actions.
          */
         fun create(config: NavigationBenchmarkConfig): FixedNavigationActionScript {
@@ -85,7 +84,6 @@ class FixedNavigationActionScript private constructor(
                         BenchmarkPage.OVERVIEW,
                         BenchmarkPage.APPLICATIONS,
                         BenchmarkPage.EVENTS,
-                        BenchmarkPage.CONFIGURATIONS,
                         BenchmarkPage.SETTINGS,
                         BenchmarkPage.OVERVIEW,
                     )

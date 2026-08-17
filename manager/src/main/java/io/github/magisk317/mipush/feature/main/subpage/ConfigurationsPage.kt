@@ -97,6 +97,7 @@ fun Configurations(
     refreshSignal: Int = 0,
     isActive: Boolean = true,
     onOpenEditor: (String) -> Unit,
+    onBack: (() -> Unit)? = null,
     viewModel: ConfigManagerViewModel = koinViewModel(),
     scrollChromeState: ScrollChromeState? = null,
 ) {
@@ -253,6 +254,16 @@ fun Configurations(
             overlay = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.main_configs)) },
+                    navigationIcon = {
+                        onBack?.let { back ->
+                            IconButton(onClick = back) {
+                                Icon(
+                                    painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
+                                    contentDescription = stringResource(android.R.string.cancel),
+                                )
+                            }
+                        }
+                    },
                     windowInsets = WindowInsets.statusBars,
                     colors = chromeTopAppBarColors(),
                 )

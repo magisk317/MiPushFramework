@@ -23,12 +23,14 @@ import java.nio.charset.StandardCharsets
  * 使用 Navigation Compose 2.8+ 的特性，支持编译期类型检查和智能参数传递。
  *
  * ## 页面结构
- * - EventsList (底部 Tab 0)
- *   ├─ EventDetails (详情页)
+ * - Overview (底部 Tab 0)
  * - AppsList (底部 Tab 1)
- *   ├─ AppDetails (详情页)
- * - Settings (底部 Tab 2)
- *   ├─ SettingsSection (子分类)
+ *   └─ AppDetails (详情页)
+ * - EventsList (底部 Tab 2)
+ *   └─ EventDetails (详情页)
+ * - Settings (底部 Tab 3)
+ *   ├─ Configurations / ConfigEditor
+ *   └─ SettingsSection / ConnectionStatus / StatusBarIconSettings
  *
  * ## 导航动画
  * - 水平滑动 + 淡入淡出效果
@@ -43,7 +45,7 @@ fun AppNavHostContent(
     overviewPage: @Composable (PaddingValues) -> Unit,
     eventsPage: @Composable (String, PaddingValues, Int, Boolean) -> Unit,
     appsPage: @Composable (String, PaddingValues, Int, Int) -> Unit,
-    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit) -> Unit,
+    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, () -> Unit) -> Unit,
     configEditorPage: @Composable (String, PaddingValues, () -> Unit) -> Unit,
     settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int) -> Unit,
     onAbout: (String?) -> Unit = {},
@@ -65,7 +67,8 @@ fun AppNavHostContent(
 
             route.startsWith(AppDestinations.Settings.ROUTE) ||
                 route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
-                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 4
+                route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
+                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
 
             else -> 0
         }
@@ -160,6 +163,11 @@ fun AppNavHostContent(
                 contentPadding,
                 0,
                 { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
+                {
+                    if (!navController.popBackStack()) {
+                        navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
+                    }
+                },
             )
         }
 
@@ -174,6 +182,11 @@ fun AppNavHostContent(
                 contentPadding,
                 0,
                 { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
+                {
+                    if (!navController.popBackStack()) {
+                        navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
+                    }
+                },
             )
         }
 
