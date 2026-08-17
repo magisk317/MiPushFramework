@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 internal object ManagerRuntimeClientPolicy {
     private const val INITIAL_RECONNECT_DELAY_MS = 500L
     private const val MAX_RECONNECT_DELAY_MS = 10_000L
+    internal const val DEFAULT_MAX_RECONNECT_ATTEMPTS = 8
 
     fun classifyHandshake(handshake: ManagerHandshake): ManagerRuntimeAvailability {
         val compatibility = ManagerProtocol.evaluateCompatibility(

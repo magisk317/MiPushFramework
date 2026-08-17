@@ -31,6 +31,7 @@ import io.github.magisk317.mipush.manager.events.EventListCacheStore
 import io.github.magisk317.mipush.manager.events.EventListBackgroundSyncCoordinator
 import io.github.magisk317.mipush.manager.events.EventListCacheStoreRegistry
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
+import io.github.magisk317.mipush.manager.application.ApplicationListCacheStore
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
@@ -38,10 +39,13 @@ import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.client.DefaultManagerRuntimeCallScheduler
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeCallScheduler
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
@@ -75,18 +79,24 @@ val managerKoinModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         ).apply { connect() }
     }
-    single { RuntimePreferenceGateway(get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
+    single { RuntimePreferenceGateway(get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ManagerRuntimeCallScheduler>()) }
+    single<ManagerRuntimeCallScheduler> {
+        DefaultManagerRuntimeCallScheduler(
+            availabilityProvider = { get<ManagerRuntimeClient>().availability.value },
+        )
+    }
+    single { PageRemoteCallAdapter(get<ManagerRuntimeCallScheduler>()) }
     // Production manager is remote-only: ViewModels consume Remote* sources directly.
     single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
     single<ConnectionSnapshotSource> { get<RemoteConnectionSnapshotSource>() }
     single { RemoteConnectionReconnectRequester(get<ManagerRuntimeClient>()) }
     single<ConnectionReconnectRequester> { get<RemoteConnectionReconnectRequester>() }
-    single { RemoteApplicationListSource(get<ManagerRuntimeClient>()) }
+    single { RemoteApplicationListSource(get<ManagerRuntimeClient>(), get<PageRemoteCallAdapter>()) }
     single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
-    single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
+    single { RemoteEventListSource(get<ManagerRuntimeClient>(), get<PageRemoteCallAdapter>()) }
     single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
     single { RemoteNotificationChannelCommand(get<ManagerRuntimeClient>()) }
-    single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()) }
+    single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>(), get<PageRemoteCallAdapter>()) }
     single { RemoteLogExportSource(get<ManagerRuntimeClient>()) }
 
     viewModel {
@@ -112,6 +122,7 @@ val managerKoinModule = module {
         )
     }
     single { EventListCacheStoreRegistry.get(androidContext()) }
+    single { ApplicationListCacheStore(androidContext()) }
     single {
         EventListBackgroundSyncCoordinator(
             context = androidContext(),
@@ -124,7 +135,7 @@ val managerKoinModule = module {
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidContext()) }
-    viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
+    viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ApplicationListCacheStore>()) }
     viewModel {
         ConnectionStatusViewModel(
             get<ConnectionSnapshotSource>(),
@@ -138,6 +149,7 @@ val managerKoinModule = module {
             get<PreferenceRepository>(),
             androidContext(),
             get<ManagerRuntimeClient>(),
+            get<ApplicationListCacheStore>(),
         )
     }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }

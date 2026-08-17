@@ -7,6 +7,8 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import io.github.magisk317.mipush.utils.RemoteConfigCatalog
 import io.github.magisk317.mipush.utils.RemoteConfigFile
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import kotlinx.coroutines.CancellationException
 
 data class ConfigurationCatalogSnapshot(
@@ -43,11 +45,15 @@ enum class ConfigurationCatalogReadStatus {
 
 class RemoteConfigurationCatalogSource internal constructor(
     private val loader: suspend () -> ManagerRuntimeResult<ManagerConfigurationCatalogDto>,
+    private val pageCallAdapter: PageRemoteCallAdapter? = null,
 ) {
-    constructor(client: ManagerRuntimeClient) : this(client::getConfigurationCatalog)
+    constructor(client: ManagerRuntimeClient, pageCallAdapter: PageRemoteCallAdapter? = null) : this(
+        loader = client::getConfigurationCatalog,
+        pageCallAdapter = pageCallAdapter,
+    )
 
     suspend fun load(): ConfigurationCatalogReadResult<ConfigurationCatalogSnapshot> = try {
-        when (val result = loader()) {
+        when (val result = loadCatalog()) {
             is ManagerRuntimeResult.Success -> ConfigurationCatalogReadResult.Available(result.value.toSnapshot())
             is ManagerRuntimeResult.Unsupported ->
                 ConfigurationCatalogReadResult.Unavailable(ConfigurationCatalogReadStatus.UNSUPPORTED)
@@ -60,6 +66,24 @@ class RemoteConfigurationCatalogSource internal constructor(
         throw error
     } catch (_: RuntimeException) {
         ConfigurationCatalogReadResult.Unavailable(ConfigurationCatalogReadStatus.FAILED)
+    }
+
+    private suspend fun loadCatalog(): ManagerRuntimeResult<ManagerConfigurationCatalogDto> {
+        val adapter = pageCallAdapter ?: return loader()
+        return when (val scheduled = adapter.call(
+            operation = "configuration_catalog",
+            budget = PageRemoteCallPolicy.visiblePage,
+        ) { loader() }) {
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Success -> scheduled.value
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Unavailable ->
+                ManagerRuntimeResult.Unavailable(scheduled.availability)
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Busy,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Timeout,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Cancelled,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Stale,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.ValidationFailed,
+            -> ManagerRuntimeResult.Failed("stale_or_cancelled")
+        }
     }
 }
 

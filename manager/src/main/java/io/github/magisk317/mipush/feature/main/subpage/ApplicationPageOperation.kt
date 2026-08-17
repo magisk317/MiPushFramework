@@ -8,21 +8,26 @@ import io.github.magisk317.mipush.manager.application.ApplicationListStats
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
-import io.github.magisk317.mipush.common.manager.ManagerApplications
+import io.github.magisk317.mipush.manager.client.RemoteCallBudget
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 
 class ApplicationPageOperation(
     private val applicationSource: RemoteApplicationListSource,
 ) {
-    suspend fun getMiPushApplications(includeSystemApps: Boolean = false): ApplicationListLoadOutcome {
-        return getMiPushApplications(query = "", filterMode = 0, includeSystemApps = includeSystemApps)
+    suspend fun getMiPushApplications(
+        includeSystemApps: Boolean = false,
+        budget: RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
+    ): ApplicationListLoadOutcome {
+        return getMiPushApplications(query = "", filterMode = 0, includeSystemApps = includeSystemApps, budget = budget)
     }
 
     suspend fun getMiPushApplicationsThatQueryMatched(
         query: String,
         filterMode: Int = 0,
         includeSystemApps: Boolean = false,
+        budget: RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
     ): ApplicationListLoadOutcome {
-        return getMiPushApplications(query, filterMode, includeSystemApps)
+        return getMiPushApplications(query, filterMode, includeSystemApps, budget)
     }
 
     fun getNotSupportHint(context: android.content.Context, notUseMiPushCount: Int): String =
@@ -31,9 +36,10 @@ class ApplicationPageOperation(
     private suspend fun getMiPushApplications(
         query: String,
         filterMode: Int,
-        includeSystemApps: Boolean = false,
+        includeSystemApps: Boolean,
+        budget: RemoteCallBudget,
     ): ApplicationListLoadOutcome {
-        val result = applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps))
+        val result = applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps), budget)
         return when (result) {
             is ApplicationReadResult.Available -> {
                 val snapshot = result.value

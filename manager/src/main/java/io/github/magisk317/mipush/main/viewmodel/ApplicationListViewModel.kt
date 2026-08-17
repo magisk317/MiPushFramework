@@ -14,13 +14,16 @@ import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import io.github.magisk317.mipush.manager.application.ApplicationListCacheStore
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
+import io.github.magisk317.mipush.manager.application.CachedApplicationSnapshot
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.common.utils.logW
 import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +38,7 @@ class ApplicationListViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val context: Context,
     private val runtimeClient: ManagerRuntimeClient,
+    private val cacheStore: ApplicationListCacheStore,
 ) : ViewModel() {
 
     val applicationPageOperation = ApplicationPageOperation(applicationSource)
@@ -59,7 +63,12 @@ class ApplicationListViewModel constructor(
     @Volatile
     private var lastFilterMode: Int = 0
     @Volatile
+    private var lastIncludeSystemApps: Boolean = false
+    @Volatile
     private var listLoaded: Boolean = false
+    @Volatile
+    private var hasVisibleSnapshot: Boolean = false
+    private var loadJob: Job? = null
     init {
         viewModelScope.launch {
             collectAvailableRuntimeReloads(
@@ -72,15 +81,20 @@ class ApplicationListViewModel constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         // Clear state when ViewModel is destroyed to prevent memory leaks
         _items.value = ApplicationPageOperation.MiPushApplications()
         _itemsInfo.value = emptyMap()
     }
 
     /** True when [items] matches the given query/filter and was loaded this process. */
-    fun hasCachedList(query: String, filterMode: Int): Boolean {
-        if (!listLoaded || lastQuery != query || lastFilterMode != filterMode) return false
+    fun hasCachedList(
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean = showSystemApps.value,
+    ): Boolean {
+        if (!listLoaded || lastQuery != query || lastFilterMode != filterMode ||
+            lastIncludeSystemApps != includeSystemApps
+        ) return false
         // Empty + totalPkg=0 after a failed remote read used to stick forever; only cache real results.
         return true
     }
@@ -105,7 +119,9 @@ class ApplicationListViewModel constructor(
     ) {
         lastQuery = query
         lastFilterMode = filterMode
-        viewModelScope.launch {
+        lastIncludeSystemApps = includeSystemApps
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             reloadApplications(query, filterMode, includeSystemApps, onRefreshed)
         }
     }
@@ -115,9 +131,38 @@ class ApplicationListViewModel constructor(
         filterMode: Int,
         includeSystemApps: Boolean = showSystemApps.value,
     ) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             reloadApplications(query, filterMode, includeSystemApps)
         }
+    }
+
+    suspend fun restoreCachedApplications(
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean = showSystemApps.value,
+    ): Boolean {
+        val cached = cacheStore.getCached(query, filterMode, includeSystemApps) ?: return false
+        val applications = ApplicationPageOperation.MiPushApplications().apply {
+            res = cached.applications.toMutableList()
+            totalPkg = cached.totalPkg
+        }
+        updateInfos(applications)
+        _items.value = applications
+        _stats.value = ApplicationStats(
+            total = cached.total,
+            usingMiPush = cached.usingMiPush,
+            notUsingMiPush = cached.notUsingMiPush,
+            registered = cached.registered,
+            notRegistered = cached.notRegistered,
+        )
+        _unavailableStatus.value = null
+        lastQuery = query
+        lastFilterMode = filterMode
+        lastIncludeSystemApps = includeSystemApps
+        listLoaded = true
+        hasVisibleSnapshot = true
+        return true
     }
 
     private suspend fun reloadApplications(
@@ -126,6 +171,9 @@ class ApplicationListViewModel constructor(
         includeSystemApps: Boolean = showSystemApps.value,
         onRefreshed: (() -> Unit)? = null,
     ) {
+        // Restore a valid disk snapshot before the remote call. This is deliberately done in the
+        // same job as refresh: explicit refresh keeps old content while the new result is fetched.
+        restoreCachedApplications(query, filterMode, includeSystemApps)
         try {
             val outcome = withContext(Dispatchers.IO) {
                 applicationPageOperation.getMiPushApplicationsThatQueryMatched(
@@ -134,23 +182,28 @@ class ApplicationListViewModel constructor(
                     includeSystemApps = includeSystemApps,
                 )
             }
-            applyLoadOutcome(outcome)
+            applyLoadOutcome(outcome, query, filterMode, includeSystemApps)
             onRefreshed?.invoke()
         } catch (error: CancellationException) {
             throw error
         } catch (error: RuntimeReadUnavailableException) {
             // Transport failure must not stick as a successful empty list cache.
-            listLoaded = false
+            if (!hasVisibleSnapshot) listLoaded = false
             logW("loadApplications unavailable op=${error.operation} status=${error.status}")
             onRefreshed?.invoke()
         } catch (error: Exception) {
-            listLoaded = false
+            if (!hasVisibleSnapshot) listLoaded = false
             logW("loadApplications failed: ${error.message}")
             onRefreshed?.invoke()
         }
     }
 
-    private suspend fun applyLoadOutcome(outcome: ApplicationListLoadOutcome) {
+    private suspend fun applyLoadOutcome(
+        outcome: ApplicationListLoadOutcome,
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean,
+    ) {
         when (outcome) {
             is ApplicationListLoadOutcome.Ready -> {
                 updateInfos(outcome.applications)
@@ -158,10 +211,18 @@ class ApplicationListViewModel constructor(
                 _stats.value = outcome.applications.toApplicationStats()
                 _unavailableStatus.value = null
                 listLoaded = true
+                hasVisibleSnapshot = true
+                cacheStore.putCached(outcome.toCachedSnapshot(
+                    userId = cacheStore.currentUserId(),
+                    query = query,
+                    filterMode = filterMode,
+                    includeSystemApps = includeSystemApps,
+                ))
             }
             is ApplicationListLoadOutcome.Unavailable -> {
                 _unavailableStatus.value = outcome.status
-                listLoaded = false
+                // A cached list remains valid UI content while runtime is unavailable.
+                // Do not turn a recoverable stale state into an empty success state.
                 logW("application list unavailable status=${outcome.status}")
             }
         }
@@ -171,21 +232,44 @@ class ApplicationListViewModel constructor(
         val zygiskPackages = withContext(Dispatchers.IO) {
             runCatching { settingsManager.getZygiskSpoofPackages() }.getOrNull()
         }
-        val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
-        applications.res.forEach {
-            infoMap[it.packageName] = AppInfoForDisplay(
-                registrationState = RegistrationStateStyle.contentOf(it),
-                lastReceiveTime = if (it.lastReceiveTimeMs == 0L) ""
-                else context.getString(R.string.last_receive) + friendlyDateString(
-                    java.util.Date(it.lastReceiveTimeMs),
-                    Date(),
-                    context
-                ),
-                isZygiskEnabled = zygiskPackages?.contains(it.packageName),
-            )
+        // Building the per-application display map can be substantial on devices with many
+        // packages. Keep date formatting and registration mapping off the main dispatcher.
+        val infoMap = withContext(Dispatchers.Default) {
+            val now = Date()
+            applications.res.associate { application ->
+                application.packageName to AppInfoForDisplay(
+                    registrationState = RegistrationStateStyle.contentOf(application),
+                    lastReceiveTime = if (application.lastReceiveTimeMs == 0L) ""
+                    else context.getString(R.string.last_receive) + friendlyDateString(
+                        Date(application.lastReceiveTimeMs),
+                        now,
+                        context,
+                    ),
+                    isZygiskEnabled = zygiskPackages?.contains(application.packageName),
+                )
+            }
         }
         _itemsInfo.value = infoMap
     }
 
 
 }
+
+private fun ApplicationListLoadOutcome.Ready.toCachedSnapshot(
+    userId: Int,
+    query: String,
+    filterMode: Int,
+    includeSystemApps: Boolean,
+): CachedApplicationSnapshot = CachedApplicationSnapshot(
+    userId = userId,
+    query = query,
+    filterMode = filterMode,
+    includeSystemApps = includeSystemApps,
+    applications = applications.res.toList(),
+    totalPkg = applications.totalPkg,
+    total = stats.total,
+    usingMiPush = stats.usingMiPush,
+    notUsingMiPush = stats.notUsingMiPush,
+    registered = stats.registered,
+    notRegistered = stats.notRegistered,
+)

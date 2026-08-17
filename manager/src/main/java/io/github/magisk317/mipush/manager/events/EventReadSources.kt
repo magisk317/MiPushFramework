@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.manager.events
 
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
 import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerEventSummaryDto
@@ -9,8 +10,10 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.manager.client.RemoteCallBudget
 import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import kotlinx.coroutines.CancellationException
 
 data class EventListRequest(
@@ -52,13 +55,20 @@ class GatewayEventListSource(
 class RemoteEventListSource internal constructor(
     private val pageLoader: suspend (ManagerEventQueryDto) -> ManagerRuntimeResult<ManagerEventPageDto>,
     private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val pageCallAdapter: PageRemoteCallAdapter? = null,
 ) {
-    constructor(client: ManagerRuntimeClient) : this(client::getEventPage)
+    constructor(client: ManagerRuntimeClient, pageCallAdapter: PageRemoteCallAdapter? = null) : this(
+        pageLoader = client::getEventPage,
+        pageCallAdapter = pageCallAdapter,
+    )
 
-    suspend fun load(request: EventListRequest): EventReadResult<List<ManagerEvent>> = try {
+    suspend fun load(
+        request: EventListRequest,
+        budget: RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
+    ): EventReadResult<List<ManagerEvent>> = try {
         val userId = userIdProvider().coerceAtLeast(0)
         when (
-            val result = pageLoader(
+            val result = loadPage(
                 ManagerEventQueryDto(
                     lastId = request.lastId,
                     pageSize = request.pageSize,
@@ -66,6 +76,7 @@ class RemoteEventListSource internal constructor(
                     query = request.query,
                     userId = userId,
                 ),
+                budget,
             )
         ) {
             is ManagerRuntimeResult.Success -> {
@@ -86,6 +97,29 @@ class RemoteEventListSource internal constructor(
         throw error
     } catch (_: RuntimeException) {
         EventReadResult.Unavailable(EventReadStatus.FAILED)
+    }
+
+    private suspend fun loadPage(
+        query: ManagerEventQueryDto,
+        budget: RemoteCallBudget,
+    ): ManagerRuntimeResult<ManagerEventPageDto> {
+        val adapter = pageCallAdapter ?: return pageLoader(query)
+        return when (val scheduled = adapter.call(
+            operation = "event_page",
+            budget = budget,
+        ) { pageLoader(query) }) {
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Success -> scheduled.value
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Unavailable ->
+                ManagerRuntimeResult.Unavailable(scheduled.availability)
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Busy ->
+                ManagerRuntimeResult.Failed("runtime_busy")
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Timeout ->
+                ManagerRuntimeResult.Failed("runtime_request_timeout")
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Cancelled,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Stale,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.ValidationFailed,
+            -> ManagerRuntimeResult.Failed("stale_or_cancelled")
+        }
     }
 }
 

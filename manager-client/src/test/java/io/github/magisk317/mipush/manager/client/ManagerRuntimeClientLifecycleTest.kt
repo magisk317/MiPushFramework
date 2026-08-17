@@ -562,6 +562,31 @@ class ManagerRuntimeClientLifecycleTest {
     }
 
     @Test
+    fun `session recovery stops after consecutive bind timeouts`() = runBlocking {
+        val context = FakeServiceContext(FakeRuntimeService(), autoConnect = false)
+        val client = client(
+            context = context,
+            callTimeoutMillis = 10L,
+            reconnectDelayProvider = { 0L },
+            maxReconnectAttempts = 2,
+        )
+
+        try {
+            client.connect()
+            withTimeout(1_000L) {
+                client.availability.first {
+                    it == ManagerRuntimeAvailability.Failed("reconnect_exhausted")
+                }
+            }
+
+            assertEquals(3, context.bindCount)
+            assertEquals(3, context.unbindCount)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
     fun `exhausted remote call permits still produce a typed handshake timeout`() = runBlocking {
         val permitLimit = ManagerRuntimeClient.MAX_IN_FLIGHT_REMOTE_CALLS
         val serviceCount = permitLimit + 1
@@ -730,6 +755,7 @@ class ManagerRuntimeClientLifecycleTest {
         callTimeoutMillis: Long = 3_000L,
         reconnectDelayProvider: (Int) -> Long = { 0L },
         eventPageCallTimeoutMillis: Long? = null,
+        maxReconnectAttempts: Int = ManagerRuntimeClientPolicy.DEFAULT_MAX_RECONNECT_ATTEMPTS,
     ) = ManagerRuntimeClient(
         context = context,
         scope = scope,
@@ -737,6 +763,7 @@ class ManagerRuntimeClientLifecycleTest {
         callTimeoutMillis = callTimeoutMillis,
         reconnectDelayProvider = reconnectDelayProvider,
         eventPageCallTimeoutMillis = eventPageCallTimeoutMillis,
+        maxReconnectAttempts = maxReconnectAttempts,
     )
 
     private class FakeServiceContext(

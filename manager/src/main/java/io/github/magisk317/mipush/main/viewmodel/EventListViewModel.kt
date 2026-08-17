@@ -17,6 +17,7 @@ import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.common.utils.logW
@@ -100,7 +101,6 @@ class EventListViewModel constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         // Clear memory-heavy snapshots when ViewModel is destroyed
         invalidateEventListSnapshot()
     }
@@ -199,6 +199,7 @@ class EventListViewModel constructor(
         try {
             val fresh = loadEventsRemote(
                 EventListRequest(lastId = null, pageSize = Constants.PAGE_SIZE, packageName = packageName, query = query),
+                budget = PageRemoteCallPolicy.backgroundRefresh,
             ).map { toEventInfoForDisplay(it) }
             // A refresh returns only the newest page. Merge it with older cached pages
             // so a later cache-first open does not lose history.
@@ -253,7 +254,10 @@ class EventListViewModel constructor(
             )
             try {
                 val primary = withContext(Dispatchers.IO) {
-                    loadEventsRemote(request)
+                    loadEventsRemote(
+                        request,
+                        budget = if (isRefresh) PageRemoteCallPolicy.userAction else PageRemoteCallPolicy.visiblePage,
+                    )
                 }
                 val loadedEvents = primary.map { toEventInfoForDisplay(it) }
                 if (isRefresh) {
@@ -277,8 +281,11 @@ class EventListViewModel constructor(
 
 
 
-    private suspend fun loadEventsRemote(request: EventListRequest): List<ManagerEvent> {
-        return eventSource.load(request).requireAvailableEvents(operation = "loadEvents")
+    private suspend fun loadEventsRemote(
+        request: EventListRequest,
+        budget: io.github.magisk317.mipush.manager.client.RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
+    ): List<ManagerEvent> {
+        return eventSource.load(request, budget).requireAvailableEvents(operation = "loadEvents")
     }
 
     private fun toEventInfoForDisplay(it: ManagerEvent): EventInfoForDisplay {
@@ -330,7 +337,10 @@ class EventListViewModel constructor(
                 query = query,
             )
             try {
-                val events = loadEventsRemote(request).map { toEventInfoForDisplay(it) }
+                val events = loadEventsRemote(
+                    request,
+                    budget = if (isRefresh) PageRemoteCallPolicy.userAction else PageRemoteCallPolicy.visiblePage,
+                ).map { toEventInfoForDisplay(it) }
                 // Keep pages already loaded locally when this request returns only one page.
                 if (events.isNotEmpty()) {
                     val cached = cacheStore.getCached(cacheKey(query, packageName)).orEmpty()

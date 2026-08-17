@@ -59,13 +59,13 @@ class EventListBackgroundSyncCoordinator(
     private suspend fun runRefreshOnce(sequence: Long, action: String) {
         mutex.withLock {
             logI("event sync start sequence=$sequence action=$action")
-            try {
+            val failure = runCatching {
                 val result = source.load(EventListRequest(lastId = null, pageSize = 100))
                 val fresh = when (result) {
                     is EventReadResult.Available -> result.value.map { it.toDisplay() }
                     is EventReadResult.Unavailable -> {
                         logW("event sync skipped sequence=$sequence status=${result.status}")
-                        return
+                        return@runCatching
                     }
                 }
                 val cached = cacheStore.getCached(EventListCacheSync.DEFAULT_QUERY_KEY).orEmpty()
@@ -81,13 +81,13 @@ class EventListBackgroundSyncCoordinator(
                         "event sync failed sequence=$sequence stage=cache_handoff " +
                             "error=${handoff.error ?: "unknown"}",
                     )
-                    return
+                    return@runCatching
                 }
                 logI("event sync success sequence=$sequence fresh=${fresh.size} cached=${merged.size}")
-            } catch (error: kotlinx.coroutines.CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                logW("event sync failed sequence=$sequence error=${error.message}")
+            }.exceptionOrNull()
+            if (failure is kotlinx.coroutines.CancellationException) throw failure
+            if (failure != null) {
+                logW("event sync failed sequence=$sequence error=${failure.message}")
             }
         }
     }

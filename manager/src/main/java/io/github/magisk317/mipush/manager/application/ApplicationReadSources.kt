@@ -15,8 +15,11 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.manager.client.RemoteCallBudget
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import kotlinx.coroutines.CancellationException
 
 data class ApplicationListRequest(
@@ -80,8 +83,9 @@ class RemoteApplicationListSource internal constructor(
     private val pageLoader: suspend (ManagerApplicationQueryDto) -> ManagerRuntimeResult<ManagerApplicationPageDto>,
     private val pageSizeProvider: () -> Int,
     private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val pageCallAdapter: PageRemoteCallAdapter? = null,
 ) {
-    constructor(client: ManagerRuntimeClient) : this(
+    constructor(client: ManagerRuntimeClient, pageCallAdapter: PageRemoteCallAdapter? = null) : this(
         pageLoader = client::getApplicationPage,
         pageSizeProvider = {
             val negotiated = (client.availability.value as? ManagerRuntimeAvailability.Available)
@@ -90,10 +94,14 @@ class RemoteApplicationListSource internal constructor(
                 ?: ManagerProtocol.DEFAULT_MAX_PAGE_SIZE
             minOf(negotiated, ManagerProtocol.DEFAULT_MAX_PAGE_SIZE)
         },
+        pageCallAdapter = pageCallAdapter,
     )
 
-    suspend fun load(request: ApplicationListRequest): ApplicationReadResult<ApplicationListSnapshot> = try {
-        loadPages(request)
+    suspend fun load(
+        request: ApplicationListRequest,
+        budget: RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
+    ): ApplicationReadResult<ApplicationListSnapshot> = try {
+        loadPages(request, budget)
     } catch (error: CancellationException) {
         throw error
     } catch (_: RuntimeException) {
@@ -102,6 +110,7 @@ class RemoteApplicationListSource internal constructor(
 
     private suspend fun loadPages(
         request: ApplicationListRequest,
+        budget: RemoteCallBudget,
     ): ApplicationReadResult<ApplicationListSnapshot> {
         val pageSize = pageSizeProvider().coerceAtLeast(1)
         val userId = userIdProvider().coerceAtLeast(0)
@@ -116,7 +125,7 @@ class RemoteApplicationListSource internal constructor(
             if (++pageCount > MAX_PAGE_REQUESTS) {
                 return ApplicationReadResult.Unavailable(ApplicationReadStatus.FAILED)
             }
-            val result = pageLoader(
+            val result = loadPage(
                 ManagerApplicationQueryDto(
                     query = request.query,
                     filterMode = request.filterMode,
@@ -125,6 +134,7 @@ class RemoteApplicationListSource internal constructor(
                     pageToken = token,
                     userId = userId,
                 ),
+                budget,
             )
             val page = when (result) {
                 is ManagerRuntimeResult.Success -> result.value
@@ -176,6 +186,31 @@ class RemoteApplicationListSource internal constructor(
                 stats = stats.toApplicationListStats(),
             ),
         )
+    }
+
+    private suspend fun loadPage(
+        query: ManagerApplicationQueryDto,
+        budget: RemoteCallBudget,
+    ): ManagerRuntimeResult<ManagerApplicationPageDto> {
+        val adapter = pageCallAdapter ?: return pageLoader(query)
+        return when (val scheduled = adapter.call(
+            operation = "application_page",
+            budget = budget,
+        ) { pageLoader(query) }) {
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Success -> scheduled.value
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Unavailable ->
+                ManagerRuntimeResult.Unavailable(scheduled.availability)
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Busy ->
+                ManagerRuntimeResult.Unavailable(ManagerRuntimeAvailability.TemporarilyDisconnected(
+                    io.github.magisk317.mipush.manager.client.DisconnectReason.REMOTE_ERROR,
+                ))
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Timeout ->
+                ManagerRuntimeResult.Failed("runtime_request_timeout")
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Cancelled,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.Stale,
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult.ValidationFailed,
+            -> ManagerRuntimeResult.Failed("stale_or_cancelled")
+        }
     }
 
     private companion object {

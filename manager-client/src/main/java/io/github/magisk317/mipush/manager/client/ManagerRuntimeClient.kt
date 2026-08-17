@@ -60,7 +60,11 @@ class ManagerRuntimeClient(
     private val callTimeoutMillis: Long = DEFAULT_CALL_TIMEOUT_MS,
     private val reconnectDelayProvider: (Int) -> Long = ManagerRuntimeClientPolicy::reconnectDelayMillis,
     private val eventPageCallTimeoutMillis: Long? = null,
+    private val maxReconnectAttempts: Int = ManagerRuntimeClientPolicy.DEFAULT_MAX_RECONNECT_ATTEMPTS,
 ) : Closeable {
+    init {
+        require(maxReconnectAttempts > 0) { "maxReconnectAttempts must be positive" }
+    }
     /** Scope for app-shell background work that must share this client's lifetime. */
     fun scopeForBackgroundWork(): CoroutineScope = clientScope
     private val appContext = context.applicationContext ?: context
@@ -718,6 +722,17 @@ class ManagerRuntimeClient(
         lateinit var scheduledJob: Job
         synchronized(lock) {
             if (closed || activeSession != null || reconnectJob?.isActive == true) return
+            if (reconnectAttempt >= maxReconnectAttempts) {
+                Log.w(TAG, "reconnect attempts exhausted limit=$maxReconnectAttempts")
+                _availability.value = ManagerRuntimeAvailability.Failed("reconnect_exhausted")
+                emitClientCall(
+                    result = "error",
+                    reason = "reconnect_exhausted",
+                    capability = "session",
+                    statusOk = false,
+                )
+                return
+            }
             val delayMillis = reconnectDelayProvider(reconnectAttempt)
             reconnectAttempt += 1
             scheduledJob = clientScope.launch(start = CoroutineStart.LAZY) {

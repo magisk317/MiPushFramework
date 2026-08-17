@@ -10,7 +10,10 @@ import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeCallResult
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeCallScheduler
+import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
 import kotlinx.coroutines.CoroutineScope
@@ -39,10 +42,12 @@ class RuntimePreferenceGateway internal constructor(
     private val executeRemote: suspend (RuntimePreferenceWrite) -> ManagerWriteResultDto?,
     private val readRemote: suspend () -> ManagerRuntimeResult<ManagerRuntimePreferencesDto>,
     private val importLocal: suspend (List<OwnedPreferenceValue>) -> Unit,
+    private val callScheduler: ManagerRuntimeCallScheduler? = null,
 ) {
     constructor(
         client: ManagerRuntimeClient,
         preferenceRepository: PreferenceRepository,
+        callScheduler: ManagerRuntimeCallScheduler? = null,
     ) : this(
         runtimeAvailable = client.availability.map { it is ManagerRuntimeAvailability.Available },
         executeRemote = { write ->
@@ -62,6 +67,7 @@ class RuntimePreferenceGateway internal constructor(
                 onlyMissing = false,
             )
         },
+        callScheduler = callScheduler,
     )
 
     private val operationMutex = Mutex()
@@ -138,7 +144,7 @@ class RuntimePreferenceGateway internal constructor(
     }
 
     suspend fun getXmppServer(): String? = operationMutex.withLock {
-        val snapshot = when (val result = readRemote()) {
+        val snapshot = when (val result = scheduledRead()) {
             is ManagerRuntimeResult.Success -> result.value
             is ManagerRuntimeResult.Unsupported -> throw RuntimeReadUnavailableException(
                 status = "unsupported:${result.capability}", operation = "getXmppServer",
@@ -161,7 +167,7 @@ class RuntimePreferenceGateway internal constructor(
     }
 
     suspend fun syncFromRuntime(): Boolean = operationMutex.withLock {
-        val snapshot = when (val result = readRemote()) {
+        val snapshot = when (val result = scheduledRead()) {
             is ManagerRuntimeResult.Success -> result.value
             is ManagerRuntimeResult.Failed,
             is ManagerRuntimeResult.Unavailable,
@@ -175,7 +181,7 @@ class RuntimePreferenceGateway internal constructor(
 
     private suspend fun write(write: RuntimePreferenceWrite): Boolean = operationMutex.withLock {
         if (PreferenceOwnership.ownerOf(write.key) != PreferenceOwner.RUNTIME) return@withLock false
-        val result = executeRemote(write)
+        val result = scheduledWrite(write)
         if (!RemoteWriteSupport.isSuccess(result)) return@withLock false
         runCatching {
             importLocal(
@@ -189,6 +195,34 @@ class RuntimePreferenceGateway internal constructor(
                 ),
             )
         }.isSuccess
+    }
+
+    private suspend fun scheduledRead(): ManagerRuntimeResult<ManagerRuntimePreferencesDto> {
+        val scheduler = callScheduler ?: return readRemote()
+        return when (val result = scheduler.call(
+            operation = "runtime_preferences",
+            budget = PageRemoteCallPolicy.visiblePage,
+        ) { readRemote() }) {
+            is ManagerRuntimeCallResult.Success -> result.value
+            is ManagerRuntimeCallResult.Unavailable -> ManagerRuntimeResult.Unavailable(result.availability)
+            is ManagerRuntimeCallResult.Busy,
+            is ManagerRuntimeCallResult.Timeout,
+            is ManagerRuntimeCallResult.Cancelled,
+            is ManagerRuntimeCallResult.Stale,
+            is ManagerRuntimeCallResult.ValidationFailed,
+            -> ManagerRuntimeResult.Failed("runtime_read_unavailable")
+        }
+    }
+
+    private suspend fun scheduledWrite(write: RuntimePreferenceWrite): ManagerWriteResultDto? {
+        val scheduler = callScheduler ?: return executeRemote(write)
+        return when (val result = scheduler.call(
+            operation = write.operation,
+            budget = PageRemoteCallPolicy.userAction,
+        ) { executeRemote(write) }) {
+            is ManagerRuntimeCallResult.Success -> result.value
+            else -> null
+        }
     }
 
     private fun ManagerPreferenceEntryDto.toOwnedRuntimePreference(): OwnedPreferenceValue =

@@ -55,7 +55,17 @@ class EventListCacheStore(
             ?: return null
         val cached = runCatching {
             json.decodeFromString<List<ManagerEvent>>(raw).map { it.toEventInfoForDisplay() }
-        }.getOrNull() ?: return null
+        }.getOrNull()
+        if (cached == null) {
+            // Drop only the corrupt scoped bucket. Other users and query scopes remain intact.
+            runCatching {
+                dataStore.edit { values ->
+                    values.remove(currentKey)
+                    values.remove(legacyKey)
+                }
+            }
+            return null
+        }
         // Migrate the pre-user-scoped bucket so existing records remain cache-first.
         if (preferences[currentKey] == null) {
             runCatching {
