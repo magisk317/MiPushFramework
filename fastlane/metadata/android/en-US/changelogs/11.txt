@@ -1,0 +1,3 @@
+- Split the manager application from the XMSF runtime and improved multi-user compatibility.
+- Improved notification compatibility, Live Updates, VoIP, pinned notifications, SweetTag, and keepalive behavior.
+- Fixed notification delivery, SystemUI icon handling, runtime replay, and manager interactions.

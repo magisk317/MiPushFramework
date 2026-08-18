@@ -3,6 +3,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.security.MessageDigest
@@ -41,37 +42,52 @@ abstract class SyncEmbeddedIconConfigsTask : DefaultTask() {
         val manifest = StringBuilder("source=https://github.com/fankes/AndroidNotifyIconAdapt\n")
         manifest.append("branch=").append(remoteBranch.get()).append('\n')
 
-        files.forEach { (fileName, remotePath) ->
+        try {
+            files.forEach { (fileName, remotePath) ->
             val url = URI(
                 "https://raw.githubusercontent.com/fankes/AndroidNotifyIconAdapt/" +
                     "${remoteBranch.get()}/$remotePath",
             ).toURL()
-            val connection = url.openConnection() as HttpURLConnection
-            try {
-                connection.connectTimeout = 15_000
-                connection.readTimeout = 30_000
-                connection.setRequestProperty("Accept", "application/json")
-                connection.setRequestProperty("User-Agent", "MiPushFramework/EmbeddedIconConfigs")
-                check(connection.responseCode in 200..299) {
-                    "Unable to download $remotePath: HTTP ${connection.responseCode}"
+            var bytes: ByteArray? = null
+            var lastIOException: IOException? = null
+            repeat(3) { attempt ->
+                if (bytes != null) return@repeat
+                val connection = url.openConnection() as HttpURLConnection
+                try {
+                    connection.connectTimeout = 15_000
+                    connection.readTimeout = 30_000
+                    connection.setRequestProperty("Accept", "application/json")
+                    connection.setRequestProperty("User-Agent", "MiPushFramework/EmbeddedIconConfigs")
+                    check(connection.responseCode in 200..299) {
+                        "Unable to download $remotePath: HTTP ${connection.responseCode}"
+                    }
+                    bytes = connection.inputStream.use { it.readBytes() }
+                } catch (error: IOException) {
+                    lastIOException = error
+                    if (attempt < 2) Thread.sleep(1_000L * (attempt + 1))
+                } finally {
+                    connection.disconnect()
                 }
-                val bytes = connection.inputStream.use { it.readBytes() }
-                val text = bytes.toString(Charsets.UTF_8).trim()
-                check(text.startsWith("[") && text.endsWith("]")) {
-                    "Remote icon config is not a JSON array: $remotePath"
-                }
-                check(text.contains("packageName")) {
-                    "Remote icon config has no packageName entries: $remotePath"
-                }
-                staging.resolve(fileName).writeBytes(bytes)
-                val sha = MessageDigest.getInstance("SHA-256")
-                    .digest(bytes)
-                    .joinToString("") { byte -> "%02x".format(byte) }
-                manifest.append(fileName).append(" sha256=").append(sha)
-                    .append(" bytes=").append(bytes.size).append('\n')
-            } finally {
-                connection.disconnect()
             }
+            val downloaded = bytes ?: throw (lastIOException
+                ?: IOException("Unable to download $remotePath after 3 attempts"))
+            val text = downloaded.toString(Charsets.UTF_8).trim()
+            check(text.startsWith("[") && text.endsWith("]")) {
+                "Remote icon config is not a JSON array: $remotePath"
+            }
+            check(text.contains("packageName")) {
+                "Remote icon config has no packageName entries: $remotePath"
+            }
+            staging.resolve(fileName).writeBytes(downloaded)
+            val sha = MessageDigest.getInstance("SHA-256")
+                .digest(downloaded)
+                .joinToString("") { byte -> "%02x".format(byte) }
+            manifest.append(fileName).append(" sha256=").append(sha)
+                .append(" bytes=").append(downloaded.size).append('\n')
+            }
+        } catch (error: Exception) {
+            staging.deleteRecursively()
+            throw error
         }
         staging.resolve("_source.txt").writeText(manifest.toString())
         output.deleteRecursively()

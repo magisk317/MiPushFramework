@@ -11,9 +11,6 @@ include:
   - project: magisk3171/magisk-ci-toolkit
     ref: 7df816242101ca5fc5aeb9f1a1647c533aae6d96
     file: /.gitlab/ci/renovate.yml
-  - project: magisk3171/magisk-ci-toolkit
-    ref: 7df816242101ca5fc5aeb9f1a1647c533aae6d96
-    file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
   auto_cancel:
@@ -27,7 +24,7 @@ workflow:
 
 default:
   interruptible: true
-  # AGP 9.3.1 / Android 37 host tools used here require the AMD64 runner.
+  # ARM runners handle Android compilation; Robolectric remains explicitly on AMD64.
   tags:
     - magisk-amd64-linux
 
@@ -43,7 +40,6 @@ stages:
 
 variables:
   MAGISK_CI_TOOLKIT_REF: "7df816242101ca5fc5aeb9f1a1647c533aae6d96"
-  MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -106,6 +102,8 @@ android:build:
   extends:
     - .magisk_android_build
     - .mipush_signed_android_rules
+  tags:
+    - magisk-arm64-linux
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
@@ -132,6 +130,8 @@ android:build:
 
 android:check:
   extends: .magisk_android_build
+  tags:
+    - magisk-arm64-linux
   stage: quality
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -141,9 +141,6 @@ android:check:
       :app:compileDebugKotlin
       :mipush:compileGithubDebugKotlin
       -Pkotlin.incremental=false
-
-cancel:older:mr:pipelines:
-  extends: .magisk_cancel_older_mr_pipelines
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
@@ -274,10 +271,29 @@ zygisk:build:arm:
   extends: .mipush_zygisk_build
   tags:
     - magisk-arm64-linux
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - !reference [.mipush_package_rules, rules]
   variables:
     MIPUSH_ZYGISK_RUNNER_GROUP: "arm"
     MIPUSH_ZYGISK_BUILD_ABIS: "arm64-v8a"
     MIPUSH_ZYGISK_RUST_TARGETS: "aarch64-linux-android"
+
+# The ARM host cannot build the x86/x86_64 Zygisk variants. Formal releases
+# need all four ABI ZIPs plus the auto-generated universal ZIP, so build them
+# on AMD64 while regular CI keeps the native ARM-only artifact above.
+zygisk:build:release:
+  extends: .mipush_zygisk_build
+  tags:
+    - magisk-amd64-linux
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
+    - when: never
+  variables:
+    MIPUSH_ZYGISK_RUNNER_GROUP: "release"
+    MIPUSH_ZYGISK_BUILD_ABIS: "arm64-v8a armeabi-v7a x86 x86_64"
+    MIPUSH_ZYGISK_RUST_TARGETS: "aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android"
 
 telegram:ci:
   extends:
@@ -481,6 +497,8 @@ android:release:apk:
   extends: .magisk_android_release_apk
   resource_group: mipush-android-release-apk
   stage: release-build
+  tags:
+    - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
@@ -510,6 +528,8 @@ android:release:play-bundle:
     - .magisk_android_release_tag_rules
   resource_group: mipush-android-release-play
   stage: release-build
+  tags:
+    - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -566,7 +586,7 @@ android:release:gitlab:
   needs:
     - job: android:release:apk
       artifacts: true
-    - job: zygisk:build:arm
+    - job: zygisk:build:release
       artifacts: true
   script:
     - |
@@ -587,13 +607,19 @@ android:release:play:
     - !reference [.magisk_linux_base, before_script]
     - |
       set -euo pipefail
-      mkdir -p app/build/outputs
-      ln -s "$CI_PROJECT_DIR/mipush/build/outputs/bundle" app/build/outputs/bundle
+      output_root="$CI_PROJECT_DIR/app/build/outputs"
+      mkdir -p "$output_root"
+
+      # The inherited publisher searches app/build with find, which does not
+      # traverse a symlink used as its starting path. Materialize the needed
+      # artifact directories instead of linking mipush outputs into app.
+      rm -rf "$output_root/bundle" "$output_root/mapping" "$output_root/native-debug-symbols"
+      cp -a "$CI_PROJECT_DIR/mipush/build/outputs/bundle" "$output_root/bundle"
       if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/mapping" ]; then
-        ln -s "$CI_PROJECT_DIR/mipush/build/outputs/mapping" app/build/outputs/mapping
+        cp -a "$CI_PROJECT_DIR/mipush/build/outputs/mapping" "$output_root/mapping"
       fi
       if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" ]; then
-        ln -s "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" app/build/outputs/native-debug-symbols
+        cp -a "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" "$output_root/native-debug-symbols"
       fi
   needs:
     - job: android:release:play-bundle
@@ -692,7 +718,7 @@ telegram:release:
   needs:
     - job: android:release:apk
       artifacts: true
-    - job: zygisk:build:arm
+    - job: zygisk:build:release
       artifacts: true
     - job: android:release:gitlab
       artifacts: false

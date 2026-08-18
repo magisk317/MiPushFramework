@@ -4,36 +4,16 @@
 
 ---
 
-## [v0.7.0] - Unreleased
+## [v1.0.0] - 2026-08-19
 
-- 版本：`versionCode 10` / `versionName 0.7.0`（manager/mipush）；XMSF 仍用 `pushVersionCode 1003003000`。
-- `[feat(manager/runtime)]` 拆分管理器包与 XMSF 运行时：远程读写、偏好迁移、图标切换、root 权限补齐与分身支持。
-- `[feat(notification)]` Live Update 身份修复（`UPDATE_APP_OPS_STATS`）、substName 兜底、划掉通知栏同步 cancel 岛。
-- `[fix(push)]` 恢复 stock `MESSAGE_ARRIVED` 到达回调，使天气等运行中的应用可在 XMSF
-  通知被系统或本地展示策略拦截时继续生成自己的原生通知表面。
-- `[feat(notification)]` 对齐 stock XMSF 7.4.67-C 的扩展通知回调、VoIP 独立样式/业务
-  判定及有界置顶通知生命周期；置顶到期保留原 channel，并避免旧任务覆盖新通知。
-- `[fix(notification)]` 对齐前台展示抑制、本地投递时间、show-when、ticker、timeout 与
-  MIUI 类型化策略 extras；置顶通知的 `when` 和 `mipush_org_when` 复用同一时间值。
-- `[refactor(xmsf)]` 内部重放直接启动私有 `XMPushServiceCore`，避免空内部 Intent 被导出
-  facade 的外部入口校验拒绝；移除两个冗余私有 service 组件，同时保留 facade 实现基类。
-- `[feat(notification)]` 恢复 stock XMSF 7.4.67-C 的 sweet notification 生命周期，包括
-  style 5 标准卡片降级、`<ft>` 标题/正文、状态与序列抑制、180--7200 秒超时、点击状态、
-  `remind_end` 清理及亮屏锁屏策略恢复；显式 keyguard/float payload 策略保持最高优先级。
-- `[fix(keepalive)]` 对齐 stock 7.4.67-C 的前台活动触发、绑定 owner、冷静期、重试与环境
-  门槛；动态注册进程 observer，并在权限或隐藏 API 不可用时保留 60 秒轮询降级。
-- `[fix(systemui)]` 状态栏单色图标恢复强单色；Live Update 移除时 `cancelNotification(key)`。
-- `[feat(ui)]` 管理器图标预览资源、ElevatedSnackbarHost 统一 snackbar、杂项/双开相关交互修复。
+- `[feat(manager/runtime)]` 拆分管理器与 XMSF 运行时，补齐远程配置、偏好迁移、root 权限和分身支持。
+- `[feat(notification)]` 对齐 stock XMSF 通知行为，完善 Live Update、VoIP、置顶通知、SweetTag 和超时生命周期。
+- `[fix(push)]` 恢复 `MESSAGE_ARRIVED` 到达回调，改善通知拦截场景下应用原生通知的兼容性。
+- `[fix(notification)]` 修复通知展示抑制、投递时间、点击状态、MIUI extras 和旧任务覆盖等问题。
+- `[fix(keepalive/systemui)]` 优化前台保活、进程观察与降级轮询，恢复状态栏单色图标并修复 Live Update 清理。
+- `[refactor(xmsf)]` 优化内部消息重放和服务组件，统一管理器交互并完善图标预览与双开支持。
 
-> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.3...v0.7.0
-
----
-
-## [v0.6.3] - Unreleased
-
-- 后续并入 0.7.0 的 manager/runtime 拆分与 Live Update 修复（见上）。
-
-> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.2...v0.6.3
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.2...v1.0.0
 
 ---
 

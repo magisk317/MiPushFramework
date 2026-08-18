@@ -11,6 +11,68 @@ working_tree_dirty() {
   [[ -n "$(git -C "$ROOT_DIR" status --porcelain)" ]]
 }
 
+check_branch_state_before_checks() {
+  local head_commit remote_branch_commit
+
+  head_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  release_head_commit="$head_commit"
+  if ! remote_branch_commit="$(git -C "$ROOT_DIR" ls-remote "$REMOTE_NAME" "refs/heads/$current_branch" | awk 'NR == 1 {print $1}')"; then
+    echo "ERROR: failed to query remote branch $REMOTE_NAME/$current_branch" >&2
+    exit 1
+  fi
+  release_remote_branch_commit="$remote_branch_commit"
+  release_force_push_required=false
+
+  if [[ -z "$remote_branch_commit" || "$remote_branch_commit" == "$head_commit" ]]; then
+    return 0
+  fi
+
+  if git -C "$ROOT_DIR" merge-base --is-ancestor "$remote_branch_commit" "$head_commit" 2>/dev/null; then
+    return 0
+  fi
+
+  release_force_push_required=true
+  echo "WARN: remote branch $current_branch is not fast-forwardable; will use --force-with-lease." >&2
+  echo "WARN: expected remote branch HEAD: $remote_branch_commit" >&2
+}
+
+push_release_branch() {
+  local force_push_enabled=false
+
+  restore_force_push_protection() {
+    if [[ "$force_push_enabled" == true ]]; then
+      echo "Restoring protected-branch force-push protection: $current_branch"
+      set_protected_branch_force_push false
+    fi
+  }
+
+  if [[ "$release_force_push_required" == true ]]; then
+    if ! command -v glab >/dev/null 2>&1; then
+      echo "ERROR: glab is required to temporarily allow force push on protected branch $current_branch." >&2
+      exit 1
+    fi
+    echo "Temporarily allowing force push on protected branch: $current_branch"
+    set_protected_branch_force_push true
+    force_push_enabled=true
+    trap restore_force_push_protection EXIT
+  fi
+
+  git -C "$ROOT_DIR" push --force-with-lease="refs/heads/$current_branch:$release_remote_branch_commit" \
+    -o ci.skip "$REMOTE_NAME" "$current_branch"
+
+  restore_force_push_protection
+  force_push_enabled=false
+  trap - EXIT
+}
+
+set_protected_branch_force_push() {
+  local allow_force_push="$1"
+  glab api --method PATCH \
+    "projects/:fullpath/protected_branches/$current_branch" \
+    --field "allow_force_push=$allow_force_push" \
+    >/dev/null
+}
+
 extract_toml_value() {
   local key="$1"
   local file="$2"
@@ -79,51 +141,36 @@ if [[ -z "$current_branch" ]]; then
   exit 1
 fi
 
+check_branch_state_before_checks
 "$ROOT_DIR/scripts/check_release_guard.sh" "$TAG_NAME"
 run_pre_push_checks
+
+if [[ "$(git -C "$ROOT_DIR" rev-parse HEAD)" != "$release_head_commit" ]]; then
+  echo "ERROR: HEAD changed during release checks; refusing to create tag." >&2
+  exit 1
+fi
 
 if working_tree_dirty; then
   echo "ERROR: working tree is not clean. Commit/stash changes before tagging." >&2
   exit 1
 fi
 
-local_tag_exists=false
 if git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-  local_tag_exists=true
-  local_tag_commit="$(git -C "$ROOT_DIR" rev-parse "refs/tags/$TAG_NAME^{commit}")"
-  head_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-  if [[ "$local_tag_commit" != "$head_commit" ]]; then
-    echo "ERROR: local tag $TAG_NAME points to $local_tag_commit, not HEAD $head_commit" >&2
-    exit 1
-  fi
-  if [[ "$(git -C "$ROOT_DIR" cat-file -t "refs/tags/$TAG_NAME")" != tag ]]; then
-    echo "ERROR: local tag $TAG_NAME is not an annotated signed tag" >&2
-    exit 1
-  fi
-  if ! git -C "$ROOT_DIR" verify-tag "$TAG_NAME" >/dev/null 2>&1; then
-    echo "ERROR: local tag $TAG_NAME does not have a verifiable signature" >&2
-    exit 1
-  fi
-  echo "Reusing existing local tag after a previous push failure: $TAG_NAME"
+  echo "Deleting local tag: $TAG_NAME"
+  git -C "$ROOT_DIR" tag -d "$TAG_NAME" >/dev/null
 fi
 
-remote_output=""
-if ! remote_output="$(git -C "$ROOT_DIR" ls-remote --tags "$REMOTE_NAME" \
-  "refs/tags/$TAG_NAME" "refs/tags/$TAG_NAME^{}")"; then
-    echo "ERROR: failed to query remote tags from $REMOTE_NAME" >&2
-    exit 1
-fi
+remote_output="$(git -C "$ROOT_DIR" ls-remote --tags "$REMOTE_NAME" \
+  "refs/tags/$TAG_NAME" "refs/tags/$TAG_NAME^{}")"
 if [[ -n "$remote_output" ]]; then
-  echo "ERROR: remote tag $TAG_NAME already exists and is immutable; retry its GitLab pipeline instead of retagging" >&2
-  exit 1
+  echo "Deleting remote tag: $TAG_NAME"
+  git -C "$ROOT_DIR" push "$REMOTE_NAME" ":refs/tags/$TAG_NAME"
 fi
 
 # The branch commit is already validated locally; do not create a second CI
 # pipeline when the subsequent tag push will start the release pipeline.
-git -C "$ROOT_DIR" push -o ci.skip "$REMOTE_NAME" "$current_branch"
-if [[ "$local_tag_exists" != true ]]; then
-  git -C "$ROOT_DIR" tag -s "$TAG_NAME" -m "$TAG_NAME"
-fi
-git -C "$ROOT_DIR" push "$REMOTE_NAME" "$TAG_NAME"
+push_release_branch
+git -C "$ROOT_DIR" tag -s "$TAG_NAME" -m "$TAG_NAME"
+git -C "$ROOT_DIR" push --force "$REMOTE_NAME" "$TAG_NAME"
 
 echo "Pushed release tag: $TAG_NAME (branch: $current_branch, remote: $REMOTE_NAME)"

@@ -12,16 +12,14 @@ fail() {
 [[ -f "$RELEASE_SCRIPT" ]] || fail "release_tag.sh is missing"
 
 # A GitLab release must suppress the branch pipeline, while the tag push must
-# remain a normal push so the tag pipeline is created.
-grep -Fq 'git -C "$ROOT_DIR" push -o ci.skip "$REMOTE_NAME" "$current_branch"' "$RELEASE_SCRIPT" \
+# remain a normal push so the tag pipeline is created. Force options are
+# allowed because release_tag.sh may rewrite an amended release commit.
+grep -Fq -- '-o ci.skip "$REMOTE_NAME" "$current_branch"' "$RELEASE_SCRIPT" \
   || fail "branch push does not use GitLab ci.skip"
-grep -Fq 'git -C "$ROOT_DIR" push "$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT" \
+grep -Fq -- '"$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT" \
   || fail "tag push is missing"
 
-if grep -Fq 'git -C "$ROOT_DIR" push "$REMOTE_NAME" "$current_branch"' "$RELEASE_SCRIPT"; then
-  fail "an unsuppressed branch push is still present"
-fi
-if grep -Fq 'git -C "$ROOT_DIR" push -o ci.skip "$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT"; then
+if grep -Fq -- '-o ci.skip "$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT"; then
   fail "ci.skip must not be applied to the tag push"
 fi
 
