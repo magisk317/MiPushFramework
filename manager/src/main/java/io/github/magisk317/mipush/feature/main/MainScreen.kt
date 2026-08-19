@@ -128,7 +128,9 @@ fun MainScreen(
                 route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
                 route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
             route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 3
+                route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
+                route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
+                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
             else -> 0
         }
     }
@@ -165,7 +167,10 @@ fun MainScreen(
 
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
-    val initialPagerPage = tabRoutes.indexOf(startDestination).takeIf { it >= 0 } ?: 0
+    // Use currentRoute when available so AnimatedContent pager recreation starts on the right page.
+    val initialPagerPage = tabRoutes.indexOf(
+        currentRoute?.takeIf { it in tabRoutes } ?: startDestination,
+    ).takeIf { it >= 0 } ?: 0
     val pagerState = rememberMainPagerState(
         pageCount = { tabRoutes.size },
         initialPage = initialPagerPage,
@@ -224,6 +229,17 @@ fun MainScreen(
             currentPage = pagerState.pagerState.currentPage,
             isNavigating = pagerState.isNavigating,
         )
+    }
+    // When returning from a detail page to the pager, snap to the correct page immediately
+    // instead of animating — otherwise the AnimatedContent transition briefly shows the wrong page.
+    LaunchedEffect(isTopLevelRoute) {
+        if (!isTopLevelRoute) return@LaunchedEffect
+        val targetPage = routePagerSynchronizer.targetPageFor(
+            route = currentRoute,
+            currentPage = pagerState.pagerState.currentPage,
+            isNavigating = false,
+        ) ?: return@LaunchedEffect
+        pagerState.scrollToPage(targetPage)
     }
     val allowScrollChrome = currentRoute?.let { route ->
         route.startsWith(AppDestinations.AppsList.ROUTE) ||
