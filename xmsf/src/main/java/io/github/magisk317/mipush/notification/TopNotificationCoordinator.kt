@@ -92,7 +92,25 @@ internal object TopNotificationCoordinator {
         messageId: String?,
         notification: Notification,
         userId: Int = Utils.myUserId(),
-    ): Boolean {
+    ): Boolean = postNotificationDetailed(
+        context = context,
+        packageName = packageName,
+        tag = tag,
+        notificationId = notificationId,
+        messageId = messageId,
+        notification = notification,
+        userId = userId,
+    ).posted
+
+    fun postNotificationDetailed(
+        context: Context,
+        packageName: String,
+        tag: String?,
+        notificationId: Int,
+        messageId: String?,
+        notification: Notification,
+        userId: Int = Utils.myUserId(),
+    ): NotificationManagerEx.NotifyResult {
         val slot = NotificationSlot(packageName, tag, notificationId, userId)
         val postedMessageId = resolveLifecycleMessageId(
             extras = notification.extras,
@@ -106,13 +124,13 @@ internal object TopNotificationCoordinator {
 
         var generation: Long? = null
         val replacedJobs = linkedSetOf<String>()
-        val posted = synchronized(stateLock) {
+        val result = synchronized(stateLock) {
             // The first product draft registered the lifecycle only after notify(). A running old
             // job could therefore overwrite a newer notification with the same slot. Serialize
             // the stock-derived reposts and the initial post, then transfer ownership only after
             // NotificationManager accepted the replacement.
-            val accepted = NotificationManagerEx.notify(packageName, tag, notificationId, notification, userId)
-            if (accepted) {
+            val accepted = NotificationManagerEx.notifyDetailed(packageName, tag, notificationId, notification, userId)
+            if (accepted.posted) {
                 removeSlotLocked(slot)?.let(replacedJobs::add)
                 if (topJobId != null) {
                     if (removeJobLocked(topJobId) != null) {
@@ -126,11 +144,11 @@ internal object TopNotificationCoordinator {
             }
             accepted
         }
-        if (!posted) return false
+        if (!result.posted) return result
 
         val manager = ScheduledJobManager.getInstance(context.applicationContext)
         replacedJobs.forEach { manager.cancelJob(it) }
-        val currentGeneration = generation ?: return true
+        val currentGeneration = generation ?: return result
         updateTopNotification(
             context = context.applicationContext,
             slot = slot,
@@ -138,7 +156,7 @@ internal object TopNotificationCoordinator {
             sourceNotification = notification,
             generation = currentGeneration,
         )
-        return true
+        return result
     }
 
     fun onNotificationRemoved(context: Context, statusBarNotification: StatusBarNotification) {

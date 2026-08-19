@@ -121,7 +121,7 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    SystemNotificationManager.createNotificationChannels(
+                    return@replace SystemNotificationManager.createNotificationChannels(
                         args[0] as String,
                         args[1] as List<NotificationChannel>
                     )
@@ -300,13 +300,18 @@ object HookPushNC {
         }
 
         val identityBridgeHooked = hookIdentityBridge(classLoader)
-        if (identityBridgeHooked) {
+        if (identityBridgeHooked && HookSystemService.isSystemHookReady) {
             try {
                 classNotificationManager["isHooked"] = true
                 XLog.i(TAG, "marked NotificationManagerEx.isHooked = true")
             } catch (e: Throwable) {
                 XLog.e(TAG, "failed to mark NotificationManagerEx.isHooked", e)
             }
+        } else if (identityBridgeHooked) {
+            // The app-side hooks may install before system_server is ready. Do not advertise
+            // target-identity ownership yet: NotificationManagerEx must keep local channel
+            // fallback enabled until NMS can actually create/query/enqueue as the target.
+            XLog.w(TAG, "identity bridge installed before system_server ready; keeping NotificationManagerEx.isHooked = false")
         } else {
             XLog.w(TAG, "identity bridge hooks unavailable; keeping NotificationManagerEx.isHooked = false")
         }
@@ -436,11 +441,10 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    SystemNotificationManager.createNotificationChannels(
+                    return@replace SystemNotificationManager.createNotificationChannels(
                         args[1] as String,
                         args[2] as List<NotificationChannel>
                     )
-                    return@replace true
                 }
             }
         }
@@ -482,6 +486,13 @@ object HookPushNC {
                     return@replace true
                 }
             }
+        }
+        if (!HookSystemService.isSystemHookReady) {
+            // Keep the bridge fail-closed until the system_server NMS hooks are available. The
+            // app-side methods can still be installed now, but target channel/enqueue ownership
+            // is not established and XMSF must retain its local fallback path.
+            XLog.w(TAG, "identity bridge installed before system_server ready; keeping bridge ownership disabled")
+            return true
         }
         try {
             identityBridgeClass["isHooked"] = true

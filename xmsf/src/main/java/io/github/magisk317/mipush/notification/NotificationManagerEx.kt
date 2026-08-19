@@ -41,6 +41,18 @@ object NotificationManagerEx {
     @Volatile
     var isHooked: Boolean = false
 
+    enum class NotifyOwner {
+        TARGET,
+        LOCAL_XMSF,
+        NONE,
+    }
+
+    data class NotifyResult(
+        val posted: Boolean,
+        val owner: NotifyOwner,
+        val reason: String,
+    )
+
     /**
      * SDK 37+ gets a modern identity-first path:
      * 1. framework/ROM support for belong-to-app notification identity
@@ -348,7 +360,13 @@ object NotificationManagerEx {
         packageName: String,
         tag: String?, id: Int, notification: Notification,
         userId: Int = Utils.myUserId(),
-    ): Boolean {
+    ): Boolean = notifyDetailed(packageName, tag, id, notification, userId).posted
+
+    fun notifyDetailed(
+        packageName: String,
+        tag: String?, id: Int, notification: Notification,
+        userId: Int = Utils.myUserId(),
+    ): NotifyResult {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
         val currentUserId = Utils.myUserId().coerceAtLeast(0)
@@ -357,7 +375,7 @@ object NotificationManagerEx {
                 "skip notification publish for foreign user=$userId currentUser=$currentUserId " +
                     "pkg=$packageName tag=$tag id=$id",
             )
-            return false
+            return NotifyResult(false, NotifyOwner.NONE, "foreign_user")
         }
         // Attribution marker: when isHooked is true the system NMS hook owns publishing and this
         // app-process body is normally bypassed. Seeing this line run with isHooked=true means the
@@ -365,23 +383,19 @@ object NotificationManagerEx {
         logD("notify() attribution pkg=$packageName isHooked=$isHooked id=$id channel=${notification.channelId}")
         if (!isTargetPackageAvailable(packageName)) {
             logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
-            emitNotify(
-                result = "skip",
-                reason = "target_absent",
-                packageName = packageName,
-            )
-            return false
+            emitNotify(result = "skip", reason = "target_absent", packageName = packageName)
+            return NotifyResult(false, NotifyOwner.NONE, "target_absent")
         }
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
                     emitNotify(result = "ok", reason = "identity_target", packageName = packageName)
-                    return true
+                    return NotifyResult(true, NotifyOwner.TARGET, "identity_target")
                 }
                 if (maybeRetryNotifyAsTargetAfterAppOpsGrant(packageName, tag, id, notification)) {
                     emitNotify(result = "ok", reason = "identity_retry", packageName = packageName)
-                    return true
+                    return NotifyResult(true, NotifyOwner.TARGET, "identity_retry")
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
@@ -392,7 +406,7 @@ object NotificationManagerEx {
                 packageName = packageName,
                 statusOk = local,
             )
-            return local
+            return NotifyResult(local, if (local) NotifyOwner.LOCAL_XMSF else NotifyOwner.NONE, "local_fallback")
         }
         if (shouldNotifyAsPackage(packageName, notification)) {
             try {
@@ -405,7 +419,7 @@ object NotificationManagerEx {
                 )
                 method.invoke(notificationManager, packageName, tag, id, notification)
                 emitNotify(result = "ok", reason = "notify_as_package", packageName = packageName)
-                return true
+                return NotifyResult(true, NotifyOwner.TARGET, "notify_as_package")
             } catch (e: Exception) {
                 logE("Failed to invoke notifyAsPackage", e)
             }
@@ -417,7 +431,7 @@ object NotificationManagerEx {
             packageName = packageName,
             statusOk = local,
         )
-        return local
+        return NotifyResult(local, if (local) NotifyOwner.LOCAL_XMSF else NotifyOwner.NONE, "local")
     }
 
     private fun emitNotify(

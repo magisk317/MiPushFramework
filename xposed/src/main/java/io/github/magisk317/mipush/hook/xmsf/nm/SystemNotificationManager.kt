@@ -374,25 +374,37 @@ object SystemNotificationManager {
     fun createNotificationChannels(
         packageName: String,
         channels: List<NotificationChannel>
-    ) {
+    ): Boolean {
         XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
         val uid = when (val resolution = resolveUidState(packageName, "createNotificationChannels")) {
             is UidResolution.Found -> resolution.uid
             UidResolution.MissingPackage -> {
                 XLog.d(TAG, "createNotificationChannels() package not installed, drop: $packageName")
-                return
+                return false
             }
             UidResolution.Unavailable -> {
                 createChannelsLocally(channels)
-                return
+                return false
             }
         }
-        runSystemCall("createNotificationChannels", packageName, fallback = {
+        return runSystemCall("createNotificationChannels", packageName, fallback = {
             createChannelsLocally(channels)
+            false
         }) {
             val channelsList = findHookConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
                 .newInstance(channels)
             requireNotificationManager().callMethod("createNotificationChannelsForPackage", packageName, uid, channelsList)
+            val missing = channels.filter { getNotificationChannel(packageName, it.id) == null }
+            if (missing.isNotEmpty()) {
+                XLog.w(
+                    TAG,
+                    "createNotificationChannels() target verification failed pkg=$packageName " +
+                        "missing=${missing.joinToString { it.id }}",
+                )
+                false
+            } else {
+                true
+            }
         }
     }
 

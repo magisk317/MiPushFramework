@@ -77,9 +77,7 @@ object NotificationIdentityBridge {
         if (isFrameworkIdentitySupported(context)) {
             return Strategy.FRAMEWORK
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Be optimistic: if we are on Android 10+, try DELEGATED even if initial check fails.
-            // This accommodates cases where LSPosed/Root might allow notifyAsPackage but not affect our probe.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canNotifyAsPackage(context, packageName)) {
             return Strategy.DELEGATED
         }
         return Strategy.UNSUPPORTED
@@ -235,11 +233,23 @@ object NotificationIdentityBridge {
         if (resolveStrategy(context, packageName) != Strategy.FRAMEWORK) {
             return false
         }
+        val requestedChannels = channels.filterNotNull()
         return runCatching {
-            channels.filterNotNull().forEach { channel ->
+            requestedChannels.forEach { channel ->
                 NotificationManagerPlatformSupport.createNotificationChannel(packageName, channel)
             }
-            true
+            // A no-throw binder call is not sufficient: some ROMs silently ignore a foreign
+            // package request. Verify the channel through the same target identity before
+            // reporting provisioning success to the caller.
+            requestedChannels.all { channel ->
+                getTargetNotificationChannel(context, packageName, channel.id) != null
+            }
+        }.onFailure {
+            logE(
+                "createTargetNotificationChannels failed pkg=$packageName " +
+                    "ids=${requestedChannels.joinToString { it.id }}",
+                it,
+            )
         }.getOrDefault(false)
     }
 

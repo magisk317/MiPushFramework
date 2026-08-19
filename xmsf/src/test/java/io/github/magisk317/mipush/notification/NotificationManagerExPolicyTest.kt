@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -9,7 +10,36 @@ class NotificationManagerExPolicyTest {
     private val targetPackage = "com.example.target"
 
     @Test
-    fun `foreign arbitrary group cannot fall back to host notification manager`() {
+    fun `notify result keeps target and local ownership distinct`() {
+        val target = NotificationManagerEx.NotifyResult(
+            posted = true,
+            owner = NotificationManagerEx.NotifyOwner.TARGET,
+            reason = "identity_target",
+        )
+        val local = NotificationManagerEx.NotifyResult(
+            posted = true,
+            owner = NotificationManagerEx.NotifyOwner.LOCAL_XMSF,
+            reason = "local_fallback",
+        )
+        val failed = NotificationManagerEx.NotifyResult(
+            posted = false,
+            owner = NotificationManagerEx.NotifyOwner.NONE,
+            reason = "target-channel-unavailable",
+        )
+
+        assertTrue(target.posted)
+        assertEquals(NotificationManagerEx.NotifyOwner.TARGET, target.owner)
+        assertEquals("identity_target", target.reason)
+        assertTrue(local.posted)
+        assertEquals(NotificationManagerEx.NotifyOwner.LOCAL_XMSF, local.owner)
+        assertEquals("local_fallback", local.reason)
+        assertFalse(failed.posted)
+        assertEquals(NotificationManagerEx.NotifyOwner.NONE, failed.owner)
+        assertEquals("target-channel-unavailable", failed.reason)
+    }
+
+    @Test
+    fun `unrelated target group cannot use local compatibility fallback`() {
         assertFalse(
             NotificationManagerEx.shouldUseLocalGroupFallback(
                 packageName = targetPackage,

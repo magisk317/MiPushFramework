@@ -436,7 +436,7 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
-        val posted = TopNotificationCoordinator.postNotification(
+        val postResult = TopNotificationCoordinator.postNotificationDetailed(
             context = context,
             packageName = packageName,
             tag = tag,
@@ -445,14 +445,27 @@ object NotificationController {
             notification = notificationToPost,
             userId = userId,
         )
-        if (!posted) {
+        if (!postResult.posted) {
             Napier.w(
-                "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId}",
+                "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId} " +
+                    "owner=${postResult.owner} reason=${postResult.reason}",
                 tag = TAG
             )
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
+        }
+        if (postResult.owner == NotificationManagerEx.NotifyOwner.LOCAL_XMSF) {
+            Napier.w(
+                "publish used local XMSF fallback pkg=$packageName id=$notificationId tag=$tag " +
+                    "channel=${notificationToPost.channelId} reason=${postResult.reason}",
+                tag = TAG,
+            )
+            PushRuntime.observeNotificationEvent(
+                packageName,
+                "notification_publish_local_fallback",
+                "NotificationController.publish",
+            )
         }
         SweetNotificationCoordinator.onNotificationPosted(
             context = context,
