@@ -161,6 +161,8 @@ class XMPushServiceConnectionDelegate(
             )
             slimConnection.connect()
             service.currentConnection = slimConnection
+            // TCP/reader 初始化完成后，仍可能等待服务端 challenge；避免握手卡死时永久阻塞重连。
+            service.setConnectingTimeout()
             MyLog.w("connectBySlim connected current=${service.currentConnection?.hashCode()} host=${service.currentConnection?.host}")
         } catch (e: XMPPException) {
             MyLog.e("fail to create Slim connection", e)

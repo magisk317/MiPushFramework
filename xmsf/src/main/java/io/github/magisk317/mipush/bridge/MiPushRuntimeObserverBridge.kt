@@ -163,6 +163,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private fun releaseConnection(connection: Connection) {
         synchronized(this) {
             if (activeConnection === connection) activeConnection = null
+            // 失败/关闭回调可能不是由 service.disconnect() 发起，按对象身份清理旧连接引用，
+            // 避免已断开的连接继续让后续 connect() 误判为 CONNECTING。
+            serviceRuntimeBinding?.service?.let { service ->
+                if (service.currentConnection === connection) {
+                    service.clearCurrentConnection()
+                }
+            }
         }
     }
 
