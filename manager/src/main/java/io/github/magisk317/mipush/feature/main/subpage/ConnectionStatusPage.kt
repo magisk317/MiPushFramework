@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,8 @@ fun ConnectionStatusPage(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
+        // Let the NavHost enter transition finish before triggering remote Binder work.
+        delay(io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS.toLong())
         viewModel.startAutoRefresh()
     }
     LaunchedEffect(viewModel) {

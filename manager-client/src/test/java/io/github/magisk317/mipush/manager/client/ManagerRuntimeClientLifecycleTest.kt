@@ -587,6 +587,39 @@ class ManagerRuntimeClientLifecycleTest {
     }
 
     @Test
+    fun `connect from failed state resets reconnect counter and retries`() = runBlocking {
+        val service = FakeRuntimeService()
+        val context = FakeServiceContext(FakeRuntimeService(), autoConnect = false)
+        val client = client(
+            context = context,
+            callTimeoutMillis = 10L,
+            reconnectDelayProvider = { 0L },
+            maxReconnectAttempts = 2,
+        )
+
+        try {
+            // First connect() exhausts 2 attempts → Failed
+            client.connect()
+            withTimeout(1_000L) {
+                client.availability.first {
+                    it == ManagerRuntimeAvailability.Failed("reconnect_exhausted")
+                }
+            }
+            assertEquals(ManagerRuntimeAvailability.Failed("reconnect_exhausted"), client.availability.value)
+
+            // Second connect() should reset counter and accept a new connection
+            client.connect()
+            context.dispatchConnected(context.bindCount - 1, service)
+            withTimeout(1_000L) {
+                client.availability.first { it is ManagerRuntimeAvailability.Available }
+            }
+            assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
     fun `exhausted remote call permits still produce a typed handshake timeout`() = runBlocking {
         val permitLimit = ManagerRuntimeClient.MAX_IN_FLIGHT_REMOTE_CALLS
         val serviceCount = permitLimit + 1

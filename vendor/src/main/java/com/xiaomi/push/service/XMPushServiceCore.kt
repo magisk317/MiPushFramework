@@ -437,11 +437,23 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     }
 
     override fun removeJobs(type: Int) {
-        jobController.removeJobs(type)
+        // Defer to JobSchedulerThread to avoid deadlock: BlobReader thread calls
+        // onChallengeReceived → setConnectionStatus → removeJobs while the
+        // Connection Controller Thread holds the JobSchedulerThread lock during
+        // job execution. Posting as a deferred job avoids cross-thread lock contention.
+        jobController.executeJobDelayed(object : JobScheduler.Job(type) {
+            override fun run() {
+                jobController.removeJobs(type)
+            }
+        }, 0L)
     }
 
     override fun removeJobs(job: XMPushServiceJob) {
-        jobController.removeJobs(job.type, job)
+        jobController.executeJobDelayed(object : JobScheduler.Job(job.type) {
+            override fun run() {
+                jobController.removeJobs(job.type, job)
+            }
+        }, 0L)
     }
 
     fun removePingCallBack(pingCallBack: PingCallBack) {

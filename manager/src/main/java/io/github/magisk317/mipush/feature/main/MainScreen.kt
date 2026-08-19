@@ -2,6 +2,14 @@ package io.github.magisk317.mipush.feature.main
 
 import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -236,7 +244,28 @@ fun MainScreen(
     val pageScrollChromeState = chromeController.pageScrollChromeState
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (isTopLevelRoute) PagerTabScaffold(
+        AnimatedContent(
+            targetState = isTopLevelRoute,
+            transitionSpec = {
+                val duration = io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS
+                if (targetState) {
+                    // Returning to pager: slide in from left
+                    slideInHorizontally(tween(duration, easing = EaseInOut)) { -it } +
+                        fadeIn(tween(duration)) togetherWith
+                        slideOutHorizontally(tween(duration, easing = EaseInOut)) { it } +
+                        fadeOut(tween(duration))
+                } else {
+                    // Entering detail: slide in from right
+                    slideInHorizontally(tween(duration, easing = EaseInOut)) { it } +
+                        fadeIn(tween(duration)) togetherWith
+                        slideOutHorizontally(tween(duration, easing = EaseInOut)) { -it } +
+                        fadeOut(tween(duration))
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+            contentKey = { if (it) "pager" else "detail" },
+        ) { animatedIsTopLevel ->
+        if (animatedIsTopLevel) PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
             isCompact = isCompact,
@@ -440,6 +469,7 @@ fun MainScreen(
                 )
             }
         }
+        } // AnimatedContent
 
         if (aboutDialogContent != null) {
             androidx.compose.material3.AlertDialog(

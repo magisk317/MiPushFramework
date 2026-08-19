@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceStatus
@@ -34,9 +35,27 @@ class ConnectionStatusViewModel constructor(
         const val AUTO_REFRESH_INTERVAL_MILLIS = 5_000L
         const val CLOCK_INTERVAL_MILLIS = 1_000L
         const val RECONNECT_REFRESH_ATTEMPTS = 10
+
+        val DEFAULT_SNAPSHOT = ManagerConnectionSnapshot(
+            connectionState = ManagerProtocol.CONNECTION_STATE_DISCONNECTED,
+            connectedAtMs = 0L,
+            lastDisconnectedAtMs = 0L,
+            connectionSessionCount = 0L,
+            serverHost = null,
+            serverIp = null,
+            keepAliveIntervalMs = 0,
+            pingIntervalMs = 0,
+            downstreamMessageCount = 0L,
+            deliveredToAppCount = 0L,
+            duplicateMessageCount = 0L,
+            ackMessageCount = 0L,
+            registeredPackageCount = 0,
+            trackedChannelCount = 0,
+            boundChannelCount = 0,
+        )
     }
 
-    private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(null)
+    private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(DEFAULT_SNAPSHOT)
     val snapshot: StateFlow<ManagerConnectionSnapshot?> = _snapshot.asStateFlow()
 
     private val _currentTimeMs = MutableStateFlow(currentTimeMillis())
@@ -134,7 +153,8 @@ class ConnectionStatusViewModel constructor(
                     logD("connection snapshot unavailable status=${result.status}")
                 } else {
                     logW("connection snapshot unavailable status=${result.status}")
-                    _snapshot.value = null
+                    // Keep the last valid snapshot visible; only reset on explicit disconnect.
+                    _snapshot.value = DEFAULT_SNAPSHOT
                 }
             }
         }

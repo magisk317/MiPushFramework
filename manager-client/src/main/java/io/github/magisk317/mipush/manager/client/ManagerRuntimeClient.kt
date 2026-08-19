@@ -153,6 +153,11 @@ class ManagerRuntimeClient(
             if (closed || activeSession != null || _availability.value == ManagerRuntimeAvailability.Binding) {
                 return
             }
+            // Allow recovery from a previous Failed state: reset the counter so
+            // scheduleReconnect() can start a fresh cycle if this attempt also fails.
+            if (_availability.value is ManagerRuntimeAvailability.Failed) {
+                reconnectAttempt = 0
+            }
             reconnectJob?.cancel()
             reconnectJob = null
             BindSession().also {
