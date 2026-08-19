@@ -708,6 +708,8 @@ telegram:release:
     - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: manual
+      allow_failure: true
     - when: never
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
@@ -720,8 +722,6 @@ telegram:release:
       artifacts: true
     - job: zygisk:build:release
       artifacts: true
-    - job: android:release:gitlab
-      artifacts: false
     - job: android:release:play
       artifacts: false
       optional: true
