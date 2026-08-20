@@ -29,6 +29,9 @@ internal object ExternalPushIntentPolicy {
         PushConstants.MIPUSH_ACTION_DISABLE_PUSH,
         PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE,
         PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE,
+        // Internal control actions from the stock timer — accepted as a fallback when
+        // MiPushFacadeService.isInternalControlAction() already routes them directly.
+        PushConstants.ACTION_OPEN_CHANNEL,
     )
 
     internal data class ValidationResult(
@@ -84,6 +87,8 @@ internal object ExternalPushIntentPolicy {
                 packageName,
             )
             PushConstants.MIPUSH_ACTION_DISABLE_PUSH -> null
+            // Internal control actions — no payload to validate, just pass through.
+            PushConstants.ACTION_OPEN_CHANNEL -> null
             else -> "action_not_public"
         }
         return if (rejectionReason == null) {

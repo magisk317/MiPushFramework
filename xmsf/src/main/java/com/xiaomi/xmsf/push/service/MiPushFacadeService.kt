@@ -192,6 +192,14 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun submitStartIntent(intent: Intent) {
+        // Internal control actions (channel open/close, connection reset) originate from the stock
+        // timer inside xmsf itself and must always take the internal path, even when the receiving
+        // component is the exported facade.  Routing them through ExternalPushIntentPolicy would
+        // reject them as "action_not_public".
+        if (isInternalControlAction(intent.action)) {
+            PushRuntime.submitBridgeIntent(intent)
+            return
+        }
         if (isExternalIngress) {
             // Android does not preserve the originating UID into onStartCommand. The Messenger
             // route below has UID binding; this legacy startService route is payload-gated only.
@@ -205,6 +213,13 @@ open class MiPushFacadeService : Service() {
             intent
         }
         PushRuntime.submitBridgeIntent(internalIntent)
+    }
+
+    private fun isInternalControlAction(action: String?): Boolean = when (action) {
+        PushConstants.ACTION_OPEN_CHANNEL,
+        PushConstants.ACTION_CLOSE_CHANNEL,
+        PushConstants.ACTION_RESET_CONNECTION -> true
+        else -> false
     }
 
     private fun submitExternalResult(

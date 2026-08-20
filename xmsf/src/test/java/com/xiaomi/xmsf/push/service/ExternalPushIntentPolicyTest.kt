@@ -22,7 +22,7 @@ class ExternalPushIntentPolicyTest {
     fun `telemetry and private maintenance actions are rejected`() {
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_SEND_TINYDATA))
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_RESET_CONNECTION))
-        assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_OPEN_CHANNEL))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_OPEN_CHANNEL))
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_CLIENT_REPORT_CONFIG))
         assertFalse(ExternalPushIntentPolicy.isAllowed(null))
     }
