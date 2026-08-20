@@ -1,0 +1,2 @@
+- Optimize billing retry and auto-settlement flow.
+- Polish connection status page and navigation interactions.
