@@ -75,6 +75,24 @@ object NotificationChannelManager {
     }
 
     @JvmStatic
+    fun getCandidateChannelIds(context: Context, metaInfo: PushMetaInfo, packageName: String): List<String> {
+        val candidates = mutableListOf<String>()
+        val custom = XMPushUtils.getConfiguration(metaInfo)
+        custom.borrowChannelId(null)?.takeIf { it.isNotBlank() }?.let { candidates.add(it) }
+        val stockChannelId = getChannelId(context, metaInfo, packageName)
+        candidates.add(stockChannelId)
+        val legacyChannelId = getLegacyChannelId(metaInfo, packageName)
+        candidates.add(legacyChannelId)
+        custom.channelId(null)?.takeIf { it.isNotBlank() }?.let { rawId ->
+            candidates.add(rawId)
+            candidates.add("ch_${packageName}_${rawId}")
+            candidates.add("mipush|${packageName}|${rawId}")
+            candidates.add("mipush_${packageName}_${rawId}")
+        }
+        return candidates.distinct()
+    }
+
+    @JvmStatic
     fun isNotificationChannelEnabled(channel: NotificationChannel?): Boolean {
         return channel != null && channel.importance != NotificationManager.IMPORTANCE_NONE
     }
@@ -88,6 +106,18 @@ object NotificationChannelManager {
             } catch (_: Exception) {
                 // 查询失败时降级为"禁用"，避免绕过用户通道设置
                 false
+            }
+        }
+        return false
+    }
+
+    @JvmStatic
+    fun isAnyChannelDisabled(context: Context, metaInfo: PushMetaInfo, packageName: String): Boolean {
+        val candidates = getCandidateChannelIds(context, metaInfo, packageName)
+        for (candId in candidates) {
+            val channel = NotificationManagerEx.getNotificationChannel(packageName, candId)
+            if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) {
+                return true
             }
         }
         return false

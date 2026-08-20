@@ -369,7 +369,9 @@ object NotificationController {
         }
         val notification = NativeNotificationFeatureBuilder.buildNotification(context, notificationBuilder, nativeFeature)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
-        if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
+        if (!NotificationChannelManager.isNotificationChannelEnabled(channel) ||
+            NotificationChannelManager.isAnyChannelDisabled(context, metaInfo, packageName)
+        ) {
             logD("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
