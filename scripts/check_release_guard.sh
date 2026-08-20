@@ -20,11 +20,21 @@ check_non_ascii_subject_allowlist() {
   local fail=0
   base_tag="$(git -C "$ROOT_DIR" describe --tags --abbrev=0 --match 'v*' "${release_commit}^" 2>/dev/null || true)"
   if [[ -z "$base_tag" ]]; then
+    # In CI shallow tag clones, fetch all tags from origin to reconstruct tag topology
+    git -C "$ROOT_DIR" fetch --tags --force origin >/dev/null 2>&1 || true
+    base_tag="$(git -C "$ROOT_DIR" describe --tags --abbrev=0 --match 'v*' "${release_commit}^" 2>/dev/null || true)"
+  fi
+  if [[ -z "$base_tag" ]]; then
     base_tag="$(git -C "$ROOT_DIR" tag -l --sort=-creatordate 'v*' | grep -v "^${TAG_NAME}$" | head -n 1 || true)"
   fi
+  if [[ -z "$base_tag" && -f "$ROOT_DIR/docs/CHANGELOG.md" && -n "$TAG_NAME" ]]; then
+    base_tag="$(sed -nE "s#.*compare/([^[:space:]/]+)\.\.\.${TAG_NAME}.*#\1#p" "$ROOT_DIR/docs/CHANGELOG.md" | head -n 1)"
+  fi
   commit_range="$release_commit"
-  if [[ -n "$base_tag" ]] && git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$base_tag" >/dev/null; then
+  if [[ -n "$base_tag" ]] && git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$base_tag^{commit}" >/dev/null 2>&1; then
     commit_range="refs/tags/$base_tag..$release_commit"
+  elif [[ -n "$base_tag" ]] && git -C "$ROOT_DIR" rev-parse -q --verify "$base_tag" >/dev/null 2>&1; then
+    commit_range="$base_tag..$release_commit"
   fi
 
   while IFS=$'\t' read -r sha subject; do
