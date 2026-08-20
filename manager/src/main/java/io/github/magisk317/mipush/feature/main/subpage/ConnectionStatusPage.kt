@@ -1,8 +1,10 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-
 package io.github.magisk317.mipush.feature.main.subpage
 
+import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +38,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.ReconnectFeedback
@@ -56,9 +58,27 @@ import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.surface.SectionColumn
+import org.koin.androidx.viewmodel.ext.android.viewModel
+
+open class ConnectionStatusPage : ComponentActivity() {
+    private val viewModel: ConnectionStatusViewModel by viewModel()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            Theme {
+                ConnectionStatusContent(
+                    viewModel = viewModel,
+                    onBack = { finish() },
+                )
+            }
+        }
+    }
+}
 
 @Composable
-fun ConnectionStatusPage(
+fun ConnectionStatusContent(
     viewModel: ConnectionStatusViewModel,
     onBack: () -> Unit,
 ) {
@@ -69,8 +89,6 @@ fun ConnectionStatusPage(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        // Let the NavHost enter transition finish before triggering remote Binder work.
-        delay(io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS.toLong())
         viewModel.startAutoRefresh()
     }
     LaunchedEffect(viewModel) {

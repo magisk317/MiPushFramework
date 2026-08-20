@@ -221,7 +221,7 @@ fun AppNavHostContent(
         ) {
             val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
                 org.koin.androidx.compose.koinViewModel()
-            io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage(
+            io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusContent(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )

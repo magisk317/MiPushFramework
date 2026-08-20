@@ -175,14 +175,9 @@ private fun SettingsScreen(
     scrollChromeState: ScrollChromeState?,
 ) {
     val title = stringResource(R.string.main_settings)
-    var serviceExpanded by rememberSaveable { mutableStateOf(false) }
-    var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
-    var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
-    var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
-    var configurationsExpanded by rememberSaveable { mutableStateOf(false) }
-    var integrationsExpanded by rememberSaveable { mutableStateOf(false) }
-    var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
-    var aboutExpanded by rememberSaveable { mutableStateOf(false) }
+    val sectionExpanded by viewModel.sectionExpanded.collectAsStateWithLifecycle()
+    android.util.Log.d("SettingsPage", "compose: service=${sectionExpanded.service} isActive=$isActive")
+    val toggleSection = remember(viewModel) { { id: SettingsViewModel.SectionId -> viewModel.toggleSection(id) } }
     var hasLoadedRuntimeState by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -226,8 +221,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_service_title),
                     summary = stringResource(R.string.settings_home_service_summary),
-                    expanded = serviceExpanded,
-                    onExpandedChange = { serviceExpanded = !serviceExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.SERVICE],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.SERVICE) },
                 ) {
                     ConnectionServiceBlock(viewModel, snackbarHostState, onNavigateToConnectionStatus)
                 }
@@ -235,8 +230,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_keepalive_title),
                     summary = stringResource(R.string.settings_home_keepalive_summary),
-                    expanded = keepAliveExpanded,
-                    onExpandedChange = { keepAliveExpanded = !keepAliveExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.KEEP_ALIVE],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.KEEP_ALIVE) },
                 ) {
                     KeepAliveBlock(viewModel, snackbarHostState)
                 }
@@ -244,8 +239,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_notifications_title),
                     summary = stringResource(R.string.settings_home_notifications_summary),
-                    expanded = notificationsExpanded,
-                    onExpandedChange = { notificationsExpanded = !notificationsExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.NOTIFICATIONS],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.NOTIFICATIONS) },
                 ) {
                     NotificationsBlock(viewModel, snackbarHostState)
                 }
@@ -253,8 +248,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_appearance_title),
                     summary = stringResource(R.string.settings_home_appearance_summary),
-                    expanded = appearanceExpanded,
-                    onExpandedChange = { appearanceExpanded = !appearanceExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.APPEARANCE],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.APPEARANCE) },
                 ) {
                     AppearanceBlock(viewModel, onNavigateToStatusBarIconSettings)
                 }
@@ -262,8 +257,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_configurations_title),
                     summary = stringResource(R.string.settings_home_configurations_summary),
-                    expanded = configurationsExpanded,
-                    onExpandedChange = { configurationsExpanded = !configurationsExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.CONFIGURATIONS],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.CONFIGURATIONS) },
                 ) {
                     ConfigurationsBlock(
                         viewModel = viewModel,
@@ -275,8 +270,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_integrations_title),
                     summary = stringResource(R.string.settings_home_integrations_summary),
-                    expanded = integrationsExpanded,
-                    onExpandedChange = { integrationsExpanded = !integrationsExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.INTEGRATIONS],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.INTEGRATIONS) },
                 ) {
                     IntegrationsBlock(viewModel, snackbarHostState)
                 }
@@ -284,8 +279,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_diagnostics_title),
                     summary = stringResource(R.string.settings_home_diagnostics_summary),
-                    expanded = diagnosticsExpanded,
-                    onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.DIAGNOSTICS],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.DIAGNOSTICS) },
                 ) {
                     DiagnosticsBlock(viewModel, snackbarHostState)
                 }
@@ -293,8 +288,8 @@ private fun SettingsScreen(
                 SettingsSectionCard(
                     title = stringResource(R.string.settings_home_about_title),
                     summary = stringResource(R.string.settings_home_about_summary),
-                    expanded = aboutExpanded,
-                    onExpandedChange = { aboutExpanded = !aboutExpanded },
+                    expanded = sectionExpanded[SettingsViewModel.SectionId.ABOUT],
+                    onExpandedChange = { toggleSection(SettingsViewModel.SectionId.ABOUT) },
                 ) {
                     AboutBlock(onShowAboutDialog)
                 }

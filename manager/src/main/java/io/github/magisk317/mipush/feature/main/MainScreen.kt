@@ -3,6 +3,8 @@ package io.github.magisk317.mipush.feature.main
 import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.fadeIn
@@ -74,6 +76,36 @@ internal fun shouldKeepMainChromeVisible(route: String?): Boolean {
         route?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true
 }
 
+internal fun resolveTabIndex(destination: NavDestination?): Int {
+    val route = destination?.route ?: return 0
+    return when {
+        route.startsWith(AppDestinations.Overview.ROUTE) -> 0
+        route.startsWith(AppDestinations.AppsList.ROUTE) ||
+            route.startsWith(AppDestinations.AppDetails.ROUTE) -> 1
+        route.startsWith(AppDestinations.EventsList.ROUTE) ||
+            route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
+        route.startsWith(AppDestinations.Configs.ROUTE) ||
+            route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
+            route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
+        route.startsWith(AppDestinations.Settings.ROUTE) ||
+            route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
+            route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
+            route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
+        else -> 0
+    }
+}
+
+internal fun shouldShowCompactBottomBar(destination: NavDestination?): Boolean {
+    val route = destination?.route ?: return true
+    return route.startsWith(AppDestinations.Overview.ROUTE) ||
+        route.startsWith(AppDestinations.AppsList.ROUTE) ||
+        route.startsWith(AppDestinations.EventsList.ROUTE) ||
+        route.startsWith(AppDestinations.Configs.ROUTE) ||
+        route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
+        route.startsWith(AppDestinations.ConfigEditor.ROUTE) ||
+        route.startsWith(AppDestinations.Settings.ROUTE)
+}
+
 
 @Composable
 fun MainScreen(
@@ -86,6 +118,8 @@ fun MainScreen(
     val isCompact = rememberIsCompactWidth()
 
     var aboutDialogContent by remember { mutableStateOf<String?>(null) }
+    val settingsViewModel: io.github.magisk317.mipush.main.viewmodel.SettingsViewModel =
+        org.koin.androidx.compose.koinViewModel()
     var settingsBackSignal by rememberSaveable { mutableIntStateOf(0) }
     var eventRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -115,36 +149,6 @@ fun MainScreen(
         AppDestinations.EventsList.ROUTE,
         AppDestinations.Settings.ROUTE,
     )
-
-    fun resolveTabIndex(destination: NavDestination?): Int {
-        val route = destination?.route ?: return 0
-        return when {
-            route.startsWith(AppDestinations.Overview.ROUTE) -> 0
-            route.startsWith(AppDestinations.AppsList.ROUTE) ||
-                route.startsWith(AppDestinations.AppDetails.ROUTE) -> 1
-            route.startsWith(AppDestinations.EventsList.ROUTE) ||
-                route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
-            route.startsWith(AppDestinations.Configs.ROUTE) ||
-                route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
-                route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
-            route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
-                route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
-                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
-            else -> 0
-        }
-    }
-
-    fun shouldShowCompactBottomBar(destination: NavDestination?): Boolean {
-        val route = destination?.route ?: return true
-        return route.startsWith(AppDestinations.Overview.ROUTE) ||
-            route.startsWith(AppDestinations.AppsList.ROUTE) ||
-            route.startsWith(AppDestinations.EventsList.ROUTE) ||
-            route.startsWith(AppDestinations.Configs.ROUTE) ||
-            route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
-            route.startsWith(AppDestinations.ConfigEditor.ROUTE) ||
-            route.startsWith(AppDestinations.Settings.ROUTE)
-    }
 
     fun triggerRefreshForRoute(route: String) {
         when (route) {
@@ -232,14 +236,22 @@ fun MainScreen(
     }
     // When returning from a detail page to the pager, snap to the correct page immediately
     // instead of animating — otherwise the AnimatedContent transition briefly shows the wrong page.
+    // Only snap on the transition from detail → pager (wasDetail=true → isTopLevelRoute=true).
+    // popBackStack() briefly exposes the start destination before settling on the real target,
+    // so snapping on every isTopLevelRoute=true would scroll to the wrong page.
+    var wasDetailRoute by remember { mutableStateOf(false) }
     LaunchedEffect(isTopLevelRoute) {
-        if (!isTopLevelRoute) return@LaunchedEffect
-        val targetPage = routePagerSynchronizer.targetPageFor(
-            route = currentRoute,
-            currentPage = pagerState.pagerState.currentPage,
-            isNavigating = false,
-        ) ?: return@LaunchedEffect
-        pagerState.scrollToPage(targetPage)
+        if (!isTopLevelRoute) {
+            wasDetailRoute = true
+            return@LaunchedEffect
+        }
+        if (!wasDetailRoute) return@LaunchedEffect
+        wasDetailRoute = false
+        val targetPage = currentRoute?.let { route -> tabRoutes.indexOf(route).takeIf { it >= 0 } }
+            ?: return@LaunchedEffect
+        if (pagerState.pagerState.currentPage != targetPage) {
+            pagerState.scrollToPage(targetPage)
+        }
     }
     val allowScrollChrome = currentRoute?.let { route ->
         route.startsWith(AppDestinations.AppsList.ROUTE) ||
@@ -260,28 +272,16 @@ fun MainScreen(
     val pageScrollChromeState = chromeController.pageScrollChromeState
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedContent(
-            targetState = isTopLevelRoute,
-            transitionSpec = {
-                val duration = io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS
-                if (targetState) {
-                    // Returning to pager: slide in from left
-                    slideInHorizontally(tween(duration, easing = EaseInOut)) { -it } +
-                        fadeIn(tween(duration)) togetherWith
-                        slideOutHorizontally(tween(duration, easing = EaseInOut)) { it } +
-                        fadeOut(tween(duration))
-                } else {
-                    // Entering detail: slide in from right
-                    slideInHorizontally(tween(duration, easing = EaseInOut)) { it } +
-                        fadeIn(tween(duration)) togetherWith
-                        slideOutHorizontally(tween(duration, easing = EaseInOut)) { -it } +
-                        fadeOut(tween(duration))
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-            contentKey = { if (it) "pager" else "detail" },
-        ) { animatedIsTopLevel ->
-        if (animatedIsTopLevel) PagerTabScaffold(
+        // Pager is always composed; alpha hides it during detail transitions without
+        // destroying the composition tree.  This avoids the expensive recreate cycle and
+        // the second ViewRootImpl that AnimatedVisibility would spawn.
+        val pagerAlpha by animateFloatAsState(
+            targetValue = if (isTopLevelRoute) 1f else 0f,
+            animationSpec = tween(io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS, easing = EaseInOut),
+            label = "pagerAlpha",
+        )
+        Box(modifier = Modifier.fillMaxSize().alpha(pagerAlpha)) {
+        PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
             isCompact = isCompact,
@@ -334,7 +334,9 @@ fun MainScreen(
                     contentPadding = contentPadding,
                     isActive = pageIsSettled,
                     onShowAboutDialog = { content -> aboutDialogContent = content },
-                    onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
+                    onNavigateToConnectionStatus = {
+                        context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
+                    },
                 )
                 1 -> ApplicationList(
                     query = "",
@@ -361,9 +363,12 @@ fun MainScreen(
                 )
                 3 -> Settings(
                     contentPadding = contentPadding,
+                    viewModel = settingsViewModel,
                     onShowAboutDialog = { content -> aboutDialogContent = content },
                     onSectionChanged = {},
-                    onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
+                    onNavigateToConnectionStatus = {
+                        context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
+                    },
                     onNavigateToStatusBarIconSettings = { navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE) },
                     onNavigateToConfigurations = { navController.navigate(AppDestinations.Configs.ROUTE) },
                     sectionBackSignal = settingsBackSignal,
@@ -371,7 +376,12 @@ fun MainScreen(
                     scrollChromeState = activePageScrollChromeState,
                 )
             }
-        } else {
+        }
+        } // pager alpha Box
+
+        // Detail overlay — rendered directly on top of the pager when a non-top-level
+        // route is active.  No AnimatedVisibility to avoid spawning a second ViewRootImpl.
+        if (!isTopLevelRoute) {
             MainTabScaffold(
                 tabs = tabs,
                 selectedIndex = resolveTabIndex(currentDestination),
@@ -463,12 +473,13 @@ fun MainScreen(
                 settingsPage = { padding, onAbout, _, _ ->
                     Settings(
                         contentPadding = padding,
+                        viewModel = settingsViewModel,
                         isActive = currentRoute?.startsWith(AppDestinations.Settings.ROUTE) == true ||
                             currentRoute?.startsWith(AppDestinations.SettingsSection.ROUTE) == true,
                         onShowAboutDialog = onAbout,
                         onSectionChanged = {},
                         onNavigateToConnectionStatus = {
-                            navController.navigate(AppDestinations.ConnectionStatus.ROUTE)
+                            context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
                         },
                         onNavigateToStatusBarIconSettings = {
                             navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
@@ -484,8 +495,7 @@ fun MainScreen(
                 onSectionChanged = {},
                 )
             }
-        }
-        } // AnimatedContent
+        } // detail overlay
 
         if (aboutDialogContent != null) {
             androidx.compose.material3.AlertDialog(

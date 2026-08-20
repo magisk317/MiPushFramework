@@ -53,9 +53,12 @@ class ConnectionStatusViewModel constructor(
             trackedChannelCount = 0,
             boundChannelCount = 0,
         )
+
+        @Volatile
+        private var cachedSnapshot: ManagerConnectionSnapshot? = null
     }
 
-    private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(DEFAULT_SNAPSHOT)
+    private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(cachedSnapshot ?: DEFAULT_SNAPSHOT)
     val snapshot: StateFlow<ManagerConnectionSnapshot?> = _snapshot.asStateFlow()
 
     private val _currentTimeMs = MutableStateFlow(currentTimeMillis())
@@ -140,7 +143,10 @@ class ConnectionStatusViewModel constructor(
 
     private suspend fun refreshPrimarySnapshot() = refreshMutex.withLock {
         when (val result = withContext(Dispatchers.IO) { snapshotSource.load() }) {
-            is ConnectionSnapshotSourceResult.Available -> _snapshot.value = result.snapshot
+            is ConnectionSnapshotSourceResult.Available -> {
+                cachedSnapshot = result.snapshot
+                _snapshot.value = result.snapshot
+            }
 
             is ConnectionSnapshotSourceResult.Unavailable -> {
                 val transient = result.status in setOf(
@@ -154,7 +160,7 @@ class ConnectionStatusViewModel constructor(
                 } else {
                     logW("connection snapshot unavailable status=${result.status}")
                     // Keep the last valid snapshot visible; only reset on explicit disconnect.
-                    _snapshot.value = DEFAULT_SNAPSHOT
+                    _snapshot.value = cachedSnapshot ?: DEFAULT_SNAPSHOT
                 }
             }
         }

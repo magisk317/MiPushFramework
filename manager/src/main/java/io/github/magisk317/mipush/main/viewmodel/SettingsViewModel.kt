@@ -471,4 +471,55 @@ class SettingsViewModel constructor(
         settingsManager.shareLogs(context)
     }
 
+    // ── Section expand states ──────────────────────────────────────────
+    // Hoisted from SettingsScreen so they survive pager ↔ detail navigation.
+    // AnimatedContent("pager"/"detail") destroys the entire pager tree; rememberSaveable
+    // inside a pager page cannot persist across that boundary because the pager's
+    // SavedStateRegistry entry is discarded with the composition.
+    private val _sectionExpanded = MutableStateFlow(SectionExpandState())
+    val sectionExpanded: StateFlow<SectionExpandState> = _sectionExpanded.asStateFlow()
+
+    fun toggleSection(section: SectionId) {
+        val newState = _sectionExpanded.value.toggle(section)
+        android.util.Log.d("SettingsVM", "toggleSection: $section -> ${newState[section]}")
+        _sectionExpanded.value = newState
+    }
+
+    data class SectionExpandState(
+        val service: Boolean = false,
+        val keepAlive: Boolean = false,
+        val notifications: Boolean = false,
+        val appearance: Boolean = false,
+        val configurations: Boolean = false,
+        val integrations: Boolean = false,
+        val diagnostics: Boolean = false,
+        val about: Boolean = false,
+    ) {
+        fun toggle(id: SectionId): SectionExpandState = when (id) {
+            SectionId.SERVICE -> copy(service = !service)
+            SectionId.KEEP_ALIVE -> copy(keepAlive = !keepAlive)
+            SectionId.NOTIFICATIONS -> copy(notifications = !notifications)
+            SectionId.APPEARANCE -> copy(appearance = !appearance)
+            SectionId.CONFIGURATIONS -> copy(configurations = !configurations)
+            SectionId.INTEGRATIONS -> copy(integrations = !integrations)
+            SectionId.DIAGNOSTICS -> copy(diagnostics = !diagnostics)
+            SectionId.ABOUT -> copy(about = !about)
+        }
+
+        operator fun get(id: SectionId): Boolean = when (id) {
+            SectionId.SERVICE -> service
+            SectionId.KEEP_ALIVE -> keepAlive
+            SectionId.NOTIFICATIONS -> notifications
+            SectionId.APPEARANCE -> appearance
+            SectionId.CONFIGURATIONS -> configurations
+            SectionId.INTEGRATIONS -> integrations
+            SectionId.DIAGNOSTICS -> diagnostics
+            SectionId.ABOUT -> about
+        }
+    }
+
+    enum class SectionId {
+        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE,
+        CONFIGURATIONS, INTEGRATIONS, DIAGNOSTICS, ABOUT,
+    }
 }
