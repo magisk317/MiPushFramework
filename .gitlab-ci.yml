@@ -503,15 +503,41 @@ android:release:apk:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
       when: never
-  variables:
-    MAGISK_ANDROID_RELEASE_APK_TASKS: >-
-      :app:assembleRelease
-      :mipush:assembleGithubRelease
-      -PbuildSplits=true
-      -Pkotlin.incremental=false
   needs:
     - job: android:release:guard
       artifacts: false
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      : "${RELEASE_KEYSTORE:?RELEASE_KEYSTORE is required}"
+      : "${STORE_PASSWORD:?STORE_PASSWORD is required}"
+      : "${KEY_ALIAS:?KEY_ALIAS is required}"
+      : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
+
+      keystore_path="$CI_PROJECT_DIR/app/release.jks"
+      printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
+      chmod 0600 "$keystore_path"
+      bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
+        --package-name "$MAGISK_ANDROID_RELEASE_PACKAGE_NAME" \
+        --version-file "$CI_PROJECT_DIR/gradle/libs.versions.toml" \
+        --output "$CI_PROJECT_DIR/play-release.env" \
+        --initial-version-code "$MAGISK_PLAY_INITIAL_VERSION_CODE"
+      source "$CI_PROJECT_DIR/play-release.env"
+      KEYSTORE_FILE="$keystore_path" \
+      STORE_PASSWORD="$STORE_PASSWORD" \
+      KEY_ALIAS="$KEY_ALIAS" \
+      KEY_PASSWORD="$KEY_PASSWORD" \
+        bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
+          :app:assembleRelease \
+          :mipush:assembleGithubRelease \
+          -PversionName="$MAGISK_PLAY_VERSION_NAME" \
+          -PversionCode="$MAGISK_PLAY_VERSION_CODE" \
+          -PbuildSplits=true \
+          -Pkotlin.incremental=false
+      chmod +x "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
+      MAGISK_ANDROID_RELEASE_APK_ROOTS="${MAGISK_ANDROID_RELEASE_APK_ROOTS:-app/build/outputs/apk}" \
+        bash "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
   artifacts:
     name: "MiPushFramework-release-apks-$CI_COMMIT_TAG"
     when: always

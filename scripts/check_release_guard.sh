@@ -12,16 +12,19 @@ TAG_NAME="${1:-}"
 "$SCRIPT_DIR/check_release_tag_push_contract.sh"
 
 check_non_ascii_subject_allowlist() {
-  local release_commit base_tag commit_range sha subject
+  local release_commit="HEAD"
+  local base_tag=""
+  local commit_range=""
+  local sha=""
+  local subject=""
   local fail=0
-  release_commit="HEAD"
-  if [[ -n "$TAG_NAME" ]] && git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$TAG_NAME^{commit}" >/dev/null; then
-    release_commit="refs/tags/$TAG_NAME^{commit}"
-  fi
   base_tag="$(git -C "$ROOT_DIR" describe --tags --abbrev=0 --match 'v*' "${release_commit}^" 2>/dev/null || true)"
+  if [[ -z "$base_tag" ]]; then
+    base_tag="$(git -C "$ROOT_DIR" tag -l --sort=-creatordate 'v*' | grep -v "^${TAG_NAME}$" | head -n 1 || true)"
+  fi
   commit_range="$release_commit"
-  if [[ -n "$base_tag" ]]; then
-    commit_range="$base_tag..$release_commit"
+  if [[ -n "$base_tag" ]] && git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$base_tag" >/dev/null; then
+    commit_range="refs/tags/$base_tag..$release_commit"
   fi
 
   while IFS=$'\t' read -r sha subject; do
