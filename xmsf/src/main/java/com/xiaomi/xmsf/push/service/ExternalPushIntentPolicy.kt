@@ -308,6 +308,31 @@ internal object ExternalPushIntentPolicy {
                 copyIntExtra(source, target, PushConstants.EXTRA_NOTIFY_TYPE)
                 copyStringExtra(source, target, PushConstants.EXTRA_SIG)
             }
+            PushConstants.ACTION_OPEN_CHANNEL -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_CHANNEL_ID)
+                copyStringExtra(source, target, PushConstants.EXTRA_USER_ID)
+                copyStringExtra(source, target, PushConstants.EXTRA_TOKEN)
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
+                copyStringExtra(source, target, PushConstants.EXTRA_CLIENT_ATTR)
+                copyStringExtra(source, target, PushConstants.EXTRA_CLOUD_ATTR)
+                copyBooleanExtra(source, target, PushConstants.EXTRA_KICK)
+                copyStringExtra(source, target, PushConstants.EXTRA_SECURITY)
+                copyStringExtra(source, target, PushConstants.EXTRA_SESSION)
+                copyStringExtra(source, target, PushConstants.EXTRA_AUTH_METHOD)
+            }
+            PushConstants.ACTION_CLOSE_CHANNEL -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_CHANNEL_ID)
+                copyStringExtra(source, target, PushConstants.EXTRA_USER_ID)
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
+            }
+            PushConstants.ACTION_RESET_CONNECTION -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
+                copyStringExtra(source, target, PushConstants.EXTRA_CHANNEL_ID)
+            }
+            else -> {
+                // Fallback: For any other allowed action without a strict filter, preserve extras
+                source.extras?.let { target.putExtras(it) }
+            }
         }
     }
 
