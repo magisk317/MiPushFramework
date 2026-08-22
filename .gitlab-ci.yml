@@ -144,7 +144,7 @@ android:check:
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.97.1-bookworm"
+  image: "rust:1.98.0-bookworm"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
