@@ -3,16 +3,20 @@ package com.xiaomi.push.log
 import android.content.Context
 import android.content.SharedPreferences
 import com.xiaomi.channel.commonutils.file.SDCardUtils
-import com.xiaomi.channel.commonutils.logger.LoggerInterface
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.SerializedAsyncTaskProcessor
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.miui.pushads.sdk.NotifyAdsDef
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.ServiceConfig
 import com.xiaomi.smack.util.TaskExecutor
-import org.json.JSONException
-import org.json.JSONObject
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -24,6 +28,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/log/LogUploader.java
  * Stock class name is obfuscated as t9.c; this file keeps the deobfuscated com.xiaomi.push.log.LogUploader API.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class LogUploader private constructor(context: Context) {
     private val mTasks: ConcurrentLinkedQueue<Task> = ConcurrentLinkedQueue()
     private var mContext: Context = context
@@ -51,19 +56,18 @@ class LogUploader private constructor(context: Context) {
         var retryNum: Int = 0
         var uploaded: Boolean = false
 
-        @Throws(JSONException::class)
         private fun checkLimit(): Boolean {
             val prefs = mContext.getSharedPreferences(PREF_NAME, 0)
-            var jsonString = prefs.getString(PREF_KEY_REQUEST, "") ?: ""
+            val jsonString = prefs.getString(PREF_KEY_REQUEST, "").orEmpty()
             var currentTime = System.currentTimeMillis()
             var times = 0
             try {
-                if (!jsonString.isEmpty()) {
-                    val json = JSONObject(jsonString)
-                    currentTime = json.getLong(NotifyAdsDef.JSON_TAG_ACTIONTIME)
-                    times = json.getInt("times")
+                if (jsonString.isNotEmpty()) {
+                    val json = Json.parseToJsonElement(jsonString).jsonObject
+                    currentTime = json[NotifyAdsDef.JSON_TAG_ACTIONTIME]?.jsonPrimitive?.longOrNull ?: currentTime
+                    times = json["times"]?.jsonPrimitive?.intOrNull ?: 0
                 }
-            } catch (e: JSONException) {
+            } catch (e: Exception) {
             }
             var newTimes = times
             if (System.currentTimeMillis() - currentTime < 86400000) {
@@ -73,13 +77,14 @@ class LogUploader private constructor(context: Context) {
                 newTimes = 0
             }
             return try {
-                val json = JSONObject()
-                json.put(NotifyAdsDef.JSON_TAG_ACTIONTIME, currentTime)
-                json.put("times", newTimes + 1)
-                prefs.edit().putString(PREF_KEY_REQUEST, json.toString()).commit()
+                val json = buildJsonObject {
+                    put(NotifyAdsDef.JSON_TAG_ACTIONTIME, currentTime)
+                    put("times", newTimes + 1)
+                }
+                prefs.edit().putString(PREF_KEY_REQUEST, json.toString()).apply()
                 true
-            } catch (e: JSONException) {
-                MyLog.v("JSONException on put " + e.message)
+            } catch (e: Exception) {
+                KermitLoggerCompat.v("Exception on put " + e.message)
                 true
             }
         }
@@ -120,7 +125,7 @@ class LogUploader private constructor(context: Context) {
         while (mTasks.isNotEmpty()) {
             val task = mTasks.peek() ?: break
             if (!task.isExpired() && mTasks.size <= MAX_PENDING_TASKS) return
-            MyLog.v("remove Expired task")
+            KermitLoggerCompat.v("remove Expired task")
             mTasks.remove(task)
         }
     }

@@ -9,12 +9,19 @@ class ReconnectionManager(
     private var state = PushReconnectState(0, 0, 500, 0L)
 
     fun onConnectSucceeded() {
+        val previousState = state
         state = PushReconnectState(0, 0, 500, System.currentTimeMillis())
         pushAction.removeJobs(1)
         pushAction.runtimeObserver.onChannelEvent(null, "reconnect_succeeded", "ReconnectionManager.onConnectSucceeded")
+        ReconnectDebugLog.w(
+            "reconnect_state_reset previousAttempts=${previousState.attempts} " +
+                "previousShortLive=${previousState.shortLiveConnCount} " +
+                "previousCurDelay=${previousState.curDelay}"
+        )
     }
 
     fun tryReconnect(forceReconnect: Boolean) {
+        val previousState = state
         val reconnectPlan = pushAction.runtimeObserver.resolveReconnectAttemptPlan(
             state,
             forceReconnect,
@@ -23,6 +30,14 @@ class ReconnectionManager(
         )
         state = reconnectPlan.nextState
         pushAction.runtimeObserver.onChannelEvent(null, reconnectPlan.eventAction, "ReconnectionManager.tryReconnect")
+        ReconnectDebugLog.w(
+            "reconnect_plan action=${reconnectPlan.action} event=${reconnectPlan.eventAction} " +
+                "delayMs=${reconnectPlan.delayMs} force=$forceReconnect " +
+                "connected=${pushAction.isConnected} pendingJob=${pushAction.hasJob(1)} " +
+                "attempts=${previousState.attempts}->${reconnectPlan.nextState.attempts} " +
+                "shortLive=${reconnectPlan.nextState.shortLiveConnCount} " +
+                "curDelay=${reconnectPlan.nextState.curDelay}"
+        )
 
         when (reconnectPlan.action) {
             PushReconnectAction.SkipNoReconnect -> {

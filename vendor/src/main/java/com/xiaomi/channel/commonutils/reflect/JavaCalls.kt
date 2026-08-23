@@ -1,7 +1,7 @@
 package com.xiaomi.channel.commonutils.reflect
 
-import android.util.Log
 import com.xiaomi.channel.commonutils.android.SystemUtils
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
@@ -39,7 +39,7 @@ object JavaCalls {
         return try {
             if (obj != null) callMethodOrThrow(obj, name, *args) else null
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when call Method '$name' in $obj, $e")
+            KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $obj, $e", tag = LOG_TAG)
             null
         }
     }
@@ -63,7 +63,7 @@ object JavaCalls {
         return try {
             callStaticMethodOrThrow(SystemUtils.loadClass(null, className), name, *args)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when call Method '$name' in $className, $e")
+            KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $className, $e", tag = LOG_TAG)
             null
         }
     }
@@ -158,7 +158,7 @@ object JavaCalls {
         return try {
             getFieldOrThrow(obj.javaClass, obj, name)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when call getField '$name' in $obj, $e")
+            KermitLoggerCompat.w(message = "Meet exception when call getField '$name' in $obj, $e", tag = LOG_TAG)
             null
         }
     }
@@ -210,9 +210,9 @@ object JavaCalls {
         return try {
             getFieldOrThrow(cls!!, null, name)
         } catch (e: Exception) {
-            Log.w(
-                LOG_TAG,
-                "Meet exception when call getStaticField '$name' in ${cls?.simpleName}, $e"
+            KermitLoggerCompat.w(
+                message = "Meet exception when call getStaticField '$name' in ${cls?.simpleName}, $e",
+                tag = LOG_TAG
             )
             null
         }
@@ -223,7 +223,7 @@ object JavaCalls {
         return try {
             getFieldOrThrow(SystemUtils.loadClass(null, className), null, name)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when call getStaticField '$name' in $className, $e")
+            KermitLoggerCompat.w(message = "Meet exception when call getStaticField '$name' in $className, $e", tag = LOG_TAG)
             null
         }
     }
@@ -233,7 +233,7 @@ object JavaCalls {
         return try {
             newEmptyInstanceOrThrow(cls)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when make instance as a ${cls.simpleName}, $e")
+            KermitLoggerCompat.w(message = "Meet exception when make instance as a ${cls.simpleName}, $e", tag = LOG_TAG)
             null
         }
     }
@@ -265,7 +265,7 @@ object JavaCalls {
         return try {
             newInstanceOrThrow(cls, *args)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when make instance as a ${cls.simpleName}, $e")
+            KermitLoggerCompat.w(message = "Meet exception when make instance as a ${cls.simpleName}, $e", tag = LOG_TAG)
             null
         }
     }
@@ -275,7 +275,7 @@ object JavaCalls {
         return try {
             newInstanceOrThrow(className, *args)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when make instance as a $className, $e")
+            KermitLoggerCompat.w(message = "Meet exception when make instance as a $className, $e", tag = LOG_TAG)
             null
         }
     }
@@ -310,7 +310,7 @@ object JavaCalls {
         try {
             setFieldOrThrow(obj, name, value)
         } catch (e: Exception) {
-            Log.w(LOG_TAG, "Meet exception when call setField '$name' in $obj, $e")
+            KermitLoggerCompat.w(message = "Meet exception when call setField '$name' in $obj, $e", tag = LOG_TAG)
         }
     }
 

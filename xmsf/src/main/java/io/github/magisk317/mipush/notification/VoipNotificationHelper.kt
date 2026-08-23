@@ -1,14 +1,13 @@
 package io.github.magisk317.mipush.notification
 
-import io.github.magisk317.mipush.common.R as CommonR
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
+import co.touchlab.kermit.Logger
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -74,11 +73,9 @@ object VoipNotificationHelper {
         synchronized(sequenceCache) {
             val previous = sequenceCache[key] ?: 0L
             if (previous > sequence) {
-                Napier.d(
-                    "drop stale VoIP notification user=${key.userId} pkg=$packageName " +
-                        "sequence=$sequence previous=$previous",
-                    tag = TAG,
-                )
+                Logger.withTag(TAG).d {
+                    "drop stale VoIP notification user=${key.userId} pkg=$packageName sequence=$sequence previous=$previous"
+                }
                 MagiskOtel.event(
                     name = "push.event",
                     attributes = mapOf(
@@ -137,7 +134,7 @@ object VoipNotificationHelper {
         buildVoipMetadata(extras, targetPackage).forEach(targetBundle::putString)
         builder.addExtras(targetBundle)
 
-        Napier.d("built VoIP notification type=$voipType pkg=$targetPackage id=$notificationId", tag = TAG)
+        Logger.withTag(TAG).d { "built VoIP notification type=$voipType pkg=$targetPackage id=$notificationId" }
         return builder
     }
 

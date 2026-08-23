@@ -12,6 +12,7 @@ import com.xiaomi.xmpush.thrift.ConfigKey
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/AssemblePushCollectionsManager.java
  * No stock 7.4.67-C same-path source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class AssemblePushCollectionsManager private constructor(context: Context) : AbstractPushManager {
     companion object {
         @Volatile

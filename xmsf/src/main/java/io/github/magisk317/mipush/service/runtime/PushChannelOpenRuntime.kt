@@ -55,7 +55,7 @@ object PushChannelOpenRuntime {
         var shouldRebind = false
         if (!existingSession.isNullOrEmpty() && existingSession != requestedSession) {
             safeWarn(
-                "session changed. old session=$existingSession, new session=$requestedSession chid = $channelId"
+                "session changed. old hash=${MD5.MD5_32(existingSession.orEmpty())}, new hash=${MD5.MD5_32(requestedSession.orEmpty())} chid = $channelId"
             )
             shouldRebind = true
         }

@@ -1,7 +1,6 @@
 package com.xiaomi.smack.packet
 
 import android.os.Bundle
-import android.text.TextUtils
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.smack.util.StringUtils
 
@@ -16,7 +15,6 @@ class Message : Packet {
     var appId: String? = null
     var body: String? = null
     var bodyEncoding: String? = null
-        private set
     var encrypted: Boolean = false
     var fSeq: String? = ""
     var language: String? = null
@@ -104,13 +102,13 @@ class Message : Packet {
 
     override fun toBundle(): Bundle {
         val bundle = super.toBundle()
-        if (!TextUtils.isEmpty(type)) {
+        if (!type.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_MESSAGE_TYPE, type)
         }
         language?.let { bundle.putString(PushConstants.EXTRA_MESSAGE_LANGUAGE, it) }
         subject?.let { bundle.putString(PushConstants.EXTRA_MESSAGE_SUBJECT, it) }
         body?.let { bundle.putString(PushConstants.EXTRA_MESSAGE_BODY, it) }
-        if (!TextUtils.isEmpty(bodyEncoding)) {
+        if (!bodyEncoding.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_BODY_ENCODE, bodyEncoding)
         }
         thread?.let { bundle.putString(PushConstants.EXTRA_MESSAGE_THREAD, it) }
@@ -118,19 +116,19 @@ class Message : Packet {
         if (mTransient) {
             bundle.putBoolean(PushConstants.EXTRA_MESSAGE_TRANSIENT, true)
         }
-        if (!TextUtils.isEmpty(seq)) {
+        if (!seq.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_MESSAGE_SEQ, seq)
         }
-        if (!TextUtils.isEmpty(mSeq)) {
+        if (!mSeq.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_MESSAGE_MSEQ, mSeq)
         }
-        if (!TextUtils.isEmpty(fSeq)) {
+        if (!fSeq.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_MESSAGE_FSEQ, fSeq)
         }
         if (encrypted) {
             bundle.putBoolean(PushConstants.EXTRA_MESSAGE_ENCRYPT, true)
         }
-        if (!TextUtils.isEmpty(status)) {
+        if (!status.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_MESSAGE_STATUS, status)
         }
         return bundle
@@ -159,22 +157,22 @@ class Message : Packet {
             sb.append(StringUtils.escapeForXML(to))
             sb.append("\"")
         }
-        if (!TextUtils.isEmpty(seq)) {
+        if (!seq.isNullOrEmpty()) {
             sb.append(" seq=\"")
             sb.append(seq)
             sb.append("\"")
         }
-        if (!TextUtils.isEmpty(mSeq)) {
+        if (!mSeq.isNullOrEmpty()) {
             sb.append(" mseq=\"")
             sb.append(mSeq)
             sb.append("\"")
         }
-        if (!TextUtils.isEmpty(fSeq)) {
+        if (!fSeq.isNullOrEmpty()) {
             sb.append(" fseq=\"")
             sb.append(fSeq)
             sb.append("\"")
         }
-        if (!TextUtils.isEmpty(status)) {
+        if (!status.isNullOrEmpty()) {
             sb.append(" status=\"")
             sb.append(status)
             sb.append("\"")
@@ -192,12 +190,12 @@ class Message : Packet {
         if (mTransient) {
             sb.append(" transient=\"true\"")
         }
-        if (!TextUtils.isEmpty(appId)) {
+        if (!appId.isNullOrEmpty()) {
             sb.append(" appid=\"")
             sb.append(appId)
             sb.append("\"")
         }
-        if (!TextUtils.isEmpty(type)) {
+        if (!type.isNullOrEmpty()) {
             sb.append(" type=\"")
             sb.append(type)
             sb.append("\"")
@@ -213,7 +211,7 @@ class Message : Packet {
         }
         if (body != null) {
             sb.append("<body")
-            if (!TextUtils.isEmpty(bodyEncoding)) {
+            if (!bodyEncoding.isNullOrEmpty()) {
                 sb.append(" encode=\"")
                 sb.append(bodyEncoding)
                 sb.append("\"")

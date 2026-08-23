@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.control.PushControllerUtils
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.runBlocking
 
 object PushHealthSnapshotLogger {
@@ -42,7 +42,7 @@ object PushHealthSnapshotLogger {
     fun log(context: Context, stage: String, extra: String? = null) {
         runCatching {
             val snapshot = capture(context, stage, extra)
-            Napier.i(format(snapshot), tag = TAG)
+            Logger.withTag(TAG).i { format(snapshot) }
         }.onFailure {
             RateLimitedWarnLogger.warn(
                 logTag = TAG,

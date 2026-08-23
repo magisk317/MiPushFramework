@@ -1,8 +1,7 @@
 package com.xiaomi.push.service
 
 import android.content.SharedPreferences
-import android.text.TextUtils
-import android.util.Base64
+import java.util.Base64
 import com.google.protobuf.micro.CodedInputStreamMicro
 import com.google.protobuf.micro.CodedOutputStreamMicro
 import com.xiaomi.channel.commonutils.android.DeviceInfo
@@ -46,7 +45,7 @@ class ServiceConfig private constructor() {
                     if (deviceUUID == null) {
                         deviceUUID = DeviceInfo.getDeviceId(SystemUtils.context!!, false)
                         if (deviceUUID != null) {
-                            sharedPreferences.edit().putString(PREF_UUID, deviceUUID).commit()
+                            sharedPreferences.edit().putString(PREF_UUID, deviceUUID).apply()
                         }
                     }
                 }
@@ -78,10 +77,11 @@ class ServiceConfig private constructor() {
             override fun process() {
                 try {
                     val region = AppRegionStorage.getInstance(SystemUtils.context!!).getRegion()
-                    val url = if (TextUtils.isEmpty(region) || Region.China.name == region) CONFIG_URL else CONFIG_URL_GLOBAL
-                    val remoteConfig = ChannelConfig.PushServiceConfig.parseFrom(
-                        Base64.decode(HttpUtils.get(SystemUtils.context!!, url, null), 10),
-                    )
+                    val url = if (region.isNullOrEmpty() || Region.China.name == region) CONFIG_URL else CONFIG_URL_GLOBAL
+                    val response = HttpUtils.get(SystemUtils.context!!, url, null)
+                    val decodedBytes = runCatching { Base64.getDecoder().decode(response) }
+                        .getOrElse { Base64.getMimeDecoder().decode(response) }
+                    val remoteConfig = ChannelConfig.PushServiceConfig.parseFrom(decodedBytes)
                     if (remoteConfig != null) {
                         config = remoteConfig
                         success = true
@@ -180,6 +180,6 @@ class ServiceConfig private constructor() {
     }
 
     fun setSetting(key: String, value: Boolean) {
-        SystemUtils.context!!.getSharedPreferences(PREF_NAME, 0).edit().putBoolean(key, value).commit()
+        SystemUtils.context!!.getSharedPreferences(PREF_NAME, 0).edit().putBoolean(key, value).apply()
     }
 }

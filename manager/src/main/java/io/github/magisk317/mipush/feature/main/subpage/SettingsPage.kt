@@ -107,6 +107,7 @@ import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,7 +117,7 @@ import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
-
+private val settingsPageLogger = Logger.withTag("SettingsPage")
 
 @Composable
 fun Settings(
@@ -176,7 +177,7 @@ private fun SettingsScreen(
 ) {
     val title = stringResource(R.string.main_settings)
     val sectionExpanded by viewModel.sectionExpanded.collectAsStateWithLifecycle()
-    android.util.Log.d("SettingsPage", "compose: service=${sectionExpanded.service} isActive=$isActive")
+    settingsPageLogger.d { "compose: service=${sectionExpanded.service} isActive=$isActive" }
     val toggleSection = remember(viewModel) { { id: SettingsViewModel.SectionId -> viewModel.toggleSection(id) } }
     var hasLoadedRuntimeState by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()

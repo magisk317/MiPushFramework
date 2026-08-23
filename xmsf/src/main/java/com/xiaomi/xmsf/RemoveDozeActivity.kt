@@ -8,7 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
+import co.touchlab.kermit.Logger
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,7 +40,7 @@ class RemoveDozeActivity : ComponentActivity() {
         try {
             requestIgnoreBatteryOptimizations.launch(intent)
         } catch (e: ActivityNotFoundException) {
-            Log.e(TAG, e.localizedMessage, e)
+            Logger.withTag(TAG).e(e) { e.localizedMessage ?: "ActivityNotFound" }
             Toast.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_SHORT).show()
             setResultAndFinish(Activity.RESULT_CANCELED)
         }

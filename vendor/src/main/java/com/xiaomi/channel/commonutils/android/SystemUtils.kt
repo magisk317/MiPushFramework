@@ -7,6 +7,7 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceProxy
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 object SystemUtils {
     private const val DEFAULT_MIID = "0"
     @Volatile

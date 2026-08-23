@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
@@ -106,7 +106,7 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             }.getOrElse { info }
         }
     } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
-        Napier.e("Failed to load installed packages for manager runtime", error, tag = TAG)
+        Logger.withTag(TAG).e(error) { "Failed to load installed packages for manager runtime" }
         emptyList()
     }
 
@@ -117,13 +117,13 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             timeoutMs = ROOT_PACKAGE_SCAN_TIMEOUT_MS,
         )
         if (!result.isSuccess) {
-            Napier.w("Root package scan failed: ${result.stderrText}", tag = TAG)
+            Logger.withTag(TAG).w { "Root package scan failed: ${result.stderrText}" }
             return null
         }
         val packages = result.stdout.mapNotNull { line ->
             line.trim().removePrefix("package:").takeIf { it.isNotBlank() }
         }.distinct()
-        Napier.i("Root package scan returned ${packages.size} packages", tag = TAG)
+        Logger.withTag(TAG).i { "Root package scan returned ${packages.size} packages" }
         return packages
     }
 

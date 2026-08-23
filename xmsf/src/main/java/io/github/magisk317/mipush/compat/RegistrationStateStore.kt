@@ -6,8 +6,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.xposed.logging.MagiskOtel

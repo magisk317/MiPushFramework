@@ -3,7 +3,7 @@ package com.xiaomi.stats
 import android.net.TrafficStats
 import android.os.Process
 import android.os.SystemClock
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract
 import com.xiaomi.push.service.XMPushServiceCore
@@ -44,7 +44,7 @@ class StatsContext(
             mRxBytes = TrafficStats.getUidRxBytes(myUid)
             mTxBytes = TrafficStats.getUidTxBytes(myUid)
         } catch (e: Exception) {
-            MyLog.w("Failed to obtain traffic data during initialization: $e")
+            Logger.w(e) { "Failed to obtain traffic data during initialization: $e" }
             mRxBytes = -1
             mTxBytes = -1
         }
@@ -66,7 +66,7 @@ class StatsContext(
 
     private fun statsChannelDuration() {
         synchronized(this) {
-            MyLog.v("stat connpt = $connectionPoint netDuration = $accumulatedNetworkDuration ChannelDuration = $accumulatedChannelDuration channelConnectedTime = $channelConnectedTime")
+            Logger.v { "stat connpt = $connectionPoint netDuration = $accumulatedNetworkDuration ChannelDuration = $accumulatedChannelDuration channelConnectedTime = $channelConnectedTime" }
             val statsEvent = StatsEvent().apply {
                 chid = 0
                 setType(ChannelStatsType.CHANNEL_ONLINE_RATE.value)
@@ -102,11 +102,11 @@ class StatsContext(
             uidRxBytes = TrafficStats.getUidRxBytes(myUid)
             uidTxBytes = TrafficStats.getUidTxBytes(myUid)
         } catch (e: Exception) {
-            MyLog.w("Failed to obtain traffic data: $e")
+            Logger.w(e) { "Failed to obtain traffic data: $e" }
             uidRxBytes = -1
             uidTxBytes = -1
         }
-        MyLog.v("Stats rx=${uidRxBytes - mRxBytes}, tx=${uidTxBytes - mTxBytes}")
+        Logger.v { "Stats rx=${uidRxBytes - mRxBytes}, tx=${uidTxBytes - mTxBytes}" }
         mRxBytes = uidRxBytes
         mTxBytes = uidTxBytes
     }

@@ -7,38 +7,51 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.common.utils.logW
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 internal data class IslandOptionsSnapshot(
     val options: IslandOptions,
     val logSanitizationEnabled: Boolean,
 )
 
+/**
+ * Observes the shared DataStore via Flow and keeps an in-memory cache of the latest
+ * IslandSettingsSnapshot. This replaces the previous ACTION_PREF_CHANGED broadcast
+ * refresh path: the cache now updates automatically on every DataStore write.
+ */
 internal object IslandOptionsSnapshotReader {
-    private val cacheStarted = AtomicBoolean(false)
     private val cachedGlobalSettings = AtomicReference<IslandSettingsSnapshot?>(null)
+    private val initialized = AtomicReference(false)
 
+    /**
+     * Start collecting DataStore changes. Idempotent: subsequent calls are no-ops.
+     */
     fun initialize(context: Context, scope: CoroutineScope) {
-        if (!cacheStarted.compareAndSet(false, true)) return
-        refreshAsync(context, scope)
-    }
-
-    fun refreshAsync(context: Context, scope: CoroutineScope) {
-        if (!cacheStarted.get()) return
+        if (!initialized.compareAndSet(false, true)) return
         val appContext = context.applicationContext ?: context
         scope.launch(Dispatchers.IO) {
-            runCatching {
-                PreferenceRepository(appContext.dataStore).readIslandSettingsSnapshot()
-            }.onSuccess(cachedGlobalSettings::set)
-                .onFailure {
-                    logW("failed to refresh cached island settings", it)
-                }
+            appContext.dataStore.data.collect { preferences ->
+                val repo = PreferenceRepository(appContext.dataStore)
+                val snapshot = repo.toSnapshot(preferences)
+                cachedGlobalSettings.set(snapshot)
+                // Force SystemUI to re-render notification icons after preference change.
+                NotificationManagerEx.triggerStatusBarRefresh()
+            }
         }
+    }
+
+    /**
+     * No-op retained for backward compatibility with tests. The Flow collector in
+     * [initialize] already keeps the cache fresh on every DataStore write.
+     */
+    @Suppress("unused")
+    fun refreshAsync(context: Context, scope: CoroutineScope) {
+        // Cache is updated by the Flow collector; nothing to do here.
     }
 
     fun read(
@@ -48,13 +61,18 @@ internal object IslandOptionsSnapshotReader {
     ): IslandOptionsSnapshot {
         val appContext = context.applicationContext ?: context
         val cachedSettings = cachedGlobalSettings.get()
-        if (cacheStarted.get() && cachedSettings == null) {
+        if (initialized.get() && cachedSettings == null) {
             return unavailableSnapshot()
         }
         return runCatching {
-            val settings = cachedSettings ?: runBlocking {
-                PreferenceRepository(appContext.dataStore).readIslandSettingsSnapshot()
-            }
+            val settings = cachedSettings ?: runCatching {
+                // Fallback: synchronous read for callers before Flow emits the first value.
+                kotlinx.coroutines.runBlocking {
+                    val prefs = appContext.dataStore.data.first()
+                    PreferenceRepository(appContext.dataStore).toSnapshot(prefs)
+                }
+            }.getOrNull() ?: return unavailableSnapshot()
+
             val normalizedPackage = packageName?.takeIf { it.isNotBlank() }
             val packageSettings = normalizedPackage?.let {
                 RegisteredApplicationDb.getIslandSettings(it, userId)
@@ -85,13 +103,13 @@ internal object IslandOptionsSnapshotReader {
     )
 
     internal fun updateCachedSettings(settings: IslandSettingsSnapshot) {
-        cacheStarted.set(true)
         cachedGlobalSettings.set(settings)
+        initialized.set(true)
     }
 
     internal fun clearCachedSettings() {
         cachedGlobalSettings.set(null)
-        cacheStarted.set(false)
+        initialized.set(false)
     }
 
     internal fun merge(

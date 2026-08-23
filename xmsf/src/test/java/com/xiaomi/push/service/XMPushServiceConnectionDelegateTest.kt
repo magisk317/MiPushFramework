@@ -1,6 +1,8 @@
 package com.xiaomi.push.service
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
 import com.xiaomi.slim.SlimConnection
 import com.xiaomi.smack.Connection
 import com.xiaomi.smack.ConnectionConfiguration
@@ -24,10 +26,14 @@ class XMPushServiceConnectionDelegateTest {
         val observer = mockk<IPushRuntimeObserver>(relaxed = true)
         val configuration = mockk<ConnectionConfiguration>(relaxed = true)
         val slimConnection = mockk<SlimConnection>(relaxed = true)
+        val connectivityManager = mockk<ConnectivityManager> {
+            every { activeNetwork } returns null
+        }
         var currentConnection: Connection? = null
         every { service.runtimeObserver } returns observer
         every { service.connectionConfiguration } returns configuration
         every { service.slimConnection } returns slimConnection
+        every { service.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
         every { service.currentConnection } answers { currentConnection }
         every { service.currentConnection = any() } answers {
             currentConnection = firstArg()

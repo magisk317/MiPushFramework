@@ -446,7 +446,14 @@ object DeviceInfo {
 
     @JvmStatic
     fun isCharging(context: Context): Boolean {
-        val batteryIntent = context.registerReceiver(null, IntentFilter("android.intent.action.BATTERY_CHANGED"))
+        val batteryIntent = run {
+            val filter = IntentFilter("android.intent.action.BATTERY_CHANGED")
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(null, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(null, filter)
+            }
+        }
         return if (batteryIntent != null) {
             val status = batteryIntent.getIntExtra("status", -1)
             status == 2 || status == 5

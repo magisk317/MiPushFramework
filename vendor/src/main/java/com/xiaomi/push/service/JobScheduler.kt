@@ -77,6 +77,10 @@ class JobScheduler {
 
     fun isBlocked(): Boolean = impl.isBlocked()
 
+    fun blockedForMs(): Long = impl.blockedForMs()
+
+    fun taskCount(): Int = impl.taskCount()
+
     fun purge(): Int {
         synchronized(impl) {
             return impl.purge()

@@ -2,8 +2,6 @@ package com.xiaomi.push.service
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Base64
-import android.util.Pair
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.CollectionUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
@@ -131,7 +129,7 @@ class OnlineConfig private constructor(context: Context) {
         }
         val editor = preferences.edit()
         for (pair in pairs.orEmpty()) {
-            val keyId = pair.first ?: continue
+            val keyId = pair.first
             val customKey = getCustomOcKey(keyId)
             if (pair.second == null) {
                 editor.remove(customKey)
@@ -139,7 +137,7 @@ class OnlineConfig private constructor(context: Context) {
                 putConfig(editor, pair, customKey)
             }
         }
-        editor.commit()
+        editor.apply()
     }
 
     fun updateNormalConfigs(pairs: List<Pair<Int, Any?>>?) {
@@ -148,11 +146,11 @@ class OnlineConfig private constructor(context: Context) {
         }
         val editor = preferences.edit()
         for (pair in pairs.orEmpty()) {
-            val keyId = pair.first ?: continue
+            val keyId = pair.first
             if (pair.second != null) {
                 putConfig(editor, pair, getNormalOcKey(keyId))
             }
         }
-        editor.commit()
+        editor.apply()
     }
 }

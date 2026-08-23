@@ -226,7 +226,12 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     }
 
     fun updateAlarmTimer() {
-        if (!shouldReconnect()) {
+        val shouldReconnect = shouldReconnect()
+        ReconnectDebugLog.w(
+            "update_alarm_timer shouldReconnect=$shouldReconnect alarmAlive=${Alarm.isAlive()} " +
+                "connected=$isConnected connecting=$isConnecting"
+        )
+        if (!shouldReconnect) {
             Alarm.stop()
         } else if (!Alarm.isAlive()) {
             Alarm.registerPing(true)
@@ -334,7 +339,12 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     fun ensureConnectionChangeReceiver() {
         if (connectionChangeReceiver == null) {
             connectionChangeReceiver = ConnectionChangeReceiver(this)
-            registerReceiver(connectionChangeReceiver, IntentFilter(CONNECTIVITY_ACTION))
+            val filter = IntentFilter(CONNECTIVITY_ACTION)
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(connectionChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(connectionChangeReceiver, filter)
+            }
         }
     }
 

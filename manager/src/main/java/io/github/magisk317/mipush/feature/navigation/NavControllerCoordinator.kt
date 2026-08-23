@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.feature.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 /**
  * NavController-based 导航协调器实现
@@ -97,7 +97,7 @@ fun NavController.navigateSafely(
     runCatching {
         navigate(route, navOptions)
     }.onFailure { e ->
-        Napier.e("Failed to navigate to $route", e, tag = "Navigation")
+        Logger.withTag("Navigation").e(e) { "Failed to navigate to $route" }
     }
 }
 

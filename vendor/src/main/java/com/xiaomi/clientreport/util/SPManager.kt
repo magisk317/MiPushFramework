@@ -3,6 +3,7 @@ package com.xiaomi.clientreport.util
 import android.content.Context
 import android.content.SharedPreferences
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class SPManager private constructor(private val mContext: Context) {
 
     companion object {

@@ -7,7 +7,11 @@ import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import java.util.concurrent.atomic.AtomicLong
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Restores the MIUI focus contract for AMap's normal driving foreground notification.
@@ -130,52 +134,65 @@ internal object AmapNavigationFocusCompat {
         highlightCompactRight: Boolean,
     ): String {
         val sequence = FOCUS_SEQUENCE.incrementAndGet()
-        val compactPicture = JSONObject()
-            .put("type", 1)
-            .put("pic", FOCUS_NAVIGATION_PICTURE)
-        val compactLeft = JSONObject()
-            .put("type", 1)
-            .put("picInfo", compactPicture)
-            .put("textInfo", JSONObject().put("title", compactLeftTitle))
-        val compactRight = JSONObject()
-            .put("showHighlightColor", highlightCompactRight)
-            .put("title", compactRightTitle)
-            .apply { compactRightContent?.let { put("content", it) } }
-        val paramV2 = JSONObject()
-            .put("baseInfo", JSONObject()
-                .put("title", baseTitle)
-                .put("content", baseContent)
-                .put("showDivider", false)
-                .put("type", 2))
-            .put("param_island", JSONObject()
-                .put("islandProperty", 1)
-                .put("islandTimeout", NAVIGATION_ISLAND_TIMEOUT)
-                .put("highlightColor", NAVIGATION_HIGHLIGHT_COLOR)
-                .put("bigIslandArea", JSONObject()
-                    .put("imageTextInfoLeft", compactLeft)
-                    .put("textInfo", compactRight))
-                .put("smallIslandArea", JSONObject()
-                    .put("picInfo", JSONObject().put("type", 1))))
-        putCommonFocusFields(paramV2, compactLeftTitle, sequence)
-        return JSONObject().apply {
+        val compactPicture = buildJsonObject {
+            put("type", 1)
+            put("pic", FOCUS_NAVIGATION_PICTURE)
+        }
+        val compactLeft = buildJsonObject {
+            put("type", 1)
+            put("picInfo", compactPicture)
+            put("textInfo", buildJsonObject { put("title", compactLeftTitle) })
+        }
+        val compactRight = buildJsonObject {
+            put("showHighlightColor", highlightCompactRight)
+            put("title", compactRightTitle)
+            compactRightContent?.let { put("content", it) }
+        }
+        val paramV2 = buildJsonObject {
+            put("baseInfo", buildJsonObject {
+                put("title", baseTitle)
+                put("content", baseContent)
+                put("showDivider", false)
+                put("type", 2)
+            })
+            put("param_island", buildJsonObject {
+                put("islandProperty", 1)
+                put("islandTimeout", NAVIGATION_ISLAND_TIMEOUT)
+                put("highlightColor", NAVIGATION_HIGHLIGHT_COLOR)
+                put("bigIslandArea", buildJsonObject {
+                    put("imageTextInfoLeft", compactLeft)
+                    put("textInfo", compactRight)
+                })
+                put("smallIslandArea", buildJsonObject {
+                    put("picInfo", buildJsonObject { put("type", 1) })
+                })
+            })
+            putCommonFocusFields(this, compactLeftTitle, sequence)
+        }
+        return buildJsonObject {
             put("param_v2", paramV2)
             putCommonFocusFields(this, compactLeftTitle, sequence)
         }.toString()
     }
 
-    private fun putCommonFocusFields(target: JSONObject, ticker: String, sequence: Long) {
-        target
-            .put("ticker", ticker)
-            .put("aodPic", FOCUS_NAVIGATION_PICTURE)
-            .put("picInfo", JSONObject().put("type", 1))
-            .put("enableFloat", false)
-            .put("islandFirstFloat", true)
-            .put("timeout", NAVIGATION_FOCUS_TIMEOUT)
-            .put("sequence", sequence)
-            .put("protocol", 1)
-            .put("aodTitle", ticker)
-            .put("updatable", true)
-            .put("notifyId", NAVIGATION_NOTIFY_ID)
+    private fun putCommonFocusFields(
+        builder: kotlinx.serialization.json.JsonObjectBuilder,
+        ticker: String,
+        sequence: Long,
+    ) {
+        builder.apply {
+            put("ticker", ticker)
+            put("aodPic", FOCUS_NAVIGATION_PICTURE)
+            put("picInfo", buildJsonObject { put("type", 1) })
+            put("enableFloat", false)
+            put("islandFirstFloat", true)
+            put("timeout", NAVIGATION_FOCUS_TIMEOUT)
+            put("sequence", sequence)
+            put("protocol", 1)
+            put("aodTitle", ticker)
+            put("updatable", true)
+            put("notifyId", NAVIGATION_NOTIFY_ID)
+        }
     }
 
     private fun parseDriveContent(title: String, content: String): DriveContent? {

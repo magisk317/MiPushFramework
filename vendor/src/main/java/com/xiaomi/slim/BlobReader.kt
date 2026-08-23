@@ -1,6 +1,6 @@
 package com.xiaomi.slim
 
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.misc.DebugUtils
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
@@ -49,10 +49,10 @@ internal class BlobReader(
                 }
                 mConnection.notifyDataArrived(blob2)
             }
-            MyLog.w("[Slim] CONN: host = ${from.host}")
+            Logger.w { "[Slim] CONN: host = ${from.host}" }
         }
         if (!valid) {
-            MyLog.w("[Slim] Invalid CONN")
+            Logger.w { "[Slim] Invalid CONN" }
             throw IOException("Invalid Connection")
         }
         mKey = mConnection.key
@@ -62,7 +62,7 @@ internal class BlobReader(
             val observer = XMPushServiceProxy.get()?.runtimeObserver
             val payloadPlan = observer?.resolveSlimInboundPlan(blob3.channelId, blob3.cmd) ?: PushSlimInboundPlan(PushSlimInboundAction.None)
             
-            payloadPlan.eventAction?.let { MyLog.w("[slim] $it") }
+            payloadPlan.eventAction?.let { Logger.w { "[slim] $it" } }
             
             when (payloadPlan.action) {
                 PushSlimInboundAction.DeliverBlob -> {
@@ -79,19 +79,19 @@ internal class BlobReader(
                             mPacketParser.parse(blob3.getDecryptedPayload(clientLoginInfo.security), mConnection)
                         )
                     } catch (e: Exception) {
-                        MyLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}")
+                        Logger.w(e) { "[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}" }
                     }
                 }
                 PushSlimInboundAction.ParsePacket -> {
                     try {
                         mConnection.notifyDataArrived(mPacketParser.parse(blob3.payload, mConnection))
                     } catch (e: Exception) {
-                        MyLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}")
+                        Logger.w(e) { "[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}" }
                     }
                 }
                 else -> {
                     if (payloadPlan.shouldLogUnknownType) {
-                        MyLog.w("unknown blob type chid=${blob3.channelId}")
+                        Logger.w { "unknown blob type chid=${blob3.channelId}" }
                     }
                 }
             }
@@ -153,7 +153,7 @@ internal class BlobReader(
             }
             return mBuffer
         }
-        MyLog.w("CRC = ${mChecksumTool.value.toInt()} and $crcValue")
+        Logger.w { "CRC = ${mChecksumTool.value.toInt()} and $crcValue" }
         throw IOException("Corrupted Blob bad CRC")
     }
 
@@ -166,12 +166,12 @@ internal class BlobReader(
             buffer.flip()
             buffer.position(8)
             val blob = if (readLen == 8) Ping() else Blob.from(buffer.slice())
-            MyLog.v("[Slim] Read {cmd=${blob.cmd};chid=${blob.channelId};len=$readLen}")
+            Logger.v { "[Slim] Read {cmd=${blob.cmd};chid=${blob.channelId};len=$readLen}" }
             blob
         } catch (e: IOException) {
             var len = if (readLen == 0) mBuffer.position() else readLen
             if (len > 128) len = 128
-            MyLog.w("[Slim] read Blob [${DebugUtils.bytes2Hex(mBuffer.array(), 0, len)}] Err:${e.message}")
+            Logger.w(e) { "[Slim] read Blob [${DebugUtils.bytes2Hex(mBuffer.array(), 0, len)}] Err:${e.message}" }
             throw e
         }
     }

@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.os.SystemClock
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
@@ -96,7 +95,7 @@ object RegistrationStateCompat {
     fun hasValidLocalRegistration(packageName: String): Boolean {
         val paths = registrationArtifactPaths(packageName)
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logD("check local registration, pkg=$packageName, shell uid=$uid")
+        logD { "check local registration, pkg=$packageName, shell uid=$uid" }
         for (path in paths) {
             if (probe(path, useSu = true)) {
                 logI("local registration found via su: $path")
@@ -125,7 +124,7 @@ object RegistrationStateCompat {
     @JvmStatic
     fun hasLocalRegistrationArtifacts(packageName: String): Boolean {
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logD("check local registration artifacts, pkg=$packageName, shell uid=$uid")
+        logD { "check local registration artifacts, pkg=$packageName, shell uid=$uid" }
         return registrationArtifactPaths(packageName).any { path ->
             fileExists(path, useSu = true) || fileExists(path, useSu = false)
         }
@@ -197,11 +196,11 @@ object RegistrationStateCompat {
     @JvmStatic
     fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> {
         val userId = Utils.myUserId()
-        logD("find local registration start: queried=${packages.size} userId=$userId")
+        logD { "find local registration start: queried=${packages.size} userId=$userId" }
         if (packages.isEmpty()) return emptySet()
         val result = linkedSetOf<String>()
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logD("find local registration shell uid=$uid")
+        logD { "find local registration shell uid=$uid" }
         val capability = getRootCapability()
         if (!capability.available && !hasRootProbeAccess(uid)) {
             logI("skip local registration probe: root access unavailable")
@@ -219,7 +218,7 @@ object RegistrationStateCompat {
                 break
             }
             chunkIdx++
-            logD("find local registration processing chunk=$chunkIdx")
+            logD { "find local registration processing chunk=$chunkIdx" }
             val safePackages = chunk.filter { it.matches(SAFE_PACKAGE_NAME) }
             if (safePackages.isEmpty()) continue
             val script = buildBatchProbeScript(safePackages, userId)
@@ -248,7 +247,7 @@ object RegistrationStateCompat {
                 }
             }
         }
-        logD("find local registration done: queried=${packages.size}, matched=${result.size}")
+        logD { "find local registration done: queried=${packages.size}, matched=${result.size}" }
         return result
     }
 
@@ -317,12 +316,12 @@ object RegistrationStateCompat {
             if (secret != null) {
                 Utils.setRegSec(packageName, secret, normalizedUserId)
                 regSecRecoveryMisses.remove(cacheKey)
-                logI("recovered local regSec pkg=$packageName userId=$normalizedUserId")
+                logI { "recovered local regSec pkg=$packageName userId=$normalizedUserId" }
                 return secret
             }
 
             regSecRecoveryMisses[cacheKey] = now
-            logD("local regSec unavailable pkg=$packageName userId=$normalizedUserId")
+            logD { "local regSec unavailable pkg=$packageName userId=$normalizedUserId" }
             return null
         }
     }
@@ -351,13 +350,13 @@ object RegistrationStateCompat {
         val content = out.joinToString("\n")
         if (content.isBlank()) return
         val markers = parseRegistrationMarkers(content)
-        logI(
+        logI {
             "local registration details pkg=$packageName mode=${if (useSu) "su" else "shell"} path=$path " +
                 "xmlValid=${markers.hasXmlValid} xmlRegId=${markers.hasXmlRegId} xmlRegSec=${markers.hasXmlRegSec} " +
                 "kevaValid=${markers.hasKevaValid} kevaRegId=${markers.hasKevaRegId} " +
                 "kevaRegSec=${markers.hasKevaRegSec} kevaAppToken=${markers.hasKevaAppToken} " +
                 "regIdPresent=${markers.regId != null} appTokenPresent=${markers.appToken != null}"
-        )
+        }
     }
 
     private fun parseRegistrationMarkers(content: String): RegistrationMarkers {

@@ -13,7 +13,7 @@ import android.widget.Toast
 import androidx.core.content.edit
 import androidx.annotation.ColorInt
 import androidx.annotation.StringRes
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import java.util.*
@@ -199,7 +199,7 @@ object Utils {
             val sec = preferences?.getString(regSecPreferenceKey(packageName, normalizedUserId), null)
             if (!sec.isNullOrEmpty()) {
                 secrets += sec
-                Napier.d("getRegSecs: found regSec in pref=$prefName pkg=$packageName", tag = "Utils")
+                Logger.withTag("Utils").d { "getRegSecs: found regSec in pref=$prefName pkg=$packageName" }
             } else if (normalizedUserId == 0 && preferences?.contains(packageName) == true) {
                 // Migrate the historical primary-user key without exposing it to other users.
                 preferences.getString(packageName, null)?.takeIf { it.isNotEmpty() }?.let { legacySec ->
@@ -211,27 +211,27 @@ object Utils {
         // Fallback: read regSec from the target app's own mipush SharedPreferences
         if (secrets.isEmpty() && normalizedUserId == myUserId().coerceAtLeast(0)) {
             try {
-                Napier.d("getRegSecs: trying fallback createPackageContext pkg=$packageName", tag = "Utils")
+                Logger.withTag("Utils").d { "getRegSecs: trying fallback createPackageContext pkg=$packageName" }
                 val pkgContext = app.createPackageContext(packageName, 0)
                 val regSec = pkgContext.getSharedPreferences(PREF_MIPUSH, 0)
                     ?.getString("regSec", null)
                 if (!regSec.isNullOrEmpty()) {
                     secrets += regSec
-                    Napier.d("getRegSecs: found regSec via fallback pkg=$packageName", tag = "Utils")
+                    Logger.withTag("Utils").d { "getRegSecs: found regSec via fallback pkg=$packageName" }
                 } else {
-                    Napier.d("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
+                    Logger.withTag("Utils").d { "getRegSecs: fallback found no regSec pkg=$packageName" }
                 }
             } catch (_: PackageManager.NameNotFoundException) {
                 targetPackageMissing = true
                 if (missingRegSecPackageWarnings.add(packageName)) {
-                    Napier.w("getRegSecs: target package not installed pkg=$packageName", tag = "Utils")
+                    Logger.withTag("Utils").w { "getRegSecs: target package not installed pkg=$packageName" }
                 }
             } catch (e: Exception) {
-                Napier.e("getRegSecs: fallback failed pkg=$packageName", e, tag = "Utils")
+                Logger.withTag("Utils").e(e) { "getRegSecs: fallback failed pkg=$packageName" }
             }
         }
         if (secrets.isEmpty() && !targetPackageMissing) {
-            Napier.d("getRegSecs: no regSec found for pkg=$packageName", tag = "Utils")
+            Logger.withTag("Utils").d { "getRegSecs: no regSec found for pkg=$packageName" }
         }
         return secrets.toList()
     }

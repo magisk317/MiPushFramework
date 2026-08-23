@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.job
 
 import android.content.Context
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.clientreport.processor.IWrite
 
 class WriteJob(
@@ -13,7 +13,7 @@ class WriteJob(
         try {
             mWriter.process()
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "WriteJob error" }
         }
     }
 }

@@ -18,7 +18,7 @@ import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -116,7 +116,7 @@ internal object SweetNotificationCoordinator {
             )
         }.onFailure {
             initialized.set(false)
-            Napier.w("failed to register sweet-notification screen receiver", it, tag = TAG)
+            Logger.withTag(TAG).w(it) { "failed to register sweet-notification screen receiver" }
         }
     }
 
@@ -161,10 +161,7 @@ internal object SweetNotificationCoordinator {
             cancelTimeout(context, packageName, notificationId, userId)
         }
         if (decision.suppress) {
-            Napier.d(
-                "suppress repeated sweet notification pkg=$packageName id=$notificationId status=$status",
-                tag = TAG,
-            )
+            Logger.withTag(TAG).d { "suppress repeated sweet notification pkg=$packageName id=$notificationId status=$status" }
         }
         return decision.suppress
     }
@@ -525,7 +522,7 @@ internal object SweetNotificationCoordinator {
             )
             if (!added && activeJobs[id]?.generation == reminder.generation) {
                 activeJobs.remove(id)
-                Napier.w("failed to schedule sweet timeout job=$id", tag = TAG)
+                Logger.withTag(TAG).w { "failed to schedule sweet timeout job=$id" }
             }
         }
     }
@@ -599,7 +596,7 @@ internal object SweetNotificationCoordinator {
                         }
                     }
             }.onFailure {
-                Napier.w("failed to inspect sweet notifications pkg=$packageName", it, tag = TAG)
+                Logger.withTag(TAG).w(it) { "failed to inspect sweet notifications pkg=$packageName" }
             }
         }
     }
@@ -627,7 +624,7 @@ internal object SweetNotificationCoordinator {
                 .setExtras(copiedExtras)
                 .build()
         }.onFailure {
-            Napier.w("failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}", it, tag = TAG)
+            Logger.withTag(TAG).w(it) { "failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}" }
         }.getOrNull() ?: return
         NotificationManagerEx.notify(packageName, active.tag, active.id, restored, active.userId)
     }
@@ -664,24 +661,55 @@ internal object SweetNotificationCoordinator {
         )
     }
 
+    private val memoryMileposts = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val memoryClicked = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val memorySequence = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val migratedFromPreferences = AtomicBoolean(false)
+
+    private fun ensurePreferencesMigrated(context: Context) {
+        if (!migratedFromPreferences.compareAndSet(false, true)) return
+        val spMilepost = context.getSharedPreferences(PREF_MILEPOST_STATUS, Context.MODE_PRIVATE)
+        spMilepost.all.forEach { (k, v) ->
+            if (v is String) memoryMileposts.putIfAbsent(k, v)
+        }
+        val spClicked = context.getSharedPreferences(PREF_CLICKED_STATUS, Context.MODE_PRIVATE)
+        spClicked.all.forEach { (k, v) ->
+            if (v is String) memoryClicked.putIfAbsent(k, v)
+        }
+        val spSequence = context.getSharedPreferences(PREF_SEQUENCE, Context.MODE_PRIVATE)
+        spSequence.all.forEach { (k, v) ->
+            if (v is String) memorySequence.putIfAbsent(k, v)
+        }
+    }
+
     private fun pruneExpiredMilepostsLocked(context: Context, nowMs: Long): Map<String, String> {
-        val preferences = context.getSharedPreferences(PREF_MILEPOST_STATUS, Context.MODE_PRIVATE)
-        val retained = preferences.all.mapNotNull { (key, raw) ->
-            val value = raw as? String
-            if (value == null) {
-                preferences.edit().remove(key).apply()
-                removeString(context, PREF_CLICKED_STATUS, key)
-                return@mapNotNull null
-            }
+        ensurePreferencesMigrated(context)
+        val retained = mutableMapOf<String, String>()
+        val expired = mutableListOf<String>()
+
+        memoryMileposts.forEach { (key, value) ->
             val milepost = parseMilepost(value)
             if (milepost != null && nowMs - milepost.createdAtMs < milepost.durationSeconds * 1_000L) {
-                key to value
+                retained[key] = value
             } else {
-                preferences.edit().remove(key).apply()
-                removeString(context, PREF_CLICKED_STATUS, key)
-                null
+                expired.add(key)
             }
-        }.toMap()
+        }
+
+        if (expired.isNotEmpty()) {
+            val spMilepost = context.getSharedPreferences(PREF_MILEPOST_STATUS, Context.MODE_PRIVATE)
+            val spClicked = context.getSharedPreferences(PREF_CLICKED_STATUS, Context.MODE_PRIVATE)
+            val milepostEditor = spMilepost.edit()
+            val clickedEditor = spClicked.edit()
+            expired.forEach { key ->
+                memoryMileposts.remove(key)
+                memoryClicked.remove(key)
+                milepostEditor.remove(key)
+                clickedEditor.remove(key)
+            }
+            milepostEditor.apply()
+            clickedEditor.apply()
+        }
         return retained
     }
 
@@ -711,10 +739,24 @@ internal object SweetNotificationCoordinator {
     }
 
     private fun readString(context: Context, preferences: String, key: String): String? {
+        ensurePreferencesMigrated(context)
+        val inMemory = when (preferences) {
+            PREF_MILEPOST_STATUS -> memoryMileposts[key]
+            PREF_CLICKED_STATUS -> memoryClicked[key]
+            PREF_SEQUENCE -> memorySequence[key]
+            else -> null
+        }
+        if (inMemory != null) return inMemory
         return context.getSharedPreferences(preferences, Context.MODE_PRIVATE).getString(key, null)
     }
 
     private fun writeString(context: Context, preferences: String, key: String, value: String) {
+        ensurePreferencesMigrated(context)
+        when (preferences) {
+            PREF_MILEPOST_STATUS -> memoryMileposts[key] = value
+            PREF_CLICKED_STATUS -> memoryClicked[key] = value
+            PREF_SEQUENCE -> memorySequence[key] = value
+        }
         context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
             .edit()
             .putString(key, value)
@@ -722,6 +764,12 @@ internal object SweetNotificationCoordinator {
     }
 
     private fun removeString(context: Context, preferences: String, key: String) {
+        ensurePreferencesMigrated(context)
+        when (preferences) {
+            PREF_MILEPOST_STATUS -> memoryMileposts.remove(key)
+            PREF_CLICKED_STATUS -> memoryClicked.remove(key)
+            PREF_SEQUENCE -> memorySequence.remove(key)
+        }
         context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
             .edit()
             .remove(key)

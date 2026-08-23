@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.os.Build
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.file.IOUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 import com.xiaomi.clientreport.data.ClientReportConstants
@@ -56,7 +54,7 @@ object ClientReportUtil {
             try {
                 file.length() <= maxFileLength
             } catch (e: Exception) {
-                MyLog.e(e)
+                Logger.e(e) { "isFileCanBeUse error" }
                 false
             }
         } else {
@@ -71,7 +69,7 @@ object ClientReportUtil {
                 .getPackageInfo("com.xiaomi.xmsf", 0)
             getVersionCode(packageInfo) >= 108
         } catch (e: PackageManager.NameNotFoundException) {
-            e.printStackTrace()
+            Logger.w { "xmsf not found: ${e.message}" }
             false
         }
     }
@@ -109,13 +107,13 @@ object ClientReportUtil {
                         file.delete()
                     }
                 } catch (e: Exception) {
-                    MyLog.e(e)
+                    Logger.e(e) { "moveFiles error" }
                 } finally {
                     if (fileLock != null && fileLock.isValid) {
                         try {
                             fileLock.release()
                         } catch (e: IOException) {
-                            MyLog.e(e)
+                            Logger.e(e) { "release lock error" }
                         }
                     }
                     IOUtils.closeQuietly(randomAccessFile)
@@ -143,7 +141,7 @@ object ClientReportUtil {
                 (PackageInfo::class.java.getField("versionCode")
                     .get(packageInfo) as Number).toLong()
             } catch (e: ReflectiveOperationException) {
-                MyLog.e(e)
+                Logger.e(e) { "getVersionCode error" }
                 0L
             }
         }

@@ -103,13 +103,15 @@ class XMPushServiceLifecycleInfrastructure(
         if (range.size < 2) return
         val receiver = ScreenStateReceiver(service)
         service.screenStateReceiver = receiver
-        service.registerReceiver(
-            receiver,
-            IntentFilter().apply {
-                addAction("android.intent.action.SCREEN_ON")
-                addAction("android.intent.action.SCREEN_OFF")
-            },
-        )
+        val filter = IntentFilter().apply {
+            addAction("android.intent.action.SCREEN_ON")
+            addAction("android.intent.action.SCREEN_OFF")
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            service.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            service.registerReceiver(receiver, filter)
+        }
         service.setFalldownWindow(range[0], range[1])
         MyLog.w("falldown initialized: ${range[0]},${range[1]}")
     }

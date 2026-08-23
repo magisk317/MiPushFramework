@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -22,6 +21,7 @@ import com.xiaomi.xmpush.thrift.ConfigKey
  * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/JobController.java
  * Stock class name is obfuscated as u9.e; this file keeps the deobfuscated JobController scheduler API.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class JobController private constructor(private val context: Context) {
     private fun makeSurePeriodNotTooSmall(period: Int): Int = maxOf(60, period)
 
@@ -44,7 +44,7 @@ class JobController private constructor(private val context: Context) {
         val currentTime = System.currentTimeMillis()
         var firstTryTs = sharedPreferences.getLong(KEY_FIRST_TRY_COLLECT_TIMESTAMP, currentTime)
         if (firstTryTs == currentTime) {
-            sharedPreferences.edit().putLong(KEY_FIRST_TRY_COLLECT_TIMESTAMP, currentTime).commit()
+            sharedPreferences.edit().putLong(KEY_FIRST_TRY_COLLECT_TIMESTAMP, currentTime).apply()
         }
         if (kotlin.math.abs(currentTime - firstTryTs) < FIRST_COLLECT_JOB_DELAY) return
 
@@ -59,7 +59,7 @@ class JobController private constructor(private val context: Context) {
 
         val appInstalledSwitch = onlineConfig.getBooleanValue(ConfigKey.AppIsInstalledCollectionSwitch.value, false)
         val appInstalledList = onlineConfig.getStringValue(ConfigKey.AppIsInstalledList.value, "") ?: ""
-        if (appInstalledSwitch && !TextUtils.isEmpty(appInstalledList)) {
+        if (appInstalledSwitch && appInstalledList.isNotEmpty()) {
             val period = makeSurePeriodNotTooSmall(
                 onlineConfig.getIntValue(ConfigKey.AppIsInstalledCollectionFrequency.value, 86400)
             )

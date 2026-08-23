@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.service.runtime
 
 import android.os.Binder
 import android.os.IBinder
+import co.touchlab.kermit.Logger
 import android.os.Parcel
-import android.util.Log
 
 /**
  * Hidden-API-free-at-compile-time registration for Android's process observer Binder.
@@ -34,10 +34,10 @@ internal class ProcessObserverCompat(
             )
             transactObserver(activityManager, layout.activityManagerDescriptor, layout.register, observer)
             registration = Registration(activityManager, observer, layout)
-            Log.i(TAG, "Registered process observer with runtime transaction layout")
+            Logger.withTag(TAG).i { "Registered process observer with runtime transaction layout" }
             true
         }.onFailure {
-            Log.w(TAG, "Process observer unavailable; keep-alive will use polling", it)
+            Logger.withTag(TAG).w(it) { "Process observer unavailable; keep-alive will use polling" }
         }.getOrDefault(false)
     }
 
@@ -53,7 +53,7 @@ internal class ProcessObserverCompat(
                 current.observer,
             )
         }.onFailure {
-            Log.w(TAG, "Failed to unregister process observer", it)
+            Logger.withTag(TAG).w(it) { "Failed to unregister process observer" }
         }
     }
 

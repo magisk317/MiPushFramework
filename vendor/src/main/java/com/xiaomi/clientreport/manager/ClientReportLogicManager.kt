@@ -1,8 +1,8 @@
 package com.xiaomi.clientreport.manager
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobConstants
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.channel.commonutils.string.XMStringUtils
@@ -19,6 +19,7 @@ import com.xiaomi.clientreport.util.ClientReportUtil
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class ClientReportLogicManager private constructor(private val mContext: Context) {
 
     companion object {
@@ -195,7 +196,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
         try {
             mEventProcessor?.process()
         } catch (e: Exception) {
-            MyLog.e("we: ${e.message}")
+            Logger.e(e) { "we: ${e.message}" }
         }
     }
 
@@ -203,7 +204,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
         try {
             mPerfProcessor?.process()
         } catch (e: Exception) {
-            MyLog.e("wp: ${e.message}")
+            Logger.e(e) { "wp: ${e.message}" }
         }
     }
 
@@ -299,7 +300,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
             ScheduledJobManager.getInstance(mContext)
                 .cancelJob(ScheduledJobConstants.EVENT_UPLOAD_JOB_ID)
         } else if (eventUploadFrequency != configBuild.eventUploadFrequency) {
-            MyLog.v("${mContext.packageName} reset event job ${configBuild.eventUploadFrequency}")
+            Logger.v { "${mContext.packageName} reset event job ${configBuild.eventUploadFrequency}" }
             startEventUploadJob()
         }
         if (!mConfig!!.isPerfUploadSwitchOpen) {
@@ -308,7 +309,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
             return
         }
         if (perfUploadFrequency != configBuild.perfUploadFrequency) {
-            MyLog.v("${mContext.packageName} reset perf job ${configBuild.perfUploadFrequency}")
+            Logger.v { "${mContext.packageName} reset perf job ${configBuild.perfUploadFrequency}" }
             startPerfUploadJob()
         }
     }

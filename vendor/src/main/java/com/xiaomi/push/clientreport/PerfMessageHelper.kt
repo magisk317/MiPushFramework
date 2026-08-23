@@ -1,7 +1,6 @@
 package com.xiaomi.push.clientreport
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.clientReport.PushClientReportHelper
 import com.xiaomi.push.service.clientReport.PushClientReportManager
@@ -98,7 +97,7 @@ abstract class PerfMessageHelper {
                 when (tBase) {
                     is XmPushActionAckNotification -> {
                         val type = tBase.type
-                        if (!TextUtils.isEmpty(type)) {
+                        if (!type.isNullOrEmpty()) {
                             val notificationType = PushClientReportHelper.changeValueToNotificationType(type)
                             val code = PushClientReportHelper.changeOrdinalToCode(notificationType)
                             if (code != -1) code else fallback
@@ -109,7 +108,7 @@ abstract class PerfMessageHelper {
 
                     is XmPushActionNotification -> {
                         val type = tBase.type
-                        if (!TextUtils.isEmpty(type)) {
+                        if (!type.isNullOrEmpty()) {
                             val notificationType = PushClientReportHelper.changeValueToNotificationType(type)
                             val code = PushClientReportHelper.changeOrdinalToCode(notificationType)
                             when {
@@ -140,7 +139,7 @@ abstract class PerfMessageHelper {
                     is XmPushActionCommand -> tBase.getCmdName()
                     else -> null
                 }
-                if (!TextUtils.isEmpty(cmdName)) {
+                if (!cmdName.isNullOrEmpty()) {
                     val code = Command.getCode(cmdName)
                     if (code != -1) code else fallback
                 } else {

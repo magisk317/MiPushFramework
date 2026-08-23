@@ -1,7 +1,6 @@
 package com.xiaomi.push.mpcd.job
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.push.mpcd.Constants
 import com.xiaomi.xmpush.thrift.ClientCollectionType
 
@@ -15,7 +14,7 @@ import com.xiaomi.xmpush.thrift.ClientCollectionType
 class BroadcastActionCollectionjob(context: Context, period: Int) : CollectionJob(context, period) {
 
     private fun shrinkActionInfo(prefix: String, actions: String): String {
-        if (TextUtils.isEmpty(actions) || TextUtils.isEmpty(prefix)) return ""
+        if (actions.isEmpty() || prefix.isEmpty()) return ""
         val parts = actions.split(",")
         if (parts.size <= 10) return actions
         var result = ""

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import io.github.magisk317.mipush.hook.HookedMethodHandler
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
@@ -34,7 +35,7 @@ class ModernHookHandler : HookedMethodHandler {
     ) {
         HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
         XMPushServiceLifecycleBridge.ensureCreated(pushService)
-        io.github.aakira.napier.Napier.d("postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}", tag = "ModernHookHandler")
+        Logger.withTag("ModernHookHandler").d { "postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}" }
         newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
             ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
         MiPushRuntimeBridge.onTransferToApplication(payload)
@@ -110,7 +111,7 @@ class ModernHookHandler : HookedMethodHandler {
         packetBytesLen: Long
     ) {
         HookTraceCompat.processMIPushMessage(packetBytesLen, "ModernHookHandler.processMIPushMessage")
-        io.github.aakira.napier.Napier.d("processMIPushMessage: calling onPayloadFromServer payload.size=${decryptedContent.size}", tag = "ModernHookHandler")
+        Logger.withTag("ModernHookHandler").d { "processMIPushMessage: calling onPayloadFromServer payload.size=${decryptedContent.size}" }
         MiPushRuntimeBridge.onPayloadFromServer(
             pushService,
             decryptedContent,

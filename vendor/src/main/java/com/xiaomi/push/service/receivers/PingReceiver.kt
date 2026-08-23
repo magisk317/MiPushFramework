@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.ServiceClientIntentSupport
@@ -25,7 +24,7 @@ class PingReceiver : BroadcastReceiver() {
         if (PushConstants.ACTION_PING_TIMER != intent.action) {
             MyLog.w("cancel the old ping timer")
             Alarm.stop()
-        } else if (TextUtils.equals(context.packageName, intent.`package`)) {
+        } else if (context.packageName == intent.`package`) {
             MyLog.v("Ping XMChannelService on timer")
             try {
                 val serviceIntent = Intent().apply {

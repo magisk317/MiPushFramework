@@ -9,8 +9,6 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants

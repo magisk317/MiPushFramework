@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered

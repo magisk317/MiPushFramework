@@ -1,6 +1,6 @@
 package com.xiaomi.measite.smack
 
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.push.mpcd.Constants
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
@@ -18,7 +18,7 @@ import java.util.Date
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/measite/smack/AndroidDebugger.java
  */
 class AndroidDebugger(private val connection: Connection) : SmackDebugger {
-    private val dateFormatter = SimpleDateFormat("hh:mm:ss aaa")
+    private val dateFormatter = SimpleDateFormat("hh:mm:ss aaa", java.util.Locale.US)
     private var readListener: Listener? = null
     private var writeListener: Listener? = null
     private var connListener: ConnectionListener? = null
@@ -31,24 +31,24 @@ class AndroidDebugger(private val connection: Connection) : SmackDebugger {
 
         override fun process(blob: Blob) {
             if (printInterpreted) {
-                MyLog.v(tag + dateFormatter.format(Date()) + rcvOrSent + blob.toString())
+                Logger.v { tag + dateFormatter.format(Date()) + rcvOrSent + blob.toString() }
                 return
             }
-            MyLog.v(
+            Logger.v {
                 tag + dateFormatter.format(Date()) + rcvOrSent +
                     " Blob [" + blob.cmd + "," + blob.channelId + "," + blob.packetID + "]"
-            )
+            }
         }
 
         override fun processPacket(packet: Packet) {
             if (printInterpreted) {
-                MyLog.v(tag + dateFormatter.format(Date()) + rcvOrSent + " PKT " + packet.toXML())
+                Logger.v { tag + dateFormatter.format(Date()) + rcvOrSent + " PKT " + packet.toXML() }
                 return
             }
-            MyLog.v(
+            Logger.v {
                 tag + dateFormatter.format(Date()) + rcvOrSent +
                     " PKT [" + packet.channelId + "," + packet.packetID + "]"
-            )
+            }
         }
     }
 
@@ -69,20 +69,19 @@ class AndroidDebugger(private val connection: Connection) : SmackDebugger {
         }
         connListener = object : ConnectionListener {
             override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
-                MyLog.v(tag + dateFormatter.format(Date()) + " Connection closed (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
+                Logger.v { tag + dateFormatter.format(Date()) + " Connection closed (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
             }
 
             override fun connectionStarted(connection: Connection) {
-                MyLog.v(tag + dateFormatter.format(Date()) + " Connection started (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
+                Logger.v { tag + dateFormatter.format(Date()) + " Connection started (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
             }
 
             override fun reconnectionFailed(connection: Connection, error: Exception) {
-                MyLog.v(tag + dateFormatter.format(Date()) + " Reconnection failed due to an exception (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
-                error.printStackTrace()
+                Logger.v(error) { tag + dateFormatter.format(Date()) + " Reconnection failed due to an exception (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
             }
 
             override fun reconnectionSuccessful(connection: Connection) {
-                MyLog.v(tag + dateFormatter.format(Date()) + " Connection reconnected (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
+                Logger.v { tag + dateFormatter.format(Date()) + " Connection reconnected (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
             }
         }
     }

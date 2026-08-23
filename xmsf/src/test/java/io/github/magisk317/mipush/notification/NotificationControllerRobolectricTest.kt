@@ -22,7 +22,12 @@ import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import kotlinx.coroutines.runBlocking
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -278,10 +283,10 @@ class NotificationControllerRobolectricTest {
         )
 
         assertNotNull(focusBundle)
-        val focusParam = JSONObject(focusBundle!!.getString("miui.focus.param")!!)
-        val paramV2 = focusParam.optJSONObject("param_v2") ?: focusParam
-        assertFalse(paramV2.optBoolean("isShowNotification", false))
-        assertFalse(paramV2.optBoolean("showNotification", false))
+        val focusParam = Json.parseToJsonElement(focusBundle!!.getString("miui.focus.param")!!).jsonObject
+        val paramV2 = focusParam["param_v2"]?.jsonObject ?: focusParam
+        assertFalse(paramV2["isShowNotification"]?.jsonPrimitive?.booleanOrNull ?: false)
+        assertFalse(paramV2["showNotification"]?.jsonPrimitive?.booleanOrNull ?: false)
     }
 
     @Test
@@ -303,15 +308,12 @@ class NotificationControllerRobolectricTest {
         assertNotNull(focusBundle)
         val focusParam = focusBundle!!.getString("miui.focus.param")
         assertNotNull(focusParam)
-        val paramV2 = JSONObject(focusParam!!).getJSONObject("param_v2")
-        assertFalse(paramV2.has("baseInfo"))
-        assertTrue(paramV2.has("iconTextInfo"))
+        val paramV2 = Json.parseToJsonElement(focusParam!!).jsonObject["param_v2"]!!.jsonObject
+        assertFalse(paramV2.containsKey("baseInfo"))
+        assertTrue(paramV2.containsKey("iconTextInfo"))
         assertEquals(
             "miui.focus.pic_mipush_icon",
-            paramV2
-                .getJSONObject("iconTextInfo")
-                .getJSONObject("animIconInfo")
-                .getString("src"),
+            paramV2["iconTextInfo"]!!.jsonObject["animIconInfo"]!!.jsonObject["src"]!!.jsonPrimitive.content,
             )
     }
 
@@ -332,32 +334,30 @@ class NotificationControllerRobolectricTest {
         )
 
         assertNotNull(focusBundle)
-        val paramV2 = JSONObject(focusBundle!!.getString("miui.focus.param")!!)
-            .getJSONObject("param_v2")
-        assertFalse(paramV2.has("highlightInfo"))
-        assertFalse(paramV2.has("hintInfo"))
-        assertTrue(paramV2.has("iconTextInfo"))
+        val paramV2 = Json.parseToJsonElement(focusBundle!!.getString("miui.focus.param")!!)
+            .jsonObject["param_v2"]!!.jsonObject
+        assertFalse(paramV2.containsKey("highlightInfo"))
+        assertFalse(paramV2.containsKey("hintInfo"))
+        assertTrue(paramV2.containsKey("iconTextInfo"))
         assertEquals(
             metaInfo.title,
-            paramV2.getJSONObject("iconTextInfo").getString("title"),
+            paramV2["iconTextInfo"]!!.jsonObject["title"]!!.jsonPrimitive.content,
         )
         assertEquals(
             metaInfo.description,
-            paramV2.getJSONObject("iconTextInfo").getString("content"),
+            paramV2["iconTextInfo"]!!.jsonObject["content"]!!.jsonPrimitive.content,
         )
 
-        val bigIslandArea = paramV2
-            .getJSONObject("param_island")
-            .getJSONObject("bigIslandArea")
-        assertFalse(bigIslandArea.has("imageTextInfoRight"))
-        val left = bigIslandArea.getJSONObject("imageTextInfoLeft")
+        val bigIslandArea = paramV2["param_island"]!!.jsonObject["bigIslandArea"]!!.jsonObject
+        assertFalse(bigIslandArea.containsKey("imageTextInfoRight"))
+        val left = bigIslandArea["imageTextInfoLeft"]!!.jsonObject
         assertEquals(
             "miui.focus.pic_mipush_icon",
-            left.getJSONObject("picInfo").getString("pic"),
+            left["picInfo"]!!.jsonObject["pic"]!!.jsonPrimitive.content,
         )
-        val textInfo = left.getJSONObject("textInfo")
-        assertEquals(metaInfo.title, textInfo.getString("title"))
-        assertEquals(metaInfo.description, textInfo.getString("content"))
+        val textInfo = left["textInfo"]!!.jsonObject
+        assertEquals(metaInfo.title, textInfo["title"]!!.jsonPrimitive.content)
+        assertEquals(metaInfo.description, textInfo["content"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -388,11 +388,10 @@ class NotificationControllerRobolectricTest {
         assertNotNull(focusBundle)
         val focusParam = focusBundle!!.getString("miui.focus.param")
         assertNotNull(focusParam)
-        val actionInfo = JSONObject(focusParam!!)
-            .getJSONObject("param_v2")
-            .getJSONObject("hintInfo")
-            .getJSONObject("actionInfo")
-        assertEquals(1, actionInfo.getInt("actionIntentType"))
+        val actionInfo = Json.parseToJsonElement(focusParam!!).jsonObject["param_v2"]!!
+            .jsonObject["hintInfo"]!!
+            .jsonObject["actionInfo"]!!.jsonObject
+        assertEquals(1, actionInfo["actionIntentType"]!!.jsonPrimitive.int)
         val action = focusBundle
             .getBundle("miui.focus.actions")
             ?.parcelable<Notification.Action>("miui.focus.action_mipush_open")
@@ -1064,14 +1063,13 @@ class NotificationControllerRobolectricTest {
     private fun Notification.priorityForTest(): Int = priority
 
     private fun assertFocusSequenceEnabled(focusParam: String) {
-        val paramV2 = JSONObject(focusParam).getJSONObject("param_v2")
-        assertTrue(paramV2.getBoolean("enableFloat"))
-        assertTrue(paramV2.getBoolean("islandFirstFloat"))
+        val paramV2 = Json.parseToJsonElement(focusParam).jsonObject["param_v2"]!!.jsonObject
+        assertTrue(paramV2["enableFloat"]!!.jsonPrimitive.boolean)
+        assertTrue(paramV2["islandFirstFloat"]!!.jsonPrimitive.boolean)
         assertTrue(
-            paramV2.optBoolean(
-                "isShowNotification",
-                paramV2.optBoolean("showNotification", false),
-            )
+            paramV2["isShowNotification"]?.jsonPrimitive?.booleanOrNull
+                ?: paramV2["showNotification"]?.jsonPrimitive?.booleanOrNull
+                ?: false,
         )
     }
 

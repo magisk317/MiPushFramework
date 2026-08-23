@@ -2,8 +2,9 @@ package io.github.magisk317.mipush.utils
 
 import android.app.Application
 import android.content.Context
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
+import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -49,7 +50,7 @@ class LogUtilsRobolectricTest {
 
     @Test
     fun `app logs are written as jsonl with daily aggregate file`() {
-        Napier.i("hello token=secret", tag = "DiagTest")
+        Logger.withTag("DiagTest").i { "hello token=secret" }
 
         val summary = LogUtils.summarizeFiles(context)
         val aggregate = summary.files.firstOrNull { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) }
@@ -72,7 +73,7 @@ class LogUtilsRobolectricTest {
     fun `sensitive debug mode explicitly permits plaintext local logs`() {
         LogSanitizerConfig.setEnabled(false)
 
-        Napier.i("token=debug-secret", tag = "DiagSensitive")
+        Logger.withTag("DiagSensitive").i { "token=debug-secret" }
 
         val aggregate = LogUtils.summarizeFiles(context).files
             .first { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) }
@@ -104,11 +105,33 @@ class LogUtilsRobolectricTest {
 
     @Test
     fun `app logs do not write redundant app route file`() {
-        Napier.i("route trim check", tag = "DiagRoute")
+        Logger.withTag("DiagRoute").i { "route trim check" }
 
         val summary = LogUtils.summarizeFiles(context)
         assertTrue(summary.files.any { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) })
         assertFalse(summary.files.any { it.name.matches(Regex("""runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl""")) })
+    }
+
+    @Test
+    fun `readLogFile retains only the requested tail without loading all lines`() {
+        val logDir = LogBundleExporter.getLogDir(context)
+        val currentDate = LogUtils.currentDateString(Date())
+        val file = File(logDir, "runtime.$currentDate.jsonl").apply {
+            writeText(
+                (1..5_000).joinToString("\n", postfix = "\n") { index ->
+                    "{\"message\":\"line-$index\"}"
+                },
+            )
+        }
+
+        val content = LogUtils.readLogFile(context, file.name, maxLines = 3)
+
+        assertNotNull(content)
+        assertEquals(3, content!!.displayedLineCount)
+        assertTrue(content.truncated)
+        assertTrue(content.text.contains("\"message\":\"line-4998\""))
+        assertTrue(content.text.contains("\"message\":\"line-5000\""))
+        assertFalse(content.text.contains("\"message\":\"line-1\""))
     }
 
     @Test
@@ -129,7 +152,7 @@ class LogUtilsRobolectricTest {
 
     @Test
     fun `runtime log file can be deleted by name`() {
-        Napier.i("delete me", tag = "DiagDelete")
+        Logger.withTag("DiagDelete").i { "delete me" }
         val file = LogUtils.summarizeFiles(context).files.first { it.name.startsWith("runtime.") }
 
         assertTrue(LogUtils.deleteRuntimeLogFile(context, file.name))
@@ -226,9 +249,9 @@ class LogUtilsRobolectricTest {
         File(crashDir, "Crash_$currentDate.txt").writeText(
             "ipc_token=secret token=plain phone=13800138000 sender=13800138000 code=123456",
         )
-        Napier.i("ipc_token=secret token=plain phone=13800138000", tag = "token-test")
+        Logger.withTag("token-test").i { "ipc_token=secret token=plain phone=13800138000" }
 
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.STANDARD)
 
         val zip = result.file
         assertNotNull(zip)
@@ -261,7 +284,7 @@ class LogUtilsRobolectricTest {
         File(logDir, "runtime.sms_hook.$currentDate.jsonl")
             .writeText("""{"time":"2026-05-12 10:00:00.000","route":"sms_hook","message":"module"}""")
 
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.STANDARD)
 
         val zip = result.file
         assertNotNull(zip)
@@ -310,10 +333,27 @@ class LogUtilsRobolectricTest {
         val rootAccess = RecordingRootAccess(granted = false)
         LogBundleExporter.rootCommandAccess = rootAccess
 
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.STANDARD)
+
+        assertNotNull(result.file)
+        assertTrue(result.details.contains("export mode=STANDARD"))
+        assertEquals(emptyList<String>(), rootAccess.commands)
+    }
+
+    @Test
+    fun `standard export skips root heavy diagnostics even when root is granted`() {
+        val currentDate = LogUtils.currentDateString(Date())
+        File(LogBundleExporter.getLogDir(context), "runtime.$currentDate.jsonl")
+            .writeText("""{"timestamp":1,"message":"hello"}""")
+        val rootAccess = RecordingRootAccess(granted = true)
+        LogBundleExporter.rootCommandAccess = rootAccess
+
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.STANDARD)
 
         assertNotNull(result.file)
         assertEquals(emptyList<String>(), rootAccess.commands)
+        assertTrue(result.details.contains("lsposed diagnostics skipped in standard mode"))
+        assertTrue(result.details.contains("xmsf keeper diagnostics skipped in standard mode"))
     }
 
     @Test
@@ -342,7 +382,7 @@ class LogUtilsRobolectricTest {
         }
         LogBundleExporter.rootCommandAccess = rootAccess
 
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.FULL)
 
         val zip = result.file
         assertNotNull(zip)

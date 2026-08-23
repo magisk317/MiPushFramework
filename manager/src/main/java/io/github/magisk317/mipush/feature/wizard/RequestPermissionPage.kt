@@ -49,8 +49,6 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import android.widget.Toast
 import io.github.magisk317.mipush.feature.wizard.support.DisplayOnlyPhonyPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.support.FinishedPhonyPermissionInfo

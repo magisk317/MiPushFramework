@@ -20,7 +20,7 @@ object PreferenceUtils {
 
     @JvmStatic
     fun clearPreference(sharedPreferences: SharedPreferences) {
-        sharedPreferences.edit().clear().commit()
+        sharedPreferences.edit().clear().apply()
     }
 
     @JvmStatic
@@ -88,17 +88,17 @@ object PreferenceUtils {
 
     @JvmStatic
     fun increaseSettingInt(sharedPreferences: SharedPreferences, str: String) {
-        sharedPreferences.edit().putInt(str, sharedPreferences.getInt(str, 0) + 1).commit()
+        sharedPreferences.edit().putInt(str, sharedPreferences.getInt(str, 0) + 1).apply()
     }
 
     @JvmStatic
     fun increaseSettingInt(sharedPreferences: SharedPreferences, str: String, i: Int) {
-        sharedPreferences.edit().putInt(str, sharedPreferences.getInt(str, 0) + i).commit()
+        sharedPreferences.edit().putInt(str, sharedPreferences.getInt(str, 0) + i).apply()
     }
 
     @JvmStatic
     fun increaseSettingLong(sharedPreferences: SharedPreferences, str: String, j: Long) {
-        sharedPreferences.edit().putLong(str, sharedPreferences.getLong(str, 0L) + j).commit()
+        sharedPreferences.edit().putLong(str, sharedPreferences.getLong(str, 0L) + j).apply()
     }
 
     @JvmStatic
@@ -112,37 +112,37 @@ object PreferenceUtils {
     @JvmStatic
     fun removePreference(context: Context, str: String) {
         checkProcess(context)
-        getDefaultSharedPreferences(context).edit().remove(str).commit()
+        getDefaultSharedPreferences(context).edit().remove(str).apply()
     }
 
     @JvmStatic
     fun setSettingBoolean(context: Context, str: String, z: Boolean) {
         checkProcess(context)
-        getDefaultSharedPreferences(context).edit().putBoolean(str, z).commit()
+        getDefaultSharedPreferences(context).edit().putBoolean(str, z).apply()
     }
 
     @JvmStatic
     fun setSettingFloat(context: Context, str: String, f: Float) {
         checkProcess(context)
-        getDefaultSharedPreferences(context).edit().putFloat(str, f).commit()
+        getDefaultSharedPreferences(context).edit().putFloat(str, f).apply()
     }
 
     @JvmStatic
     fun setSettingInt(context: Context, str: String, i: Int) {
         checkProcess(context)
-        getDefaultSharedPreferences(context).edit().putInt(str, i).commit()
+        getDefaultSharedPreferences(context).edit().putInt(str, i).apply()
     }
 
     @JvmStatic
     fun setSettingInt(sharedPreferences: SharedPreferences, str: String, i: Int) {
-        sharedPreferences.edit().putInt(str, i).commit()
+        sharedPreferences.edit().putInt(str, i).apply()
     }
 
     @JvmStatic
     fun setSettingLong(context: Context, str: String, j: Long) {
         try {
             checkProcess(context)
-            getDefaultSharedPreferences(context).edit().putLong(str, j).commit()
+            getDefaultSharedPreferences(context).edit().putLong(str, j).apply()
         } catch (e: Exception) {
             MyLog.e(e)
         }
@@ -151,6 +151,6 @@ object PreferenceUtils {
     @JvmStatic
     fun setSettingString(context: Context, str: String, str2: String?) {
         checkProcess(context)
-        getDefaultSharedPreferences(context).edit().putString(str, str2).commit()
+        getDefaultSharedPreferences(context).edit().putString(str, str2).apply()
     }
 }

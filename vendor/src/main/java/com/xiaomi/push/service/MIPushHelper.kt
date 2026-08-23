@@ -234,7 +234,7 @@ object MIPushHelper {
         if (connection == null) {
             throw XMPPException("try send msg while connection is null.")
         }
-        if (!connection.isBinaryConnection()) {
+        if (!connection.isBinaryConnection) {
             throw XMPPException("Don't support XMPP connection.")
         }
         return connection

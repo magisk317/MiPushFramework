@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
+import co.touchlab.kermit.Logger
 import androidx.sqlite.db.SimpleSQLiteQuery
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
@@ -33,7 +32,7 @@ object EventDb {
     }
 
     suspend fun insertEventAsync(event: Event): Long {
-        Napier.d("insertEvent() called with: $event", tag = "EventDb")
+        Logger.withTag("EventDb").d { "insertEvent() called with: $event" }
         event.userId = currentUserId()
         if (event.type == Event.Type.SendMessage) {
             Utils.setLastReceiveTime(event.pkg, event.date, event.userId)
@@ -48,7 +47,7 @@ object EventDb {
         eventDao.getById(id, userId.coerceAtLeast(0))
 
     suspend fun insertOrReplaceEventAsync(event: Event): Long {
-        Napier.d("insertOrReplaceEvent() called with: $event", tag = "EventDb")
+        Logger.withTag("EventDb").d { "insertOrReplaceEvent() called with: $event" }
         event.userId = currentUserId()
         if (event.type == Event.Type.SendMessage) {
             Utils.setLastReceiveTime(event.pkg, event.date, event.userId)

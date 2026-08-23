@@ -1,6 +1,5 @@
 package com.xiaomi.smack.util
 
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import java.util.Random
 
@@ -152,10 +151,10 @@ object StringUtils {
 
     @JvmStatic
     fun stripInvalidXMLChars(str: String?): String? {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isNullOrEmpty()) {
             return str
         }
-        val sb = StringBuilder(str!!.length)
+        val sb = StringBuilder(str.length)
         for (c in str) {
             if (isValidXmlChar(c)) {
                 sb.append(c)

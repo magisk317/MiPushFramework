@@ -24,6 +24,9 @@ import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRe
 import io.github.magisk317.mipush.notification.XmsfNotificationAvailabilityReader
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.AppDatabase
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeStoreDatabase
+import io.github.magisk317.mipush.runtime.store.kmp.configureRuntimeStoreKmp
+import io.github.magisk317.mipush.runtime.archive.RuntimeArchiveRepository
 import io.github.magisk317.mipush.service.runtime.RuntimeProcessorBindings
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.MiPushEventListener
@@ -44,6 +47,14 @@ val xmsfCoreKoinModule = module {
     single<AppDatabase> { DatabaseUtils.getDatabase(androidContext()) }
     single { get<AppDatabase>().eventDao() }
     single { get<AppDatabase>().registeredApplicationDao() }
+
+    // KMP shadow database for cross-platform feature validation (Plan B parallel-run).
+    // Uses a separate file (runtime-store-kmp-shadow.db) to avoid conflicting with AppDatabase.
+    single<RuntimeStoreDatabase> { configureRuntimeStoreKmp(androidContext()) }
+    single { get<RuntimeStoreDatabase>().eventDao() }
+    single { get<RuntimeStoreDatabase>().deletedEventDao() }
+    single { get<RuntimeStoreDatabase>().registeredApplicationDao() }
+    single { RuntimeArchiveRepository(androidContext(), get()) }
 
     single { PreferenceRepository(get()) }
     single { ConfigCenter(androidContext(), get()) }

@@ -352,7 +352,7 @@ open class MiPushFacadeService : Service() {
             }
         }
         PushServiceStarter.start(this, intent2)
-        logD("forward intent ${ConvertUtils.toJson(intent)}")
+        logD { "forward intent ${ConvertUtils.toJson(intent)}" }
     }
 
     companion object {

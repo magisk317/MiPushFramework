@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.BundleSerializer
 
 import android.content.Intent
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.*
@@ -193,7 +193,7 @@ object ConvertUtils {
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
         logD(formatCandidateSummary(container.packageName, candidateRegSecs))
         if (candidateRegSecs.isEmpty()) {
-            Napier.d("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
+            Logger.withTag(TAG).d { "resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}" }
             return null
         }
         for (candidateRegSec in candidateRegSecs) {

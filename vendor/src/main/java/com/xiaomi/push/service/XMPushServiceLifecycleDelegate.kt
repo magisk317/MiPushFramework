@@ -122,11 +122,17 @@ class XMPushServiceLifecycleDelegate(
             if (PushServiceConstants.ACTION_TIMER.equals(action, ignoreCase = true) ||
                 PushServiceConstants.ACTION_CHECK_ALIVE.equals(action, ignoreCase = true)
             ) {
+                val queueDepth = service.jobController.taskCount()
+                val blockedForMs = service.jobController.blockedForMs()
                 if (service.jobController.isBlocked()) {
-                    MyLog.e("ERROR, the job controller is blocked.")
+                    ReconnectDebugLog.e(
+                        "job_controller_blocked depth=$queueDepth " +
+                            "blockedForMs=$blockedForMs"
+                    )
                     PushClientsManager.getInstance().resetAllClients(service, 14)
                     service.stopSelf()
                 } else {
+                    ReconnectDebugLog.w("job_queue_state depth=$queueDepth blockedForMs=$blockedForMs")
                     service.executeJob(IntentJob(service, intent))
                 }
             } else if (!PushServiceConstants.ACTION_NETWORK_STATUS_CHANGED.equals(action, ignoreCase = true)) {

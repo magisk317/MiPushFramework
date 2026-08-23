@@ -1,15 +1,15 @@
 package com.xiaomi.mipush.sdk.stat.client
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.mipush.sdk.stat.PushStatClientManager
 import com.xiaomi.mipush.sdk.stat.upload.IDbPathGetter
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
 
 /*
  * Local legacy hybrid stat client facade retained for compatibility.
  * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 object PushStatClient4Hybrid {
     private var sContext: Context? = null
 
@@ -21,13 +21,13 @@ object PushStatClient4Hybrid {
         iDbPathGetter: IDbPathGetter,
     ) {
         sContext = context.applicationContext
-        var str4 = if (TextUtils.isEmpty(str2)) "appId can not be null. " else ""
+        var str4 = if (str2.isEmpty()) "appId can not be null. " else ""
         var str5 = str4
-        if (TextUtils.isEmpty(str3)) {
+        if (str3.isEmpty()) {
             str5 = "$str4 channel can not be null. "
         }
         var str6 = str5
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             str6 = "$str5 packageName can not be null."
         }
         if (str6.isNotEmpty()) {
@@ -37,12 +37,12 @@ object PushStatClient4Hybrid {
     }
 
     private fun record(str: String) {
-        if (TextUtils.isEmpty(str)) return
+        if (str.isEmpty()) return
         PushStatClientManager.getInstance(sContext!!).record(str)
     }
 
-    private fun record(jSONObject: JSONObject) {
-        PushStatClientManager.getInstance(sContext!!).record(jSONObject.toString())
+    private fun record(json: JsonObject) {
+        PushStatClientManager.getInstance(sContext!!).record(json.toString())
     }
 
     fun recordCalculateEvent(str: String, str2: String, j: Long) {

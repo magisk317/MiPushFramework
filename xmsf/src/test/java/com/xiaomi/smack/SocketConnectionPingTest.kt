@@ -5,6 +5,7 @@ import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.push.service.XMPushServiceJob
 import com.xiaomi.smack.packet.Packet
+import com.xiaomi.slim.Blob
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -85,7 +86,13 @@ class SocketConnectionPingTest {
             sentPings += 1
         }
 
-        override fun isBinaryConnection(): Boolean = true
+        override val host: String = "test.mipush"
+
+        override val isBinaryConnection: Boolean = true
+
+        override fun send(blob: Blob) = Unit
+
+        override fun batchSend(blobArray: Array<Blob>) = Unit
 
         override fun sendPacket(packet: Packet) = Unit
 

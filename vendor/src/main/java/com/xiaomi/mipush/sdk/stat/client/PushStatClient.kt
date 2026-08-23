@@ -1,16 +1,16 @@
 package com.xiaomi.mipush.sdk.stat.client
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.mipush.sdk.stat.PushStatClientManager
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
 
 /*
  * Local legacy stat client facade retained for compatibility.
  * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 object PushStatClient {
     private var sContext: Context? = null
 
@@ -20,9 +20,9 @@ object PushStatClient {
         str2: String,
     ) {
         sContext = context.applicationContext
-        var str3 = if (TextUtils.isEmpty(str)) "appId can not be null. " else ""
+        var str3 = if (str.isEmpty()) "appId can not be null. " else ""
         var str4 = str3
-        if (TextUtils.isEmpty(str2)) {
+        if (str2.isEmpty()) {
             str4 = "$str3 channel can not be null. "
         }
         if (str4.isNotEmpty()) {
@@ -39,12 +39,12 @@ object PushStatClient {
     }
 
     fun record(str: String) {
-        if (TextUtils.isEmpty(str)) return
+        if (str.isEmpty()) return
         PushStatClientManager.getInstance(sContext!!).record(str)
     }
 
-    private fun record(jSONObject: JSONObject) {
-        record(jSONObject.toString())
+    private fun record(json: JsonObject) {
+        record(json.toString())
     }
 
     fun recordCalculateEvent(str: String, str2: String, j: Long) {

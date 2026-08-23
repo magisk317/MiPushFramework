@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.compat.legacyhuawei
 
 import android.content.pm.PackageInfo
-import android.util.Base64
+import java.util.Base64
 import dalvik.system.DexClassLoader
 import io.github.magisk317.mipush.common.LEGACY_HUAWEI_CORE_SIGNATURE
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
@@ -32,7 +32,7 @@ object LegacyHuaweiSignatureCompat {
                 if (packageName != XMSF_PACKAGE_NAME) return@doAfter
 
                 val info = result as? PackageInfo ?: return@doAfter
-                val fakeSignatureBytes = Base64.decode(LEGACY_HUAWEI_CORE_SIGNATURE, Base64.NO_WRAP)
+                val fakeSignatureBytes = Base64.getDecoder().decode(LEGACY_HUAWEI_CORE_SIGNATURE)
 
                 @Suppress("DEPRECATION")
                 val signatures = info.signatures

@@ -9,7 +9,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import android.util.Log
+import co.touchlab.kermit.Logger
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
 import io.github.magisk317.mipush.common.R
@@ -64,10 +64,10 @@ class ActivityUsageStatsImpl : ITopActivity {
                 }
             }
         } catch (e: ReflectiveOperationException) {
-            Log.e(TAG, e.message ?: "", e)
+            Logger.withTag(TAG).e(e) { e.message ?: "" }
             false
         } catch (e: SecurityException) {
-            Log.e(TAG, e.message ?: "", e)
+            Logger.withTag(TAG).e(e) { e.message ?: "" }
             false
         }
     }
@@ -91,15 +91,13 @@ class ActivityUsageStatsImpl : ITopActivity {
             queryForegroundPackage(context)?.let { foregroundPackage ->
                 val matched = foregroundPackage == packageName
                 if (matched) {
-                    Log.w(
-                        TAG,
-                        "Falling back to UsageStatsManager foreground match for $packageName after getPackageImportance=$level"
-                    )
+                    Logger.withTag(TAG).w { "Falling back to UsageStatsManager foreground match for $packageName after getPackageImportance=$level"
+                     }
                 }
                 matched
             } ?: false
         } catch (e: SecurityException) {
-            Log.e(TAG, "isForeground: usage stats query failed", e)
+            Logger.withTag(TAG).e(e) { "isForeground: usage stats query failed" }
             Toast.makeText(context, R.string.error_usage_stats, Toast.LENGTH_LONG).show()
             false
         }

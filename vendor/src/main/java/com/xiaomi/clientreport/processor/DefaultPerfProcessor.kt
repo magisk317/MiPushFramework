@@ -1,8 +1,7 @@
 package com.xiaomi.clientreport.processor
 
 import android.content.Context
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.clientreport.data.BaseClientReport
 import com.xiaomi.clientreport.data.PerfClientReport
 import com.xiaomi.clientreport.util.ClientReportUtil
@@ -29,12 +28,12 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
     private fun getOriginalFilePath(baseClientReport: BaseClientReport): String? {
         val i = baseClientReport.production
         val str = baseClientReport.clientInterfaceId
-        if (i <= 0 || TextUtils.isEmpty(str)) {
+        if (i <= 0 || str.isNullOrEmpty()) {
             return ""
         }
         val externalFilesDir = mContext.getExternalFilesDir(FOLDER)
         if (externalFilesDir == null) {
-            MyLog.e("cannot get folder when to write perf")
+            Logger.e { "cannot get folder when to write perf" }
             return null
         }
         if (!externalFilesDir.exists()) {
@@ -45,7 +44,7 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
 
     private fun getWriteFileName(baseClientReport: BaseClientReport): String? {
         val originalFilePath = getOriginalFilePath(baseClientReport)
-        if (TextUtils.isEmpty(originalFilePath)) return null
+        if (originalFilePath.isNullOrEmpty()) return null
         var i = 0
         while (i < MAX_SAME_PRODUCTION_FILE_NUM) {
             val str = "$originalFilePath$i"
@@ -61,17 +60,13 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
         if (baseClientReport is PerfClientReport && mPerfMap != null) {
             val firstPerfFileName = getFirstPerfFileName(baseClientReport)
             val strGenerateKey = PerfKVFileHelper.generateKey(baseClientReport)
-            var map2 = mPerfMap!![firstPerfFileName]
-            if (map2 == null) {
-                map2 = HashMap()
-            }
+            val map2 = mPerfMap!!.getOrPut(firstPerfFileName) { HashMap() }
             val perfClientReport2 = map2[strGenerateKey] as PerfClientReport?
             if (perfClientReport2 != null) {
                 baseClientReport.perfCounts += perfClientReport2.perfCounts
                 baseClientReport.perfLatencies += perfClientReport2.perfLatencies
             }
             map2[strGenerateKey] = baseClientReport
-            mPerfMap!![firstPerfFileName] = map2
         }
     }
 

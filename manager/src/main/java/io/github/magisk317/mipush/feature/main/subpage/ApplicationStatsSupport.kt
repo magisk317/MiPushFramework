@@ -5,6 +5,9 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class ApplicationStats(
     val total: Int = 0,
     val usingMiPush: Int = 0,

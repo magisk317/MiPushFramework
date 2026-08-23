@@ -2,16 +2,17 @@ package com.xiaomi.channel.commonutils.file
 
 import android.os.Environment
 import android.os.StatFs
-import android.text.TextUtils
-import android.util.Log
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.logger.MyLog
 import java.io.File
 
 object SDCardUtils {
+    private const val TAG = "SDCardUtils"
+
     @JvmStatic
     fun getSDCardAvailableBytes(): Long {
         val externalStorageDirectory = Environment.getExternalStorageDirectory()
-        if (!isSDCardBusy() || externalStorageDirectory == null || TextUtils.isEmpty(externalStorageDirectory.path)) {
+        if (!isSDCardBusy() || externalStorageDirectory == null || externalStorageDirectory.path.isNullOrEmpty()) {
             return 0L
         }
         return try {
@@ -32,7 +33,7 @@ object SDCardUtils {
         return try {
             Environment.getExternalStorageState() != "mounted"
         } catch (e: Exception) {
-            Log.e("XMPush-", "check SDCard is busy: $e")
+            Logger.withTag(TAG).e { "check SDCard is busy: $e" }
             true
         }
     }

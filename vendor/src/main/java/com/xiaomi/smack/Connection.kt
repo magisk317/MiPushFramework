@@ -1,8 +1,8 @@
 package com.xiaomi.smack
 
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.channel.commonutils.network.Network
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.measite.smack.AndroidDebugger
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
@@ -59,6 +59,44 @@ abstract class Connection(
     open val isConnecting: Boolean
         get() = connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTING
 
+    open val isDisconnected: Boolean
+        get() = connectStatus == ConnectionConfiguration.CONNECT_STATUS_DISCONNECT
+
+    abstract val host: String?
+
+    open val connectionId: String?
+        get() = challenge
+
+    open val user: String?
+        get() = config.getUsername()
+
+    open val serviceName: String?
+        get() = config.serviceName
+
+    abstract val isBinaryConnection: Boolean
+
+    abstract fun batchSend(blobArray: Array<Blob>)
+    abstract fun batchSendPacket(packetArr: Array<Packet>)
+    abstract fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo)
+    abstract fun connect()
+    abstract fun initConnection()
+    abstract fun send(blob: Blob)
+    abstract fun sendPacket(packet: Packet)
+    open fun notifyConnectionError(reason: Int, exc: Exception?) {
+        mPushAction.disconnect(reason, exc)
+    }
+    open fun sendPing(isServerPing: Boolean) {
+        sendPingInternal(isServerPing)
+    }
+
+    abstract fun disconnect(reason: Int = 0, error: Exception? = null)
+
+    protected abstract fun sendPingInternal(isServerPing: Boolean)
+    abstract fun unbind(chid: String, userId: String)
+
+    open val key: ByteArray?
+        get() = null
+
     init {
         initDebugger()
     }
@@ -72,8 +110,7 @@ abstract class Connection(
     }
 
     fun addPacketListener(packetListener: PacketListener, packetFilter: PacketFilter?) {
-        val listenerWrapper = ListenerWrapper(packetListener, packetFilter)
-        recvListeners[packetListener] = listenerWrapper
+        recvListeners[packetListener] = ListenerWrapper(packetListener, packetFilter)
     }
 
     fun removePacketListener(packetListener: PacketListener) {
@@ -81,40 +118,50 @@ abstract class Connection(
     }
 
     fun addPacketSendingListener(packetListener: PacketListener, packetFilter: PacketFilter?) {
-        val listenerWrapper = ListenerWrapper(packetListener, packetFilter)
-        sendListeners[packetListener] = listenerWrapper
+        sendListeners[packetListener] = ListenerWrapper(packetListener, packetFilter)
     }
 
     fun removePacketSendingListener(packetListener: PacketListener) {
         sendListeners.remove(packetListener)
     }
 
-    abstract fun connect()
-    abstract fun disconnect(reason: Int, error: Exception?)
-    abstract fun isBinaryConnection(): Boolean
-    abstract fun sendPacket(packet: Packet)
-    abstract fun batchSendPacket(packetArr: Array<Packet>)
-    
-    abstract fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo)
-    abstract fun unbind(chid: String, userId: String)
+    fun getConnTryTimes(): Int = connTimes
+
+    fun getLastPingRecv(): Long = readAlive
+
+    fun getLastPingSend(): Long = writeAlive
+
+    fun hasCustomPacketListener(packetListener: PacketListener): Boolean =
+        recvListeners.containsKey(packetListener)
+
+    fun hasCustomPacketSendingListener(packetListener: PacketListener): Boolean =
+        sendListeners.containsKey(packetListener)
+
+    @Synchronized
+    fun setReadAlive() {
+        readAlive = android.os.SystemClock.elapsedRealtime()
+    }
+
+    @Synchronized
+    fun setWriteAlive() {
+        writeAlive = android.os.SystemClock.elapsedRealtime()
+    }
+
+    @Synchronized
+    protected fun resetReadAlive() {
+        readAlive = 0L
+    }
+
+    @Synchronized
+    fun isReadAlive(sinceElapsedRealtime: Long): Boolean {
+        return readAlive >= sinceElapsedRealtime
+    }
 
     fun clearCachedStatus() {
         synchronized(cachedStatus) {
             cachedStatus.clear()
         }
     }
-
-    open fun send(blob: Blob) {}
-    open fun batchSend(blobArray: Array<Blob>) {}
-    open fun sendPing(isServerPing: Boolean) {}
-
-    open fun notifyConnectionError(reason: Int, exc: Exception?) {}
-
-    open val key: ByteArray? get() = null
-    open val host: String? get() = null
-
-    open fun getConnTryTimes(): Int = connTimes
-    open fun getLastPingRecv(): Long = readAlive
 
     fun resetConnTryTimes() {
         connTimes = 0
@@ -130,26 +177,6 @@ abstract class Connection(
             cachedStatus.removeAll { (_, timestamp) -> timestamp < cutoff }
             return cachedStatus.size >= MAX_STATUS_COUNT
         }
-    }
-
-    @Synchronized
-    fun setReadAlive() {
-        readAlive = android.os.SystemClock.elapsedRealtime()
-        runCatching { mPushAction.runtimeObserver.onReadAlive(System.currentTimeMillis()) }
-    }
-
-    @Synchronized
-    protected fun resetReadAlive() {
-        readAlive = 0L
-    }
-
-    fun setWriteAlive() {
-        writeAlive = android.os.SystemClock.elapsedRealtime()
-    }
-
-    @Synchronized
-    fun isReadAlive(sinceElapsedRealtime: Long): Boolean {
-        return readAlive >= sinceElapsedRealtime
     }
 
     fun notifyDataArrived(packet: Packet) {
@@ -180,21 +207,21 @@ abstract class Connection(
     fun setChallenge(value: String) {
         if (connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
             val digest = MD5.MD5_32(value)?.take(8).orEmpty()
-            MyLog.w("setChallenge hash = $digest")
+            Logger.w { "setChallenge hash = $digest" }
             challenge = value
             setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_CONNECTED, 0, null)
         } else {
-            MyLog.w("ignore setChallenge because connection was disconnected")
+            Logger.w { "ignore setChallenge because connection was disconnected" }
         }
     }
 
     fun setConnectionStatus(status: Int, reason: Int, error: Exception?) {
         val previousStatus = connectStatus
         if (status != previousStatus) {
-            MyLog.w(
+            Logger.w {
                 "update the connection status. ${statusDescription(previousStatus)} -> " +
-                    "${statusDescription(status)} : $reason",
-            )
+                    "${statusDescription(status)} : $reason"
+            }
         }
 
         if (Network.hasNetwork(mContext)) {
@@ -214,7 +241,7 @@ abstract class Connection(
             ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> {
                 mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
                 if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
-                    MyLog.w("try set connected while not connecting.")
+                    Logger.w { "try set connected while not connecting." }
                 }
                 connectStatus = status
                 connectionListeners.forEach { it.reconnectionSuccessful(this) }
@@ -222,7 +249,7 @@ abstract class Connection(
 
             ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> {
                 if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_DISCONNECT) {
-                    MyLog.w("try set connecting while not disconnected.")
+                    Logger.w { "try set connecting while not disconnected." }
                 }
                 connectStatus = status
                 connectionListeners.forEach { it.connectionStarted(this) }

@@ -21,7 +21,7 @@ android {
 }
 
 dependencies {
-    implementation(libs.napier)
+    implementation(libs.kermit)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -2,6 +2,7 @@ package com.xiaomi.mipush.sdk
 
 import android.content.Context
 import android.content.Intent
+import java.util.Locale
 import android.content.IntentFilter
 import android.content.pm.PackageInfo
 import android.content.pm.ServiceInfo
@@ -119,6 +120,7 @@ abstract class MiPushClient {
         const val PREF_EXTRA = "mipush_extra"
         private const val TOPIC_ALL = "**ALL**"
 
+        @android.annotation.SuppressLint("StaticFieldLeak")
         private lateinit var sContext: Context
         private var sCurMsgId = System.currentTimeMillis()
 
@@ -145,7 +147,7 @@ abstract class MiPushClient {
             synchronized(MiPushClient::class.java) {
                 context.getSharedPreferences(PREF_EXTRA, 0).edit()
                     .putLong(PREFIX_ACCOUNT + account, System.currentTimeMillis())
-                    .commit()
+                    .apply()
             }
         }
 
@@ -154,7 +156,7 @@ abstract class MiPushClient {
             synchronized(MiPushClient::class.java) {
                 context.getSharedPreferences(PREF_EXTRA, 0).edit()
                     .putLong(PREFIX_ALIAS + alias, System.currentTimeMillis())
-                    .commit()
+                    .apply()
             }
         }
 
@@ -175,7 +177,7 @@ abstract class MiPushClient {
             synchronized(MiPushClient::class.java) {
                 context.getSharedPreferences(PREF_EXTRA, 0).edit()
                     .putLong(PREFIX_TOPIC + topic, System.currentTimeMillis())
-                    .commit()
+                    .apply()
             }
         }
 
@@ -240,7 +242,7 @@ abstract class MiPushClient {
 
         @JvmStatic
         fun clearExtras(context: Context) {
-            context.getSharedPreferences(PREF_EXTRA, 0).edit().clear().commit()
+            context.getSharedPreferences(PREF_EXTRA, 0).edit().clear().apply()
         }
 
         @JvmStatic
@@ -602,7 +604,12 @@ abstract class MiPushClient {
                     addAction("android.net.conn.CONNECTIVITY_CHANGE")
                     addCategory("android.intent.category.DEFAULT")
                 }
-                context.applicationContext.registerReceiver(NetworkStatusReceiver(null), intentFilter)
+                val receiver = NetworkStatusReceiver(null)
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    context.applicationContext.registerReceiver(receiver, intentFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    context.applicationContext.registerReceiver(receiver, intentFilter)
+                }
             } catch (throwable: Throwable) {
                 MyLog.e(throwable)
             }
@@ -678,14 +685,14 @@ abstract class MiPushClient {
         @JvmStatic
         fun removeAccount(context: Context, account: String?) {
             synchronized(MiPushClient::class.java) {
-                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_ACCOUNT + account).commit()
+                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_ACCOUNT + account).apply()
             }
         }
 
         @JvmStatic
         fun removeAlias(context: Context, alias: String?) {
             synchronized(MiPushClient::class.java) {
-                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_ALIAS + alias).commit()
+                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_ALIAS + alias).apply()
             }
         }
 
@@ -719,7 +726,7 @@ abstract class MiPushClient {
         @JvmStatic
         fun removeTopic(context: Context, topic: String?) {
             synchronized(MiPushClient::class.java) {
-                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_TOPIC + topic).commit()
+                context.getSharedPreferences(PREF_EXTRA, 0).edit().remove(PREFIX_TOPIC + topic).apply()
             }
         }
 
@@ -831,12 +838,12 @@ abstract class MiPushClient {
             val start = (((startHour * 60 + startMinute).toLong() + rawOffset) + 1440) % 1440
             val end = (((endHour * 60 + endMinute).toLong() + rawOffset) + 1440) % 1440
             val serverArgs = ArrayList<String>().apply {
-                add(String.format("%1\$02d:%2\$02d", start / 60, start % 60))
-                add(String.format("%1\$02d:%2\$02d", end / 60, end % 60))
+                add(String.format(Locale.US, "%1\$02d:%2\$02d", start / 60, start % 60))
+                add(String.format(Locale.US, "%1\$02d:%2\$02d", end / 60, end % 60))
             }
             val localArgs = ArrayList<String>().apply {
-                add(String.format("%1\$02d:%2\$02d", startHour, startMinute))
-                add(String.format("%1\$02d:%2\$02d", endHour, endMinute))
+                add(String.format(Locale.US, "%1\$02d:%2\$02d", startHour, startMinute))
+                add(String.format(Locale.US, "%1\$02d:%2\$02d", endHour, endMinute))
             }
             if (!acceptTimeSet(context, serverArgs[0], serverArgs[1])) {
                 setCommand(context, Command.COMMAND_SET_ACCEPT_TIME.value, serverArgs, category)

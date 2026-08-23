@@ -3,6 +3,7 @@ package com.xiaomi.push.service.clientReport
 import android.content.Context
 import android.content.Intent
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class PushClientReportManager private constructor(private val context: Context) {
     private fun collectData() {
         // No-op in legacy runtime

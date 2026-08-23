@@ -10,7 +10,7 @@ import android.text.Spanned
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 /**
  * Builds progress-style notifications for Live Updates.
@@ -69,13 +69,13 @@ object ProgressStyleBuilder {
             return notification
         }
         if (notification.hasCustomRemoteViews()) {
-            Napier.d("Skip native ProgressStyle because notification uses custom RemoteViews", tag = TAG)
+            Logger.withTag(TAG).d { "Skip native ProgressStyle because notification uses custom RemoteViews" }
             return notification
         }
         return try {
             applyNativeProgressStyle(context, notification)
         } catch (e: Exception) {
-            Napier.e("Failed to apply native ProgressStyle, keeping fallback notification", e, tag = TAG)
+            Logger.withTag(TAG).e(e) { "Failed to apply native ProgressStyle, keeping fallback notification" }
             notification
         }
     }
@@ -132,7 +132,7 @@ object ProgressStyleBuilder {
         try {
             requestPromotedOngoing(builder)
         } catch (e: LinkageError) {
-            Napier.d("Notification.Builder#setRequestPromotedOngoing unavailable on this runtime", e, tag = TAG)
+            Logger.withTag(TAG).d(e) { "Notification.Builder#setRequestPromotedOngoing unavailable on this runtime" }
         }
     }
 
@@ -180,7 +180,7 @@ object ProgressStyleBuilder {
         builder: NotificationCompat.Builder,
         result: LiveUpdateDetector.DetectionResult
     ): NotificationCompat.Builder {
-        Napier.d("Applying fallback progress style for Android ${Build.VERSION.SDK_INT}", tag = TAG)
+        Logger.withTag(TAG).d { "Applying fallback progress style for Android ${Build.VERSION.SDK_INT}" }
 
         // Android 16 / HyperOS OS3.0.315 promotes only eligible, authorized notifications. These
         // compat fields intentionally remain useful on every ROM when promotion is unavailable.

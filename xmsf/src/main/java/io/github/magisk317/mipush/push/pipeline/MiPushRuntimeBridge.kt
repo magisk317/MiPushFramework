@@ -8,7 +8,6 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.content.Intent
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.compat.RegistrationStateStore

@@ -11,7 +11,7 @@ import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
@@ -47,7 +47,7 @@ class ForegroundHelper(private val service: Service) {
                     stopForegroundNotification()
                 }
             } catch (t: Throwable) {
-                Napier.e("Failed to check foreground service preference", t, tag = "ForegroundHelper")
+                Logger.withTag("ForegroundHelper").e(t) { "Failed to check foreground service preference" }
                 MagiskOtel.event(
                     name = "push.keepalive",
                     attributes = mapOf(

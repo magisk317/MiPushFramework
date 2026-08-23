@@ -7,7 +7,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.notification.TopNotificationCoordinator
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
@@ -28,14 +28,14 @@ class NotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         val eventUserId = sbn.userId
         if (!acceptsUser(eventUserId)) {
-            Napier.d("skip notification from another user key=${sbn.key} user=$eventUserId", tag = TAG)
+            Logger.withTag(TAG).d { "skip notification from another user key=${sbn.key} user=$eventUserId" }
             return
         }
         // Stock 7.4.67-C schedules sweet reminder expiry from its posted callback. Keep this in
         // addition to the direct publish hook so externally reposted/top-updated records also refresh.
         SweetNotificationCoordinator.onNotificationPosted(this, sbn)
         if (FocusNotificationCollection.onNotificationPosted(this, sbn)) {
-            Napier.d("skip collected focus notification key=${sbn.key}", tag = TAG)
+            Logger.withTag(TAG).d { "skip collected focus notification key=${sbn.key}" }
             return
         }
         if (NotificationUtils.isNotificationFromXmsf(this, sbn)) {

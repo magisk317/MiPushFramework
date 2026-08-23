@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-import io.github.aakira.napier.Napier
 import com.xiaomi.push.service.PushServiceConstants
 import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents

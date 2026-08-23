@@ -5,7 +5,7 @@ import com.xiaomi.push.service.MIPushAppInfo
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
@@ -113,11 +113,9 @@ object StalePackagePushGuard {
         val normalizedUserId = userId.coerceAtLeast(0)
         fun cleanup(name: String, block: () -> Unit) {
             runCatching(block).onFailure {
-                Napier.w(
-                    "package absent cleanup failed step=$name pkg=$packageName user=$normalizedUserId",
-                    it,
-                    tag = TAG,
-                )
+                Logger.withTag(TAG).w(it) {
+                    "package absent cleanup failed step=$name pkg=$packageName user=$normalizedUserId"
+                }
             }
         }
         cleanup("absent_registry") {
@@ -174,7 +172,7 @@ object StalePackagePushGuard {
                 reason = "package_absent",
             )
         }
-        Napier.i("marked absent package pkg=$packageName source=$source", tag = TAG)
+        Logger.withTag(TAG).i { "marked absent package pkg=$packageName source=$source" }
         MagiskOtel.event(
             name = "push.package",
             attributes = mapOf(

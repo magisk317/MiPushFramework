@@ -6,7 +6,12 @@ import android.os.Build
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.NotificationStyle
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Translates MIUI/HyperIsland focus payloads into platform notification semantics.
@@ -99,10 +104,27 @@ object FocusSemanticTranslator {
         generatedFocusParam: String?,
         generatedFocusCandidate: Boolean,
         capabilities: Capabilities = Capabilities.current(),
+    ): Plan = plan(
+        detected = LiveUpdateDetector.detect(context, metaInfo, packageName),
+        metaInfo = metaInfo,
+        packageName = packageName,
+        configuredFocusParam = configuredFocusParam,
+        generatedFocusParam = generatedFocusParam,
+        generatedFocusCandidate = generatedFocusCandidate,
+        capabilities = capabilities,
+    )
+
+    internal fun plan(
+        detected: LiveUpdateDetector.DetectionResult?,
+        metaInfo: PushMetaInfo,
+        packageName: String,
+        configuredFocusParam: String?,
+        generatedFocusParam: String?,
+        generatedFocusCandidate: Boolean,
+        capabilities: Capabilities,
     ): Plan {
-        val detected = LiveUpdateDetector.detect(context, metaInfo, packageName)
         val semantic = parseFocusParam(configuredFocusParam, Source.CONFIGURED_FOCUS)
-            ?: detected.takeIf { it.isProgress }?.toSemantic(Source.DETECTED)
+            ?: detected?.takeIf { it.isProgress }?.toSemantic(Source.DETECTED)
             ?: parseFocusParam(generatedFocusParam, Source.GENERATED_FOCUS)
 
         // A server-configured focus payload is already authoritative MIUI data. The local
@@ -178,13 +200,13 @@ object FocusSemanticTranslator {
     private fun parseFocusParam(focusParam: String?, source: Source): FocusSemantic? {
         if (focusParam.isNullOrBlank()) return null
         return runCatching {
-            val root = JSONObject(focusParam)
-            val paramV2 = root.optJSONObject("param_v2") ?: root
+            val root = Json.parseToJsonElement(focusParam) as JsonObject
+            val paramV2 = root.asObject("param_v2") ?: root
             val text = listOf(
-                paramV2.optString("ticker"),
-                paramV2.optString("businessName"),
+                paramV2.text("ticker"),
+                paramV2.text("businessName"),
                 collectNestedText(paramV2),
-            ).filter { it.isNotBlank() }.joinToString(" ")
+            ).filterNotNull().filter { it.isNotBlank() }.joinToString(" ")
             val style = resolveStyle(paramV2, text)
             val category = resolveCategory(text, style)
             val progress = resolveProgress(paramV2, text)
@@ -205,45 +227,38 @@ object FocusSemanticTranslator {
         }.getOrNull()
     }
 
-    private fun collectNestedText(json: JSONObject): String {
+    private fun collectNestedText(root: JsonElement): String {
         val values = mutableListOf<String>()
-        fun visit(value: Any?) {
+        fun visit(value: JsonElement) {
             when (value) {
-                is JSONObject -> {
-                    val keys = value.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        if (key.contains("title", ignoreCase = true) ||
-                            key.contains("content", ignoreCase = true) ||
-                            key.contains("text", ignoreCase = true) ||
-                            key.contains("label", ignoreCase = true)
-                        ) {
-                            value.optString(key).takeIf { it.isNotBlank() }?.let(values::add)
-                        }
-                        visit(value.opt(key))
+                is JsonObject -> value.forEach { (key, child) ->
+                    if (key.contains("title", ignoreCase = true) ||
+                        key.contains("content", ignoreCase = true) ||
+                        key.contains("text", ignoreCase = true) ||
+                        key.contains("label", ignoreCase = true)
+                    ) {
+                        child.primitiveText()?.let(values::add)
                     }
+                    visit(child)
                 }
-                is org.json.JSONArray -> {
-                    for (index in 0 until value.length()) {
-                        visit(value.opt(index))
-                    }
-                }
+                is JsonArray -> value.forEach(::visit)
+                else -> Unit
             }
         }
-        visit(json)
+        visit(root)
         return values.distinct().joinToString(" ")
     }
 
-    private fun resolveStyle(paramV2: JSONObject, text: String): NotificationStyle {
+    private fun resolveStyle(paramV2: JsonObject, text: String): NotificationStyle {
         return when {
-            paramV2.has("progressBar") ||
-                paramV2.has("multiProgressInfo") ||
+            paramV2.containsKey("progressBar") ||
+                paramV2.containsKey("multiProgressInfo") ||
                 text.contains("progress", ignoreCase = true) ||
                 text.contains("进度") -> NotificationStyle.PROGRESS
-            paramV2.has("chatInfo") -> NotificationStyle.MESSAGE
-            paramV2.has("coverInfo") -> NotificationStyle.MEDIA
-            paramV2.has("highlightInfo") -> NotificationStyle.ALERT
-            paramV2.has("highlightInfoV3") -> NotificationStyle.PROMO
+            paramV2.containsKey("chatInfo") -> NotificationStyle.MESSAGE
+            paramV2.containsKey("coverInfo") -> NotificationStyle.MEDIA
+            paramV2.containsKey("highlightInfo") -> NotificationStyle.ALERT
+            paramV2.containsKey("highlightInfoV3") -> NotificationStyle.PROMO
             else -> NotificationStyle.GENERAL
         }
     }
@@ -260,23 +275,37 @@ object FocusSemanticTranslator {
         }
     }
 
-    private fun resolveProgress(paramV2: JSONObject, text: String): Int? {
-        val fromJson = paramV2.optJSONObject("progressBar")
-            ?.takeIf { it.has("progress") }
-            ?.optInt("progress")
+    private fun resolveProgress(paramV2: JsonObject, text: String): Int? {
+        val fromJson = paramV2.asObject("progressBar")
+            ?.takeIf { it.containsKey("progress") }
+            ?.primitive("progress")
+            ?.content
+            ?.toIntOrNull()
         return fromJson?.coerceIn(0, 100) ?: extractProgressPercent(text)
     }
 
     private fun resolveTrackerLabel(
-        paramV2: JSONObject,
+        paramV2: JsonObject,
         progressText: String?,
         category: LiveUpdateDetector.ProgressCategory,
     ): String? {
-        val label = paramV2.optJSONObject("hintInfo")?.optString("title")
-            ?.takeIf { it.isNotBlank() }
+        val label = paramV2.asObject("hintInfo")?.text("title")
         return label ?: progressText?.take(MAX_SHORT_TEXT)
             ?: defaultTrackerLabel(category)
     }
+
+    private fun JsonObject.asObject(key: String): JsonObject? = this[key] as? JsonObject
+
+    private fun JsonObject.text(key: String): String? =
+        (this[key] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
+
+    private fun JsonObject.primitive(key: String): JsonPrimitive? = this[key] as? JsonPrimitive
+
+    private fun JsonElement.primitiveText(): String? =
+        (this as? JsonPrimitive)
+            ?.takeIf { it !is JsonNull }
+            ?.content
+            ?.takeIf { it.isNotBlank() }
 
     private fun resolveSemanticStyle(
         text: String,

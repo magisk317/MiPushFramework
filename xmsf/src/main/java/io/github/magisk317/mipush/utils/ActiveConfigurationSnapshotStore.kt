@@ -2,8 +2,11 @@ package io.github.magisk317.mipush.utils
 
 import android.content.Context
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
-import java.io.File
 import io.github.magisk317.xposed.logging.MagiskOtel
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 /**
  * Persistent manager-uploaded configuration snapshots under the runtime private files directory.
@@ -19,17 +22,15 @@ object ActiveConfigurationSnapshotStore {
         val startedAt = System.nanoTime()
         val snapshotDir = directory(context).apply { mkdirs() }
         val target = File(snapshotDir, fileName)
-        val temp = File(snapshotDir, "$fileName.tmp")
         val ok = try {
-            temp.outputStream().use { it.write(content) }
-            if (temp.renameTo(target)) {
-                true
-            } else {
-                target.delete()
-                temp.renameTo(target)
+            val temp = File.createTempFile(".active_config_", ".tmp", snapshotDir)
+            try {
+                temp.outputStream().use { it.write(content) }
+                replaceFile(temp, target)
+            } finally {
+                if (temp.exists()) temp.delete()
             }
         } catch (_: Exception) {
-            temp.delete()
             false
         }
         emitConfigSnapshot(
@@ -42,6 +43,19 @@ object ActiveConfigurationSnapshotStore {
             statusOk = ok,
         )
         return ok
+    }
+
+    /** Publish a complete snapshot without deleting the previous valid target first. */
+    private fun replaceFile(temp: File, target: File): Boolean {
+        return try {
+            Files.move(temp.toPath(), target.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+            true
+        } catch (_: Exception) {
+            runCatching {
+                Files.move(temp.toPath(), target.toPath(), REPLACE_EXISTING)
+                true
+            }.getOrDefault(false)
+        }
     }
 
     fun applyTo(

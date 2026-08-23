@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.common.utils
 
 import android.os.Bundle
 import android.os.Parcelable
-import android.util.Base64
+import java.util.Base64
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
@@ -52,7 +52,7 @@ object BundleSerializer : KSerializer<Bundle> {
             is DoubleArray -> tagged("double[]", JsonArray(value.map { JsonPrimitive(it) }))
             is FloatArray -> tagged("float[]", JsonArray(value.map { JsonPrimitive(it) }))
             is ShortArray -> tagged("short[]", JsonArray(value.map { JsonPrimitive(it.toInt()) }))
-            is ByteArray -> tagged("byte[]", JsonPrimitive(Base64.encodeToString(value, Base64.NO_WRAP)))
+            is ByteArray -> tagged("byte[]", JsonPrimitive(Base64.getEncoder().encodeToString(value)))
             is CharArray -> tagged("char[]", JsonArray(value.map { JsonPrimitive(it.toString()) }))
             is Array<*> -> tagged(
                 "array",
@@ -176,7 +176,7 @@ object BundleSerializer : KSerializer<Bundle> {
                         )
                     }
                     "byte[]" -> payload?.jsonPrimitive?.contentOrNull?.let {
-                        runCatching { Base64.decode(it, Base64.DEFAULT) }
+                        runCatching { Base64.getDecoder().decode(it) }
                             .onSuccess { bytes -> bundle.putByteArray(key, bytes) }
                     }
                     "char[]" -> payload?.jsonArray?.let { arr ->

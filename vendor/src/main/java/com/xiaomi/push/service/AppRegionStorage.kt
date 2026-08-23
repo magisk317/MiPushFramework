@@ -1,7 +1,6 @@
 package com.xiaomi.push.service
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import java.io.File
@@ -9,6 +8,7 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.channels.FileLock
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class AppRegionStorage private constructor(
     private val context: Context,
 ) {
@@ -104,7 +104,7 @@ class AppRegionStorage private constructor(
     }
 
     fun getCountryCode(): String? {
-        if (TextUtils.isEmpty(countryCode)) {
+        if (countryCode.isNullOrEmpty()) {
             countryCode = readFromFileWithLock(
                 countryCodeCacheFileName,
                 countryCodeCacheFileLock,
@@ -115,7 +115,7 @@ class AppRegionStorage private constructor(
     }
 
     fun getRegion(): String? {
-        if (TextUtils.isEmpty(region)) {
+        if (region.isNullOrEmpty()) {
             region = readFromFileWithLock(
                 regionCacheFileName,
                 regionCacheFileLock,
@@ -126,7 +126,7 @@ class AppRegionStorage private constructor(
     }
 
     fun setCountryCode(value: String?) {
-        if (TextUtils.equals(value, countryCode)) {
+        if (value == countryCode) {
             return
         }
         countryCode = value
@@ -139,7 +139,7 @@ class AppRegionStorage private constructor(
     }
 
     fun setRegion(value: String?) {
-        if (TextUtils.equals(value, region)) {
+        if (value == region) {
             return
         }
         region = value

@@ -15,7 +15,6 @@ import android.os.PowerManager
 import android.widget.Toast
 import androidx.annotation.NonNull
 import androidx.core.app.NotificationCompat
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity

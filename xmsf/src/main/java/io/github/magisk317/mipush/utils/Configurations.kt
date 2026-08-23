@@ -6,7 +6,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
@@ -191,7 +190,7 @@ class Configurations constructor(
             try {
                 val length = expr.length()
                 for (i in 1 until length) {
-                    val clause = expr.optConfigJsonArray(i) ?: return null
+                    val clause = expr.optJSONArray(i) ?: return null
                     val test = clause.opt(0)
                     if (test is ConfigJsonObject) {
                         val config = loader.parseConfig(test, this@Configurations)

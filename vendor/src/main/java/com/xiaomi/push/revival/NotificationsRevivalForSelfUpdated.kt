@@ -19,7 +19,7 @@ import android.os.SystemClock
 import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
 import androidx.core.content.IntentCompat
-import android.util.Log
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 import com.xiaomi.push.service.XMPushServiceCore
 import android.content.pm.ApplicationInfo
 
@@ -54,10 +54,10 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
     private fun saveActiveNotifications() {
         val notifications = context.getSystemService(NotificationManager::class.java)!!.activeNotifications
         if (notifications.isEmpty()) return
-        Log.i(TAG, "Save active notifications...")
+        KermitLoggerCompat.i(message = "Save active notifications...", tag = TAG)
 
         val i = save(notifications)
-        Log.i(TAG, "Total $i (of ${notifications.size} active) notifications saved.")
+        KermitLoggerCompat.i(message = "Total $i (of ${notifications.size} active) notifications saved.", tag = TAG)
     }
 
     private fun save(notifications: Array<StatusBarNotification>): Int {
@@ -71,7 +71,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
             saveNotification(payload, sbn, BACKUP_VERSION + i, am, expireAtElapsed)
             i++
         } catch (e: RuntimeException) {
-            Log.w(TAG, "Error saving ${sbn.key}", e)
+            KermitLoggerCompat.w(message = "Error saving ${sbn.key}", throwable = e, tag = TAG)
         }
         return i
     }
@@ -100,8 +100,8 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         val index = intent.getIntExtra(EXTRA_INDEX, -1)
         if (index < 0) {    // Triggered by AlarmManager, not restoreNotificationsAsync() which will add EXTRA_INDEX
             val sbn = IntentCompat.getParcelableExtra(intent, EXTRA_SBN, StatusBarNotification::class.java)
-            Log.w(TAG, "Save is expired: ${sbn?.key}")
-        } else Log.i(TAG, "Loading save $index...")
+            KermitLoggerCompat.w(message = "Save is expired: ${sbn?.key}", tag = TAG)
+        } else KermitLoggerCompat.i(message = "Loading save $index...", tag = TAG)
     }
 
     // Required for instantiation of BroadcastReceiver.
@@ -112,10 +112,10 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
             val context = restrictedContext.applicationContext
             val retriever = buildBackupIntent(context)
             if (incompatibleUpdated(context, retriever))
-                return Unit.also { Log.w(TAG, "Ignore incompatible backup created by old version.") }
+                return Unit.also { KermitLoggerCompat.w(message = "Ignore incompatible backup created by old version.", tag = TAG) }
             val i = restoreNotifications(context, retriever)
-            if (i == 0) Log.d(TAG, "Nothing to restore.")
-            else Log.i(TAG, "Total $i to restore.")
+            if (i == 0) KermitLoggerCompat.d(message = "Nothing to restore.", tag = TAG)
+            else KermitLoggerCompat.i(message = "Total $i to restore.", tag = TAG)
         }
 
         private fun restoreNotifications(context: Context, retriever: Intent): Int {
@@ -131,12 +131,12 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         private fun onRestore(context: Context) = PendingIntent.OnFinished { pi, payload, index, _, _ ->
                 val sbn = IntentCompat.getParcelableExtra(payload, EXTRA_SBN, StatusBarNotification::class.java)
                 if (sbn != null) try {
-                    Log.i(TAG, "Restoring notification $index: ${sbn.key}")
+                    KermitLoggerCompat.i(message = "Restoring notification $index: ${sbn.key}", tag = TAG)
                     restoreNotification(context, sbn)
                     deleteSavedNotification(context, pi)
                 } catch (e: RuntimeException) {
-                    Log.e(TAG, "Error restoring notification $index", e)
-                } else Log.e(TAG, "Missing or corrupted payload in save $index")
+                    KermitLoggerCompat.e(message = "Error restoring notification $index", throwable = e, tag = TAG)
+                } else KermitLoggerCompat.e(message = "Missing or corrupted payload in save $index", tag = TAG)
             }
 
         private fun deleteSavedNotification(context: Context, pi: PendingIntent) {

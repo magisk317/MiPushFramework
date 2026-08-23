@@ -2,13 +2,14 @@ package com.xiaomi.push.service.awake.module
 
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.awake.AwakeUploadHelper
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -16,6 +17,7 @@ import org.json.JSONObject
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/service/awake/module/AwakeManager.java
  * No stock 7.4.67-C same-path source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class AwakeManager private constructor(context: Context) {
     private val mModuleMap = HashMap<HelpType, IAwakeModule>()
     private val mContext: Context = context
@@ -77,30 +79,30 @@ class AwakeManager private constructor(context: Context) {
     }
 
     fun wakeup(context: Context, str: String, i: Int, str2: String, str3: String) {
-        if (TextUtils.isEmpty(str) || TextUtils.isEmpty(str2) || TextUtils.isEmpty(str3)) {
-            AwakeUploadHelper.uploadData(context, "$str", 1008, "A receive a incorrect message")
+        if (str.isEmpty() || str2.isEmpty() || str3.isEmpty()) {
+            AwakeUploadHelper.uploadData(context, str, 1008, "A receive a incorrect message")
             return
         }
 
         setOnLineCmd(i)
         ScheduledJobManager.getInstance(mContext).addOneShootJob {
-            if (TextUtils.isEmpty(str)) {
+            if (str.isEmpty()) {
                 AwakeUploadHelper.uploadData(context, "null", 1008, "A receive a incorrect message with empty info")
                 return@addOneShootJob
             }
             try {
                 AwakeUploadHelper.uploadData(context, str, 1001, "get message")
-                val jsonObject = JSONObject(str)
-                val action = jsonObject.optString("action")
-                val awakenedPackageName = jsonObject.optString("awakened_app_packagename")
-                val awakeAppPackageName = jsonObject.optString("awake_app_packagename")
-                val awakeApp = jsonObject.optString("awake_app")
-                val awakeType = jsonObject.optString("awake_type")
-                val awakeForeground = jsonObject.optInt("awake_foreground", 0)
+                val root = Json.parseToJsonElement(str).jsonObject
+                val action = root["action"]?.jsonPrimitive?.content.orEmpty()
+                val awakenedPackageName = root["awakened_app_packagename"]?.jsonPrimitive?.content.orEmpty()
+                val awakeAppPackageName = root["awake_app_packagename"]?.jsonPrimitive?.content.orEmpty()
+                val awakeApp = root["awake_app"]?.jsonPrimitive?.content.orEmpty()
+                val awakeType = root["awake_type"]?.jsonPrimitive?.content.orEmpty()
+                val awakeForeground = root["awake_foreground"]?.jsonPrimitive?.intOrNull ?: 0
 
                 if (str2 == awakeAppPackageName && str3 == awakeApp) {
-                    if (TextUtils.isEmpty(awakeType) || TextUtils.isEmpty(awakeAppPackageName) ||
-                        TextUtils.isEmpty(awakeApp) || TextUtils.isEmpty(awakenedPackageName)
+                    if (awakeType.isEmpty() || awakeAppPackageName.isEmpty() ||
+                        awakeApp.isEmpty() || awakenedPackageName.isEmpty()
                     ) {
                         AwakeUploadHelper.uploadData(context, str, 1008, "A receive a incorrect message with empty type")
                         return@addOneShootJob
@@ -118,7 +120,7 @@ class AwakeManager private constructor(context: Context) {
 
                     when {
                         "service" == awakeType -> {
-                            if (TextUtils.isEmpty(action)) {
+                            if (action.isEmpty()) {
                                 awakeInfo.setClassName("com.xiaomi.mipush.sdk.PushMessageHandler")
                                 doAwake(HelpType.SERVICE_COMPONENT, context, awakeInfo)
                             } else {
@@ -138,7 +140,7 @@ class AwakeManager private constructor(context: Context) {
                 } else {
                     AwakeUploadHelper.uploadData(context, str, 1008, "A receive a incorrect message with incorrect package info$awakeAppPackageName")
                 }
-            } catch (e: JSONException) {
+            } catch (e: Exception) {
                 MyLog.e(e)
                 AwakeUploadHelper.uploadData(context, str, 1008, "A meet a exception when receive the message")
             }

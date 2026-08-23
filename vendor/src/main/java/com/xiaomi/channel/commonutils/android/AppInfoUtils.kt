@@ -12,11 +12,10 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Process
-import android.text.TextUtils
-import android.util.Base64
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import java.lang.reflect.Method
+import java.util.Base64
 import kotlin.math.ceil
 
 /*
@@ -148,11 +147,11 @@ object AppInfoUtils {
         }
         for (permission in strArr) {
             var currentIndex = lastIndex
-            if (!TextUtils.isEmpty(permission) && permission!!.startsWith(ANDROID_PERMISSION_PREF)) {
+            if (!permission.isNullOrEmpty() && permission.startsWith(ANDROID_PERMISSION_PREF)) {
                 var found = false
                 var matchedIndex = lastIndex
                 for (i in permissionTypes.indices) {
-                    if (TextUtils.equals(ANDROID_PERMISSION_PREF + permissionTypes[i].name, permission)) {
+                    if (ANDROID_PERMISSION_PREF + permissionTypes[i].name == permission) {
                         found = true
                         matchedIndex = i
                         break
@@ -167,7 +166,7 @@ object AppInfoUtils {
             }
             lastIndex = currentIndex
         }
-        return String(Base64.encode(result, 0))
+        return String(Base64.getEncoder().encode(result))
     }
 
     @JvmStatic
@@ -218,14 +217,14 @@ object AppInfoUtils {
     fun getAppNotificationOp(context: Context?, str: String?, z: Boolean): AppNotificationOp {
         var applicationInfo: ApplicationInfo? = null
         var notificationOp = AppNotificationOp.UNKNOWN
-        if (context == null || TextUtils.isEmpty(str) || Build.VERSION.SDK_INT < 19) {
+        if (context == null || str.isNullOrEmpty() || Build.VERSION.SDK_INT < 19) {
             return AppNotificationOp.UNKNOWN
         }
         try {
             applicationInfo = if (str == context.packageName) {
                 context.applicationInfo
             } else {
-                context.packageManager.getApplicationInfo(str!!, 0)
+                context.packageManager.getApplicationInfo(str, 0)
             }
             notificationOp = areNotificationsEnabled(context, applicationInfo)
         } catch (throwable: Throwable) {
@@ -245,7 +244,7 @@ object AppInfoUtils {
                 context.getSystemService(Context.APP_OPS_SERVICE),
                 postNotificationOp,
                 applicationInfo.uid,
-                str!!,
+                str,
             )
         )
         val modeAllowed = coerceInteger(
@@ -412,7 +411,7 @@ object AppInfoUtils {
 
     @JvmStatic
     fun isForeground(context: Context): Boolean {
-        return TextUtils.equals(context.packageName, getForegroundApp(context))
+        return context.packageName == getForegroundApp(context)
     }
 
     @JvmStatic

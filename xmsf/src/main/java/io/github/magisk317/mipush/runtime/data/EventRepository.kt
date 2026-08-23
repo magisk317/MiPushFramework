@@ -28,7 +28,7 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushServiceCore as SdkXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.utils.ConvertUtils
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import org.apache.thrift.TBase
@@ -309,7 +309,7 @@ class EventRepository constructor(
             configurations.handle(event.pkg, newContainer)
             containerToJson(newContainer, event.regSec).toString()
         } catch (e: Throwable) {
-            Napier.e("getContent failed for ${event.pkg}", e, tag = "EventRepository")
+            Logger.withTag("EventRepository").e(e) { "getContent failed for ${event.pkg}" }
             e.toString()
         }
     }
@@ -323,7 +323,7 @@ class EventRepository constructor(
         return try {
             configurations.handle(container.packageName, container)
         } catch (t: Throwable) {
-            Napier.w("configureContainer failed for ${container.packageName}: ${t.message}", tag = "EventRepository")
+            Logger.withTag("EventRepository").w { "configureContainer failed for ${container.packageName}: ${t.message}" }
             HashSet()
         }
     }

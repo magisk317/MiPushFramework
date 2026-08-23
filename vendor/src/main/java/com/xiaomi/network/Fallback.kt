@@ -1,10 +1,16 @@
 package com.xiaomi.network
 
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.string.XMStringUtils
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 import java.net.MalformedURLException
 import java.net.URL
 import java.util.*
@@ -32,7 +38,7 @@ open class Fallback(str: String) {
     var effectiveDuration: Long = 86400000
 
     init {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             throw IllegalArgumentException("the host is empty")
         }
         fallbackHosts.add(WeightedHost(str, -1))
@@ -44,7 +50,7 @@ open class Fallback(str: String) {
         synchronized(this) {
             val it = fallbackHosts.iterator()
             while (it.hasNext()) {
-                if (TextUtils.equals(it.next().host, str)) {
+                if (it.next().host == str) {
                     it.remove()
                 }
             }
@@ -61,7 +67,7 @@ open class Fallback(str: String) {
             // host. The previous Kotlin port found the entry but never applied it, so successful
             // and failed stock socket attempts could not change fallback ordering.
             fallbackHosts
-                .firstOrNull { TextUtils.equals(str, it.host) }
+                .firstOrNull { str == it.host }
                 ?.addAccessHistory(accessHistory)
         }
     }
@@ -83,7 +89,7 @@ open class Fallback(str: String) {
         synchronized(this) {
             for (size in fallbackHosts.indices.reversed()) {
                 for (str in strArr) {
-                    if (TextUtils.equals(fallbackHosts[size].host, str)) {
+                    if (fallbackHosts[size].host == str) {
                         fallbackHosts.removeAt(size)
                         break
                     }
@@ -112,23 +118,24 @@ open class Fallback(str: String) {
         }
     }
 
-    @Throws(JSONException::class)
-    fun fromJSON(jSONObject: JSONObject): Fallback {
+    fun fromJSON(jSONObject: JsonObject): Fallback {
         synchronized(this) {
-            networkLabel = jSONObject.optString("net")
-            effectiveDuration = jSONObject.getLong("ttl")
-            percent = jSONObject.getDouble("pct")
-            timestamp = jSONObject.getLong("ts")
-            city = jSONObject.optString("city")
-            province = jSONObject.optString("prv")
-            country = jSONObject.optString("cty")
-            isp = jSONObject.optString("isp")
-            ip = jSONObject.optString("ip")
-            host = jSONObject.optString("host")
-            xforward = jSONObject.optString("xf")
-            val jSONArray = jSONObject.getJSONArray("fbs")
-            for (i in 0 until jSONArray.length()) {
-                addHost(WeightedHost().fromJSON(jSONArray.getJSONObject(i)))
+            networkLabel = jSONObject["net"]?.jsonPrimitive?.content.orEmpty()
+            effectiveDuration = jSONObject["ttl"]?.jsonPrimitive?.longOrNull ?: 86400000L
+            percent = jSONObject["pct"]?.jsonPrimitive?.doubleOrNull ?: 0.1
+            timestamp = jSONObject["ts"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
+            city = jSONObject["city"]?.jsonPrimitive?.content
+            province = jSONObject["prv"]?.jsonPrimitive?.content
+            country = jSONObject["cty"]?.jsonPrimitive?.content
+            isp = jSONObject["isp"]?.jsonPrimitive?.content
+            ip = jSONObject["ip"]?.jsonPrimitive?.content
+            host = jSONObject["host"]?.jsonPrimitive?.content
+            xforward = jSONObject["xf"]?.jsonPrimitive?.content
+            val jSONArray = jSONObject["fbs"]?.jsonArray
+            if (jSONArray != null) {
+                for (element in jSONArray) {
+                    addHost(WeightedHost().fromJSON(element.jsonObject))
+                }
             }
         }
         return this
@@ -175,11 +182,11 @@ open class Fallback(str: String) {
 
     @Throws(MalformedURLException::class)
     fun getUrls(str: String): ArrayList<String> {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             throw IllegalArgumentException("the url is empty.")
         }
         val url = URL(str)
-        if (!TextUtils.equals(url.host, host)) {
+        if (url.host != host) {
             throw IllegalArgumentException("the url is not supported by the fallback")
         }
         val arrayList = ArrayList<String>()
@@ -211,11 +218,11 @@ open class Fallback(str: String) {
     }
 
     fun match(): Boolean {
-        return TextUtils.equals(networkLabel, HostManager.getActiveNetworkLabel())
+        return networkLabel == HostManager.getActiveNetworkLabel()
     }
 
     fun match(fallback: Fallback): Boolean {
-        return TextUtils.equals(networkLabel, fallback.networkLabel)
+        return networkLabel == fallback.networkLabel
     }
 
     fun succeedHost(str: String?, j: Long, j2: Long) {
@@ -229,27 +236,26 @@ open class Fallback(str: String) {
         }
     }
 
-    @Throws(JSONException::class)
-    fun toJSON(): JSONObject {
+    fun toJSON(): JsonObject {
         synchronized(this) {
-            val jSONObject = JSONObject()
-            jSONObject.put("net", networkLabel)
-            jSONObject.put("ttl", effectiveDuration)
-            jSONObject.put("pct", percent)
-            jSONObject.put("ts", timestamp)
-            jSONObject.put("city", city)
-            jSONObject.put("prv", province)
-            jSONObject.put("cty", country)
-            jSONObject.put("isp", isp)
-            jSONObject.put("ip", ip)
-            jSONObject.put("host", host)
-            jSONObject.put("xf", xforward)
-            val jSONArray = JSONArray()
-            for (weightedHost in fallbackHosts) {
-                jSONArray.put(weightedHost.toJSON())
+            return buildJsonObject {
+                put("net", networkLabel)
+                put("ttl", effectiveDuration)
+                put("pct", percent)
+                put("ts", timestamp)
+                city?.let { put("city", it) }
+                province?.let { put("prv", it) }
+                country?.let { put("cty", it) }
+                isp?.let { put("isp", it) }
+                ip?.let { put("ip", it) }
+                host?.let { put("host", it) }
+                xforward?.let { put("xf", it) }
+                put("fbs", buildJsonArray {
+                    for (weightedHost in fallbackHosts) {
+                        add(weightedHost.toJSON())
+                    }
+                })
             }
-            jSONObject.put("fbs", jSONArray)
-            return jSONObject
         }
     }
 

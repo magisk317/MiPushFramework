@@ -85,7 +85,7 @@ class ScheduledJobManager private constructor(context: Context) {
         val wrapper = object : JobWrapper(job) {
             override fun onJobDone() {
                 if (!fixedDelay) {
-                    preferences.edit().putLong(jobKey, System.currentTimeMillis()).commit()
+                    preferences.edit().putLong(jobKey, System.currentTimeMillis()).apply()
                 }
             }
         }

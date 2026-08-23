@@ -8,9 +8,8 @@ import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
-import android.text.TextUtils
-import android.util.Log
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 import java.util.Arrays
 import java.util.HashMap
 import java.util.HashSet
@@ -22,6 +21,8 @@ import java.util.HashSet
  * No stock 7.4.67-C same-path source was found in the split source tree.
  */
 object ManifestChecker {
+    private const val TAG = "ManifestChecker"
+
     class IllegalManifestException(str: String) : RuntimeException(str) {
         companion object {
             private const val serialVersionUID = 1L
@@ -44,7 +45,7 @@ object ManifestChecker {
                 checkServices(context, packageInfo)
                 checkPermissions(context, packageInfo)
             } catch (throwable: Throwable) {
-                Log.e("ManifestChecker", "", throwable)
+                KermitLoggerCompat.e(message = "asynCheckManifest failed", throwable = throwable, tag = TAG)
             }
         }.start()
     }
@@ -58,7 +59,7 @@ object ManifestChecker {
         var found = false
         for (resolveInfo in packageManager.queryBroadcastReceivers(intent, 16384)) {
             val activityInfo = resolveInfo.activityInfo
-            found = activityInfo != null && !TextUtils.isEmpty(activityInfo.name) && activityInfo.name == str2
+            found = activityInfo != null && !activityInfo.name.isNullOrEmpty() && activityInfo.name == str2
             if (found) {
                 break
             }
@@ -101,7 +102,7 @@ object ManifestChecker {
         val requestedPermissions = packageInfo.requestedPermissions
         if (requestedPermissions != null) {
             for (permission in requestedPermissions) {
-                if (!TextUtils.isEmpty(permission) && permissions.contains(permission)) {
+                if (!permission.isNullOrEmpty() && permissions.contains(permission)) {
                     permissions.remove(permission)
                     if (permissions.isEmpty()) {
                         break
@@ -224,7 +225,7 @@ object ManifestChecker {
                 )
         }
         for (serviceInfo in packageInfo.services.orEmpty()) {
-            if (!TextUtils.isEmpty(serviceInfo.name) && serviceRequirements.containsKey(serviceInfo.name)) {
+            if (!serviceInfo.name.isNullOrEmpty() && serviceRequirements.containsKey(serviceInfo.name)) {
                 val requirement = serviceRequirements.remove(serviceInfo.name) ?: continue
                 if (requirement.enabled != serviceInfo.enabled) {
                     throw IllegalManifestException(
@@ -244,7 +245,7 @@ object ManifestChecker {
                         )
                     )
                 }
-                if (!TextUtils.isEmpty(requirement.permission) && !TextUtils.equals(requirement.permission, serviceInfo.permission)) {
+                if (!requirement.permission.isNullOrEmpty() && requirement.permission != serviceInfo.permission) {
                     throw IllegalManifestException(
                         String.format(
                             "<service android:name=\"%1\$s\" .../> in AndroidManifest had the wrong permission attribute, which should be android:permission=\"%2\$s\".",
@@ -268,10 +269,8 @@ object ManifestChecker {
             )
         }
         if (
-            !TextUtils.equals(
-                processMap[PushMessageHandler::class.java.canonicalName!!],
-                processMap[MessageHandleService::class.java.canonicalName!!],
-            )
+            processMap[PushMessageHandler::class.java.canonicalName.orEmpty()] !=
+            processMap[MessageHandleService::class.java.canonicalName.orEmpty()]
         ) {
             throw IllegalManifestException(
                 String.format(
@@ -284,10 +283,8 @@ object ManifestChecker {
         if (
             processMap.containsKey(PushConstants.XM_SERVICE_CLASS_NAME_JAR) &&
             processMap.containsKey(PushConstants.PUSH_SERVICE_CLASS_NAME_JAR) &&
-            !TextUtils.equals(
-                processMap[PushConstants.XM_SERVICE_CLASS_NAME_JAR],
-                processMap[PushConstants.PUSH_SERVICE_CLASS_NAME_JAR],
-            )
+            processMap[PushConstants.XM_SERVICE_CLASS_NAME_JAR] !=
+            processMap[PushConstants.PUSH_SERVICE_CLASS_NAME_JAR]
         ) {
             throw IllegalManifestException(
                 String.format(
@@ -313,7 +310,7 @@ object ManifestChecker {
             return false
         }
         for (value in strArr) {
-            if (TextUtils.equals(value, str)) {
+            if (value == str) {
                 return true
             }
         }
@@ -333,7 +330,7 @@ object ManifestChecker {
     private fun findReceiverInfo(packageManager: PackageManager, intent: Intent, str: String): ActivityInfo? {
         for (resolveInfo: ResolveInfo in packageManager.queryBroadcastReceivers(intent, 16384)) {
             val activityInfo = resolveInfo.activityInfo
-            if (activityInfo != null && TextUtils.equals(str, activityInfo.name)) {
+            if (activityInfo != null && str == activityInfo.name) {
                 return activityInfo
             }
         }
@@ -347,7 +344,7 @@ object ManifestChecker {
         while (i + 1 < strArr.size) {
             val action = strArr[i]
             val receiverClass = strArr[i + 1]
-            if (!TextUtils.isEmpty(action) && !TextUtils.isEmpty(receiverClass)) {
+            if (!action.isNullOrEmpty() && !receiverClass.isNullOrEmpty()) {
                 val intent = Intent(action).apply {
                     setPackage(packageName)
                 }

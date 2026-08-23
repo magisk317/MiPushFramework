@@ -24,7 +24,12 @@ import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import com.xiaomi.xmsf.R
-import org.json.JSONObject
+import co.touchlab.kermit.Logger
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 internal object MiPushIslandPayloadBuilder {
     private const val TAG = "MiPushIslandPayloadBuilder"
@@ -199,18 +204,16 @@ internal object MiPushIslandPayloadBuilder {
     ): String {
         if (highlightColor.isNullOrBlank() && !outerGlow) return this
         return runCatching {
-            val root = JSONObject(this)
-            val paramV2 = root.optJSONObject("param_v2") ?: JSONObject().also {
-                root.put("param_v2", it)
-            }
-            val paramIsland = paramV2.optJSONObject("param_island") ?: JSONObject().also {
-                paramV2.put("param_island", it)
-            }
+            val root = Json.parseToJsonElement(this).jsonObject.toMutableMap()
+            val paramV2 = (root["param_v2"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+            val paramIsland = (paramV2["param_island"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
             highlightColor?.takeIf { it.isNotBlank() }?.let {
-                paramIsland.put("highlightColor", it)
+                paramIsland["highlightColor"] = kotlinx.serialization.json.JsonPrimitive(it)
             }
-            if (outerGlow) paramIsland.put("outEffectSrc", "outer_glow")
-            root.toString()
+            if (outerGlow) paramIsland["outEffectSrc"] = kotlinx.serialization.json.JsonPrimitive("outer_glow")
+            paramV2["param_island"] = JsonObject(paramIsland)
+            root["param_v2"] = JsonObject(paramV2)
+            JsonObject(root).toString()
         }.getOrDefault(this)
     }
 
@@ -250,10 +253,9 @@ internal object MiPushIslandPayloadBuilder {
                 actionIntentType = 1,
             )
         }
-        io.github.aakira.napier.Napier.i(
-            "createBuilder options: showNotification=${options.showNotification} enableFloat=${options.enableFloat} enabled=${options.enabled} focusNotification=${options.focusNotification} style=$style title=$title",
-            tag = TAG
-        )
+        Logger.withTag(TAG).i {
+            "createBuilder options: showNotification=${options.showNotification} enableFloat=${options.enableFloat} enabled=${options.enabled} focusNotification=${options.focusNotification} style=$style title=$title"
+        }
         val builder = HyperIslandNotification.Builder(
             context = context,
             businessName = BUSINESS,
@@ -524,15 +526,19 @@ internal object MiPushIslandPayloadBuilder {
         if (notificationId == null) return this
         return runCatching {
             val identity = "$packageName:$notificationId"
-            val root = JSONObject(this)
-            val paramV2 = root.optJSONObject("param_v2") ?: return this
-            if (paramV2.optString("notifyId").isBlank()) {
-                paramV2.put("notifyId", identity)
+            val root = Json.parseToJsonElement(this).jsonObject.toMutableMap()
+            val paramV2Obj = root["param_v2"] as? JsonObject ?: return this
+            val paramV2 = paramV2Obj.toMutableMap()
+            val currentNotifyId = paramV2["notifyId"]?.jsonPrimitive?.contentOrNull
+            if (currentNotifyId.isNullOrBlank()) {
+                paramV2["notifyId"] = kotlinx.serialization.json.JsonPrimitive(identity)
             }
-            if (paramV2.optString("orderId").isBlank()) {
-                paramV2.put("orderId", identity)
+            val currentOrderId = paramV2["orderId"]?.jsonPrimitive?.contentOrNull
+            if (currentOrderId.isNullOrBlank()) {
+                paramV2["orderId"] = kotlinx.serialization.json.JsonPrimitive(identity)
             }
-            root.toString()
+            root["param_v2"] = JsonObject(paramV2)
+            JsonObject(root).toString()
         }.getOrDefault(this)
     }
 

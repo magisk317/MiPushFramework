@@ -3,14 +3,15 @@ package com.xiaomi.push.service
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.text.TextUtils
 import android.widget.RemoteViews
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.miui.pushads.sdk.NotifyAdsDef
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import org.json.JSONException
-import org.json.JSONObject
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -25,10 +26,9 @@ object MIPushNotificationCustomLayoutSupport {
         val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
         val layoutName = extra[LAYOUT_NAME]
         val layoutValue = extra[LAYOUT_VALUE]
-        if (TextUtils.isEmpty(layoutName) || TextUtils.isEmpty(layoutValue)) {
+        if (layoutName.isNullOrEmpty() || layoutValue.isNullOrEmpty()) {
             return null
         }
-        val layoutValueText = requireNotNull(layoutValue)
         return try {
             val resources = context.packageManager.getResourcesForApplication(targetPackage)
             val layoutId = resources.getIdentifier(layoutName, "layout", targetPackage)
@@ -36,85 +36,75 @@ object MIPushNotificationCustomLayoutSupport {
                 return null
             }
             RemoteViews(targetPackage, layoutId).also { remoteViews ->
-                bindLayoutValues(remoteViews, resources, targetPackage, layoutValueText)
+                bindLayoutValues(remoteViews, resources, targetPackage, layoutValue)
             }
-        } catch (e: JSONException) {
-            MyLog.e(e)
-            null
         } catch (e: PackageManager.NameNotFoundException) {
-            MyLog.e(e)
+            KermitLoggerCompat.e("Package not found for custom layout", e)
+            null
+        } catch (e: Exception) {
+            KermitLoggerCompat.e("Custom layout binding failed", e)
             null
         }
     }
 
-    @Throws(JSONException::class)
     private fun bindLayoutValues(
         remoteViews: RemoteViews,
         resources: Resources,
         targetPackage: String,
         layoutValue: String,
     ) {
-        val valueJson = JSONObject(layoutValue)
-        if (valueJson.has("text")) {
-            bindText(remoteViews, resources, targetPackage, valueJson.getJSONObject("text"))
+        val valueJson = Json.parseToJsonElement(layoutValue).jsonObject
+        valueJson["text"]?.jsonObject?.let {
+            bindText(remoteViews, resources, targetPackage, it)
         }
-        if (valueJson.has("image")) {
-            bindImage(remoteViews, resources, targetPackage, valueJson.getJSONObject("image"))
+        valueJson["image"]?.jsonObject?.let {
+            bindImage(remoteViews, resources, targetPackage, it)
         }
-        if (valueJson.has(NotifyAdsDef.JSON_TAG_ACTIONTIME)) {
-            bindActionTime(remoteViews, resources, targetPackage, valueJson.getJSONObject(NotifyAdsDef.JSON_TAG_ACTIONTIME))
+        valueJson[NotifyAdsDef.JSON_TAG_ACTIONTIME]?.jsonObject?.let {
+            bindActionTime(remoteViews, resources, targetPackage, it)
         }
     }
 
-    @Throws(JSONException::class)
     private fun bindText(
         remoteViews: RemoteViews,
         resources: Resources,
         targetPackage: String,
-        values: JSONObject,
+        values: JsonObject,
     ) {
-        val keys = values.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
+        for ((key, value) in values) {
             val viewId = resources.getIdentifier(key, "id", targetPackage)
             if (viewId > 0) {
-                remoteViews.setTextViewText(viewId, values.getString(key))
+                remoteViews.setTextViewText(viewId, value.jsonPrimitive.content)
             }
         }
     }
 
-    @Throws(JSONException::class)
     private fun bindImage(
         remoteViews: RemoteViews,
         resources: Resources,
         targetPackage: String,
-        values: JSONObject,
+        values: JsonObject,
     ) {
-        val keys = values.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
+        for ((key, value) in values) {
             val viewId = resources.getIdentifier(key, "id", targetPackage)
-            val drawableId = resources.getIdentifier(values.getString(key), "drawable", targetPackage)
+            val drawableId = resources.getIdentifier(value.jsonPrimitive.content, "drawable", targetPackage)
             if (viewId > 0) {
                 remoteViews.setImageViewResource(viewId, drawableId)
             }
         }
     }
 
-    @Throws(JSONException::class)
     private fun bindActionTime(
         remoteViews: RemoteViews,
         resources: Resources,
         targetPackage: String,
-        values: JSONObject,
+        values: JsonObject,
     ) {
-        val keys = values.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            val pattern = values.getString(key).ifEmpty { "yy-MM-dd hh:mm" }
+        for ((key, value) in values) {
+            val pattern = value.jsonPrimitive.content.ifEmpty { "yy-MM-dd hh:mm" }
             val viewId = resources.getIdentifier(key, "id", targetPackage)
             if (viewId > 0) {
-                remoteViews.setTextViewText(viewId, SimpleDateFormat(pattern).format(Date(System.currentTimeMillis())))
+                remoteViews.setTextViewText(viewId, SimpleDateFormat(pattern, java.util.Locale.US).format(Date(System.currentTimeMillis())))
             }
         }
     }

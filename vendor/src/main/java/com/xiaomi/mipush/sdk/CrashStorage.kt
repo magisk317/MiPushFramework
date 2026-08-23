@@ -12,6 +12,7 @@ import java.io.FileOutputStream
  * Local legacy crash storage helper retained for compatibility.
  * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class CrashStorage private constructor(private val mContext: Context) {
     companion object {
         const val CRASH_FILE_PATH = "/crash"

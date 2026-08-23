@@ -11,8 +11,10 @@ import com.xiaomi.channel.commonutils.msa.MsaIdManager
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 import com.xiaomi.smack.ConnectionConfiguration
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
 import java.util.TreeMap
 
@@ -40,7 +42,7 @@ object MIPushAccountUtils {
 
     @JvmStatic
     fun clearAccount(context: Context) {
-        context.getSharedPreferences(PREF_NAME, 0).edit().clear().commit()
+        context.getSharedPreferences(PREF_NAME, 0).edit().clear().apply()
         account = null
         notifyAccountChange()
     }
@@ -73,7 +75,7 @@ object MIPushAccountUtils {
                 deviceId.isNullOrEmpty() -> deviceId
                 DeviceInfo.startsWithDevPrefix(deviceId) -> {
                     DeviceInfo.getSimpleDeviceId(context).also {
-                        sharedPreferences.edit().putString(PREF_KEY_DEVICE_ID, it).commit()
+                        sharedPreferences.edit().putString(PREF_KEY_DEVICE_ID, it).apply()
                     }
                 }
                 else -> deviceId
@@ -128,7 +130,7 @@ object MIPushAccountUtils {
     }
 
     @JvmStatic
-    @Throws(JSONException::class, IOException::class)
+    @Throws(Exception::class, IOException::class)
     fun register(
         context: Context,
         packageName: String?,
@@ -203,21 +205,23 @@ object MIPushAccountUtils {
                 return null
             }
 
-            val responseJson = JSONObject(responseString)
-            if (responseJson.getInt("code") != 0) {
+            val responseJson = Json.parseToJsonElement(responseString).jsonObject
+            val code = responseJson["code"]?.jsonPrimitive?.intOrNull ?: -1
+            if (code != 0) {
+                val description = responseJson["description"]?.jsonPrimitive?.content.orEmpty()
                 MIPushClientManager.notifyRegisterError(
                     context,
-                    responseJson.getInt("code"),
-                    responseJson.optString("description"),
+                    code,
+                    description,
                 )
                 MyLog.w(responseString)
                 return null
             }
 
-            val data = responseJson.getJSONObject("data")
-            val security = data.getString("ssecurity")
-            val token = data.getString("token")
-            val userId = data.getString("userId")
+            val data = responseJson["data"]?.jsonObject ?: return null
+            val security = data["ssecurity"]?.jsonPrimitive?.content.orEmpty()
+            val token = data["token"]?.jsonPrimitive?.content.orEmpty()
+            val userId = data["userId"]?.jsonPrimitive?.content.orEmpty()
             val resolvedResource = accountResource ?: "an${XMStringUtils.generateRandomString(6)}"
             val createdAccount = MIPushAccount(
                 account = "$userId@xiaomi.com/$resolvedResource",
@@ -229,7 +233,9 @@ object MIPushAccountUtils {
                 envType = BuildSettings.getEnvType(),
             )
             persist(context, createdAccount)
-            DeviceInfo.updateVirtDevId(context, data.optString("vdevid"))
+            data["vdevid"]?.jsonPrimitive?.content?.let {
+                DeviceInfo.updateVirtDevId(context, it)
+            }
             account = createdAccount
             return createdAccount
         }

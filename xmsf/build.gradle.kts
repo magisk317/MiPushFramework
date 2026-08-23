@@ -216,6 +216,7 @@ tasks.configureEach {
 
 dependencies {
     implementation(project(":manager-api"))
+    implementation(project(":magisk-xposed-kit:diagnostics"))
     implementation(project(":diagnostics"))
     implementation(project(":core"))
     implementation(project(":settings"))
@@ -224,8 +225,9 @@ dependencies {
     implementation(project(":vendor"))
     implementation(project(":pinned"))
     implementation(project(":magisk-xposed-kit"))
+    implementation(project(":runtime-store-kmp"))
 
-    implementation(libs.napier)
+    implementation(libs.kermit)
     implementation(libs.hyperisland.kit) {
         exclude(group = "androidx.appcompat", module = "appcompat")
         exclude(group = "com.google.android.material", module = "material")
@@ -240,6 +242,7 @@ dependencies {
     testImplementation(libs.robolectric.junit5.extension)
     testImplementation(libs.conscrypt.openjdk.uber)
     testImplementation(libs.jqwik)
+    testImplementation(libs.androidx.sqlite.bundled)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.palette)

@@ -22,7 +22,9 @@ import io.github.magisk317.xposed.invokeOriginalMethod
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.atomic.AtomicBoolean
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Reuses AMap's drive live-view feed to update its existing driving foreground notification.
@@ -71,6 +73,22 @@ class AmapNavigationLiveViewHook : BaseHook() {
     private companion object {
         private const val TAG = "AmapNavigationLiveView"
         private const val AMAP_PACKAGE = "com.autonavi.minimap"
+    }
+}
+
+internal object AmapNavigationLiveViewPayload {
+    fun connectSuccess(): JsonObject = buildJsonObject {
+        put("code", 1)
+        put(
+            "message",
+            buildJsonObject {
+                put("msg", "connect_success")
+                put("manufacturer", "XIAOMI")
+                put("deviceName", "XiaomiFocus")
+            },
+        )
+        put("displayName", "")
+        put("deviceType", "")
     }
 }
 
@@ -280,18 +298,7 @@ private class AmapNavigationLiveViewBridge(
     }
 
     private fun dispatchBizBeginSuccess(callback: Any): Boolean {
-        val payload = JSONObject()
-            .put("code", BIZ_CONNECT_SUCCESS)
-            .put(
-                "message",
-                JSONObject()
-                    .put("msg", "connect_success")
-                    .put("manufacturer", "XIAOMI")
-                    .put("deviceName", "XiaomiFocus")
-                    .toString(),
-            )
-            .put("displayName", "")
-            .put("deviceType", "")
+        val payload = AmapNavigationLiveViewPayload.connectSuccess()
         return runCatching {
             callback.callMethod(JS_CALLBACK_METHOD, arrayOf<Any?>(payload))
         }.onFailure {
@@ -448,7 +455,6 @@ private class AmapNavigationLiveViewBridge(
         private const val DRIVE_LIVE_VIEW_BIZ_TYPE = 111
         private const val NAVIGATION_DATA_TYPE = 3
         private const val CLEAR_DATA_TYPE = 6
-        private const val BIZ_CONNECT_SUCCESS = 1
         private const val NOTIFICATION_UPDATE_ARGUMENT_COUNT = 6
         private const val TITLE_ARGUMENT_INDEX = 2
         private const val CONTENT_ARGUMENT_INDEX = 3

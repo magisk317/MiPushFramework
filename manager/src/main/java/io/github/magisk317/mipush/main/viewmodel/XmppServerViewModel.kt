@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class XmppServerUiState(
     val configuredServer: String? = null,
     val isLoaded: Boolean = false,

@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.notification
 
 import android.content.Context
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 /**
  * Detects progress-style (Live Update) notifications from push message content.
@@ -61,11 +61,10 @@ object LiveUpdateDetector {
         val result = LiveUpdateDetectorCore.detect(input)
 
         if (result.isProgress) {
-            Napier.i(
+            Logger.withTag(TAG).i {
                 "Live Update detected pkg=$packageName category=${result.category} " +
-                    "progress=${result.progressPercent} title=${input.title} description=${input.description}",
-                tag = TAG
-            )
+                    "progress=${result.progressPercent} title=${input.title} description=${input.description}"
+            }
         }
 
         return result

@@ -2,7 +2,6 @@ package com.xiaomi.network
 
 import android.content.Context
 import android.net.Uri
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.network.NameValuePair
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.slim.Blob
@@ -53,11 +52,11 @@ abstract class HttpUtils {
             if (params != null) {
                 for (param in params) {
                     var currentLength = length
-                    if (!TextUtils.isEmpty(param.name)) {
+                    if (!param.name.isNullOrEmpty()) {
                         currentLength = length + param.name.length
                     }
                     length = currentLength
-                    if (!TextUtils.isEmpty(param.value)) {
+                    if (!param.value.isNullOrEmpty()) {
                         length = currentLength + param.value.length
                     }
                 }

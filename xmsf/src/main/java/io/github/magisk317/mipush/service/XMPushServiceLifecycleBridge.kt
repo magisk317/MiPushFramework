@@ -7,8 +7,6 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Intent
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import com.xiaomi.push.service.XMPushServiceCore
 import io.github.magisk317.xposed.logging.MagiskOtel

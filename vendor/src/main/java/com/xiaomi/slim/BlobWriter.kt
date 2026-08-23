@@ -1,8 +1,8 @@
 package com.xiaomi.slim
 
 import android.os.Build
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.SystemUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.DateTimeHelper
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
@@ -62,14 +62,14 @@ internal class BlobWriter(
         val blob = Blob().apply {
             setChannelId(0)
             setCmd(Blob.CMD_CONN, null)
-            setFrom(0L, Blob.XIAOMI_SERVER, null)
+            from = "0@${Blob.XIAOMI_SERVER}"
             setPayload(connReq.toByteArray(), null)
         }
         write(blob)
-        MyLog.w(
+        Logger.w {
             "[slim] open conn: andver=${Build.VERSION.SDK_INT} sdk=41 hash=$deviceUuid " +
                 "tz=$mTimeZone:$mDSTSavings Model=${Build.MODEL} os=${Build.VERSION.INCREMENTAL}"
-        )
+        }
     }
 
     @Throws(IOException::class)
@@ -80,10 +80,10 @@ internal class BlobWriter(
         val writePlan = observer?.planSlimWrite(serializedSize, blob.cmd, mBuffer.capacity())
             ?: fallbackWritePlan(serializedSize, blob.cmd, mBuffer.capacity())
         
-        writePlan.eventAction?.let { MyLog.w("[slim] $it") }
+        writePlan.eventAction?.let { Logger.w { "[slim] $it" } }
         
         if (writePlan.shouldDrop) {
-            MyLog.w("Blob size=$serializedSize should be less than ${Blob.MAX_BLOB_SIZE} Drop blob chid=${blob.channelId} id=${blob.packetID}")
+            Logger.w { "Blob size=$serializedSize should be less than ${Blob.MAX_BLOB_SIZE} Drop blob chid=${blob.channelId} id=${blob.packetID}" }
             return 0
         }
         
@@ -120,7 +120,7 @@ internal class BlobWriter(
         mOutputStream.flush()
         
         val bytes = mBuffer.position() + 4
-        MyLog.v("[Slim] Send {cmd=${blob.cmd};chid=${blob.channelId};len=$bytes}")
+        Logger.v { "[Slim] Send {cmd=${blob.cmd};chid=${blob.channelId};len=$bytes}" }
         return bytes
     }
 
@@ -153,7 +153,7 @@ internal class BlobWriter(
             setPayload(bytes, null)
         }
         write(blob)
-        MyLog.w("[Slim] write CONN Resp: host = ${connResp.host}")
+        Logger.w { "[Slim] write CONN Resp: host = ${connResp.host}" }
     }
 
     @Throws(IOException::class)

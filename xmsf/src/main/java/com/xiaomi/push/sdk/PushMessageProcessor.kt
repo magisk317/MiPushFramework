@@ -10,7 +10,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -226,7 +225,7 @@ class PushMessageProcessor constructor(
         runCatching {
             AppRootAccessFacade.runRootCommand("pm enable $targetPackage")
         }.onFailure {
-            logW(packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}"))
+            logW { packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}") }
         }
     }
 
@@ -239,9 +238,9 @@ class PushMessageProcessor constructor(
         return runCatching {
             context.packageManager.getLaunchIntentForPackage(targetPackage)
         }.onFailure {
-            logE(packageInfo(targetPackage, "get launch intent failed"), it)
+            logE(it) { packageInfo(targetPackage, "get launch intent failed") }
         }.getOrNull()?.also {
-            logD(packageInfo(targetPackage, "resolved launch intent=$it"))
+            logD { packageInfo(targetPackage, "resolved launch intent=$it") }
         }
     }
 
@@ -250,37 +249,37 @@ class PushMessageProcessor constructor(
         try {
             val topActivity = resolveTopActivity(context)
             if (!topActivity.isEnabled(context)) {
-                logW(packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification"))
+                logW { packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification") }
                 startJumpIntent(context, targetPackage, getJumpIntent(context, container))
                 return System.currentTimeMillis() - start
             }
 
             if (!topActivity.isAppForeground(context, targetPackage)) {
-                logD(packageInfo(targetPackage, "app is not at front, pull up"))
+                logD { packageInfo(targetPackage, "app is not at front, pull up") }
                 startJumpIntent(context, targetPackage, getJumpIntentFromPkg(context, targetPackage))
             } else {
-                logD(packageInfo(targetPackage, "app is at foreground"))
+                logD { packageInfo(targetPackage, "app is at foreground") }
             }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
-            logE(packageInfo(targetPackage, "pullUpApp interrupted"), e)
+            logE(e) { packageInfo(targetPackage, "pullUpApp interrupted") }
         } catch (e: RuntimeException) {
-            logE(packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}"), e)
+            logE(e) { packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}") }
         }
         return System.currentTimeMillis() - start
     }
 
     private fun startJumpIntent(context: Context, targetPackage: String, intent: Intent?) {
         if (intent == null) {
-            logW(packageInfo(targetPackage, "can not resolve launch intent"))
+            logW { packageInfo(targetPackage, "can not resolve launch intent") }
             return
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         runCatching {
             context.startActivity(intent)
-            logD(packageInfo(targetPackage, "start activity intent=$intent"))
+            logD { packageInfo(targetPackage, "start activity intent=$intent") }
         }.onFailure {
-            logE(packageInfo(targetPackage, "start activity failed"), it)
+            logE(it) { packageInfo(targetPackage, "start activity failed") }
         }
     }
 

@@ -1,7 +1,11 @@
 package com.xiaomi.network
 
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.put
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -19,24 +23,22 @@ class AccessHistory @JvmOverloads constructor(
     var exception: String? = exception?.javaClass?.simpleName
         private set
 
-    @Throws(JSONException::class)
-    fun fromJSON(jsonObject: JSONObject): AccessHistory {
-        cost = jsonObject.getLong("cost")
-        size = jsonObject.getLong("size")
-        time = jsonObject.getLong("ts")
-        weight = jsonObject.getInt("wt")
-        exception = jsonObject.optString("expt")
+    fun fromJSON(jsonObject: JsonObject): AccessHistory {
+        cost = jsonObject["cost"]?.jsonPrimitive?.longOrNull ?: 0L
+        size = jsonObject["size"]?.jsonPrimitive?.longOrNull ?: 0L
+        time = jsonObject["ts"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis()
+        weight = jsonObject["wt"]?.jsonPrimitive?.intOrNull ?: 0
+        exception = jsonObject["expt"]?.jsonPrimitive?.content
         return this
     }
 
-    @Throws(JSONException::class)
-    fun toJSON(): JSONObject {
-        val jsonObject = JSONObject()
-        jsonObject.put("cost", cost)
-        jsonObject.put("size", size)
-        jsonObject.put("ts", time)
-        jsonObject.put("wt", weight)
-        jsonObject.put("expt", exception)
-        return jsonObject
+    fun toJSON(): JsonObject {
+        return buildJsonObject {
+            put("cost", cost)
+            put("size", size)
+            put("ts", time)
+            put("wt", weight)
+            exception?.let { put("expt", it) }
+        }
     }
 }

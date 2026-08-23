@@ -1,29 +1,30 @@
 package com.xiaomi.mipush.sdk.stat.db
 
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 object MyLog {
     private const val TAG = "PUSH_STAT"
 
     fun i(msg: String) {
-        android.util.Log.i(TAG, msg)
+        KermitLoggerCompat.i(message = msg, tag = TAG)
     }
 
     fun v(msg: String) {
-        android.util.Log.v(TAG, msg)
+        KermitLoggerCompat.d(message = msg, tag = TAG)
     }
 
     fun e(msg: String) {
-        android.util.Log.e(TAG, msg)
+        KermitLoggerCompat.e(message = msg, tag = TAG)
     }
 
     fun e(e: Throwable) {
-        android.util.Log.e(TAG, e.message ?: "Unknown error", e)
+        KermitLoggerCompat.e(message = e.message ?: "Unknown error", throwable = e, tag = TAG)
     }
 
     fun e(msg: String, e: Throwable) {
-        android.util.Log.e(TAG, msg, e)
+        KermitLoggerCompat.e(message = msg, throwable = e, tag = TAG)
     }
 
     fun w(msg: String) {
-        android.util.Log.w(TAG, msg)
+        KermitLoggerCompat.w(message = msg, tag = TAG)
     }
 }

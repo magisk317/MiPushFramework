@@ -12,7 +12,6 @@ import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.push.service.PushClientsManager.ClientLoginInfo
 import com.xiaomi.push.service.PushClientsManager.ClientStatus
 import com.xiaomi.smack.Connection
-import io.github.aakira.napier.Napier
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushRuntimeChannelTracker {

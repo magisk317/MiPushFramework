@@ -4,8 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import org.json.JSONObject
+import co.touchlab.kermit.Logger
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.HashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -75,7 +78,7 @@ class PushInnerReceiver : BroadcastReceiver() {
                 )
             }
             else -> {
-                Log.w(TAG, "Rejected unsupported internal control target")
+                Logger.withTag(TAG).w { "Rejected unsupported internal control target" }
                 MagiskOtel.event(
                     name = "push.control",
                     attributes = mapOf(
@@ -94,7 +97,7 @@ class PushInnerReceiver : BroadcastReceiver() {
     private fun deliverKitMessage(context: Context, message: ControlMessage) {
         val kitName = message.kitName
         if (kitName.isNullOrBlank() || !KIT_NAME_PATTERN.matches(kitName)) {
-            Log.w(TAG, "Rejected internal delivery without a valid kit name")
+            Logger.withTag(TAG).w { "Rejected internal delivery without a valid kit name" }
             return
         }
         val nested = Bundle().apply {
@@ -117,7 +120,7 @@ class PushInnerReceiver : BroadcastReceiver() {
         }
         // The stock handlers mutate installed XMS/kit modules. This replacement has no
         // equivalent signed module manager, so accepting the request would be unsafe.
-        Log.w(TAG, "Rejected unsupported privileged control command: $category")
+        Logger.withTag(TAG).w { "Rejected unsupported privileged control command: $category" }
     }
 
     internal data class ControlMessage(
@@ -144,27 +147,25 @@ class PushInnerReceiver : BroadcastReceiver() {
         internal fun parseControlMessage(messageId: String?, content: String?): ControlMessage? {
             if (content.isNullOrBlank()) return null
             return runCatching {
-                val root = JSONObject(content)
-                val type = root.optString("type", TYPE_COMMAND)
-                val configObject = root.optJSONObject("configMap")
+                val root = Json.parseToJsonElement(content).jsonObject
+                val type = root["type"]?.jsonPrimitive?.contentOrNull ?: TYPE_COMMAND
+                val configObject = root["configMap"]?.jsonObject
                 val config = buildMap {
                     if (configObject != null) {
-                        val keys = configObject.keys()
-                        while (keys.hasNext()) {
-                            val key = keys.next()
-                            put(key, configObject.optString(key))
+                        for ((key, element) in configObject) {
+                            element.jsonPrimitive.contentOrNull?.let { put(key, it) }
                         }
                     }
                 }
                 ControlMessage(
                     messageId = messageId,
                     type = type,
-                    kitName = config["kitName"] ?: root.optString("name").takeIf(String::isNotBlank),
+                    kitName = config["kitName"] ?: root["name"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank),
                     command = config["command"],
                     config = config,
                 )
             }.onFailure {
-                Log.w(TAG, "Rejected malformed internal control message")
+                Logger.withTag(TAG).w { "Rejected malformed internal control message" }
             }.getOrNull()
         }
     }

@@ -12,7 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmsf.R
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.Utils
@@ -72,12 +72,11 @@ internal object NativeNotificationFeatureBuilder {
         }
 
         if (focusPlan.useNativeProgress && focusPlan.nativeDetection != null) {
-            Napier.d(
+            Logger.withTag(TAG).d {
                 "Applying native progress feature pkg=$packageName " +
                     "source=${focusPlan.semantic?.source} category=${focusPlan.nativeDetection.category} " +
-                    "progress=${focusPlan.nativeDetection.progressPercent} reason=${focusPlan.reason}",
-                tag = TAG,
-            )
+                    "progress=${focusPlan.nativeDetection.progressPercent} reason=${focusPlan.reason}"
+            }
             ProgressStyleBuilder.applyProgressStyle(
                 context = context,
                 builder = builder,
@@ -303,7 +302,7 @@ internal object NativeNotificationFeatureBuilder {
                 .setAutoCancel(false)
                 .build()
         }.getOrElse { error ->
-            Napier.d("Failed to apply platform media style: ${error.message}", error, tag = TAG)
+            Logger.withTag(TAG).d(error) { "Failed to apply platform media style: ${error.message}" }
             notification
         }
     }

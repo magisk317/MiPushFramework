@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.app
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
@@ -89,9 +89,9 @@ class ConfigCenter constructor(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
         }.onSuccess {
-            Log.i(TAG, "persisted configuration directory permission uri=$treeUri")
+            Logger.withTag(TAG).i { "persisted configuration directory permission uri=$treeUri" }
         }.onFailure { error ->
-            Log.w(TAG, "unable to persist configuration directory permission uri=$treeUri", error)
+            Logger.withTag(TAG).w(error) { "unable to persist configuration directory permission uri=$treeUri" }
         }
         runCatching {
             context.grantUriPermission(
@@ -100,9 +100,9 @@ class ConfigCenter constructor(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
             )
-            Log.i(TAG, "granted manager configuration directory permission uri=$treeUri")
+            Logger.withTag(TAG).i { "granted manager configuration directory permission uri=$treeUri" }
         }.onFailure { error ->
-            Log.w(TAG, "unable to grant manager configuration directory permission uri=$treeUri", error)
+            Logger.withTag(TAG).w(error) { "unable to grant manager configuration directory permission uri=$treeUri" }
         }
     }
 }

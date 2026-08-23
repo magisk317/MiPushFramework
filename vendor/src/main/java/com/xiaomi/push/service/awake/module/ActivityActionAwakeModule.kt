@@ -3,7 +3,6 @@ package com.xiaomi.push.service.awake.module
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.awake.AwakeDataHelper
@@ -22,18 +21,18 @@ internal class ActivityActionAwakeModule : IAwakeModule {
         val awakeInfoStr = awakeInfo.awakeInfo
         val awakeForeground = awakeInfo.awakeForeground
 
-        if (TextUtils.isEmpty(targetPackageName) || TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
-            val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "activity" else awakeInfoStr!!
+        if (targetPackageName.isNullOrEmpty() || action.isNullOrEmpty() || awakeInfoStr.isNullOrEmpty()) {
+            val logContent = if (awakeInfoStr.isNullOrEmpty()) "activity" else awakeInfoStr
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
         }
 
-        if (!ComponentHelper.checkActivity(context, targetPackageName!!, action!!)) {
-            AwakeUploadHelper.uploadData(context, awakeInfoStr!!, 1003, "B is not ready")
+        if (!ComponentHelper.checkActivity(context, targetPackageName, action)) {
+            AwakeUploadHelper.uploadData(context, awakeInfoStr, 1003, "B is not ready")
             return
         }
 
-        AwakeUploadHelper.uploadData(context, awakeInfoStr!!, 1002, "B is ready")
+        AwakeUploadHelper.uploadData(context, awakeInfoStr, 1002, "B is ready")
         AwakeUploadHelper.uploadData(context, awakeInfoStr, 1004, "A is ready")
 
         val intent = Intent(action).apply {
@@ -62,12 +61,12 @@ internal class ActivityActionAwakeModule : IAwakeModule {
 
     private fun parseActivity(activity: Activity, intent: Intent) {
         val stringExtra = intent.getStringExtra(AwakeUploadHelper.KEY_AWAKE_INFO)
-        if (TextUtils.isEmpty(stringExtra)) {
+        if (stringExtra.isNullOrEmpty()) {
             AwakeUploadHelper.uploadData(activity.applicationContext, "activity", 1008, "B get incorrect message")
             return
         }
-        val strDecode = AwakeDataHelper.decode(stringExtra!!)
-        if (TextUtils.isEmpty(strDecode)) {
+        val strDecode = AwakeDataHelper.decode(stringExtra)
+        if (strDecode.isEmpty()) {
             AwakeUploadHelper.uploadData(activity.applicationContext, "activity", 1008, "B get incorrect message")
         } else {
             AwakeUploadHelper.uploadData(activity.applicationContext, strDecode, 1007, "play with activity successfully")

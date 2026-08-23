@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.provider.Settings
-import android.util.Log
+import co.touchlab.kermit.Logger
 import dalvik.system.PathClassLoader
 
 /**
@@ -169,7 +169,7 @@ internal object KeepAliveEnvironment {
                 }
             }
         }.onFailure {
-            Log.d(TAG, "MIUI device-level API unavailable; using stock RAM fallback")
+            Logger.withTag(TAG).d { "MIUI device-level API unavailable; using stock RAM fallback" }
         }.getOrNull()
         if (reflectedClass != null) return reflectedClass
 

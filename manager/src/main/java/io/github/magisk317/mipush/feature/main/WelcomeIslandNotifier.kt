@@ -7,6 +7,11 @@ import android.graphics.drawable.Icon
 import androidx.core.content.edit
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.data.PreferenceRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 
 internal object WelcomeIslandNotifier {
     private const val PREFS_NAME = "mipush_welcome_island"
@@ -26,9 +31,30 @@ internal object WelcomeIslandNotifier {
         val islandOuterGlow: Boolean = true,
     )
 
-    fun notifyAfterInstallOrUpdate(context: Context) {
+    fun notifyAfterInstallOrUpdate(context: Context, preferenceRepository: io.github.magisk317.mipush.data.PreferenceRepository? = null) {
         val appContext = context.applicationContext ?: context
         val lastUpdateTime = appContext.currentInstallUpdateTime() ?: return
+        val repo = preferenceRepository ?: runCatching {
+            org.koin.core.context.GlobalContext.get().get<io.github.magisk317.mipush.data.PreferenceRepository>()
+        }.getOrNull()
+
+        if (repo != null) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val legacyTime = prefs.getLong(KEY_LAST_NOTIFIED_UPDATE_TIME, 0L)
+                val currentNotifiedTime = repo.getLastWelcomeNotifiedUpdateTime().takeIf { it > 0L } ?: legacyTime
+
+                if (shouldNotifyForInstall(lastUpdateTime, currentNotifiedTime)) {
+                    repo.setLastWelcomeNotifiedUpdateTime(lastUpdateTime)
+                    if (legacyTime > 0L) {
+                        prefs.edit { remove(KEY_LAST_NOTIFIED_UPDATE_TIME) }
+                    }
+                    appContext.sendBroadcast(appContext.createWelcomeIslandIntent())
+                }
+            }
+            return
+        }
+
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lastNotifiedUpdateTime = prefs.getLong(KEY_LAST_NOTIFIED_UPDATE_TIME, 0L)
         if (!shouldNotifyForInstall(lastUpdateTime, lastNotifiedUpdateTime)) return

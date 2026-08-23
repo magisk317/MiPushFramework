@@ -3,7 +3,6 @@ package com.xiaomi.push.service.awake.module
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.PushConstants
@@ -18,8 +17,8 @@ import com.xiaomi.push.service.awake.AwakeUploadHelper
  */
 internal class ServiceComponentAwakeModule : IAwakeModule {
     private fun awakeByServiceName(context: Context, packageName: String, className: String, awakeInfoStr: String) {
-        if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(className)) {
-            val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "service" else awakeInfoStr
+        if (packageName.isEmpty() || className.isEmpty()) {
+            val logContent = if (awakeInfoStr.isEmpty()) "service" else awakeInfoStr
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
         }
@@ -56,16 +55,16 @@ internal class ServiceComponentAwakeModule : IAwakeModule {
             val wakerPkgName = intent.getStringExtra(PushConstants.ACTION_WAKER_PKGNAME)
             val awakeInfoStr = intent.getStringExtra(AwakeUploadHelper.KEY_AWAKE_INFO)
 
-            if (TextUtils.isEmpty(wakerPkgName)) {
+            if (wakerPkgName.isNullOrEmpty()) {
                 AwakeUploadHelper.uploadData(service.applicationContext, "service", 1007, "old version message")
                 return
             }
-            if (TextUtils.isEmpty(awakeInfoStr)) {
-                AwakeUploadHelper.uploadData(service.applicationContext, wakerPkgName!!, 1007, "play with service ")
+            if (awakeInfoStr.isNullOrEmpty()) {
+                AwakeUploadHelper.uploadData(service.applicationContext, wakerPkgName, 1007, "play with service ")
                 return
             }
-            val strDecode = AwakeDataHelper.decode(awakeInfoStr!!)
-            if (TextUtils.isEmpty(strDecode)) {
+            val strDecode = AwakeDataHelper.decode(awakeInfoStr)
+            if (strDecode.isEmpty()) {
                 AwakeUploadHelper.uploadData(service.applicationContext, "service", 1008, "B get a incorrect message")
             } else {
                 AwakeUploadHelper.uploadData(service.applicationContext, strDecode, 1007, "old version message ")

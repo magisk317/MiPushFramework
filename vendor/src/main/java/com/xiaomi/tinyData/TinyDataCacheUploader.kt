@@ -1,8 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.push.service.TinyDataHelper
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 
@@ -18,10 +17,8 @@ object TinyDataCacheUploader {
         val map = HashMap<String, ArrayList<ClientUploadDataItem>>()
         for (item in list) {
             verifyTinyDataUploadItemValue(context, item)
-            val listForPackage = map[item.sourcePackage]
-            val arrayList = listForPackage ?: ArrayList<ClientUploadDataItem>().also {
-                map[item.sourcePackage] = it
-            }
+            val pkg = item.sourcePackage.orEmpty()
+            val arrayList = map.getOrPut(pkg) { ArrayList() }
             arrayList.add(item)
         }
         return map
@@ -31,35 +28,36 @@ object TinyDataCacheUploader {
         for (entry in map.entries) {
             try {
                 val value = entry.value
-                if (!value.isNullOrEmpty()) {
+                if (value.isNotEmpty()) {
                     tinyDataUploader.upload(value, value[0].pkgName, entry.key)
                 }
             } catch (e: Exception) {
+                Logger.w(e) { "TinyData upload error" }
             }
         }
     }
 
     fun uploadTinyData(context: Context, tinyDataUploader: TinyDataUploader?, list: List<ClientUploadDataItem>?) {
         val map = prepareTinyDataItems(context, list)
-        if (map != null && map.isNotEmpty()) {
+        if (!map.isNullOrEmpty()) {
             tinyDataUploader?.let { upload(context, it, map) }
             return
         }
-        MyLog.w("TinyData TinyDataCacheUploader.uploadTinyData itemsUploading == null || itemsUploading.size() == 0  ts:${System.currentTimeMillis()}")
+        Logger.w { "TinyData TinyDataCacheUploader.uploadTinyData itemsUploading == null || itemsUploading.size() == 0  ts:${System.currentTimeMillis()}" }
     }
 
     private fun verifyTinyDataUploadItemValue(context: Context, item: ClientUploadDataItem) {
         if (item.fromSdk) {
             item.channel = "push_sdk_channel"
         }
-        if (TextUtils.isEmpty(item.id)) {
+        if (item.id.isNullOrEmpty()) {
             item.id = TinyDataHelper.nextTinyDataItemId()
         }
         item.timestamp = System.currentTimeMillis()
-        if (TextUtils.isEmpty(item.pkgName)) {
+        if (item.pkgName.isNullOrEmpty()) {
             item.sourcePackage = context.packageName
         }
-        if (TextUtils.isEmpty(item.sourcePackage)) {
+        if (item.sourcePackage.isNullOrEmpty()) {
             item.sourcePackage = item.pkgName
         }
     }

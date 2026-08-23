@@ -59,7 +59,15 @@ class JobSchedulerThread(
     }
 
     fun isBlocked(): Boolean {
-        return executing && SystemClock.uptimeMillis() - lastJob > BLOCKED_THRESHOLD_MS
+        return blockedForMs() > BLOCKED_THRESHOLD_MS
+    }
+
+    fun blockedForMs(): Long {
+        return if (executing) SystemClock.uptimeMillis() - lastJob else 0L
+    }
+
+    fun taskCount(): Int {
+        return taskQueue.size()
     }
 
     fun purge(): Int = taskQueue.purge()

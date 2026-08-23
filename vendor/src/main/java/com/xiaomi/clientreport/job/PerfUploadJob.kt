@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.job
 
 import android.content.Context
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.misc.ScheduledJobConstants
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.clientreport.manager.ClientReportLogicManager
@@ -18,10 +18,10 @@ class PerfUploadJob(private val mContext: Context) : ScheduledJobManager.Job() {
         try {
             if (checkPerfNeedUpload()) {
                 ClientReportLogicManager.getInstance(mContext).sendPerf()
-                MyLog.v("${mContext.packageName} perf  begin upload")
+                Logger.v { "${mContext.packageName} perf  begin upload" }
             }
         } catch (e: Exception) {
-            MyLog.e("fail to send perf data. $e")
+            Logger.e(e) { "fail to send perf data: $e" }
         }
     }
 }

@@ -1,16 +1,11 @@
 package com.xiaomi.channel.commonutils.string
 
 import android.net.Uri
-import android.text.TextUtils
-import android.util.Log
-import java.security.InvalidAlgorithmParameterException
-import java.security.InvalidKeyException
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 import java.security.InvalidParameterException
 import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
 import java.util.*
 import javax.crypto.Cipher
-import javax.crypto.NoSuchPaddingException
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -25,7 +20,7 @@ object CloudCoder {
         params: Map<String, String>?,
         security: String
     ): String {
-        if (TextUtils.isEmpty(security)) {
+        if (security.isEmpty()) {
             throw InvalidParameterException("security is not nullable")
         }
         val arrayList = ArrayList<String>()
@@ -62,7 +57,7 @@ object CloudCoder {
                 )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "CloudCoder.hash4SHA1", e)
+            KermitLoggerCompat.e(message = "CloudCoder.hash4SHA1", throwable = e, tag = TAG)
             throw IllegalStateException("failed to SHA1")
         }
     }

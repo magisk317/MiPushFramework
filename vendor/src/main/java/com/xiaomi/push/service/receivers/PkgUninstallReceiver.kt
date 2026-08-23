@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.ServiceClientIntentSupport
@@ -32,7 +31,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
         }
 
         val encodedSchemeSpecificPart = intent.data?.encodedSchemeSpecificPart
-        if (TextUtils.isEmpty(encodedSchemeSpecificPart)) {
+        if (encodedSchemeSpecificPart.isNullOrEmpty()) {
             return
         }
 

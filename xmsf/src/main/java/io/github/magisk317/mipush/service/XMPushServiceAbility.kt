@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.service
 
 import com.xiaomi.push.service.XMPushServiceCore
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 class XMPushServiceAbility(pushService: XMPushServiceCore) : XMPushServiceListenerNotifier() {
 
     init {
-        Napier.d("Initializing with service: $pushService", tag = "XMPushServiceAbility")
+        Logger.withTag("XMPushServiceAbility").d { "Initializing with service: $pushService" }
         XMPushServiceAbilityAssembler.createListeners(pushService).forEach(::addListener)
     }
 }

@@ -26,6 +26,13 @@ class XMPushServiceConnectionDelegate(
             isConnected = currentConnection?.isConnected == true,
             isConnecting = currentConnection?.isConnecting == true,
         )
+        ReconnectDebugLog.w(
+            "connection_attempt action=${plan.action} event=${plan.eventAction} " +
+                "network=${com.xiaomi.channel.commonutils.network.Network.hasNetwork(service)} " +
+                "activeClients=${PushClientsManager.getInstance().getActiveClientCount()} " +
+                "isConnected=${currentConnection?.isConnected == true} " +
+                "isConnecting=${currentConnection?.isConnecting == true}"
+        )
         service.runtimeObserver.onChannelEvent(null, plan.eventAction, "XMPushServiceConnectionDelegate.connect")
         when (plan.action) {
             PushConnectionAttemptAction.SkipConnecting -> {
@@ -43,6 +50,7 @@ class XMPushServiceConnectionDelegate(
         service.connectionConfiguration.setConnectionPoint(Network.getActiveConnPoint(service))
         connectBySlim()
         if (service.currentConnection == null) {
+            ReconnectDebugLog.e("connect_attempt_ended_without_connection")
             PushClientsManager.getInstance().notifyConnectionFailed(service)
             service.broadcastNetworkAvailable(false)
         }
@@ -132,6 +140,11 @@ class XMPushServiceConnectionDelegate(
 
                 override fun process() {
                     if (service.isConnecting) {
+                        ReconnectDebugLog.w(
+                            "connecting_timeout fired connected=${service.isConnected} " +
+                                "connecting=${service.isConnecting} " +
+                                "host=${service.currentConnection?.host}"
+                        )
                         service.disconnect(18, null)
                     }
                 }

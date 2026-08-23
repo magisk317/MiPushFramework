@@ -45,6 +45,7 @@ class ModuleLogProvider : BaseXposedLogProvider() {
                 processName = event.processName,
                 message = event.message,
                 throwable = event.throwable,
+                alreadySanitized = event.sanitized,
             )
         }
     }

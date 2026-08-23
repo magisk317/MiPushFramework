@@ -8,7 +8,6 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Intent
 import android.os.SystemClock
-import io.github.aakira.napier.Napier
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.smack.packet.Packet

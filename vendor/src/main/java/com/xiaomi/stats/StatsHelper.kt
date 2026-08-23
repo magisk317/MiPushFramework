@@ -1,6 +1,6 @@
 package com.xiaomi.stats
 
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
@@ -140,7 +140,7 @@ object StatsHelper {
                 })
                 Holder.sTimeTracker.remove(type)
             } else {
-                MyLog.e("stats key not found")
+                Logger.e { "stats key not found" }
             }
         } finally {
             // No cleanup needed
@@ -154,7 +154,7 @@ object StatsHelper {
             if (type < MAX_KEY_VALUE) {
                 Holder.sTimeTracker[(chid shl 24) or type] = System.currentTimeMillis()
             } else {
-                MyLog.e("stats key should less than 16777215")
+                Logger.e { "stats key should less than 16777215" }
             }
         } finally {
             // No cleanup needed

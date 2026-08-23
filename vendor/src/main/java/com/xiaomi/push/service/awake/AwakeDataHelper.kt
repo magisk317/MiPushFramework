@@ -1,12 +1,14 @@
 package com.xiaomi.push.service.awake
 
 import android.net.Uri
-import android.text.TextUtils
-import android.util.Base64
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.XMStringUtils
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import java.util.Base64
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -24,10 +26,14 @@ object AwakeDataHelper {
     private const val PLAN_ID = "__planId__"
 
     @JvmStatic
-    fun decode(str: String): String = XMStringUtils.bytesToString(Base64.decode(str, 2) ?: ByteArray(0)).orEmpty()
+    fun decode(str: String): String {
+        val bytes = runCatching { Base64.getDecoder().decode(str) }
+            .getOrElse { runCatching { Base64.getMimeDecoder().decode(str) }.getOrDefault(ByteArray(0)) }
+        return XMStringUtils.bytesToString(bytes).orEmpty()
+    }
 
     @JvmStatic
-    fun encode(str: String): String = Base64.encodeToString(XMStringUtils.getBytes(str), 2)
+    fun encode(str: String): String = Base64.getEncoder().encodeToString(XMStringUtils.getBytes(str))
 
     @JvmStatic
     fun getContentUri(str: String, str2: String): Uri {
@@ -37,15 +43,11 @@ object AwakeDataHelper {
     @JvmStatic
     fun getString(map: Map<String, String>?): String {
         if (map == null) return ""
-        val jsonObject = JSONObject()
-        try {
-            for (key in map.keys) {
-                jsonObject.put(key, map[key])
+        return buildJsonObject {
+            for ((key, value) in map) {
+                put(key, value)
             }
-        } catch (e: JSONException) {
-            MyLog.e(e)
-        }
-        return jsonObject.toString()
+        }.toString()
     }
 
     @JvmStatic
@@ -55,17 +57,17 @@ object AwakeDataHelper {
             map2[AwakeUploadHelper.KEY_EVENT_TYPE] = "${map[AwakeUploadHelper.KEY_EVENT_TYPE]}"
             map2[AwakeUploadHelper.KEY_DESCRIPTION] = "${map[AwakeUploadHelper.KEY_DESCRIPTION]}"
             val str = map[AwakeUploadHelper.KEY_AWAKE_INFO]
-            if (!TextUtils.isEmpty(str)) {
+            if (!str.isNullOrEmpty()) {
                 try {
-                    val jsonObject = JSONObject(str!!)
-                    map2[PLAN_ID] = "${jsonObject.opt(PLAN_ID)}"
-                    map2[FLOW_ID] = "${jsonObject.opt(FLOW_ID)}"
-                    map2["jobkey"] = "${jsonObject.opt("jobkey")}"
-                    map2[MSG_ID] = "${jsonObject.opt(MSG_ID)}"
-                    map2["A"] = "${jsonObject.opt(AWAKE_APP)}"
-                    map2["B"] = "${jsonObject.opt(AWAKENED_APP)}"
-                    map2["module"] = "${jsonObject.opt(AWAKE_TYPE)}"
-                } catch (e: JSONException) {
+                    val root = Json.parseToJsonElement(str).jsonObject
+                    map2[PLAN_ID] = root[PLAN_ID]?.jsonPrimitive?.content ?: "null"
+                    map2[FLOW_ID] = root[FLOW_ID]?.jsonPrimitive?.content ?: "null"
+                    map2["jobkey"] = root["jobkey"]?.jsonPrimitive?.content ?: "null"
+                    map2[MSG_ID] = root[MSG_ID]?.jsonPrimitive?.content ?: "null"
+                    map2["A"] = root[AWAKE_APP]?.jsonPrimitive?.content ?: "null"
+                    map2["B"] = root[AWAKENED_APP]?.jsonPrimitive?.content ?: "null"
+                    map2["module"] = root[AWAKE_TYPE]?.jsonPrimitive?.content ?: "null"
+                } catch (e: Exception) {
                     MyLog.e(e)
                 }
             }

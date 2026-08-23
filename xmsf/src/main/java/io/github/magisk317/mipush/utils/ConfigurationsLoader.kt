@@ -8,9 +8,8 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.net.Uri
-import android.util.Pair
 import androidx.documentfile.provider.DocumentFile
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJson
@@ -121,11 +120,11 @@ class ConfigurationsLoader private constructor(
     private fun parse(json: String, configurations: Configurations, target: MutableMap<String, MutableList<Any>>) {
         val jsonObject = ConfigJson.parseObject(json)
         version = jsonObject.getString("version")
-        val packageConfigsObj = jsonObject.getConfigJsonObject("configs")
+        val packageConfigsObj = jsonObject.getJSONObject("configs")
         val packageNames = packageConfigsObj.keys()
         while (packageNames.hasNext()) {
             val packageName = packageNames.next()
-            val configsObj = packageConfigsObj.getConfigJsonArray(packageName)
+            val configsObj = packageConfigsObj.getJSONArray(packageName)
             target[packageName] = parseConfigs(configsObj, configurations)
         }
     }
@@ -138,7 +137,7 @@ class ConfigurationsLoader private constructor(
             when (config) {
                 is ConfigJsonArray -> configs.add(config)
                 is String -> configs.add(config)
-                else -> configs.add(parseConfig(configsObj.getConfigJsonObject(i), configurations))
+                else -> configs.add(parseConfig(configsObj.getJSONObject(i), configurations))
             }
         }
         return configs
@@ -149,19 +148,19 @@ class ConfigurationsLoader private constructor(
         val config = PackageConfig(configurations)
         if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
             val obj = ConfigJsonObject()
-            obj.put(PackageConfig.KEY_META_INFO, configObj.getConfigJsonObject(PackageConfig.KEY_META_INFO))
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_META_INFO))
             config.cfgMatch = obj
         }
         if (!configObj.isNull(PackageConfig.KEY_NEW_META_INFO)) {
             val obj = ConfigJsonObject()
-            obj.put(PackageConfig.KEY_META_INFO, configObj.getConfigJsonObject(PackageConfig.KEY_NEW_META_INFO))
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO))
             config.cfgReplace = obj
         }
         if (!configObj.isNull(PackageConfig.KEY_MATCH)) {
-            config.cfgMatch = configObj.getConfigJsonObject(PackageConfig.KEY_MATCH)
+            config.cfgMatch = configObj.getJSONObject(PackageConfig.KEY_MATCH)
         }
         if (!configObj.isNull(PackageConfig.KEY_REPLACE)) {
-            config.cfgReplace = configObj.getConfigJsonObject(PackageConfig.KEY_REPLACE)
+            config.cfgReplace = configObj.getJSONObject(PackageConfig.KEY_REPLACE)
         }
         if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
             val operations = configObj.getString(PackageConfig.KEY_OPERATION)
@@ -197,7 +196,7 @@ class ConfigurationsLoader private constructor(
         ): StringBuilder {
             val file = pair.first
             val e = pair.second
-            Napier.e("JSON parse error in ${file.name}", e, tag = TAG)
+            Logger.withTag(TAG).e(e) { "JSON parse error in ${file.name}" }
 
             var errmsg = StringBuilder(e.toString())
             val pattern = Pattern.compile(" character (\\d+) of ")
@@ -247,7 +246,7 @@ class ConfigurationsLoader private constructor(
                     }
                 }
             } catch (e: Exception) {
-                Napier.e("readTextFromUri failed", e, tag = TAG)
+                Logger.withTag(TAG).e(e) { "readTextFromUri failed" }
             }
             return stringBuilder.toString()
         }

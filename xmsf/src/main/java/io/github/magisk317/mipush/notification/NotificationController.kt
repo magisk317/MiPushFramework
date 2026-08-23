@@ -21,7 +21,6 @@ import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
@@ -30,9 +29,8 @@ import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
 import io.github.magisk317.mipush.common.notification.iconpack.ResolveFailure
 import io.github.magisk317.mipush.common.notification.iconpack.ResolveResult
 import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
@@ -122,11 +120,11 @@ object NotificationController {
 
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
-            Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
+            Logger.withTag(TAG).d { "publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)" }
             emit(result = "skip", reason = "notify_null")
             return false
         }
-        Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
+        Logger.withTag(TAG).d { "publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}" }
         if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context) && !metaInfo.isMockReplay()) {
             NotificationGroupHelper.getInstance().onNotificationNotify(
                 context,
@@ -425,11 +423,10 @@ object NotificationController {
             userId = userId,
         )
         if (!islandOptions.showOriginalNotification) {
-            Napier.d(
+            Logger.withTag(TAG).d {
                 "skip original notification post pkg=$packageName id=$notificationId " +
-                    "tag=$tag showOriginalNotification=false",
-                tag = TAG,
-            )
+                    "tag=$tag showOriginalNotification=false"
+            }
             PushRuntime.observeNotificationEvent(
                 packageName,
                 "notification_original_skipped",
@@ -448,21 +445,19 @@ object NotificationController {
             userId = userId,
         )
         if (!postResult.posted) {
-            Napier.w(
+            Logger.withTag(TAG).w {
                 "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId} " +
-                    "owner=${postResult.owner} reason=${postResult.reason}",
-                tag = TAG
-            )
+                    "owner=${postResult.owner} reason=${postResult.reason}"
+            }
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
         if (postResult.owner == NotificationManagerEx.NotifyOwner.LOCAL_XMSF) {
-            Napier.w(
+            Logger.withTag(TAG).w {
                 "publish used local XMSF fallback pkg=$packageName id=$notificationId tag=$tag " +
-                    "channel=${notificationToPost.channelId} reason=${postResult.reason}",
-                tag = TAG,
-            )
+                    "channel=${notificationToPost.channelId} reason=${postResult.reason}"
+            }
             PushRuntime.observeNotificationEvent(
                 packageName,
                 "notification_publish_local_fallback",
@@ -557,10 +552,9 @@ object NotificationController {
         val effectiveColorStatusBarIcon = colorStatusBarIcon
             ?: MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
         if (!NotificationManagerEx.canNotifyForUser(userId, Utils.myUserId())) {
-            Napier.w(
-                "skip mock replay receipt for foreign user=$userId pkg=$packageName",
-                tag = TAG,
-            )
+            Logger.withTag(TAG).w {
+                "skip mock replay receipt for foreign user=$userId pkg=$packageName"
+            }
             return false
         }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
@@ -631,7 +625,7 @@ object NotificationController {
             logD("posted mock replay visible receipt pkg=$packageName sourceId=$notificationId tag=$receiptTag targetIdentity=$postedAsTarget")
             true
         }.onFailure {
-            Napier.w("mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+            Logger.withTag(TAG).w(it) { "mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}" }
         }.getOrDefault(false)
     }
 
@@ -725,12 +719,12 @@ object NotificationController {
         }.fold(
             onSuccess = {
                 PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_posted", "NotificationController.publish")
-                Napier.d("posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId", tag = TAG)
+                Logger.withTag(TAG).d { "posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId" }
                 true
             },
             onFailure = {
                 PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_failed", "NotificationController.publish")
-                Napier.w("island proxy failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+                Logger.withTag(TAG).w(it) { "island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
                 false
             },
         )
@@ -1167,7 +1161,7 @@ object NotificationController {
                 },
             )
         }.onFailure {
-            Napier.w("cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+            Logger.withTag(TAG).w(it) { "cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
         }
     }
 
@@ -1238,7 +1232,7 @@ object NotificationController {
             tag = tag,
             userId = resolveNotificationUserId(context, packageName),
         )
-        Napier.d("mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag", tag = TAG)
+        Logger.withTag(TAG).d { "mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag" }
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
@@ -1445,12 +1439,11 @@ object NotificationController {
 
         val notification = NativeNotificationFeatureBuilder.buildNotification(context, builder, nativeFeature)
         nm.notify(tag, id, notification)
-        Napier.d(
+        Logger.withTag(TAG).d {
             "mock test posted kind=${kind.name} pkg=$packageName id=$id tag=$tag " +
                 "focus=${notification.extras.containsKey(FOCUS_PARAM)} " +
-                "contentIntent=${notification.contentIntent != null} nativeFeature=${nativeFeature.feature}",
-            tag = TAG,
-        )
+                "contentIntent=${notification.contentIntent != null} nativeFeature=${nativeFeature.feature}"
+        }
         PushRuntime.observeNotificationEvent(packageName, "mock_test_notification_posted", "NotificationController.testMock")
     }
 
@@ -1504,11 +1497,10 @@ object NotificationController {
         )
 
         if (focusPlan.allowIslandProxy && NotificationManagerEx.isHooked) {
-            Napier.d(
+            Logger.withTag(TAG).d {
                 "mock test island broadcast kind=${kind.name} style=$style pkg=$packageName " +
-                    "id=$notificationId reason=${focusPlan.reason}",
-                tag = TAG,
-            )
+                    "id=$notificationId reason=${focusPlan.reason}"
+            }
             PushRuntime.observeNotificationEvent(
                 packageName,
                 "mock_test_island_broadcast",
@@ -1553,11 +1545,10 @@ object NotificationController {
             ),
         )
 
-        Napier.d(
+        Logger.withTag(TAG).d {
             "mock test focus semantic kind=${kind.name} style=$style pkg=$packageName " +
-                "id=$notificationId reason=${focusPlan.reason} nativeFeature=${nativeFeature.feature}",
-            tag = TAG,
-        )
+                "id=$notificationId reason=${focusPlan.reason} nativeFeature=${nativeFeature.feature}"
+        }
         return MockFocusSemanticResult(nativeFeature = nativeFeature)
     }
 
@@ -1617,11 +1608,10 @@ object NotificationController {
         val userId = resolveNotificationUserId(this, sourcePackage)
         val options = MiPushIslandPreferences.read(this, sourcePackage, userId)
         val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
-        Napier.d(
+        Logger.withTag(TAG).d {
             "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
-                "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}",
-            tag = TAG,
-        )
+                "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}"
+        }
         sendBroadcast(
             Intent(ACTION_SHOW_ISLAND).apply {
                 setPackage(SYSTEM_UI_PACKAGE)
@@ -1657,7 +1647,7 @@ object NotificationController {
             }
         }.getOrElse { error ->
             val fallback = if (packageName == context.packageName) android.os.Process.myUid() else 0
-            Napier.w("failed to resolve uid for focus notification pkg=$packageName fallback=$fallback", error, tag = TAG)
+            Logger.withTag(TAG).w(error) { "failed to resolve uid for focus notification pkg=$packageName fallback=$fallback" }
             fallback
         }
     }

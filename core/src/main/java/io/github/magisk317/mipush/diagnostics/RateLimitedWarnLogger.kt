@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.diagnostics
 
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 object RateLimitedWarnLogger {
     @Volatile
@@ -15,10 +15,11 @@ object RateLimitedWarnLogger {
     ) {
         if (!gate.shouldLog("$logTag:$key", windowMs)) return
         val msg = "[$key] $message"
+        val logger = Logger.withTag(logTag)
         if (throwable == null) {
-            Napier.w(msg, tag = logTag)
+            logger.w { msg }
         } else {
-            Napier.e(msg, throwable, tag = logTag)
+            logger.e(throwable) { msg }
         }
     }
 

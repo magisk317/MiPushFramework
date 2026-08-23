@@ -2,7 +2,6 @@ package com.xiaomi.push.mpcd.job
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -59,7 +58,7 @@ abstract class CollectionJob(
         }
         val provider = CDActionProviderHolder.getInstance().getCDActionProvider()
         val regSecret = provider?.getRegSecret() ?: ""
-        if (TextUtils.isEmpty(regSecret) || !checkPermission()) return
+        if (regSecret.isEmpty() || !checkPermission()) return
 
         var result = collectInfo
         if (checkRepeatedData()) {
@@ -91,7 +90,7 @@ abstract class CollectionJob(
         fun writeItemToFile(context: Context, dataCollectionItem: DataCollectionItem) {
             val provider = CDActionProviderHolder.getInstance().getCDActionProvider()
             val regSecret = provider?.getRegSecret() ?: ""
-            if (TextUtils.isEmpty(regSecret) || TextUtils.isEmpty(dataCollectionItem.content)) return
+            if (regSecret.isEmpty() || dataCollectionItem.content.isNullOrEmpty()) return
             writeItemToFile(context, dataCollectionItem, regSecret)
         }
 

@@ -1,9 +1,8 @@
 package com.xiaomi.clientreport.processor
 
 import android.content.Context
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.file.IOUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.clientreport.data.BaseClientReport
 import com.xiaomi.clientreport.data.ClientReportConstants
 import com.xiaomi.clientreport.data.PerfClientReport
@@ -67,19 +66,19 @@ object PerfKVFileHelper {
                 try {
                     fileLockLock.release()
                 } catch (e: IOException) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Failed to release lock" }
                 }
             }
             IOUtils.closeQuietly(randomAccessFile3)
             IOUtils.closeQuietly(bufferedReader3)
             file2.delete()
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "extractToDatas error" }
             if (fileLock != null && fileLock.isValid) {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Failed to release lock" }
                 }
             }
             IOUtils.closeQuietly(randomAccessFile)
@@ -89,7 +88,7 @@ object PerfKVFileHelper {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Failed to release lock" }
                 }
             }
             IOUtils.closeQuietly(randomAccessFile)
@@ -116,7 +115,7 @@ object PerfKVFileHelper {
                 null
             }
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "parseValueStr error" }
             null
         }
     }
@@ -148,16 +147,16 @@ object PerfKVFileHelper {
                 try {
                     fileLockLock.release()
                 } catch (e: IOException) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Failed to release lock" }
                 }
             }
         } catch (th: Throwable) {
-            MyLog.v("failed to write perf to file ")
+            Logger.v(th) { "failed to write perf to file " }
             if (fileLock != null && fileLock.isValid) {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Failed to release lock" }
                 }
             }
             IOUtils.closeQuietly(randomAccessFile2)
@@ -173,11 +172,11 @@ object PerfKVFileHelper {
         j2: Long,
     ) {
         val str3 = map[str]
-        if (TextUtils.isEmpty(str3)) {
+        if (str3.isNullOrEmpty()) {
             map[str] = "$j#$j2"
             return
         }
-        val valueStr = parseValueStr(str3!!)
+        val valueStr = parseValueStr(str3)
         val str2 = if (valueStr == null || valueStr[0] <= 0 || valueStr[1] < 0) {
             "$j#$j2"
         } else {
@@ -208,7 +207,7 @@ object PerfKVFileHelper {
                 }
             }
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "readFromFile error" }
         } finally {
             IOUtils.closeQuietly(bufferedReader2)
         }
@@ -240,7 +239,7 @@ object PerfKVFileHelper {
                 null
             }
         } catch (e: Exception) {
-            MyLog.v("parse per key error")
+            Logger.v(e) { "parse per key error" }
             null
         }
     }
@@ -261,7 +260,7 @@ object PerfKVFileHelper {
             }
             bufferedWriter2 = bufferedWriter3
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "writeToFile error" }
         }
         IOUtils.closeQuietly(bufferedWriter2)
     }

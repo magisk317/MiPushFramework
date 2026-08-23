@@ -7,8 +7,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.hook.Configurations
@@ -124,11 +123,11 @@ object Hooker {
             private var innerTag = TAG
 
             override fun log(str: String, th: Throwable) {
-                Napier.d(str, th, tag = innerTag)
+                Logger.withTag(innerTag).d(th) { str }
             }
 
             override fun log(str: String) {
-                Napier.d(str, tag = innerTag)
+                Logger.withTag(innerTag).d { str }
             }
         }
     }

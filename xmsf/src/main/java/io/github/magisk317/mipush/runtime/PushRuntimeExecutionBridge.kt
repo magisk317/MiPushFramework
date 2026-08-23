@@ -17,7 +17,6 @@ import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.push.service.ResetConnectJob
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.xposed.logging.MagiskOtel

@@ -26,13 +26,10 @@ import androidx.core.app.NotificationManagerCompat
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
-import io.github.aakira.napier.DebugAntilog
-import io.github.aakira.napier.LogLevel
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
-import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
@@ -116,7 +113,9 @@ open class MiPushFrameworkApp : Application() {
             runCatching { LegacyNotificationIdentityMigration.runOnce(this@MiPushFrameworkApp) }
                 .onFailure { logW("legacy notification identity migration failed: ${it.message}") }
         }
-        registerPrefChangeReceiver()
+        // IslandOptionsSnapshotReader.initialize() now observes DataStore Flow directly;
+        // the ACTION_PREF_CHANGED broadcast receiver was removed in favor of Flow.
+        IslandOptionsSnapshotReader.initialize(applicationContext, applicationScope)
         // Initialize the runtime observer bridge before any service start.
         // BootReceiver normally does this, but it may not exist in the manifest
         // or may not have fired yet.
@@ -174,24 +173,11 @@ open class MiPushFrameworkApp : Application() {
 
     protected open fun onAppDependenciesStarted() = Unit
 
+    @Suppress("unused")
     private fun registerPrefChangeReceiver() {
-        runCatching {
-            ContextCompat.registerReceiver(
-                this,
-                object : android.content.BroadcastReceiver() {
-                    override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-                        IslandOptionsSnapshotReader.refreshAsync(this@MiPushFrameworkApp, applicationScope)
-                        io.github.magisk317.mipush.notification.NotificationManagerEx.triggerStatusBarRefresh()
-                    }
-                },
-                android.content.IntentFilter(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED),
-                ISLAND_PREF_READ_PERMISSION,
-                null,
-                ContextCompat.RECEIVER_EXPORTED,
-            )
-        }.onFailure {
-            logE("failed to register pref change receiver", it)
-        }
+        // No-op: island settings cache refresh is now handled by DataStore Flow observation
+        // in IslandOptionsSnapshotReader.initialize(). Status bar refresh is triggered
+        // from the same Flow collector.
     }
 
     private fun requestDozeWhiteList() {
@@ -241,12 +227,10 @@ open class MiPushFrameworkApp : Application() {
 
     private fun initBasicLogger() {
         LogUtils.init(this)
-        // 读取初始 debugMode 并立即同步到 MyLog，避免启动阶段 DEBUG 日志被错误过滤
         val initialDebugMode = runCatching {
             runBlocking { preferenceRepository.isDebugMode.first() }
         }.getOrDefault(false)
-        LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
-        LogUtils.setMinLogLevel(if (initialDebugMode) LogLevel.VERBOSE else LogLevel.INFO)
+        LogUtils.setMinLogLevel(if (initialDebugMode) Severity.Verbose else Severity.Info)
         HookTrace.enabled = initialDebugMode
         val initialLogSanitization = runCatching {
             runBlocking { preferenceRepository.isLogSanitizationEnabled.first() }
@@ -255,8 +239,7 @@ open class MiPushFrameworkApp : Application() {
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
-                LegacyLoggerBridge.setDebugLoggingEnabled(enabled)
-                LogUtils.setMinLogLevel(if (enabled) LogLevel.VERBOSE else LogLevel.INFO)
+                LogUtils.setMinLogLevel(if (enabled) Severity.Verbose else Severity.Info)
                 HookTrace.enabled = enabled
             }
         }

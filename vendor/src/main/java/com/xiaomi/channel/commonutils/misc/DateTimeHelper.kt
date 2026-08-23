@@ -1,7 +1,6 @@
 package com.xiaomi.channel.commonutils.misc
 
-import android.text.TextUtils
-import android.util.Log
+import co.touchlab.kermit.Logger
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -23,7 +22,7 @@ object DateTimeHelper {
     const val WEEK_IN_MS = 604800000
     const val WEEK_IN_SECOND = 604800
 
-    private const val LOG_TAG = "common/DateTimeHelper"
+    private const val LOG_TAG = "DateTimeHelper"
     val sBeijingTimeZone: TimeZone = TimeZone.getTimeZone("Asia/Shanghai")
     const val sHourInMinutes: Long = 60
 
@@ -65,7 +64,7 @@ object DateTimeHelper {
 
     @Throws(org.xml.sax.SAXException::class)
     fun parseDate(str: String): Long {
-        if (TextUtils.isEmpty(str)) return -1L
+        if (str.isEmpty()) return -1L
         val gregorianCalendar = GregorianCalendar()
         return try {
             val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(str)
@@ -77,7 +76,7 @@ object DateTimeHelper {
             gregorianCalendar.timeZone = sBeijingTimeZone
             gregorianCalendar.timeInMillis
         } catch (e: ParseException) {
-            Log.e(LOG_TAG, "Failed to parse date", e)
+            Logger.withTag(LOG_TAG).e(e) { "Failed to parse date" }
             -1L
         }
     }

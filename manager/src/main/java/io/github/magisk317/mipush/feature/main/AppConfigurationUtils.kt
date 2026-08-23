@@ -108,14 +108,12 @@ class AppConfigurationUtils(
                 )
             }
 
-            if (snapshot.isHooked) {
-                nativeChannels.groupBy { it.groupId }.forEach { (groupId, groupChannels) ->
-                    sections += NotificationChannelSection(
-                        kind = NotificationChannelSectionKind.NATIVE,
-                        group = groupId?.let(groupById::get),
-                        channels = groupChannels.sortedBy { it.id },
-                    )
-                }
+            nativeChannels.groupBy { it.groupId }.forEach { (groupId, groupChannels) ->
+                sections += NotificationChannelSection(
+                    kind = NotificationChannelSectionKind.NATIVE,
+                    group = groupId?.let(groupById::get),
+                    channels = groupChannels.sortedBy { it.id },
+                )
             }
 
             return sections

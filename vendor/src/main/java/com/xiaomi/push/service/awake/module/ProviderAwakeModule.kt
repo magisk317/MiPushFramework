@@ -3,7 +3,6 @@ package com.xiaomi.push.service.awake.module
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.awake.AwakeDataHelper
@@ -21,23 +20,23 @@ internal class ProviderAwakeModule : IAwakeModule {
         val awakeInfoStr = awakeInfo.awakeInfo
         val awakeForeground = awakeInfo.awakeForeground
 
-        if (TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
-            val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "provider" else awakeInfoStr!!
+        if (action.isNullOrEmpty() || awakeInfoStr.isNullOrEmpty()) {
+            val logContent = if (awakeInfoStr.isNullOrEmpty()) "provider" else awakeInfoStr
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
         }
 
-        if (!ComponentHelper.checkProvider(context, action!!)) {
-            AwakeUploadHelper.uploadData(context, awakeInfoStr!!, 1003, "B is not ready")
+        if (!ComponentHelper.checkProvider(context, action)) {
+            AwakeUploadHelper.uploadData(context, awakeInfoStr, 1003, "B is not ready")
             return
         }
 
-        AwakeUploadHelper.uploadData(context, awakeInfoStr!!, 1002, "B is ready")
+        AwakeUploadHelper.uploadData(context, awakeInfoStr, 1002, "B is ready")
         AwakeUploadHelper.uploadData(context, awakeInfoStr, 1004, "A is ready")
 
         val strEncode = AwakeDataHelper.encode(awakeInfoStr)
         try {
-            if (TextUtils.isEmpty(strEncode)) {
+            if (strEncode.isEmpty()) {
                 AwakeUploadHelper.uploadData(context, awakeInfoStr, 1008, "info is empty")
                 return
             }
@@ -47,7 +46,7 @@ internal class ProviderAwakeModule : IAwakeModule {
             }
 
             val type = context.contentResolver.getType(AwakeDataHelper.getContentUri(action, strEncode))
-            if (TextUtils.isEmpty(type) || "success" != type) {
+            if (type.isNullOrEmpty() || "success" != type) {
                 AwakeUploadHelper.uploadData(context, awakeInfoStr, 1008, "A is fail to help B's provider")
             } else {
                 AwakeUploadHelper.uploadData(context, awakeInfoStr, 1005, "A is successful")
@@ -61,31 +60,31 @@ internal class ProviderAwakeModule : IAwakeModule {
 
     private fun parseProvider(context: Context, str: String?) {
         try {
-            if (TextUtils.isEmpty(str)) {
+            if (str.isNullOrEmpty()) {
                 AwakeUploadHelper.uploadData(context, "provider", 1008, "B get a incorrect message")
                 return
             }
 
-            val strArrSplit = str!!.split("/")
-            if (strArrSplit.isEmpty() || TextUtils.isEmpty(strArrSplit.last())) {
+            val strArrSplit = str.split("/")
+            if (strArrSplit.isEmpty() || strArrSplit.last().isEmpty()) {
                 AwakeUploadHelper.uploadData(context, "provider", 1008, "B get a incorrect message")
                 return
             }
 
             val lastPart = strArrSplit.last()
-            if (TextUtils.isEmpty(lastPart)) {
+            if (lastPart.isEmpty()) {
                 AwakeUploadHelper.uploadData(context, "provider", 1008, "B get a incorrect message")
                 return
             }
 
             val strDecode = Uri.decode(lastPart)
-            if (TextUtils.isEmpty(strDecode)) {
+            if (strDecode.isNullOrEmpty()) {
                 AwakeUploadHelper.uploadData(context, "provider", 1008, "B get a incorrect message")
                 return
             }
 
             val strDecode2 = AwakeDataHelper.decode(strDecode)
-            if (TextUtils.isEmpty(strDecode2)) {
+            if (strDecode2.isEmpty()) {
                 AwakeUploadHelper.uploadData(context, "provider", 1008, "B get a incorrect message")
             } else {
                 AwakeUploadHelper.uploadData(context, strDecode2, 1007, "play with provider successfully")

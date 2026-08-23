@@ -2,7 +2,6 @@ package com.xiaomi.smack.packet
 
 import android.os.Bundle
 import android.os.Parcelable
-import android.text.TextUtils
 import androidx.core.os.BundleCompat
 import com.xiaomi.mipush.sdk.Constants
 import com.xiaomi.push.service.PushConstants
@@ -218,19 +217,19 @@ abstract class Packet {
 
     open fun toBundle(): Bundle {
         val bundle = Bundle()
-        if (!TextUtils.isEmpty(xmlns)) {
+        if (!xmlns.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_EXTENSION_NAMESPACE, xmlns)
         }
-        if (!TextUtils.isEmpty(from)) {
+        if (!from.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_FROM, from)
         }
-        if (!TextUtils.isEmpty(to)) {
+        if (!to.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_TO, to)
         }
-        if (!TextUtils.isEmpty(packetID)) {
+        if (!packetID.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_PACKET_ID, packetID)
         }
-        if (!TextUtils.isEmpty(channelId)) {
+        if (!channelId.isNullOrEmpty()) {
             bundle.putString(PushConstants.EXTRA_CHID, channelId)
         }
         error?.let { bundle.putBundle(PushConstants.EXTRA_ERROR, it.toBundle()) }
@@ -249,11 +248,11 @@ abstract class Packet {
 
     companion object {
         @JvmField
-        val DEFAULT_LANGUAGE: String = Locale.getDefault().language.lowercase()
+        val DEFAULT_LANGUAGE: String = "en"
         private var DEFAULT_XML_NS: String? = null
         const val ID_NOT_AVAILABLE = "ID_NOT_AVAILABLE"
         @JvmField
-        val XEP_0082_UTC_FORMAT: DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").apply {
+        val XEP_0082_UTC_FORMAT: DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
         private var id = 0L

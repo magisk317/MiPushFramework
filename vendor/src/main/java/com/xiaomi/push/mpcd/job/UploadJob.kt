@@ -50,13 +50,13 @@ class UploadJob(private val context: Context) : ScheduledJobManager.Job() {
         mSharedPreference.edit()
             .putLong("dc_job_result_time_4", item.collectedAt)
             .putString("dc_job_result_4", XMStringUtils.getMd5Digest(item.content))
-            .commit()
+            .apply()
     }
 
     private fun updateUpdateTimeStamp() {
         mSharedPreference.edit()
             .putLong(LAST_UPLADTE_DATA_TIMESTAMP, System.currentTimeMillis() / 1000)
-            .commit()
+            .apply()
     }
 
     private fun verify3GUploadData(): Boolean {

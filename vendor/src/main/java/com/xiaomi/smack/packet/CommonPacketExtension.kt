@@ -2,7 +2,6 @@ package com.xiaomi.smack.packet
 
 import android.os.Bundle
 import android.os.Parcelable
-import android.text.TextUtils
 import androidx.core.os.BundleCompat
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.smack.util.StringUtils
@@ -23,9 +22,9 @@ class CommonPacketExtension : PacketExtension {
     private var mText: String? = null
 
     var text: String
-        get() = (if (!TextUtils.isEmpty(mText)) StringUtils.unescapeFromXML(mText) else mText).orEmpty()
+        get() = (if (!mText.isNullOrEmpty()) StringUtils.unescapeFromXML(mText) else mText).orEmpty()
         set(str) {
-            mText = if (TextUtils.isEmpty(str)) {
+            mText = if (str.isNullOrEmpty()) {
                 str
             } else {
                 StringUtils.escapeForXML(str)
@@ -111,7 +110,7 @@ class CommonPacketExtension : PacketExtension {
 
     fun getChildByName(str: String?): CommonPacketExtension? {
         val children = mChildrenEles
-        if (TextUtils.isEmpty(str) || children == null) {
+        if (str.isNullOrEmpty() || children == null) {
             return null
         }
         for (commonPacketExtension in children) {
@@ -124,7 +123,7 @@ class CommonPacketExtension : PacketExtension {
 
     fun getChildrenByName(str: String?): List<CommonPacketExtension>? {
         val children = mChildrenEles
-        if (TextUtils.isEmpty(str) || children == null) {
+        if (str.isNullOrEmpty() || children == null) {
             return null
         }
         val arrayList = ArrayList<CommonPacketExtension>()
@@ -171,7 +170,7 @@ class CommonPacketExtension : PacketExtension {
         val sb = StringBuilder()
         sb.append("<")
         sb.append(mExtensionElementName)
-        if (!TextUtils.isEmpty(mNamespace)) {
+        if (!mNamespace.isNullOrEmpty()) {
             sb.append(" ")
             sb.append("xmlns=")
             sb.append("\"")
@@ -182,16 +181,17 @@ class CommonPacketExtension : PacketExtension {
         val values = mAttributeValues
         if (names != null && names.isNotEmpty()) {
             for (i in names.indices) {
-                if (!TextUtils.isEmpty(values?.get(i))) {
+                val value = values?.get(i)
+                if (!value.isNullOrEmpty()) {
                     sb.append(" ")
                     sb.append(names[i])
                     sb.append("=\"")
-                    sb.append(StringUtils.escapeForXML(values?.get(i)))
+                    sb.append(StringUtils.escapeForXML(value))
                     sb.append("\"")
                 }
             }
         }
-        if (TextUtils.isEmpty(mText)) {
+        if (mText.isNullOrEmpty()) {
             val children = mChildrenEles
             if (children == null || children.isEmpty()) {
                 sb.append("/>")

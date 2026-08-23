@@ -3,9 +3,8 @@ package com.xiaomi.smack.util
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteException
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.SerializedAsyncTaskProcessor
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.providers.TrafficDatabaseHelper
@@ -55,29 +54,42 @@ object TrafficUtils {
         var rcv: Int = rcv
 
         fun canAccumulate(trafficInfo: TrafficInfo): Boolean {
-            return TextUtils.equals(trafficInfo.packageName, packageName) &&
-                TextUtils.equals(trafficInfo.imsi, imsi) &&
+            return trafficInfo.packageName == packageName &&
+                trafficInfo.imsi == imsi &&
                 trafficInfo.networkType == networkType &&
                 trafficInfo.rcv == rcv &&
                 kotlin.math.abs(trafficInfo.messageTs - messageTs) <= TRAFFIC_INTERVAL
         }
     }
 
-    @JvmStatic
-    fun distributionTraffic(context: Context?, packageName: String?, bytes: Long, rcv: Boolean, encrypted: Boolean, timestamp: Long) {
-        if (!trafficCollectionEnabled) {
-            return
-        }
-        saveTraffic(context, packageName, getTraffic(getNetworkType(context), bytes, rcv, timestamp, encrypted), rcv, timestamp)
+    private fun checkTrafficCollection(context: Context) {
+        trafficCollectionEnabled = com.xiaomi.channel.commonutils.android.AppInfoUtils.isAppRunning(
+            context,
+            "com.xiaomi.xmsf"
+        )
     }
 
-    /**
-     * Stock XMSF 7.4.67-C `va.g.e(...)` always collects per-package traffic and flushes it to
-     * `traffic.db`. The older retained runtime therefore kept collecting even after xmsf disabled
-     * OnlineConfig telemetry switches. Keep stock behavior as the vendor default, while allowing
-     * the product-owned telemetry policy to disable collection in every XMSF process and purge
-     * data retained by older builds.
-     */
+    private fun clear() {
+        trafficList.clear()
+    }
+
+    @JvmStatic
+    fun distributionTraffic(
+        context: Context,
+        packageName: String?,
+        bytes: Long,
+        rcv: Boolean,
+        filterRepeat: Boolean,
+        timestamp: Long
+    ) {
+        if (context.packageName != "com.xiaomi.xmsf") return
+        if (filterRepeat && rcv && (timestamp - lastRxTs > IDLE_INTERVAL)) {
+            lastRxTs = timestamp
+            return
+        }
+        saveTraffic(context, packageName, bytes, rcv, timestamp)
+    }
+
     @JvmStatic
     fun configureTrafficCollection(context: Context?, enabled: Boolean) {
         trafficCollectionEnabled = enabled
@@ -91,11 +103,11 @@ object TrafficUtils {
             imsi = ""
         }
         synchronized(TrafficDatabaseHelper.DataBaseLock) {
-            runCatching { dbHelper?.close() }.onFailure(MyLog::e)
+            runCatching { dbHelper?.close() }.onFailure { Logger.e(it) { "Failed to close dbHelper" } }
             dbHelper = null
             if (context != null) {
                 runCatching { context.deleteDatabase(TrafficDatabaseHelper.DATABASE_NAME) }
-                    .onFailure(MyLog::e)
+                    .onFailure { Logger.e(it) { "Failed to delete database" } }
             }
         }
     }
@@ -103,45 +115,43 @@ object TrafficUtils {
     @JvmStatic
     fun isTrafficCollectionEnabled(): Boolean = trafficCollectionEnabled
 
-    private fun getActiveNetworkType(context: Context?): Int {
-        return try {
-            Network.getActiveNetworkType(context)
-        } catch (e: Exception) {
-            -1
+    @JvmStatic
+    fun getActiveNetworkType(context: Context?): Int {
+        if (context == null) return -1
+        return when {
+            Network.isWIFIConnected(context) -> 1
+            Network.is4GConnected(context) -> 4
+            Network.is3GConnected(context) -> 3
+            Network.is2GConnected(context) -> 2
+            Network.hasNetwork(context) -> 0
+            else -> -1
         }
     }
 
     private fun getIMSI(context: Context): String {
-        synchronized(TrafficUtils::class.java) {
-            return if (TextUtils.isEmpty(imsi)) "" else imsi
+        if (imsi.isNotEmpty()) {
+            return imsi
         }
+        val subImsi = com.xiaomi.channel.commonutils.android.DeviceInfo.blockingGetSubIMEIS(context)
+        if (!subImsi.isNullOrEmpty()) {
+            imsi = subImsi
+            return subImsi
+        }
+        return ""
     }
 
     @JvmStatic
-    fun getNetworkType(context: Context?): Int {
+    fun getNetworkType(context: Context): Int {
         if (networkType == -1) {
             networkType = getActiveNetworkType(context)
         }
         return networkType
     }
 
-    private fun getTraffic(networkType: Int, bytes: Long, rcv: Boolean, timestamp: Long, encrypted: Boolean): Long {
-        if (rcv && encrypted) {
-            val lastTimestamp = lastRxTs
-            lastRxTs = timestamp
-            if (timestamp - lastTimestamp > IDLE_INTERVAL && bytes > 1024) {
-                return 2 * bytes
-            }
-        }
-        return (if (networkType == 0) 13L else 11L) * bytes / 10
-    }
-
     private fun getTrafficDatabaseHelper(context: Context): TrafficDatabaseHelper {
-        val helper = dbHelper
-        if (helper != null) {
-            return helper
+        return dbHelper ?: synchronized(TrafficUtils::class.java) {
+            dbHelper ?: TrafficDatabaseHelper(context).also { dbHelper = it }
         }
-        return TrafficDatabaseHelper(context).also { dbHelper = it }
     }
 
     @JvmStatic
@@ -176,7 +186,7 @@ object TrafficUtils {
                 }
             }
         } catch (e: SQLiteException) {
-            MyLog.e(e)
+            Logger.e(e) { "Failed to insert traffic" }
         }
     }
 
@@ -199,7 +209,7 @@ object TrafficUtils {
         if (
             !trafficCollectionEnabled ||
             context == null ||
-            TextUtils.isEmpty(packageName) ||
+            packageName.isNullOrEmpty() ||
             context.packageName != "com.xiaomi.xmsf" ||
             packageName == "com.xiaomi.xmsf"
         ) {
@@ -214,7 +224,7 @@ object TrafficUtils {
             wasEmpty = trafficList.isEmpty()
             insertTrafficInfo2List(
                 TrafficInfo(
-                    packageName.orEmpty(),
+                    packageName,
                     timestamp,
                     currentNetworkType,
                     if (rcv) 1 else 0,
@@ -250,8 +260,8 @@ object TrafficUtils {
             return
         }
         synchronized(TrafficUtils::class.java) {
-            if (!MIUIUtils.isGlobalRegion() && !TextUtils.isEmpty(str)) {
-                imsi = str.orEmpty()
+            if (!MIUIUtils.isGlobalRegion() && !str.isNullOrEmpty()) {
+                imsi = str
             }
         }
     }

@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.telemetry
 
 import android.content.Context
-import android.util.Pair
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.smack.util.TrafficUtils
 
@@ -30,47 +29,46 @@ object TelemetryDisabler {
         // disabled OnlineConfig collectors, so stop this separate path and remove retained rows.
         TrafficUtils.configureTrafficCollection(context.applicationContext, enabled = false)
         val config = OnlineConfig.getInstance(context)
-        @Suppress("DEPRECATION")
         val pairs = listOf<Pair<Int, Any?>>(
             // TinyData small-data upload
-            Pair.create(63, false),  // TinyDataUploadSwitch
+            63 to false,  // TinyDataUploadSwitch
             // Broadcast / package-action collection
-            Pair.create(43, false),  // BroadcastActionCollectionSwitch
+            43 to false,  // BroadcastActionCollectionSwitch
             // Storage / device-info collection
-            Pair.create(87, false),  // StorageCollectionSwitch
+            87 to false,  // StorageCollectionSwitch
             // Installed-app list collection
-            Pair.create(98, false),  // AppIsInstalledCollectionSwitch
+            98 to false,  // AppIsInstalledCollectionSwitch
             // Active-app list collection
-            Pair.create(12, false),  // AppActiveListCollectionSwitch
+            12 to false,  // AppActiveListCollectionSwitch
             // Activity timestamp collection
-            Pair.create(68, false),  // ActivityTSSwitch
+            68 to false,  // ActivityTSSwitch
             // Event / performance upload (legacy + new)
-            Pair.create(104, false), // EventUploadNewSwitch
-            Pair.create(79, false),  // PerfUploadSwitch
+            104 to false, // EventUploadNewSwitch
+            79 to false,  // PerfUploadSwitch
             // Legacy event upload (kept for completeness; ClientReportClient is already no-op)
-            Pair.create(78, false),   // EventUploadSwitch
+            78 to false,   // EventUploadSwitch
             // Device identifiers — disable unless explicitly needed
-            Pair.create(4, false),    // MacCollectionSwitch
-            Pair.create(5, false),   // IMSICollectionSwitch
-            Pair.create(8, false),   // AndroidIdCollectionSwitch
-            Pair.create(60, false),  // IccidCollectionSwitch
+            4 to false,    // MacCollectionSwitch
+            5 to false,   // IMSICollectionSwitch
+            8 to false,   // AndroidIdCollectionSwitch
+            60 to false,  // IccidCollectionSwitch
             // Location collection
-            Pair.create(16, false),  // LocationCollectionSwitch
+            16 to false,  // LocationCollectionSwitch
             // Account collection
-            Pair.create(18, false),  // AccountCollectionSwitch
+            18 to false,  // AccountCollectionSwitch
             // Battery collection
-            Pair.create(82, false),  // BatteryCollectionSwitch
+            82 to false,  // BatteryCollectionSwitch
             // Bluetooth / WiFi collection
-            Pair.create(14, false),  // BluetoothCollectionSwitch
-            Pair.create(20, false),  // WifiCollectionSwitch
+            14 to false,  // BluetoothCollectionSwitch
+            20 to false,  // WifiCollectionSwitch
             // App permission / install list collection
-            Pair.create(10, false),  // AppInstallListCollectionSwitch
+            10 to false,  // AppInstallListCollectionSwitch
             // Launcher app list collection
-            Pair.create(111, false), // LauncherAppListCollectionSwitch
+            111 to false, // LauncherAppListCollectionSwitch
             // UsageStats frequency=0 disables collection
-            Pair.create(72, 0),      // UsageStatsCollectionFrequency
+            72 to 0,      // UsageStatsCollectionFrequency
             // Crash upload
-            Pair.create(75, false),  // Crash4GUploadSwitch
+            75 to false,  // Crash4GUploadSwitch
         )
         config.updateCustomConfigs(pairs)
         config.runCallback()

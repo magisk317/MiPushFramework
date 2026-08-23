@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logD
 
 class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
@@ -481,7 +482,7 @@ class SettingsViewModel constructor(
 
     fun toggleSection(section: SectionId) {
         val newState = _sectionExpanded.value.toggle(section)
-        android.util.Log.d("SettingsVM", "toggleSection: $section -> ${newState[section]}")
+        this.logD { "toggleSection: $section -> ${newState[section]}" }
         _sectionExpanded.value = newState
     }
 

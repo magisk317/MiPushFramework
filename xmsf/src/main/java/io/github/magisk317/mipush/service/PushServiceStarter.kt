@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import kotlinx.coroutines.launch

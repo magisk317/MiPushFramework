@@ -14,7 +14,12 @@ object MobileStatusUtils {
     @JvmStatic
     fun isCharging(context: Context): Boolean {
         val intent = try {
-            context.registerReceiver(null, IntentFilter("android.intent.action.BATTERY_CHANGED"))
+            val filter = IntentFilter("android.intent.action.BATTERY_CHANGED")
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(null, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(null, filter)
+            }
         } catch (e: Exception) {
             null
         } ?: return false

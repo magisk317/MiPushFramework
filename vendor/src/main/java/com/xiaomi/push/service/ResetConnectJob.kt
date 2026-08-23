@@ -18,10 +18,18 @@ class ResetConnectJob(
         )
         val fallback = HostManager.getInstance()
             .getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), false)
+        val fallbackHostCount = fallback?.getHosts()?.size ?: 0
         if (fallback != null) {
             JavaCalls.setField(fallback, "timestamp", 0)
         }
-        HostManager.getInstance().getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), true)
+        val refreshedFallback = HostManager.getInstance()
+            .getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), true)
+        val refreshedHostCount = refreshedFallback?.getHosts()?.size ?: 0
+        ReconnectDebugLog.w(
+            "reset_connect_hosts fallbackPresent=${fallback != null} " +
+                "fallbackHosts=$fallbackHostCount refreshedPresent=${refreshedFallback != null} " +
+                "refreshedHosts=$refreshedHostCount"
+        )
         pushAction.runtimeObserver.onConnectionStateChanged(
             stateName = "Disconnected",
             reason = "reset_connect_job",

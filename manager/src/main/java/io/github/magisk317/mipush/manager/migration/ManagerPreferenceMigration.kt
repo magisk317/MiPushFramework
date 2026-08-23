@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.migration
 
-import android.util.Log
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.data.OwnedPreferenceValue
 import io.github.magisk317.mipush.data.PreferenceOwner
 import io.github.magisk317.mipush.data.PreferenceRepository
@@ -28,7 +28,7 @@ object ManagerPreferenceMigration {
     ) {
         scope.launch(Dispatchers.IO) {
             runCatching { maybeMigrate(client, preferenceRepository) }
-                .onFailure { Log.w(TAG, "migration failed", it) }
+                .onFailure { Logger.withTag(TAG).w(it) { "migration failed" } }
         }
     }
 
@@ -43,7 +43,7 @@ object ManagerPreferenceMigration {
             client.availability.first { it is ManagerRuntimeAvailability.Available }
         }
         if (available == null) {
-            Log.i(TAG, "runtime not available yet; migration deferred")
+            Logger.withTag(TAG).i { "runtime not available yet; migration deferred" }
             return 0
         }
         return when (val result = client.getManagerMigrationSnapshot()) {
@@ -55,16 +55,16 @@ object ManagerPreferenceMigration {
                     onlyMissing = true,
                 )
                 preferenceRepository.setManagerMigrationApplied(true)
-                Log.i(TAG, "imported $written manager preference keys")
+                Logger.withTag(TAG).i { "imported $written manager preference keys" }
                 written
             }
             is ManagerRuntimeResult.Unsupported -> {
                 preferenceRepository.setManagerMigrationApplied(true)
-                Log.i(TAG, "migration snapshot unsupported; marked applied")
+                Logger.withTag(TAG).i { "migration snapshot unsupported; marked applied" }
                 0
             }
             else -> {
-                Log.i(TAG, "migration snapshot unavailable: $result")
+                Logger.withTag(TAG).i { "migration snapshot unavailable: $result" }
                 0
             }
         }

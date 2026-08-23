@@ -16,7 +16,6 @@ import android.os.Process
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import io.github.aakira.napier.Napier
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object NotificationIdentityBridge {
@@ -120,11 +119,7 @@ object NotificationIdentityBridge {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.getNotificationChannels(packageName)
             }.onFailure {
-                android.util.Log.w(
-                    "NotificationIdentityBridge",
-                    "FRAMEWORK getTargetNotificationChannels failed pkg=$packageName: ${it.message}",
-                    it,
-                )
+                logW("FRAMEWORK getTargetNotificationChannels failed pkg=$packageName: ${it.message}", it)
             }.getOrNull().orEmpty()
 
             Strategy.DELEGATED -> runCatching {
@@ -137,11 +132,7 @@ object NotificationIdentityBridge {
                 ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
                 listFromParceledListSlice<NotificationChannel>(channels)
             }.onFailure {
-                android.util.Log.w(
-                    "NotificationIdentityBridge",
-                    "DELEGATED getTargetNotificationChannels failed pkg=$packageName: ${it.message}",
-                    it,
-                )
+                logW("DELEGATED getTargetNotificationChannels failed pkg=$packageName: ${it.message}", it)
             }.getOrNull().orEmpty()
 
             Strategy.UNSUPPORTED -> emptyList()
@@ -154,11 +145,7 @@ object NotificationIdentityBridge {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName)
             }.onFailure {
-                android.util.Log.w(
-                    "NotificationIdentityBridge",
-                    "FRAMEWORK getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}",
-                    it,
-                )
+                logW("FRAMEWORK getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}", it)
             }.getOrNull().orEmpty()
 
             Strategy.DELEGATED -> runCatching {
@@ -171,11 +158,7 @@ object NotificationIdentityBridge {
                 ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
                 listFromParceledListSlice<NotificationChannelGroup>(groups)
             }.onFailure {
-                android.util.Log.w(
-                    "NotificationIdentityBridge",
-                    "DELEGATED getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}",
-                    it,
-                )
+                logW("DELEGATED getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}", it)
             }.getOrNull().orEmpty()
 
             Strategy.UNSUPPORTED -> emptyList()
@@ -389,7 +372,8 @@ object NotificationIdentityBridge {
             val targetPkg = runCatching { NotificationUtils.getTargetPackage(notification) }.getOrNull()
             val xmsfTarget = runCatching { notification.extras?.getString("xmsf_target_package") }.getOrNull()
             val miuiTarget = runCatching { notification.extras?.getString("miui.targetPkg") }.getOrNull()
-            return "pkg=${this.packageName} opPkg=${this.opPkg} id=${this.id} tag=${this.tag} channel=$channelId group=$group target=$targetPkg xmsfTarget=$xmsfTarget miuiTarget=$miuiTarget"
+            val opPkg = if (Build.VERSION.SDK_INT >= 29) this.opPkg else ""
+            return "pkg=${this.packageName} opPkg=$opPkg id=${this.id} tag=${this.tag} channel=$channelId group=$group target=$targetPkg xmsfTarget=$xmsfTarget miuiTarget=$miuiTarget"
         }
 
         fun StatusBarNotification.matchesExactly(): Boolean {
@@ -400,7 +384,7 @@ object NotificationIdentityBridge {
 
         fun StatusBarNotification.matchesRelatedTarget(): Boolean {
             return this.packageName == packageName ||
-                this.opPkg == packageName ||
+                (Build.VERSION.SDK_INT >= 29 && this.opPkg == packageName) ||
                 NotificationUtils.getTargetPackage(this.notification) == packageName ||
                 this.notification.extras?.getString("xmsf_target_package") == packageName
         }

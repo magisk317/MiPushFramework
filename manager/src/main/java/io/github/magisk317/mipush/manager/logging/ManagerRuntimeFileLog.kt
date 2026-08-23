@@ -1,10 +1,12 @@
 package io.github.magisk317.mipush.manager.logging
 
 import android.content.Context
-import io.github.aakira.napier.Antilog
-import io.github.aakira.napier.LogLevel
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.xposed.logging.JsonLineEncoder
+import io.github.magisk317.xposed.logging.JsonLineField
+import io.github.magisk317.xposed.logging.LogSink
+import io.github.magisk317.xposed.logging.LoggingKit
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -25,6 +27,7 @@ object ManagerRuntimeFileLog {
     private const val ROUTE = "manager"
     private const val MIN_RETENTION_DAYS = 1
     private const val DEFAULT_RETENTION_DAYS = 2
+    private const val PRUNE_INTERVAL_MS = 30L * 60L * 1000L
     private val dailyDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
     private val logTimestampFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
@@ -34,21 +37,40 @@ object ManagerRuntimeFileLog {
     @Volatile
     private var retentionDays: Int = DEFAULT_RETENTION_DAYS
 
+    @Volatile
+    private var lastPruneAtMs: Long = 0L
+
     fun init(context: Context) {
         val resolved = context.applicationContext ?: context
         appContext.set(resolved)
-        Napier.takeLogarithm()
         runCatching {
-            pruneExpired(resolved, Date())
-            Napier.base(FileAntilog(resolved))
+            val now = Date()
+            synchronized(writeLock) {
+                pruneExpired(resolved, now)
+                lastPruneAtMs = now.time
+            }
+            LoggingKit.init(
+                defaultTag = "MiPushManager",
+                minSeverity = Severity.Verbose,
+                sink = managerLogSink(resolved),
+            )
         }.onFailure {
-            android.util.Log.e("MiPushManager", "Manager FileAntilog init failed", it)
+            android.util.Log.e("MiPushManager", "Manager Kermit file log init failed", it)
         }
     }
 
     fun setRetentionDays(days: Int) {
-        retentionDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
-        appContext.get()?.let { pruneExpired(it, Date()) }
+        val resolvedDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
+        retentionDays = resolvedDays
+        appContext.get()?.let { context ->
+            val now = Date()
+            synchronized(writeLock) {
+                // Retention changes are an explicit maintenance request and must
+                // not wait for the normal append throttle.
+                pruneExpired(context, now)
+                lastPruneAtMs = now.time
+            }
+        }
     }
 
     fun getLogDir(context: Context): File {
@@ -58,41 +80,31 @@ object ManagerRuntimeFileLog {
     }
 
     fun listExportableLogFiles(context: Context): List<File> {
-        return getLogDir(context).listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.name.startsWith("runtime.") && it.name.endsWith(".jsonl") }
-            .sortedBy { it.name }
+        synchronized(writeLock) {
+            return getLogDir(context).listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.name.startsWith("runtime.") && it.name.endsWith(".jsonl") }
+                .sortedBy { it.name }
+        }
     }
 
     fun clear(context: Context) {
-        val dir = getLogDir(context)
-        dir.listFiles()?.forEach { runCatching { it.delete() } }
+        synchronized(writeLock) {
+            val dir = getLogDir(context)
+            dir.listFiles()?.forEach { runCatching { it.delete() } }
+            lastPruneAtMs = System.currentTimeMillis()
+        }
     }
 
-    private class FileAntilog(private val context: Context) : Antilog() {
-        override fun performLog(
-            priority: LogLevel,
-            tag: String?,
-            throwable: Throwable?,
-            message: String?,
-        ) {
-            append(
-                context = context,
-                level = priority.toShortLetter(),
-                tag = tag.orEmpty(),
-                message = message.orEmpty(),
-                throwable = throwable?.stackTraceToString().orEmpty(),
-            )
-        }
-
-        private fun LogLevel.toShortLetter(): String = when (this) {
-            LogLevel.VERBOSE -> "V"
-            LogLevel.DEBUG -> "D"
-            LogLevel.INFO -> "I"
-            LogLevel.WARNING -> "W"
-            LogLevel.ERROR -> "E"
-            LogLevel.ASSERT -> "A"
-        }
+    private fun managerLogSink(context: Context): LogSink = LogSink { event ->
+        append(
+            context = context,
+            level = event.level.shortName,
+            tag = event.tag,
+            message = event.message,
+            throwable = event.throwableText.orEmpty(),
+            alreadySanitized = true,
+        )
     }
 
     private fun append(
@@ -101,39 +113,48 @@ object ManagerRuntimeFileLog {
         tag: String,
         message: String,
         throwable: String,
+        alreadySanitized: Boolean = false,
     ) {
         val now = Date()
         val thread = Thread.currentThread()
-        val line = buildString {
-            append('{')
-            append("\"time\":").appendJsonString(
+        val line = JsonLineEncoder.encode(
+            JsonLineField.string(
+                "time",
                 Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
-            )
-            append(",\"level\":").appendJsonString(level)
-            append(",\"tag\":").appendJsonString(tag)
-            append(",\"message\":").appendJsonString(DefaultLogSanitizer.sanitizeIfEnabled(message))
-            if (throwable.isNotBlank()) {
-                append(",\"throwable\":").appendJsonString(
-                    DefaultLogSanitizer.sanitizeIfEnabled(throwable),
-                )
-            }
-            append(",\"route\":").appendJsonString(ROUTE)
-            append(",\"packageName\":").appendJsonString(context.packageName)
-            append(",\"processName\":").appendJsonString(currentProcessName())
-            append(",\"pid\":").append(android.os.Process.myPid())
-            append(",\"threadName\":").appendJsonString(thread.name.orEmpty())
-            append('}')
-            append('\n')
-        }
+            ),
+            JsonLineField.string("level", level),
+            JsonLineField.string("tag", tag),
+            JsonLineField.string(
+                "message",
+                if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
+            ),
+            JsonLineField.string(
+                "throwable",
+                if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+                include = throwable.isNotBlank(),
+            ),
+            JsonLineField.string("route", ROUTE),
+            JsonLineField.string("packageName", context.packageName),
+            JsonLineField.string("processName", currentProcessName()),
+            JsonLineField.number("pid", android.os.Process.myPid()),
+            JsonLineField.string("threadName", thread.name.orEmpty()),
+        ) + "\n"
         synchronized(writeLock) {
             runCatching {
                 val logDir = getLogDir(context)
-                pruneExpired(context, now)
+                if (shouldPrune(now.time)) {
+                    pruneExpired(context, now)
+                    lastPruneAtMs = now.time
+                }
                 val day = Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault())
                     .format(dailyDateFormatter)
                 File(logDir, "runtime.$ROUTE.$day.jsonl").appendText(line)
             }
         }
+    }
+
+    private fun shouldPrune(nowMs: Long): Boolean {
+        return lastPruneAtMs <= 0L || nowMs - lastPruneAtMs >= PRUNE_INTERVAL_MS
     }
 
     private fun pruneExpired(context: Context, now: Date) {
@@ -170,29 +191,4 @@ object ManagerRuntimeFileLog {
             ""
         }
     }.getOrDefault("")
-
-    private fun StringBuilder.appendJsonString(value: String): StringBuilder {
-        append('"')
-        value.forEach { ch ->
-            when (ch) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\b' -> append("\\b")
-                '\u000C' -> append("\\f")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> {
-                    if (ch.code < 0x20) {
-                        append("\\u")
-                        append(ch.code.toString(16).padStart(4, '0'))
-                    } else {
-                        append(ch)
-                    }
-                }
-            }
-        }
-        append('"')
-        return this
-    }
 }

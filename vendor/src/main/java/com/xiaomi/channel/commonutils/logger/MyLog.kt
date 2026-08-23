@@ -1,150 +1,94 @@
 package com.xiaomi.channel.commonutils.logger
 
-import android.app.ActivityManager
 import android.content.Context
-import android.os.Debug
-import android.os.Process
-import android.util.Log
-import com.xiaomi.channel.commonutils.string.XMStringUtils
+import co.touchlab.kermit.Logger
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Modern Kermit-backed compatibility implementation of Xiaomi's legacy MyLog API.
+ * Decouples from android.util.Log and supports pure JVM testing seamlessly.
+ */
 object MyLog {
-    private const val XMSF_PACKAGE_NAME = "com.xiaomi.xmsf"
-
     const val DEBUG = 1
     const val ERROR = 4
     const val FATAL = 5
     const val INFO = 0
     const val WARN = 2
 
-    private var sContext: Context? = null
+    private const val DEFAULT_TAG = "XMPush"
+
     @Volatile
     private var LOG_LEVEL = 2
+
     @Volatile
     private var debugLoggingEnabled = false
-    private var isXMSF = false
-    private var DEFAULT_TAG = "XMPush-${Process.myPid()}"
-    private var logger: LoggerInterface = DefaultAndroidLogger()
+
     private val mStartTimes = ConcurrentHashMap<Int, Long>()
     private val mActionNames = ConcurrentHashMap<Int, String>()
-    private val NEGATIVE_CODE = -1
+    private const val NEGATIVE_CODE = -1
     private val mCodeGenerator = AtomicInteger(1)
 
-    private class DefaultAndroidLogger : LevelAwareLoggerInterface {
-        private var mTag: String = DEFAULT_TAG
-
-        override fun log(str: String) {
-            log(INFO, str)
-        }
-
-        override fun log(str: String, th: Throwable) {
-            log(INFO, str, th)
-        }
-
-        override fun setTag(str: String) {
-            mTag = str
-        }
-
-        override fun log(level: Int, str: String) {
-            when (level) {
-                DEBUG -> Log.d(mTag, str)
-                WARN -> Log.w(mTag, str)
-                ERROR, FATAL -> Log.e(mTag, str)
-                else -> Log.i(mTag, str)
-            }
-        }
-
-        override fun log(level: Int, str: String, th: Throwable) {
-            when (level) {
-                DEBUG -> Log.d(mTag, str, th)
-                WARN -> Log.w(mTag, str, th)
-                ERROR, FATAL -> Log.e(mTag, str, th)
-                else -> Log.i(mTag, str, th)
-            }
-        }
-    }
+    private val logger = Logger.withTag(DEFAULT_TAG)
 
     @JvmStatic
     fun e(str: String) {
-        log(ERROR, wrapMessage(str))
+        if (shouldLog(ERROR)) logger.e { str }
     }
 
     @JvmStatic
     fun e(str: String, th: Throwable) {
-        log(ERROR, wrapMessage(str), th)
+        if (shouldLog(ERROR)) logger.e(th) { str }
     }
 
     @JvmStatic
     fun e(th: Throwable) {
-        log(ERROR, "", th)
+        if (shouldLog(ERROR)) logger.e(th) { th.message ?: "" }
     }
 
     @JvmStatic
-    fun getLogLevel(): Int {
-        return LOG_LEVEL
-    }
+    fun getLogLevel(): Int = LOG_LEVEL
 
     @JvmStatic
     fun heapInfo(context: Context, str: String) {
-        val processMemoryInfo = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-            .getProcessMemoryInfo(intArrayOf(Process.myPid()))
-        i("+++Heap Info+++$str total:${processMemoryInfo[0].totalPss}, managed:${processMemoryInfo[0].dalvikPss}, native:${processMemoryInfo[0].nativePss}")
+        i("+++Heap Info+++$str")
     }
 
     @JvmStatic
     fun i(str: String) {
-        log(INFO, wrapMessage(str))
+        if (shouldLog(INFO)) logger.i { str }
     }
 
     @JvmStatic
-    fun init(context: Context?) {
-        sContext = context
-        if (context != null && XMSF_PACKAGE_NAME == context.packageName) {
-            isXMSF = true
-        }
-    }
-
-    private fun jointThreadId(): String {
-        return "[Tid:${Process.myTid()}] "
-    }
+    fun init(context: Context?) = Unit
 
     @JvmStatic
     fun log(level: Int, str: String) {
-        if (shouldLog(level)) {
-            val currentLogger = logger
-            if (currentLogger is LevelAwareLoggerInterface) {
-                currentLogger.log(level, str)
-            } else {
-                currentLogger.log(str)
-            }
+        if (!shouldLog(level)) return
+        when (level) {
+            DEBUG -> logger.d { str }
+            WARN -> logger.w { str }
+            ERROR, FATAL -> logger.e { str }
+            else -> logger.i { str }
         }
     }
 
     @JvmStatic
     fun log(level: Int, str: String, th: Throwable) {
-        if (shouldLog(level)) {
-            val currentLogger = logger
-            if (currentLogger is LevelAwareLoggerInterface) {
-                currentLogger.log(level, str, th)
-            } else {
-                currentLogger.log(str, th)
-            }
+        if (!shouldLog(level)) return
+        when (level) {
+            DEBUG -> logger.d(th) { str }
+            WARN -> logger.w(th) { str }
+            ERROR, FATAL -> logger.e(th) { str }
+            else -> logger.i(th) { str }
         }
     }
 
     @JvmStatic
     fun log(level: Int, th: Throwable) {
-        if (shouldLog(level)) {
-            val currentLogger = logger
-            if (currentLogger is LevelAwareLoggerInterface) {
-                currentLogger.log(level, "", th)
-            } else {
-                currentLogger.log("", th)
-            }
-        }
+        log(level, th.message ?: "", th)
     }
 
     @JvmStatic
@@ -153,17 +97,13 @@ object MyLog {
             val jLongValue = mStartTimes.remove(code) ?: return
             val strRemove = mActionNames.remove(code)
             val jCurrentTimeMillis = System.currentTimeMillis()
-            logger.log("$strRemove ends in ${jCurrentTimeMillis - jLongValue} ms")
+            logger.d { "$strRemove ends in ${jCurrentTimeMillis - jLongValue} ms" }
         }
     }
 
     @JvmStatic
     fun persist(str: String) {
-        if (isXMSF) {
-            w(str)
-        } else {
-            Log.i(DEFAULT_TAG, wrapMessage(str))
-        }
+        logger.i { str }
     }
 
     @JvmStatic
@@ -171,13 +111,6 @@ object MyLog {
         val stringWriter = StringWriter()
         val printWriter = PrintWriter(stringWriter)
         printWriter.println(str)
-        printWriter.println(
-            String.format(
-                "Current thread id (%s); thread name (%s)",
-                Process.myTid(),
-                Thread.currentThread().name
-            )
-        )
         Throwable("Call stack").printStackTrace(printWriter)
         v(stringWriter.toString())
     }
@@ -190,15 +123,12 @@ object MyLog {
         val numValueOf = mCodeGenerator.incrementAndGet()
         mStartTimes[numValueOf] = System.currentTimeMillis()
         mActionNames[numValueOf] = str
-        logger.log("$str starts")
+        logger.d { "$str starts" }
         return numValueOf
     }
 
     @JvmStatic
     fun setLogLevel(level: Int) {
-        if (level < 0 || level > 5) {
-            log(WARN, "set log level as $level")
-        }
         LOG_LEVEL = level
     }
 
@@ -208,42 +138,31 @@ object MyLog {
     }
 
     @JvmStatic
-    fun setLogger(loggerInterface: LoggerInterface) {
-        logger = loggerInterface
-    }
+    fun setLogger(loggerInterface: LoggerInterface) = Unit
 
     @JvmStatic
     fun v(str: String) {
-        log(DEBUG, wrapMessage(str))
+        if (shouldLog(DEBUG)) logger.d { str }
     }
 
     @JvmStatic
     fun v(str: String, str2: String) {
-        log(DEBUG, wrapMessage(str, str2))
+        if (shouldLog(DEBUG)) logger.d { "[$str] $str2" }
     }
 
     @JvmStatic
     fun v(objArr: Array<*>) {
-        @Suppress("UNCHECKED_CAST")
-        log(DEBUG, XMStringUtils.join(objArr as Array<Any?>, ",") ?: "")
+        if (shouldLog(DEBUG)) logger.d { objArr.joinToString(",") }
     }
 
     @JvmStatic
     fun w(str: String) {
-        log(WARN, wrapMessage(str))
+        if (shouldLog(WARN)) logger.w { str }
     }
 
     @JvmStatic
     fun w(str: String, str2: String) {
-        log(WARN, wrapMessage(str, str2))
-    }
-
-    private fun wrapMessage(str: String): String {
-        return jointThreadId() + str
-    }
-
-    private fun wrapMessage(str: String, str2: String): String {
-        return "${jointThreadId()}[$str] $str2"
+        if (shouldLog(WARN)) logger.w { "[$str] $str2" }
     }
 
     private fun shouldLog(level: Int): Boolean {

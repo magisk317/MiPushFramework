@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
-import android.util.Base64
+import java.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
@@ -35,7 +35,7 @@ class IconConfigurations constructor(
 
         fun bitmap(): Bitmap? {
             return try {
-                val bitmapArray = Base64.decode(iconBitmap, Base64.DEFAULT)
+                val bitmapArray = Base64.getDecoder().decode(iconBitmap)
                 BitmapFactory.decodeByteArray(bitmapArray, 0, bitmapArray.size)
             } catch (_: Throwable) {
                 null

@@ -1,9 +1,13 @@
 package com.xiaomi.network
 
-import android.text.TextUtils
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.util.*
 
 open class Fallbacks @JvmOverloads constructor(
@@ -12,7 +16,7 @@ open class Fallbacks @JvmOverloads constructor(
     private val mFallbacks = ArrayList<Fallback>()
 
     init {
-        if (host.isNotEmpty() && TextUtils.isEmpty(host)) {
+        if (host.isNotEmpty() && host.isEmpty()) {
             throw IllegalArgumentException("the host is empty")
         }
     }
@@ -41,14 +45,15 @@ open class Fallbacks @JvmOverloads constructor(
         }
     }
 
-    @Throws(JSONException::class)
-    fun fromJSON(jSONObject: JSONObject): Fallbacks {
+    fun fromJSON(jSONObject: JsonObject): Fallbacks {
         synchronized(this) {
-            host = jSONObject.getString("host")
-            val jSONArray = jSONObject.getJSONArray("fbs")
-            for (i in 0 until jSONArray.length()) {
-                val fallback = Fallback(host).fromJSON(jSONArray.getJSONObject(i))
-                mFallbacks.add(fallback)
+            host = jSONObject["host"]?.jsonPrimitive?.content.orEmpty()
+            val jSONArray = jSONObject["fbs"]?.jsonArray
+            if (jSONArray != null) {
+                for (element in jSONArray) {
+                    val fallback = Fallback(host).fromJSON(element.jsonObject)
+                    mFallbacks.add(fallback)
+                }
             }
         }
         return this
@@ -84,17 +89,16 @@ open class Fallbacks @JvmOverloads constructor(
         }
     }
 
-    @Throws(JSONException::class)
-    fun toJSON(): JSONObject {
+    fun toJSON(): JsonObject {
         synchronized(this) {
-            val jSONObject = JSONObject()
-            jSONObject.put("host", host)
-            val jSONArray = JSONArray()
-            for (fallback in mFallbacks) {
-                jSONArray.put(fallback.toJSON())
+            return buildJsonObject {
+                put("host", host)
+                put("fbs", buildJsonArray {
+                    for (fallback in mFallbacks) {
+                        add(fallback.toJSON())
+                    }
+                })
             }
-            jSONObject.put("fbs", jSONArray)
-            return jSONObject
         }
     }
 

@@ -305,7 +305,11 @@ internal class XMPushServicePacketDelegate(
         return Blob().apply {
             channelId?.toIntOrNull()?.let(::setChannelId)
             setCmd(Blob.CMD_SECMSG, null)
-            setFrom(userId, "xiaomi.com", userResource)
+            from = if (userResource.isNullOrEmpty()) {
+                "$userId@xiaomi.com"
+            } else {
+                "$userId@xiaomi.com/$userResource"
+            }
             packetID = intent.getStringExtra(PushConstants.EXTRA_PACKET_ID)
             setPayload(rawPacket, client.security)
         }

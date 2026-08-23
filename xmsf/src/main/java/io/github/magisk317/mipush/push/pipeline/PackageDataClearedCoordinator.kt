@@ -10,7 +10,7 @@ import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import com.xiaomi.xmsf.stock.StockProfileIdStore
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
@@ -68,7 +68,7 @@ internal object PackageDataClearedCoordinator {
         fun cleanup(name: String, block: () -> Unit) {
             runCatching(block).onFailure {
                 cleanupFailureCount += 1
-                Napier.w("package data clear cleanup failed step=$name pkg=$packageName", it, tag = TAG)
+                Logger.withTag(TAG).w(it) { "package data clear cleanup failed step=$name pkg=$packageName" }
             }
         }
 
@@ -133,7 +133,7 @@ internal object PackageDataClearedCoordinator {
         val packetAccepted = payload?.let {
             runCatching { dispatcher.dispatch(packageName, it) }
                 .onFailure { error ->
-                    Napier.w("app-data-cleared dispatch failed pkg=$packageName", error, tag = TAG)
+                    Logger.withTag(TAG).w(error) { "app-data-cleared dispatch failed pkg=$packageName" }
                 }
                 .getOrDefault(false)
         } ?: false

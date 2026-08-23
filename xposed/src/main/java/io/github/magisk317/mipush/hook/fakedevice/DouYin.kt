@@ -6,8 +6,14 @@ import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 
 class DouYin : Common() {
@@ -132,11 +138,11 @@ class DouYin : Common() {
                         )
 
                         try {
-                            val obj = JSONObject(json)
-                            val allowPushList = obj.optJSONArray("allow_push_list") ?: JSONArray()
+                            val root = Json.parseToJsonElement(json).jsonObject.toMutableMap()
+                            val allowPushList = root["allow_push_list"]?.jsonArray
                             val newArray = tryInsertMiPushChannel(allowPushList)
-                            obj.put("allow_push_list", newArray)
-                            result = obj.toString()
+                            root["allow_push_list"] = newArray
+                            result = kotlinx.serialization.json.JsonObject(root).toString()
                             val afterSummary = extractAllowPushListSummary(result as? String)
                             XLog.i(
                                 TAG,
@@ -211,17 +217,19 @@ class DouYin : Common() {
     private fun extractAllowPushListSummary(json: String?): String {
         if (json.isNullOrBlank()) return "missing"
         return runCatching {
-            JSONObject(json).optJSONArray("allow_push_list")?.toString() ?: "absent"
+            Json.parseToJsonElement(json).jsonObject["allow_push_list"]?.jsonArray?.toString() ?: "absent"
         }.getOrElse { "parse_error:${it.javaClass.simpleName}" }
     }
 
-    private fun tryInsertMiPushChannel(originArray: JSONArray): JSONArray {
-        val array = ArrayList<Int>()
-        for (i in 0 until originArray.length()) {
-            array.add(originArray.getInt(i))
+    private fun tryInsertMiPushChannel(originArray: JsonArray?): JsonArray {
+        val list = mutableListOf<Int>()
+        if (originArray != null) {
+            for (element in originArray) {
+                element.jsonPrimitive.intOrNull?.let(list::add)
+            }
         }
-        array.remove(1)
-        array.add(0, 1)
-        return JSONArray(array)
+        list.remove(1)
+        list.add(0, 1)
+        return JsonArray(list.map(::JsonPrimitive))
     }
 }

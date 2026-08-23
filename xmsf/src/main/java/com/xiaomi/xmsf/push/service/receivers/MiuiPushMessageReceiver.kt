@@ -15,7 +15,10 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 import io.github.magisk317.xposed.logging.MagiskOtel
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * XMSF's own MiPush callback receiver.
@@ -145,7 +148,13 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
 
         internal fun taskCommandFor(content: String?): TaskCommand {
             if (content.isNullOrBlank()) return TaskCommand.UNKNOWN
-            return runCatching { JSONObject(content).optString("CMD") }
+            return runCatching {
+                (Json.parseToJsonElement(content) as? JsonObject)
+                    ?.get("CMD")
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+                    .orEmpty()
+            }
                 .map { command ->
                     when (command) {
                         "cloud_control_update" -> TaskCommand.ONLINE_CONFIG_REFRESH

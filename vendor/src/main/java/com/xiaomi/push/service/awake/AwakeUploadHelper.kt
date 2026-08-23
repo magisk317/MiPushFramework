@@ -1,7 +1,6 @@
 package com.xiaomi.push.service.awake
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.push.service.awake.module.AwakeManager
@@ -38,7 +37,7 @@ object AwakeUploadHelper {
     }
 
     private fun doUploadData(context: Context, str: String, i: Int, str2: String) {
-        if (TextUtils.isEmpty(str)) return
+        if (str.isEmpty()) return
         try {
             val map = HashMap<String, String>().apply {
                 put(KEY_AWAKE_INFO, str)

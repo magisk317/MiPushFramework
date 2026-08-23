@@ -4,7 +4,12 @@ import android.app.Application
 import android.app.Notification
 import android.graphics.drawable.Icon
 import android.os.Bundle
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -38,23 +43,23 @@ class AmapNavigationFocusCompatTest {
         )
 
         val payload = focusPayload(notification)
-        assertEquals(1, payload.getInt("protocol"))
-        assertTrue(payload.getBoolean("updatable"))
-        assertFalse(payload.getBoolean("enableFloat"))
-        assertTrue(payload.getBoolean("islandFirstFloat"))
-        assertEquals("Navigation in progress", payload.getString("ticker"))
+        assertEquals(1, payload["protocol"]?.jsonPrimitive?.int)
+        assertTrue(payload["updatable"]?.jsonPrimitive?.boolean == true)
+        assertFalse(payload["enableFloat"]?.jsonPrimitive?.boolean == true)
+        assertTrue(payload["islandFirstFloat"]?.jsonPrimitive?.boolean == true)
+        assertEquals("Navigation in progress", payload["ticker"]?.jsonPrimitive?.content)
 
-        val paramV2 = payload.getJSONObject("param_v2")
+        val paramV2 = payload["param_v2"]?.jsonObject ?: error("missing param_v2")
         assertCommonFieldsMatch(payload, paramV2)
-        val baseInfo = paramV2.getJSONObject("baseInfo")
-        assertEquals("Turn right", baseInfo.getString("title"))
-        assertEquals("Navigation in progress", baseInfo.getString("content"))
-        val compact = paramV2.getJSONObject("param_island").getJSONObject("bigIslandArea")
+        val baseInfo = paramV2["baseInfo"]?.jsonObject ?: error("missing baseInfo")
+        assertEquals("Turn right", baseInfo["title"]?.jsonPrimitive?.content)
+        assertEquals("Navigation in progress", baseInfo["content"]?.jsonPrimitive?.content)
+        val compact = paramV2["param_island"]?.jsonObject?.get("bigIslandArea")?.jsonObject ?: error("missing bigIslandArea")
         assertEquals(
             "Navigation in progress",
-            compact.getJSONObject("imageTextInfoLeft").getJSONObject("textInfo").getString("title"),
+            compact["imageTextInfoLeft"]?.jsonObject?.get("textInfo")?.jsonObject?.get("title")?.jsonPrimitive?.content,
         )
-        assertEquals("Turn right", compact.getJSONObject("textInfo").getString("title"))
+        assertEquals("Turn right", compact["textInfo"]?.jsonObject?.get("title")?.jsonPrimitive?.content)
 
         val pictures = notification.extras.getBundle(FOCUS_PICTURES)
         assertNotNull(pictures)
@@ -65,8 +70,8 @@ class AmapNavigationFocusCompatTest {
     @Test
     fun `rich drive data uses native param v2 compact navigation layout`() {
         val notification = navigationNotification(
-            title = "300\u7c73 \u53f3\u8f6c",
-            content = "\u8fdb\u5165\u957f\u5b89\u8857",
+            title = "300米 右转",
+            content = "进入长安街",
         )
 
         assertTrue(
@@ -78,104 +83,98 @@ class AmapNavigationFocusCompatTest {
         )
 
         val payload = focusPayload(notification)
-        assertEquals(1, payload.getInt("protocol"))
-        assertTrue(payload.getBoolean("updatable"))
-        assertEquals("com.autonavi.minimap99910001", payload.getString("notifyId"))
-        assertEquals("\u53f3\u8f6c", payload.getString("ticker"))
-        val paramV2 = payload.getJSONObject("param_v2")
+        assertEquals(1, payload["protocol"]?.jsonPrimitive?.int)
+        assertTrue(payload["updatable"]?.jsonPrimitive?.boolean == true)
+        assertEquals("com.autonavi.minimap99910001", payload["notifyId"]?.jsonPrimitive?.content)
+        assertEquals("右转", payload["ticker"]?.jsonPrimitive?.content)
+        val paramV2 = payload["param_v2"]?.jsonObject ?: error("missing param_v2")
         assertCommonFieldsMatch(payload, paramV2)
 
-        val baseInfo = paramV2.getJSONObject("baseInfo")
-        assertEquals("300\u7c73 \u53f3\u8f6c", baseInfo.getString("title"))
-        assertEquals("\u8fdb\u5165\u957f\u5b89\u8857", baseInfo.getString("content"))
+        val baseInfo = paramV2["baseInfo"]?.jsonObject ?: error("missing baseInfo")
+        assertEquals("300米 右转", baseInfo["title"]?.jsonPrimitive?.content)
+        assertEquals("进入长安街", baseInfo["content"]?.jsonPrimitive?.content)
 
-        val paramIsland = paramV2.getJSONObject("param_island")
-        val bigIslandArea = paramIsland.getJSONObject("bigIslandArea")
-        val compactLeft = bigIslandArea.getJSONObject("imageTextInfoLeft")
+        val paramIsland = paramV2["param_island"]?.jsonObject ?: error("missing param_island")
+        val bigIslandArea = paramIsland["bigIslandArea"]?.jsonObject ?: error("missing bigIslandArea")
+        val compactLeft = bigIslandArea["imageTextInfoLeft"]?.jsonObject ?: error("missing imageTextInfoLeft")
         assertEquals(
             FOCUS_NAVIGATION_PICTURE,
-            compactLeft.getJSONObject("picInfo").getString("pic"),
+            compactLeft["picInfo"]?.jsonObject?.get("pic")?.jsonPrimitive?.content,
         )
-        assertEquals("\u53f3\u8f6c", compactLeft.getJSONObject("textInfo").getString("title"))
+        assertEquals("右转", compactLeft["textInfo"]?.jsonObject?.get("title")?.jsonPrimitive?.content)
 
-        val compactRight = bigIslandArea.getJSONObject("textInfo")
-        assertEquals("300\u7c73", compactRight.getString("title"))
-        assertEquals("\u540e", compactRight.getString("content"))
-        assertTrue(compactRight.getBoolean("showHighlightColor"))
-        assertFalse(bigIslandArea.toString().contains("\u8fdb\u5165\u957f\u5b89\u8857"))
+        val compactRight = bigIslandArea["textInfo"]?.jsonObject ?: error("missing textInfo")
+        assertEquals("300米", compactRight["title"]?.jsonPrimitive?.content)
+        assertEquals("后", compactRight["content"]?.jsonPrimitive?.content)
+        assertTrue(compactRight["showHighlightColor"]?.jsonPrimitive?.boolean == true)
+        assertFalse(bigIslandArea.toString().contains("进入长安街"))
     }
 
     @Test
     fun `drive layout accepts decimal metric distance without misclassifying static titles`() {
-        val rich = navigationNotification(title = "1.2\u516c\u91cc \u76f4\u884c", content = "\u6cbf\u4e3b\u8def\u884c\u9a76")
+        val rich = navigationNotification(title = "1.2公里 直行", content = "沿主路行驶")
         val static = navigationNotification(title = "Route 66", content = "Navigation in progress")
 
         assertTrue(AmapNavigationFocusCompat.attachIfEligible(AMAP_PACKAGE, rich, true))
         assertTrue(AmapNavigationFocusCompat.attachIfEligible(AMAP_PACKAGE, static, true))
 
+        val richBigIsland = focusPayload(rich)["param_v2"]?.jsonObject
+            ?.get("param_island")?.jsonObject
+            ?.get("bigIslandArea")?.jsonObject
         assertEquals(
-            "1.2\u516c\u91cc",
-            focusPayload(rich)
-                .getJSONObject("param_v2")
-                .getJSONObject("param_island")
-                .getJSONObject("bigIslandArea")
-                .getJSONObject("textInfo")
-                .getString("title"),
+            "1.2公里",
+            richBigIsland?.get("textInfo")?.jsonObject?.get("title")?.jsonPrimitive?.content,
         )
         val staticPayload = focusPayload(static)
-        assertTrue(staticPayload.has("param_v2"))
+        assertTrue(staticPayload.containsKey("param_v2"))
+        val staticBigIsland = staticPayload["param_v2"]?.jsonObject
+            ?.get("param_island")?.jsonObject
+            ?.get("bigIslandArea")?.jsonObject
         assertEquals(
             "Navigation in progress",
-            staticPayload
-                .getJSONObject("param_v2")
-                .getJSONObject("param_island")
-                .getJSONObject("bigIslandArea")
-                .getJSONObject("imageTextInfoLeft")
-                .getJSONObject("textInfo")
-                .getString("title"),
+            staticBigIsland?.get("imageTextInfoLeft")?.jsonObject
+                ?.get("textInfo")?.jsonObject
+                ?.get("title")?.jsonPrimitive?.content,
         )
         assertEquals(
             "Route 66",
-            staticPayload
-                .getJSONObject("param_v2")
-                .getJSONObject("param_island")
-                .getJSONObject("bigIslandArea")
-                .getJSONObject("textInfo")
-                .getString("title"),
+            staticBigIsland?.get("textInfo")?.jsonObject?.get("title")?.jsonPrimitive?.content,
         )
     }
 
     @Test
     fun `distance-only drive data gets a compact navigation label and expanded fallback`() {
-        val notification = navigationNotification(title = "80\u7c73", content = "80\u7c73")
+        val notification = navigationNotification(title = "80米", content = "80米")
 
         assertTrue(AmapNavigationFocusCompat.attachIfEligible(AMAP_PACKAGE, notification, true))
 
-        val paramV2 = focusPayload(notification).getJSONObject("param_v2")
-        val bigIslandArea = paramV2.getJSONObject("param_island").getJSONObject("bigIslandArea")
+        val paramV2 = focusPayload(notification)["param_v2"]?.jsonObject ?: error("missing param_v2")
+        val bigIslandArea = paramV2["param_island"]?.jsonObject?.get("bigIslandArea")?.jsonObject ?: error("missing bigIslandArea")
         assertEquals(
-            "\u5bfc\u822a\u4e2d",
-            bigIslandArea.getJSONObject("imageTextInfoLeft").getJSONObject("textInfo").getString("title"),
+            "导航中",
+            bigIslandArea["imageTextInfoLeft"]?.jsonObject?.get("textInfo")?.jsonObject?.get("title")?.jsonPrimitive?.content,
         )
-        assertEquals("80\u7c73", bigIslandArea.getJSONObject("textInfo").getString("title"))
-        assertEquals("\u540e", bigIslandArea.getJSONObject("textInfo").getString("content"))
-        assertEquals("\u6b63\u5728\u5bfc\u822a", paramV2.getJSONObject("baseInfo").getString("content"))
+        assertEquals("80米", bigIslandArea["textInfo"]?.jsonObject?.get("title")?.jsonPrimitive?.content)
+        assertEquals("后", bigIslandArea["textInfo"]?.jsonObject?.get("content")?.jsonPrimitive?.content)
+        assertEquals("正在导航", paramV2["baseInfo"]?.jsonObject?.get("content")?.jsonPrimitive?.content)
     }
 
     @Test
     fun `focus updates use a stable identity and monotonic sequence`() {
         val first = navigationNotification()
-        val second = navigationNotification(title = "300\u7c73 \u53f3\u8f6c", content = "\u8fdb\u5165\u957f\u5b89\u8857")
+        val second = navigationNotification(title = "300米 右转", content = "进入长安街")
 
         assertTrue(AmapNavigationFocusCompat.attachIfEligible(AMAP_PACKAGE, first, true))
         assertTrue(AmapNavigationFocusCompat.attachIfEligible(AMAP_PACKAGE, second, true))
 
         val firstPayload = focusPayload(first)
         val secondPayload = focusPayload(second)
-        assertEquals(firstPayload.getString("notifyId"), secondPayload.getString("notifyId"))
-        assertTrue(secondPayload.getLong("sequence") > firstPayload.getLong("sequence"))
-        assertCommonFieldsMatch(firstPayload, firstPayload.getJSONObject("param_v2"))
-        assertCommonFieldsMatch(secondPayload, secondPayload.getJSONObject("param_v2"))
+        assertEquals(firstPayload["notifyId"]?.jsonPrimitive?.content, secondPayload["notifyId"]?.jsonPrimitive?.content)
+        val firstSeq = firstPayload["sequence"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+        val secondSeq = secondPayload["sequence"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+        assertTrue(secondSeq > firstSeq)
+        assertCommonFieldsMatch(firstPayload, firstPayload["param_v2"]?.jsonObject ?: error("missing param_v2"))
+        assertCommonFieldsMatch(secondPayload, secondPayload["param_v2"]?.jsonObject ?: error("missing param_v2"))
     }
 
     @Test
@@ -197,9 +196,10 @@ class AmapNavigationFocusCompatTest {
                 )
             )
             val notification = arguments.first { it is Notification } as Notification
+            val payload = focusPayload(notification)
             assertEquals(
                 "Turn right",
-                focusPayload(notification).getJSONObject("param_v2").getJSONObject("baseInfo").getString("title"),
+                payload["param_v2"]?.jsonObject?.get("baseInfo")?.jsonObject?.get("title")?.jsonPrimitive?.content,
             )
         }
     }
@@ -305,11 +305,11 @@ class AmapNavigationFocusCompatTest {
             }
     }
 
-    private fun focusPayload(notification: Notification): JSONObject {
-        return JSONObject(requireNotNull(notification.extras.getString(FOCUS_PARAM)))
+    private fun focusPayload(notification: Notification): JsonObject {
+        return Json.parseToJsonElement(requireNotNull(notification.extras.getString(FOCUS_PARAM))).jsonObject
     }
 
-    private fun assertCommonFieldsMatch(root: JSONObject, paramV2: JSONObject) {
+    private fun assertCommonFieldsMatch(root: JsonObject, paramV2: JsonObject) {
         listOf(
             "ticker",
             "aodPic",
@@ -323,7 +323,7 @@ class AmapNavigationFocusCompatTest {
             "updatable",
             "notifyId",
         ).forEach { key ->
-            assertEquals(root.get(key).toString(), paramV2.get(key).toString(), key)
+            assertEquals(root[key]?.toString(), paramV2[key]?.toString(), key)
         }
     }
 

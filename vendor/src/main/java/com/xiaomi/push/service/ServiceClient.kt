@@ -23,6 +23,7 @@ import com.xiaomi.smack.packet.Message
 import com.xiaomi.smack.packet.Presence
 import org.apache.http.NameValuePair
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class ServiceClient private constructor(context: Context) {
     private val context = context.applicationContext
     private var clientMessenger: Messenger? = null

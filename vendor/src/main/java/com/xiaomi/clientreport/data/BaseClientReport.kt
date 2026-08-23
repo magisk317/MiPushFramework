@@ -1,10 +1,11 @@
 package com.xiaomi.clientreport.data
 
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.clientreport.util.ClientReportUtil
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 open class BaseClientReport {
     @JvmField var clientInterfaceId: String? = null
@@ -26,24 +27,24 @@ open class BaseClientReport {
         sdkVersion = str
     }
 
-    open fun toJson(): JSONObject? {
+    open fun toJsonObject(): JsonObject? {
         return try {
-            JSONObject().apply {
+            buildJsonObject {
                 put("production", production)
                 put("reportType", reportType)
-                put("clientInterfaceId", clientInterfaceId)
+                clientInterfaceId?.let { put("clientInterfaceId", it) }
                 put("os", os)
                 put("miuiVersion", miuiVersion)
-                put("pkgName", pkgName)
-                put("sdkVersion", sdkVersion)
+                pkgName?.let { put("pkgName", it) }
+                sdkVersion?.let { put("sdkVersion", it) }
             }
-        } catch (e: JSONException) {
-            MyLog.e(e)
+        } catch (e: Exception) {
+            Logger.e(e) { "toJsonObject error" }
             null
         }
     }
 
     open fun toJsonString(): String {
-        return toJson()?.toString() ?: ""
+        return toJsonObject()?.toString() ?: ""
     }
 }

@@ -38,10 +38,10 @@ class ManagerRootAccess {
             .joinToString(" ")
             .take(MAX_LOGGED_STDERR_LENGTH)
             .ifBlank { "none" }
-        this.logI(
+        this.logI {
             "root_probe role=manager source=$source userId=$userId uid=$uid " +
-                "grantState=${Shell.isAppGrantedRoot()} available=$available code=${result?.code} stderr=$stderr",
-        )
+                "grantState=${Shell.isAppGrantedRoot()} available=$available code=${result?.code} stderr=$stderr"
+        }
         return available
     }
 

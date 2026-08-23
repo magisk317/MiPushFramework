@@ -1,8 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.push.service.TinyDataHelper
 import com.xiaomi.push.service.TinyDataStorage
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
@@ -13,6 +12,7 @@ import com.xiaomi.xmpush.thrift.ClientUploadDataItem
  * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/wa/d.java
  * Stock class name is obfuscated as wa.d; this file keeps the deobfuscated com.xiaomi.tinyData.TinyDataManager API.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class TinyDataManager private constructor(private val mContext: Context) {
     private val mUploaders: MutableMap<String, TinyDataUploader> = HashMap()
 
@@ -36,11 +36,11 @@ class TinyDataManager private constructor(private val mContext: Context) {
     }
 
     fun addUploader(tinyDataUploader: TinyDataUploader, str: String?) {
-        if (TextUtils.isEmpty(str)) {
-            MyLog.e("[TinyDataManager]: can not add a provider from unkown resource.")
+        if (str.isNullOrEmpty()) {
+            Logger.e { "[TinyDataManager]: can not add a provider from unkown resource." }
             return
         }
-        uploaders[str!!] = tinyDataUploader
+        uploaders[str] = tinyDataUploader
     }
 
     internal fun getContext(): Context = mContext
@@ -56,14 +56,14 @@ class TinyDataManager private constructor(private val mContext: Context) {
         get() = mUploaders
 
     fun upload(item: ClientUploadDataItem, pkgName: String?): Boolean {
-        if (TextUtils.isEmpty(pkgName)) {
-            MyLog.w("pkgName is null or empty, upload ClientUploadDataItem failed.")
+        if (pkgName.isNullOrEmpty()) {
+            Logger.w { "pkgName is null or empty, upload ClientUploadDataItem failed." }
             return false
         }
         if (TinyDataHelper.verify(item, false)) {
             return false
         }
-        if (TextUtils.isEmpty(item.id)) {
+        if (item.id.isNullOrEmpty()) {
             item.id = TinyDataHelper.nextTinyDataItemId()
         }
         item.pkgName = pkgName

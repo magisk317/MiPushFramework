@@ -20,7 +20,7 @@ import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.push.service.NotificationIdentityBridge
 import com.xiaomi.push.service.NotificationManagerPlatformSupport
 import io.github.magisk317.mipush.platform.support.XMPushUtils
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import java.util.Collections
 
@@ -368,7 +368,7 @@ object NotificationManagerEx {
         userId: Int = Utils.myUserId(),
     ): NotifyResult {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
+        Logger.withTag(TAG).d { "notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}" }
         val currentUserId = Utils.myUserId().coerceAtLeast(0)
         if (!canNotifyForUser(userId, currentUserId)) {
             logW(
@@ -496,7 +496,7 @@ object NotificationManagerEx {
         userId: Int = Utils.myUserId(),
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        Napier.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id", tag = TAG)
+        Logger.withTag(TAG).d { "cancel() called with: packageName = $packageName, tag = $tag, id = $id" }
         val currentUserId = Utils.myUserId().coerceAtLeast(0)
         if (!canCancelForUser(userId, currentUserId)) {
             logW(

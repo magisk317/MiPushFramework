@@ -22,8 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.Global

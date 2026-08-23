@@ -3,7 +3,6 @@ package com.xiaomi.push.service
 import android.content.Context
 import android.os.IBinder
 import android.os.Messenger
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import java.util.ArrayList
 
@@ -206,10 +205,10 @@ class PushClientsManager private constructor() {
 
             @JvmStatic
             fun getResource(userId: String?): String {
-                if (TextUtils.isEmpty(userId)) {
+                if (userId.isNullOrEmpty()) {
                     return ""
                 }
-                val index = userId!!.lastIndexOf("/")
+                val index = userId.lastIndexOf("/")
                 return if (index != -1) userId.substring(index + 1) else userId
             }
         }
@@ -333,10 +332,10 @@ class PushClientsManager private constructor() {
 
         @JvmStatic
         fun getSmtpLocalPart(userId: String?): String? {
-            if (TextUtils.isEmpty(userId)) {
+            if (userId.isNullOrEmpty()) {
                 return null
             }
-            val index = userId!!.indexOf("@")
+            val index = userId.indexOf("@")
             return if (index > 0) userId.substring(0, index) else userId
         }
 

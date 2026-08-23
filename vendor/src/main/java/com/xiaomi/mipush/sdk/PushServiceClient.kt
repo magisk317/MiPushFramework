@@ -48,6 +48,7 @@ import org.apache.thrift.TBase
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/PushServiceClient.java
  * Stock 7.4.67-C keeps this behavior across obfuscated com.xiaomi.mipush.sdk classes; no same-path source was found.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class PushServiceClient private constructor(context: Context) {
     companion object {
         private const val MAX_PENDING_MESSAGES_SIZE = 50

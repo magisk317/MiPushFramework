@@ -12,8 +12,12 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.content.ContextCompat
 import com.xiaomi.channel.commonutils.android.SystemProperties
-import io.github.aakira.napier.Napier
-import org.json.JSONObject
+import co.touchlab.kermit.Logger
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
 
@@ -49,49 +53,64 @@ internal class FocusNotificationCollectionFilter(
         }
     }
 
+    private val scheduledTimeoutKeys = mutableSetOf<String>()
+
     private val deletedKeys = object : LinkedHashMap<String, Unit>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?): Boolean {
             val shouldRemove = size > MAX_CACHE_SIZE
             if (shouldRemove && policy == Policy.HYPER_OS_2 && eldest != null) {
+                scheduledTimeoutKeys.remove(eldest.key)
                 timeoutScheduler.cancel(eldest.key)
             }
             return shouldRemove
         }
     }
 
-    /**
-     * Updates deleted-focus state for a post, then returns whether local collection should skip it.
-     */
-    fun onNotificationPosted(sbn: StatusBarNotification): Boolean {
+    internal fun onNotificationPosted(sbn: StatusBarNotification): Boolean {
         if (policy == Policy.DISABLED) return false
-        val key = sbn.key?.takeIf(String::isNotEmpty) ?: return false
-        synchronized(deletedKeys) {
-            if (deletedKeys.containsKey(key) && matchesFocusMode(sbn.notification, MODE_REOPEN)) {
-                deletedKeys.remove(key)
-                if (policy == Policy.HYPER_OS_2) {
-                    timeoutScheduler.cancel(key)
+        val notification = sbn.notification ?: return false
+        val key = sbn.key ?: return false
+
+        return synchronized(deletedKeys) {
+            when {
+                matchesFocusMode(notification, MODE_CLOSE) -> {
+                    val wasDeleted = deletedKeys.containsKey(key)
+                    if (wasDeleted && policy == Policy.HYPER_OS_2 && scheduledTimeoutKeys.add(key)) {
+                        timeoutScheduler.schedule(key)
+                    }
+                    wasDeleted
                 }
+                matchesFocusMode(notification, MODE_REOPEN) -> {
+                    deletedKeys.remove(key)
+                    if (policy == Policy.HYPER_OS_2) {
+                        scheduledTimeoutKeys.remove(key)
+                        timeoutScheduler.cancel(key)
+                    }
+                    false
+                }
+                else -> false
             }
-            return matchesFocusMode(sbn.notification, MODE_CLOSE) && deletedKeys.containsKey(key)
         }
     }
 
-    fun onNotificationRemoved(sbn: StatusBarNotification, reason: Int) {
+    internal fun onNotificationRemoved(sbn: StatusBarNotification, reason: Int) {
         if (policy == Policy.DISABLED) return
-        val key = sbn.key?.takeIf(String::isNotEmpty) ?: return
+        val packageName = sbn.packageName ?: return
+        val key = sbn.key ?: return
+
         synchronized(deletedKeys) {
             when (policy) {
+                Policy.HYPER_OS_1 -> handleHyperOs1Removal(packageName, key, reason)
+                Policy.HYPER_OS_2 -> handleHyperOs2Removal(packageName, key, reason)
                 Policy.DISABLED -> Unit
-                Policy.HYPER_OS_1 -> handleHyperOs1Removal(sbn.packageName, key, reason)
-                Policy.HYPER_OS_2 -> handleHyperOs2Removal(sbn.packageName, key, reason)
             }
         }
     }
 
-    fun onTimeout(key: String) {
-        if (policy != Policy.HYPER_OS_2 || key.isEmpty()) return
-        synchronized(deletedKeys) {
-            deletedKeys.remove(key)
+    internal fun onTimeout(key: String) = synchronized(deletedKeys) {
+        deletedKeys.remove(key)
+        if (policy == Policy.HYPER_OS_2) {
+            scheduledTimeoutKeys.remove(key)
             timeoutScheduler.cancel(key)
         }
     }
@@ -100,11 +119,13 @@ internal class FocusNotificationCollectionFilter(
         deletedKeys.containsKey(key)
     }
 
+    internal fun isDeleted(key: String): Boolean = synchronized(deletedKeys) {
+        deletedKeys.containsKey(key)
+    }
+
     internal fun size(): Int = synchronized(deletedKeys) { deletedKeys.size }
 
     private fun handleHyperOs1Removal(packageName: String, key: String, reason: Int) {
-        // Stock 7.4.67-C sort.c records reason 2 only for this allowlist and has no TTL.
-        // The old shared 24-hour policy expired HyperOS 1 state that stock keeps for the process.
         if (reason == REASON_USER_DISMISS) {
             if (packageName in HYPER_OS_1_ALLOWLIST) {
                 deletedKeys[key] = Unit
@@ -115,19 +136,19 @@ internal class FocusNotificationCollectionFilter(
     }
 
     private fun handleHyperOs2Removal(packageName: String, key: String, reason: Int) {
-        // DEX-verified stock 7.4.67-C sort.d.a: reason 12 leaves state/alarm untouched; reason 2
-        // records all but six system packages; every other reason clears both. The previous
-        // deleteIntent path could not observe these system removal reasons and therefore diverged.
         when {
             reason == REASON_GROUP_SUMMARY_CANCELED -> Unit
             reason == REASON_USER_DISMISS -> {
                 if (packageName !in HYPER_OS_2_EXCLUSIONS && !deletedKeys.containsKey(key)) {
                     deletedKeys[key] = Unit
-                    timeoutScheduler.schedule(key)
+                    if (scheduledTimeoutKeys.add(key)) {
+                        timeoutScheduler.schedule(key)
+                    }
                 }
             }
             else -> {
                 deletedKeys.remove(key)
+                scheduledTimeoutKeys.remove(key)
                 timeoutScheduler.cancel(key)
             }
         }
@@ -169,9 +190,10 @@ internal class FocusNotificationCollectionFilter(
             val rawParam = notification?.extras?.getString(FOCUS_PARAM)?.takeIf(String::isNotEmpty)
                 ?: return false
             return runCatching {
-                val root = JSONObject(rawParam)
-                root.optBoolean("updatable", false) &&
-                    root.optString("reopen", MODE_CLOSE) == expectedMode
+                val root = Json.parseToJsonElement(rawParam).jsonObject
+                val updatable = root["updatable"]?.jsonPrimitive?.booleanOrNull ?: false
+                val reopen = root["reopen"]?.jsonPrimitive?.contentOrNull ?: MODE_CLOSE
+                updatable && reopen == expectedMode
             }.getOrDefault(false)
         }
 
@@ -237,7 +259,7 @@ internal object FocusNotificationCollection {
         } else {
             FocusNotificationCollectionFilter.TimeoutScheduler.NONE
         }
-        Napier.d("initialized policy=$policy", tag = TAG)
+        Logger.withTag(TAG).d { "initialized policy=$policy" }
         return FocusNotificationCollectionFilter(policy, scheduler)
     }
 
@@ -283,14 +305,14 @@ internal object FocusNotificationCollection {
                     pendingIntent,
                 )
             }.onFailure {
-                Napier.w("failed to schedule key=$key: ${it.message}", it, tag = TAG)
+                Logger.withTag(TAG).w(it) { "failed to schedule key=$key: ${it.message}" }
             }
         }
 
         override fun cancel(key: String) {
             val pendingIntent = pendingIntents.remove(key) ?: return
             runCatching { alarmManager?.cancel(pendingIntent) }
-                .onFailure { Napier.w("failed to cancel key=$key: ${it.message}", it, tag = TAG) }
+                .onFailure { Logger.withTag(TAG).w(it) { "failed to cancel key=$key: ${it.message}" } }
         }
     }
 }

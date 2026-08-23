@@ -29,9 +29,15 @@ class XMPushServiceMessenger(
             addAction(PushConstants.ACTION_RESET_CONNECTION)
             addAction(PushServiceBroadcastActions.START_FOREGROUND)
         }
+        registerWithFlag(filter)
+    }
+
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private fun registerWithFlag(filter: IntentFilter) {
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             xmPushService.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
+            @Suppress("DEPRECATION")
             xmPushService.registerReceiver(this, filter)
         }
     }

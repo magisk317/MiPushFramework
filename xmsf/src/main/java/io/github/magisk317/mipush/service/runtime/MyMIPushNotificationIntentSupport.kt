@@ -18,7 +18,6 @@ import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.app.NotificationCompat
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
 import com.xiaomi.xmpush.thrift.PushMetaInfo

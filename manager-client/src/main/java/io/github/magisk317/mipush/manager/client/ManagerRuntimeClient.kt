@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.manager.client
 
+import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
 import android.content.ComponentName
 import android.content.Context
@@ -10,7 +11,6 @@ import android.os.Build
 import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.RemoteException
-import android.util.Log
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
@@ -71,6 +71,16 @@ class ManagerRuntimeClient(
     private val clientJob = SupervisorJob(scope.coroutineContext[Job])
     private val clientScope = CoroutineScope(scope.coroutineContext + clientJob)
     private val remoteCallPermits = Semaphore(MAX_IN_FLIGHT_REMOTE_CALLS)
+    private val logger = Logger.withTag(TAG)
+
+    private fun logInfo(message: String) {
+        logger.i { message }
+    }
+
+    private fun logWarn(message: String) {
+        logger.w { message }
+    }
+
     private val lock = Any()
     private val _availability = MutableStateFlow<ManagerRuntimeAvailability>(
         ManagerRuntimeAvailability.Disconnected,
@@ -162,7 +172,7 @@ class ManagerRuntimeClient(
             reconnectJob = null
             BindSession().also {
                 activeSession = it
-                Log.i(TAG, "availability ${_availability.value} -> Binding")
+                logInfo("availability ${_availability.value} -> Binding")
                 _availability.value = ManagerRuntimeAvailability.Binding
             }
         }
@@ -335,7 +345,7 @@ class ManagerRuntimeClient(
     ): ManagerRuntimeResult<T> {
         val target = currentRemoteTarget()
         if (target == null) {
-            Log.w(TAG, "call without target capability=$capability availability=${availability.value}")
+            logWarn("call without target capability=$capability availability=${availability.value}")
             emitClientCall(result = "skip", reason = "no_target", capability = capability)
             return ManagerRuntimeResult.Unavailable(availability.value)
         }
@@ -350,16 +360,15 @@ class ManagerRuntimeClient(
 
         return try {
             val startedAt = android.os.SystemClock.elapsedRealtime()
-            Log.i(TAG, "call start capability=$capability timeoutMs=${callTimeoutMillis ?: "none"}")
+            logInfo("call start capability=$capability timeoutMs=${callTimeoutMillis ?: "none"}")
             val value = callRemote(target.session, callTimeoutMillis) { block(target.service) }
-            Log.i(
-                TAG,
+            logInfo(
                 "call ok capability=$capability tookMs=${android.os.SystemClock.elapsedRealtime() - startedAt}",
             )
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
                 discardOwnedWireResources(value)
-                Log.w(TAG, "response validation failed capability=$capability reason=$validationReason")
+                logWarn("response validation failed capability=$capability reason=$validationReason")
                 emitClientCall(result = "error", reason = "validation_failed", capability = capability, statusOk = false)
                 ManagerRuntimeResult.Failed(validationReason)
             } else if (isCurrentTarget(target)) {
@@ -380,12 +389,12 @@ class ManagerRuntimeClient(
         } catch (error: RemoteCallTimeoutException) {
             if (error.permitsExhausted) {
                 // Busy is not a dead session: keep the binder and let callers retry.
-                Log.w(TAG, "remote busy capability=$capability availability=${availability.value}")
+                logWarn("remote busy capability=$capability availability=${availability.value}")
                 return@callCapability ManagerRuntimeResult.Unavailable(
                     ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
                 )
             }
-            Log.w(TAG, "remote timed out capability=$capability")
+            logWarn("remote timed out capability=$capability")
             if (!releaseSessionOnTimeout) {
                 // A slow feature read is not evidence that the Binder session is dead. Keep the
                 // shared runtime available and surface the timeout only to this caller.
@@ -402,7 +411,7 @@ class ManagerRuntimeClient(
             if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(if (current) timeoutState else availability.value)
         } catch (_: DeadObjectException) {
-            Log.w(TAG, "remote dead object capability=$capability")
+            logWarn("remote dead object capability=$capability")
             val current = releaseSession(
                 target.session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BINDER_DIED),
@@ -410,7 +419,7 @@ class ManagerRuntimeClient(
             if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(availability.value)
         } catch (_: RemoteException) {
-            Log.w(TAG, "remote exception capability=$capability")
+            logWarn("remote exception capability=$capability")
             val current = releaseSession(
                 target.session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
@@ -428,8 +437,7 @@ class ManagerRuntimeClient(
             ManagerRuntimeResult.Unavailable(availability.value)
         } catch (error: RuntimeException) {
             // A method-level malformed/unsupported response must not tear down unrelated features.
-            Log.w(
-                TAG,
+            logWarn(
                 "runtime operation failed capability=$capability " +
                     "type=${error.javaClass.simpleName.ifBlank { "RuntimeException" }} " +
                     "reason=${runtimeExceptionDiagnosticReason(error)}",
@@ -613,7 +621,7 @@ class ManagerRuntimeClient(
             val nextAvailability = ManagerRuntimeClientPolicy.classifyHandshake(handshake)
             synchronized(lock) {
                 if (!isCurrentLocked(session) || session.service !== service) return
-                Log.i(TAG, "handshake result $nextAvailability")
+                logInfo("handshake result $nextAvailability")
                 _availability.value = nextAvailability
                 session.handshakeJob = null
                 if (nextAvailability is ManagerRuntimeAvailability.Available) {
@@ -633,10 +641,7 @@ class ManagerRuntimeClient(
             )
         } catch (error: RemoteCallTimeoutException) {
             // Handshake never reached Available; release and reconnect for both busy and hard timeout.
-            android.util.Log.w(
-                "ManagerRuntime",
-                if (error.permitsExhausted) "handshake busy" else "handshake timed out",
-            )
+            logWarn(if (error.permitsExhausted) "handshake busy" else "handshake timed out")
             val current = releaseSession(session, ManagerRuntimeAvailability.TimedOut)
             if (current) scheduleReconnect()
             MagiskOtel.event(
@@ -728,7 +733,7 @@ class ManagerRuntimeClient(
         synchronized(lock) {
             if (closed || activeSession != null || reconnectJob?.isActive == true) return
             if (reconnectAttempt >= maxReconnectAttempts) {
-                Log.w(TAG, "reconnect attempts exhausted limit=$maxReconnectAttempts")
+                logWarn("reconnect attempts exhausted limit=$maxReconnectAttempts")
                 _availability.value = ManagerRuntimeAvailability.Failed("reconnect_exhausted")
                 emitClientCall(
                     result = "error",
@@ -787,7 +792,7 @@ class ManagerRuntimeClient(
             if (current) {
                 activeSession = null
                 if (!closed && nextAvailability != null) {
-                    Log.i(TAG, "availability ${_availability.value} -> $nextAvailability")
+                    logInfo("availability ${_availability.value} -> $nextAvailability")
                     _availability.value = nextAvailability
                 }
             }
@@ -840,7 +845,7 @@ class ManagerRuntimeClient(
         val acquired = if (remoteCallPermits.tryAcquire()) {
             true
         } else {
-            Log.w(TAG, "waiting for remote permit timeoutMs=${callTimeoutMillis ?: "none"}")
+            logWarn("waiting for remote permit timeoutMs=${callTimeoutMillis ?: "none"}")
             if (callTimeoutMillis == null) {
                 remoteCallPermits.acquire()
                 true

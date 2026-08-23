@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
+import co.touchlab.kermit.Logger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
@@ -130,9 +130,9 @@ class ConfigManagerViewModel constructor(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
             )
-            Log.i(TAG, "granted XMSF configuration directory permission uri=$uri")
+            Logger.withTag(TAG).i { "granted XMSF configuration directory permission uri=$uri" }
         }.onFailure { error ->
-            Log.w(TAG, "unable to grant XMSF configuration directory permission uri=$uri", error)
+            Logger.withTag(TAG).w(error) { "unable to grant XMSF configuration directory permission uri=$uri" }
         }
     }
 

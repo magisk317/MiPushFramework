@@ -1,9 +1,8 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.DeviceInfo
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.service.DefaultConfig
 import com.xiaomi.push.service.MIPushAccountUtils
@@ -27,7 +26,7 @@ class TinyDataCacheProcessor(private val mContext: Context) : PingCallBack {
     private fun canUpload(tinyDataUploader: TinyDataUploader?): Boolean {
         if (!Network.hasNetwork(mContext) ||
             tinyDataUploader == null ||
-            TextUtils.isEmpty(getAppId(mContext.packageName)) ||
+            getAppId(mContext.packageName).isEmpty() ||
             !File(mContext.filesDir, TinyDataStorage.TINY_DATA_CACHE_FILE_NAME).exists() ||
             mIsTinyDataExtracting
         ) {
@@ -68,13 +67,13 @@ class TinyDataCacheProcessor(private val mContext: Context) : PingCallBack {
     override fun pingFollowUpAction() {
         readOnlineConfig(mContext)
         if (mUploadSwitch && verifyUploadPeriod()) {
-            MyLog.w("TinyData TinyDataCacheProcessor.pingFollowUpAction ts:${System.currentTimeMillis()}")
+            Logger.w { "TinyData TinyDataCacheProcessor.pingFollowUpAction ts:${System.currentTimeMillis()}" }
             val uploader = TinyDataManager.getInstance(mContext)?.uploader
             if (canUpload(uploader)) {
                 mIsTinyDataExtracting = true
                 TinyDataCacheReader.addTinyDataCacheReadJob(mContext, uploader)
             } else {
-                MyLog.w("TinyData TinyDataCacheProcessor.pingFollowUpAction !canUpload(uploader) ts:${System.currentTimeMillis()}")
+                Logger.w { "TinyData TinyDataCacheProcessor.pingFollowUpAction !canUpload(uploader) ts:${System.currentTimeMillis()}" }
             }
         }
     }

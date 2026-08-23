@@ -2,13 +2,18 @@ package com.xiaomi.mipush.sdk
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushVersionInfo
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.util.HashMap
 
 /*
@@ -17,6 +22,7 @@ import java.util.HashMap
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/AppInfoHolder.java
  * No stock 7.4.67-C same-path source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class AppInfoHolder private constructor(private val mContext: Context) {
     @JvmField
     var appRegRequestId: String? = null
@@ -45,7 +51,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         }
 
         fun clear() {
-            getSharedPreferences(mContext).edit().clear().commit()
+            getSharedPreferences(mContext).edit().clear().apply()
             appID = null
             appToken = null
             regID = null
@@ -60,7 +66,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
 
         fun invalidate() {
             isValid = false
-            getSharedPreferences(mContext).edit().putBoolean(PREF_KEY_VALID, isValid).commit()
+            getSharedPreferences(mContext).edit().putBoolean(PREF_KEY_VALID, isValid).apply()
         }
 
         fun isVaild(): Boolean {
@@ -68,13 +74,13 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         }
 
         fun isVaild(str: String?, str2: String?): Boolean {
-            return TextUtils.equals(appID, str) &&
-                TextUtils.equals(appToken, str2) &&
-                !TextUtils.isEmpty(regID) &&
-                !TextUtils.isEmpty(regSecret) &&
+            return appID == str &&
+                appToken == str2 &&
+                !regID.isNullOrEmpty() &&
+                !regSecret.isNullOrEmpty() &&
                 (
-                    TextUtils.equals(deviceId, DeviceInfo.getInstanceId(mContext)) ||
-                        TextUtils.equals(deviceId, DeviceInfo.getSimpleDeviceId(mContext))
+                    deviceId == DeviceInfo.getInstanceId(mContext) ||
+                        deviceId == DeviceInfo.getSimpleDeviceId(mContext)
                     )
         }
 
@@ -104,7 +110,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
             editor.putString(PREF_KEY_APP_ID, appID)
             editor.putString(PREF_KEY_APP_TOKEN, str2)
             editor.putString(PREF_KEY_REG_RESOURCE, str3)
-            editor.commit()
+            editor.apply()
         }
 
         fun setPaused(z: Boolean) {
@@ -125,28 +131,29 @@ class AppInfoHolder private constructor(private val mContext: Context) {
             editor.putString(PREF_KEY_VERSION_NAME, getVersionName())
             editor.putBoolean(PREF_KEY_VALID, true)
             editor.putString(PREF_KEY_APP_REGION, str3)
-            editor.commit()
+            editor.apply()
         }
 
         companion object {
             @JvmStatic
             fun parseClientInfoData(context: Context, str: String?): ClientInfoData? {
+                if (str.isNullOrEmpty()) return null
                 return try {
-                    val jsonObject = JSONObject(str!!)
+                    val jsonObject = Json.parseToJsonElement(str).jsonObject
                     ClientInfoData(context).apply {
-                        appID = jsonObject.getString(PREF_KEY_APP_ID)
-                        appToken = jsonObject.getString(PREF_KEY_APP_TOKEN)
-                        regID = jsonObject.getString(PREF_KEY_REG_ID)
-                        regSecret = jsonObject.getString(PREF_KEY_REG_SECRET)
-                        deviceId = jsonObject.getString(PREF_KEY_DEVICE_ID)
-                        versionName = jsonObject.getString(PREF_KEY_VERSION_NAME)
-                        isValid = jsonObject.getBoolean(PREF_KEY_VALID)
-                        isPaused = jsonObject.getBoolean(PREF_KEY_PAUSED)
-                        envType = jsonObject.getInt(PREF_KEY_ENV_TYPE)
-                        regResource = jsonObject.getString(PREF_KEY_REG_RESOURCE)
+                        appID = jsonObject[PREF_KEY_APP_ID]?.jsonPrimitive?.content
+                        appToken = jsonObject[PREF_KEY_APP_TOKEN]?.jsonPrimitive?.content
+                        regID = jsonObject[PREF_KEY_REG_ID]?.jsonPrimitive?.content
+                        regSecret = jsonObject[PREF_KEY_REG_SECRET]?.jsonPrimitive?.content
+                        deviceId = jsonObject[PREF_KEY_DEVICE_ID]?.jsonPrimitive?.content
+                        versionName = jsonObject[PREF_KEY_VERSION_NAME]?.jsonPrimitive?.content
+                        isValid = jsonObject[PREF_KEY_VALID]?.jsonPrimitive?.booleanOrNull ?: true
+                        isPaused = jsonObject[PREF_KEY_PAUSED]?.jsonPrimitive?.booleanOrNull ?: false
+                        envType = jsonObject[PREF_KEY_ENV_TYPE]?.jsonPrimitive?.intOrNull ?: 1
+                        regResource = jsonObject[PREF_KEY_REG_RESOURCE]?.jsonPrimitive?.content
                     }
                 } catch (throwable: Throwable) {
-                    MyLog.e(throwable)
+                    Logger.e(throwable) { "Failed to parse ClientInfoData" }
                     null
                 }
             }
@@ -154,20 +161,20 @@ class AppInfoHolder private constructor(private val mContext: Context) {
             @JvmStatic
             fun toString(clientInfoData: ClientInfoData): String? {
                 return try {
-                    JSONObject().apply {
-                        put(PREF_KEY_APP_ID, clientInfoData.appID)
-                        put(PREF_KEY_APP_TOKEN, clientInfoData.appToken)
-                        put(PREF_KEY_REG_ID, clientInfoData.regID)
-                        put(PREF_KEY_REG_SECRET, clientInfoData.regSecret)
-                        put(PREF_KEY_DEVICE_ID, clientInfoData.deviceId)
-                        put(PREF_KEY_VERSION_NAME, clientInfoData.versionName)
+                    buildJsonObject {
+                        clientInfoData.appID?.let { put(PREF_KEY_APP_ID, it) }
+                        clientInfoData.appToken?.let { put(PREF_KEY_APP_TOKEN, it) }
+                        clientInfoData.regID?.let { put(PREF_KEY_REG_ID, it) }
+                        clientInfoData.regSecret?.let { put(PREF_KEY_REG_SECRET, it) }
+                        clientInfoData.deviceId?.let { put(PREF_KEY_DEVICE_ID, it) }
+                        clientInfoData.versionName?.let { put(PREF_KEY_VERSION_NAME, it) }
                         put(PREF_KEY_VALID, clientInfoData.isValid)
                         put(PREF_KEY_PAUSED, clientInfoData.isPaused)
                         put(PREF_KEY_ENV_TYPE, clientInfoData.envType)
-                        put(PREF_KEY_REG_RESOURCE, clientInfoData.regResource)
+                        clientInfoData.regResource?.let { put(PREF_KEY_REG_RESOURCE, it) }
                     }.toString()
                 } catch (throwable: Throwable) {
-                    MyLog.e(throwable)
+                    Logger.e(throwable) { "Failed to serialize ClientInfoData" }
                     null
                 }
             }
@@ -210,9 +217,9 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         mInfoData.regID = sharedPreferences.getString(PREF_KEY_REG_ID, null)
         mInfoData.regSecret = sharedPreferences.getString(PREF_KEY_REG_SECRET, null)
         mInfoData.deviceId = sharedPreferences.getString(PREF_KEY_DEVICE_ID, null)
-        if (!TextUtils.isEmpty(mInfoData.deviceId) && DeviceInfo.startsWithDevPrefix(mInfoData.deviceId)) {
+        if (!mInfoData.deviceId.isNullOrEmpty() && DeviceInfo.startsWithDevPrefix(mInfoData.deviceId)) {
             mInfoData.deviceId = DeviceInfo.getInstanceId(mContext)
-            sharedPreferences.edit().putString(PREF_KEY_DEVICE_ID, mInfoData.deviceId).commit()
+            sharedPreferences.edit().putString(PREF_KEY_DEVICE_ID, mInfoData.deviceId).apply()
         }
         mInfoData.versionName = sharedPreferences.getString(PREF_KEY_VERSION_NAME, null)
         mInfoData.isValid = sharedPreferences.getBoolean(PREF_KEY_VALID, true)
@@ -233,35 +240,32 @@ class AppInfoHolder private constructor(private val mContext: Context) {
     fun registrationStateSummary(expectedAppId: String? = mInfoData.appID, expectedAppToken: String? = mInfoData.appToken): String {
         val instanceId = runCatching { DeviceInfo.getInstanceId(mContext) }.getOrNull()
         val simpleDeviceId = runCatching { DeviceInfo.getSimpleDeviceId(mContext) }.getOrNull()
-        val deviceIdPresent = !TextUtils.isEmpty(mInfoData.deviceId)
+        val deviceIdPresent = !mInfoData.deviceId.isNullOrEmpty()
         return "valid=${mInfoData.isValid}" +
-            " appIdPresent=${!TextUtils.isEmpty(mInfoData.appID)}" +
-            " appTokenPresent=${!TextUtils.isEmpty(mInfoData.appToken)}" +
-            " appIdMatch=${TextUtils.equals(mInfoData.appID, expectedAppId)}" +
-            " appTokenMatch=${TextUtils.equals(mInfoData.appToken, expectedAppToken)}" +
-            " regIdPresent=${!TextUtils.isEmpty(mInfoData.regID)}" +
-            " regSecretPresent=${!TextUtils.isEmpty(mInfoData.regSecret)}" +
+            " appIdPresent=${!mInfoData.appID.isNullOrEmpty()}" +
+            " appTokenPresent=${!mInfoData.appToken.isNullOrEmpty()}" +
+            " appIdMatch=${mInfoData.appID == expectedAppId}" +
+            " appTokenMatch=${mInfoData.appToken == expectedAppToken}" +
+            " regIdPresent=${!mInfoData.regID.isNullOrEmpty()}" +
+            " regSecretPresent=${!mInfoData.regSecret.isNullOrEmpty()}" +
             " deviceIdPresent=$deviceIdPresent" +
-            " instanceDeviceMatch=${deviceIdPresent && TextUtils.equals(mInfoData.deviceId, instanceId)}" +
-            " simpleDeviceMatch=${deviceIdPresent && TextUtils.equals(mInfoData.deviceId, simpleDeviceId)}" +
+            " instanceDeviceMatch=${deviceIdPresent && mInfoData.deviceId == instanceId}" +
+            " simpleDeviceMatch=${deviceIdPresent && mInfoData.deviceId == simpleDeviceId}" +
             " envType=${mInfoData.envType}" +
-            " regionPresent=${!TextUtils.isEmpty(mInfoData.appRegion)}" +
-            " requestIdPresent=${!TextUtils.isEmpty(appRegRequestId)}"
+            " regionPresent=${!mInfoData.appRegion.isNullOrEmpty()}" +
+            " requestIdPresent=${!appRegRequestId.isNullOrEmpty()}"
     }
 
     fun checkAppInfo(): Boolean {
         if (mInfoData.isVaild()) {
             return true
         }
-        MyLog.w("Don't send message before initialization succeeded!")
+        Logger.w { "Don't send message before initialization succeeded!" }
         return false
     }
 
     fun checkVersionNameChanged(): Boolean {
-        return !TextUtils.equals(
-            PushVersionInfo.reportedAppVersionName(mContext.packageName, AppInfoUtils.getVersionName(mContext, mContext.packageName)),
-            mInfoData.versionName
-        )
+        return PushVersionInfo.reportedAppVersionName(mContext.packageName, AppInfoUtils.getVersionName(mContext, mContext.packageName)) != mInfoData.versionName
     }
 
     fun clear() {
@@ -270,7 +274,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
 
     fun delHybridAppInfo(str: String) {
         mHybridAppInfoCache.remove(str)
-        getSharedPreferences(mContext).edit().remove(PREF_KEY_HYBRID_APP_INFO_PREFIX + str).commit()
+        getSharedPreferences(mContext).edit().remove(PREF_KEY_HYBRID_APP_INFO_PREFIX + str).apply()
     }
 
     fun getHybridAppInfo(str: String): ClientInfoData? {
@@ -298,8 +302,8 @@ class AppInfoHolder private constructor(private val mContext: Context) {
     fun isHybridAppRegistered(str: String?, str2: String?, str3: String): Boolean {
         val hybridAppInfo = getHybridAppInfo(str3)
         return hybridAppInfo != null &&
-            TextUtils.equals(str, hybridAppInfo.appID) &&
-            TextUtils.equals(str2, hybridAppInfo.appToken)
+            str == hybridAppInfo.appID &&
+            str2 == hybridAppInfo.appToken
     }
 
     fun putAppIDAndToken(str: String?, str2: String?, str3: String?) {
@@ -314,21 +318,21 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         mHybridAppInfoCache[str] = clientInfoData
         getSharedPreferences(mContext).edit()
             .putString(PREF_KEY_HYBRID_APP_INFO_PREFIX + str, ClientInfoData.toString(clientInfoData))
-            .commit()
+            .apply()
     }
 
     fun setEnvType(i: Int) {
         mInfoData.setEnvType(i)
-        getSharedPreferences(mContext).edit().putInt(PREF_KEY_ENV_TYPE, i).commit()
+        getSharedPreferences(mContext).edit().putInt(PREF_KEY_ENV_TYPE, i).apply()
     }
 
     fun setPaused(z: Boolean) {
         mInfoData.setPaused(z)
-        getSharedPreferences(mContext).edit().putBoolean(PREF_KEY_PAUSED, z).commit()
+        getSharedPreferences(mContext).edit().putBoolean(PREF_KEY_PAUSED, z).apply()
     }
 
     fun updateVersionName(str: String?) {
-        getSharedPreferences(mContext).edit().putString(PREF_KEY_VERSION_NAME, str).commit()
+        getSharedPreferences(mContext).edit().putString(PREF_KEY_VERSION_NAME, str).apply()
         mInfoData.versionName = str
     }
 

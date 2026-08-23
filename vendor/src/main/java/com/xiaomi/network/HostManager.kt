@@ -10,7 +10,6 @@ import android.net.Uri
 import android.net.wifi.WifiInfo
 import android.os.Build
 import android.os.Process
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.BasicNameValuePair
@@ -24,9 +23,17 @@ import com.xiaomi.common.logger.thrift.mfs.Location
 import com.xiaomi.push.service.*
 import com.xiaomi.push.service.module.PushChannelRegion
 import com.xiaomi.slim.Blob
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.io.*
 import java.net.MalformedURLException
 import java.net.URL
@@ -57,7 +64,7 @@ open class HostManager @JvmOverloads constructor(
         private var sAppName: String? = null
         private var sAppVersion: String? = null
         private var sInstance: HostManager? = null
-        
+            
         @JvmField
         protected val sReservedHosts = HashMap<String, Fallback>()
         
@@ -75,60 +82,62 @@ open class HostManager @JvmOverloads constructor(
                 fallback.addHost(target)
             }
         }
+        private val sHostFilter = HostFilter { true }
 
         @JvmStatic
         fun getActiveNetworkLabel(): String {
-            val context = sAppContext ?: return "unknown"
+            val cm = sAppContext?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            if (cm == null) return "unknown"
+            
             return try {
-                val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-                val activeNetwork = connectivityManager?.activeNetwork ?: return "unknown"
-                val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return "unknown"
-                if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    if (Build.VERSION.SDK_INT >= 29) {
-                        val transportInfo = networkCapabilities.transportInfo
-                        if (transportInfo is WifiInfo) {
-                            return "WIFI-" + transportInfo.ssid
+                val activeNetwork = cm.activeNetwork
+                if (activeNetwork != null) {
+                    val caps = cm.getNetworkCapabilities(activeNetwork)
+                    if (caps != null) {
+                        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                            var bssid = "WIFI"
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                val transportInfo = caps.transportInfo
+                                if (transportInfo is WifiInfo) {
+                                    bssid = "WIFI-${transportInfo.bssid}"
+                                }
+                            }
+                            return bssid
+                        } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                            return "CELLULAR"
+                        } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                            return "ETHERNET"
                         }
                     }
-                    "WIFI"
-                } else {
-                    Network.getActiveNetworkName(context)
                 }
-            } catch (th: Throwable) {
+                "unknown"
+            } catch (e: Exception) {
                 "unknown"
             }
         }
 
         @JvmStatic
-        @Synchronized
         fun getInstance(): HostManager {
-            return sInstance ?: throw IllegalStateException("the host manager is not initialized yet.")
+            synchronized(HostManager::class.java) {
+                checkNotNull(sInstance) { "the host manager is not initialized yet." }
+                return sInstance!!
+            }
         }
 
         @JvmStatic
-        fun init(context: Context, hostFilter: HostFilter?, httpGet: HttpGet?, userId: String) {
-            init(context, hostFilter, httpGet, userId, null, null)
-        }
-
-        @JvmStatic
-        @Synchronized
-        fun init(context: Context, hostFilter: HostFilter?, httpGet: HttpGet?, userId: String, appName: String?, appVersion: String?) {
-            val applicationContext = context.applicationContext ?: context
-            sAppContext = applicationContext
-            if (sInstance == null) {
-                val observer = XMPushServiceCore.observer
-                if (observer != null) {
-                    try {
-                        val obsInstance = observer.createHostManager(context, hostFilter, httpGet, userId)
-                        if (obsInstance is HostManager) {
-                            sInstance = obsInstance
-                            return
-                        }
-                    } catch (t: Throwable) {
-                        MyLog.e("HostManager.init create via observer fail", t)
-                    }
-                }
-
+        fun init(
+            context: Context,
+            hostFilter: HostFilter?,
+            httpGet: HttpGet?,
+            userId: String,
+            appName: String? = null,
+            appVersion: String? = null
+        ) {
+            synchronized(HostManager::class.java) {
+                if (sInstance != null) return
+                sAppContext = context.applicationContext
+                sAppName = appName
+                sAppVersion = appVersion
                 val currentFactory = factory
                 if (currentFactory == null) {
                     sInstance = HostManager(context, hostFilter, httpGet, userId, appName, appVersion)
@@ -180,12 +189,16 @@ open class HostManager @JvmOverloads constructor(
     }
 
     interface HostManagerFactory {
-        fun createHostManager(context: Context, hostFilter: HostFilter?, httpGet: HttpGet?, userId: String): HostManager
+        fun createHostManager(
+            context: Context,
+            hostFilter: HostFilter?,
+            httpGet: HttpGet?,
+            userId: String
+        ): HostManager
     }
 
     fun interface HttpGet {
-        @Throws(IOException::class)
-        fun doGet(url: String): String
+        fun doGet(url: String): String?
     }
 
     private fun getVersionName(): String {
@@ -198,7 +211,7 @@ open class HostManager @JvmOverloads constructor(
     }
 
     private fun processNetwork(str: String?): String {
-        return if (TextUtils.isEmpty(str)) "unknown" else if (str!!.startsWith("WIFI")) "WIFI" else str
+        return if (str.isNullOrEmpty()) "unknown" else if (str.startsWith("WIFI")) "WIFI" else str
     }
 
     @Throws(Throwable::class)
@@ -238,74 +251,70 @@ open class HostManager @JvmOverloads constructor(
         try {
             val str2 = if (Network.isWIFIConnected(sAppContext)) "wifi" else "wap"
             val remoteFallbackJSON = getRemoteFallbackJSON(arrayList, str2, sUserId, z)
-            if (!TextUtils.isEmpty(remoteFallbackJSON)) {
-                val jSONObject = JSONObject(remoteFallbackJSON!!)
+            if (!remoteFallbackJSON.isNullOrEmpty()) {
+                val jSONObject = Json.parseToJsonElement(remoteFallbackJSON).jsonObject
                 MyLog.i(remoteFallbackJSON)
-                if ("OK".equals(jSONObject.getString("S"), ignoreCase = true)) {
-                    val jSONObject2 = jSONObject.getJSONObject("R")
-                    val province = jSONObject2.getString("province")
-                    val city = jSONObject2.getString("city")
-                    val isp = jSONObject2.getString("isp")
-                    val ip = jSONObject2.getString("ip")
-                    val country = jSONObject2.getString("country")
-                    val jSONObject3 = jSONObject2.getJSONObject(str2)
+                if ("OK".equals(jSONObject["S"]?.jsonPrimitive?.content, ignoreCase = true)) {
+                    val jSONObject2 = jSONObject["R"]?.jsonObject ?: return arrayList2
+                    val province = jSONObject2["province"]?.jsonPrimitive?.content.orEmpty()
+                    val city = jSONObject2["city"]?.jsonPrimitive?.content.orEmpty()
+                    val isp = jSONObject2["isp"]?.jsonPrimitive?.content.orEmpty()
+                    val ip = jSONObject2["ip"]?.jsonPrimitive?.content.orEmpty()
+                    val country = jSONObject2["country"]?.jsonPrimitive?.content.orEmpty()
+                    val jSONObject3 = jSONObject2[str2]?.jsonObject
                     MyLog.v("get bucket: net=$isp, hosts=$jSONObject3")
-                    for (i2 in arrayList.indices) {
-                        val str3 = arrayList[i2]
-                        val jSONArrayOptJSONArray = jSONObject3.optJSONArray(str3)
-                        if (jSONArrayOptJSONArray == null) {
-                            MyLog.w("no bucket found for $str3")
-                        } else {
-                            val fallback2 = Fallback(str3)
-                            for (i3 in 0 until jSONArrayOptJSONArray.length()) {
-                                val string6 = jSONArrayOptJSONArray.getString(i3)
-                                if (!TextUtils.isEmpty(string6)) {
-                                    fallback2.addHost(WeightedHost(string6, jSONArrayOptJSONArray.length() - i3))
+                    if (jSONObject3 != null) {
+                        for (i2 in arrayList.indices) {
+                            val str3 = arrayList[i2]
+                            val jSONArrayOptJSONArray = jSONObject3[str3]?.jsonArray
+                            if (jSONArrayOptJSONArray == null) {
+                                MyLog.w("no bucket found for $str3")
+                            } else {
+                                val fallback2 = Fallback(str3)
+                                for (i3 in 0 until jSONArrayOptJSONArray.size) {
+                                    val string6 = jSONArrayOptJSONArray[i3].jsonPrimitive.content
+                                    if (string6.isNotEmpty()) {
+                                        fallback2.addHost(WeightedHost(string6, jSONArrayOptJSONArray.size - i3))
+                                    }
                                 }
+                                arrayList2[i2] = fallback2
+                                fallback2.country = country
+                                fallback2.province = province
+                                fallback2.isp = isp
+                                fallback2.ip = ip
+                                fallback2.city = city
+                                jSONObject2["stat-percent"]?.jsonPrimitive?.doubleOrNull?.let {
+                                    fallback2.percent = it
+                                }
+                                jSONObject2["stat-domain"]?.jsonPrimitive?.content?.let {
+                                    fallback2.domainName = it
+                                }
+                                jSONObject2["ttl"]?.jsonPrimitive?.intOrNull?.let {
+                                    fallback2.effectiveDuration = it * 1000L
+                                }
+                                setCurrentISP(fallback2.getISP())
                             }
-                            arrayList2[i2] = fallback2
-                            fallback2.country = country
-                            fallback2.province = province
-                            fallback2.isp = isp
-                            fallback2.ip = ip
-                            fallback2.city = city
-                            if (jSONObject2.has("stat-percent")) {
-                                fallback2.percent = jSONObject2.getDouble("stat-percent")
-                            }
-                            if (jSONObject2.has("stat-domain")) {
-                                fallback2.domainName = jSONObject2.getString("stat-domain")
-                            }
-                            if (jSONObject2.has("ttl")) {
-                                fallback2.effectiveDuration = jSONObject2.getInt("ttl") * 1000L
-                            }
-                            setCurrentISP(fallback2.getISP())
                         }
                     }
-                    val jSONObjectOptJSONObject = jSONObject2.optJSONObject("reserved")
+                    val jSONObjectOptJSONObject = jSONObject2["reserved"]?.jsonObject
                     if (jSONObjectOptJSONObject != null) {
                         var j = 604800000L
-                        if (jSONObject2.has("reserved-ttl")) {
-                            j = jSONObject2.getInt("reserved-ttl") * 1000L
+                        jSONObject2["reserved-ttl"]?.jsonPrimitive?.intOrNull?.let {
+                            j = it * 1000L
                         }
-                        val it = jSONObjectOptJSONObject.keys()
-                        while (it.hasNext()) {
-                            val next = it.next()
-                            val jSONArrayOptJSONArray2 = jSONObjectOptJSONObject.optJSONArray(next)
-                            if (jSONArrayOptJSONArray2 == null) {
-                                MyLog.w("no bucket found for $next")
-                            } else {
-                                val fallback3 = Fallback(next)
-                                fallback3.effectiveDuration = j
-                                for (i4 in 0 until jSONArrayOptJSONArray2.length()) {
-                                    val string7 = jSONArrayOptJSONArray2.getString(i4)
-                                    if (!TextUtils.isEmpty(string7)) {
-                                        fallback3.addHost(WeightedHost(string7, jSONArrayOptJSONArray2.length() - i4))
-                                    }
+                        for ((next, value) in jSONObjectOptJSONObject) {
+                            val jSONArrayOptJSONArray2 = value.jsonArray
+                            val fallback3 = Fallback(next)
+                            fallback3.effectiveDuration = j
+                            for (i4 in 0 until jSONArrayOptJSONArray2.size) {
+                                val string7 = jSONArrayOptJSONArray2[i4].jsonPrimitive.content
+                                if (string7.isNotEmpty()) {
+                                    fallback3.addHost(WeightedHost(string7, jSONArrayOptJSONArray2.size - i4))
                                 }
-                                synchronized(sReservedHosts) {
-                                    if (sHostFilter.accept(next)) {
-                                        sReservedHosts[next] = fallback3
-                                    }
+                            }
+                            synchronized(sReservedHosts) {
+                                if (sHostFilter.accept(next)) {
+                                    sReservedHosts[next] = fallback3
                                 }
                             }
                         }
@@ -334,8 +343,8 @@ open class HostManager @JvmOverloads constructor(
             mHostsMapping.clear()
             return try {
                 val strLoadHosts = loadHosts()
-                if (!TextUtils.isEmpty(strLoadHosts)) {
-                    fromJSON(strLoadHosts!!)
+                if (!strLoadHosts.isNullOrEmpty()) {
+                    fromJSON(strLoadHosts)
                     MyLog.i("loading the new hosts succeed")
                     true
                 } else {
@@ -367,33 +376,34 @@ open class HostManager @JvmOverloads constructor(
         return sb.toString()
     }
 
-    @Throws(JSONException::class)
-    protected open fun fromJSON(str: String) {
+    fun fromJSON(str: String) {
         synchronized(mHostsMapping) {
             mHostsMapping.clear()
-            val jSONObject = JSONObject(str)
-            if (jSONObject.optInt("ver") != 2) {
-                throw JSONException("Bad version")
+            val jSONObject = Json.parseToJsonElement(str).jsonObject
+            if ((jSONObject["ver"]?.jsonPrimitive?.intOrNull ?: 0) != 2) {
+                throw IllegalArgumentException("Bad version")
             }
-            val jSONArrayOptJSONArray = jSONObject.optJSONArray("data")
+            val jSONArrayOptJSONArray = jSONObject["data"]?.jsonArray
             if (jSONArrayOptJSONArray != null) {
-                for (i in 0 until jSONArrayOptJSONArray.length()) {
-                    val fallbacksFromJSON = Fallbacks().fromJSON(jSONArrayOptJSONArray.getJSONObject(i))
+                for (element in jSONArrayOptJSONArray) {
+                    val fallbacksFromJSON = Fallbacks().fromJSON(element.jsonObject)
                     mHostsMapping[fallbacksFromJSON.host] = fallbacksFromJSON
                 }
             }
-            val jSONArrayOptJSONArray2 = jSONObject.optJSONArray("reserved")
+            val jSONArrayOptJSONArray2 = jSONObject["reserved"]?.jsonArray
             if (jSONArrayOptJSONArray2 != null) {
-                for (i2 in 0 until jSONArrayOptJSONArray2.length()) {
-                    val jSONObject2 = jSONArrayOptJSONArray2.getJSONObject(i2)
-                    val fallbackFromJSON = Fallback(jSONObject2.optString("host")).fromJSON(jSONObject2)
-                    sReservedHosts[fallbackFromJSON.host!!] = fallbackFromJSON
+                for (element in jSONArrayOptJSONArray2) {
+                    val jSONObject2 = element.jsonObject
+                    val hostStr = jSONObject2["host"]?.jsonPrimitive?.content.orEmpty()
+                    val fallbackFromJSON = Fallback(hostStr).fromJSON(jSONObject2)
+                    fallbackFromJSON.host?.let {
+                        sReservedHosts[it] = fallbackFromJSON
+                    }
                 }
             }
         }
     }
 
-    @Throws(JSONException::class)
     fun generateHostStats(): ArrayList<HttpApi> {
         val arrayList: ArrayList<HttpApi>
         synchronized(mHostsMapping) {
@@ -445,8 +455,8 @@ open class HostManager @JvmOverloads constructor(
                                     j += cost
                                 } else {
                                     val exception = accessHistory.exception
-                                    if (!TextUtils.isEmpty(exception)) {
-                                        map2[exception!!] = (map2[exception] ?: 0) + 1
+                                    if (!exception.isNullOrEmpty()) {
+                                        map2[exception] = (map2[exception] ?: 0) + 1
                                     }
                                     i2++
                                 }
@@ -482,7 +492,7 @@ open class HostManager @JvmOverloads constructor(
 
     @JvmOverloads
     fun getFallbacksByHost(str: String, z: Boolean = true): Fallback? {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             throw IllegalArgumentException("the host is empty")
         }
         if (!sHostFilter.accept(str)) {
@@ -534,7 +544,7 @@ open class HostManager @JvmOverloads constructor(
 
     @Throws(MalformedURLException::class)
     fun getFallbacksByURL(str: String): Fallback? {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             throw IllegalArgumentException("the url is empty")
         }
         return getFallbacksByHost(URL(str).host, true)
@@ -542,8 +552,7 @@ open class HostManager @JvmOverloads constructor(
 
     protected open fun getHost(): String {
         val region = AppRegionStorage.getInstance(sAppContext!!).getRegion()
-        val zIsEmpty = TextUtils.isEmpty(region)
-        if (zIsEmpty) {
+        if (region.isNullOrEmpty()) {
             return HOST
         }
         return if (PushChannelRegion.China.name != region) HOST_GLOBAL else HOST
@@ -643,7 +652,7 @@ open class HostManager @JvmOverloads constructor(
             try {
                 val bufferedWriter = BufferedWriter(OutputStreamWriter(sAppContext!!.openFileOutput(getProcessName(), 0)))
                 val string = toJSON().toString()
-                if (!TextUtils.isEmpty(string)) {
+                if (string.isNotEmpty()) {
                     bufferedWriter.write(string)
                 }
                 bufferedWriter.close()
@@ -728,29 +737,26 @@ open class HostManager @JvmOverloads constructor(
         currentISP = str
     }
 
-    @Throws(JSONException::class)
-    protected open fun toJSON(): JSONObject {
-        val jSONObject: JSONObject
+    protected open fun toJSON(): JsonObject {
         synchronized(mHostsMapping) {
-            jSONObject = JSONObject().apply {
+            return buildJsonObject {
                 put("ver", 2)
-                val jSONArray = JSONArray()
-                for (fallbacks in mHostsMapping.values) {
-                    jSONArray.put(fallbacks.toJSON())
-                }
-                put("data", jSONArray)
-                val jSONArray2 = JSONArray()
-                for (fallback in sReservedHosts.values) {
-                    jSONArray2.put(fallback.toJSON())
-                }
-                put("reserved", jSONArray2)
+                put("data", buildJsonArray {
+                    for (fallbacks in mHostsMapping.values) {
+                        add(fallbacks.toJSON())
+                    }
+                })
+                put("reserved", buildJsonArray {
+                    for (fallback in sReservedHosts.values) {
+                        add(fallback.toJSON())
+                    }
+                })
             }
         }
-        return jSONObject
     }
 
     fun updateFallbacks(str: String, fallback: Fallback) {
-        if (TextUtils.isEmpty(str)) {
+        if (str.isEmpty()) {
             throw IllegalArgumentException("the argument is invalid $str, $fallback")
         }
         if (sHostFilter.accept(str)) {

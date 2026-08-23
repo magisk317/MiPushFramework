@@ -6,7 +6,7 @@ import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 object HookTraceCompat {
     @JvmStatic
@@ -61,7 +61,7 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onServiceCreate(pushService: XMPushServiceCore) {
-        Napier.d("onServiceCreate called for $pushService", tag = "HookTraceCompat")
+        Logger.withTag("HookTraceCompat").d { "onServiceCreate called for $pushService" }
         HookTrace.mark("XMPushServiceCore.onCreate")
         AspectLogCompat.logServiceMethod("XMPushServiceCore.onCreate", details = "Service started")
     }
@@ -74,7 +74,7 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onStartCommand(intent: Intent?) {
-        Napier.d("onStartCommand called with intent: $intent", tag = "HookTraceCompat")
+        Logger.withTag("HookTraceCompat").d { "onStartCommand called with intent: $intent" }
         HookTrace.mark("XMPushServiceCore.onStartCommand")
         AspectLogCompat.logServiceMethod("XMPushServiceCore.onStartCommand", intent)
     }

@@ -16,7 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Parcel
 import android.service.notification.StatusBarNotification
-import android.util.Log
+import co.touchlab.kermit.Logger
 import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.service.ForegroundHelper.Companion.CHANNEL_STATUS
 import com.xiaomi.xmsf.R
@@ -123,7 +123,7 @@ object BackgroundActivityStartEnabler {
             } else {
                 if (channel.importance > NotificationManager.IMPORTANCE_NONE) break
                 if (channelPostfix == 16) {
-                    Log.e(TAG, "Failed to obtain available notification channel.")
+                    Logger.withTag(TAG).e { "Failed to obtain available notification channel." }
                     return null
                 }
                 channelId = CHANNEL_STATUS + (++channelPostfix)
@@ -139,10 +139,10 @@ object BackgroundActivityStartEnabler {
             if (pushStatusInitializingNotificationExists()) {
                 deleteTemporaryChannel(nm)
             } else if (retries == 0) {
-                Log.e(TAG, "Failed to capture active notification.")
+                Logger.withTag(TAG).e { "Failed to capture active notification." }
                 nm.cancel(TAG, 0)
             } else {
-                Log.i(TAG, "Wait to capture active notification.")
+                Logger.withTag(TAG).i { "Wait to capture active notification." }
                 scheduleCapture(nm, retries - 1)
             }
         }, 500)

@@ -1,8 +1,15 @@
 package com.xiaomi.network
 
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 import java.util.*
 
 open class WeightedHost @JvmOverloads constructor(
@@ -44,15 +51,16 @@ open class WeightedHost @JvmOverloads constructor(
         return other.weight - this.weight
     }
 
-    @Throws(JSONException::class)
-    fun fromJSON(jSONObject: JSONObject): WeightedHost {
+    fun fromJSON(jSONObject: JsonObject): WeightedHost {
         synchronized(this) {
-            touchedTime = jSONObject.getLong("tt")
-            weight = jSONObject.getInt("wt")
-            host = jSONObject.getString("host")
-            val jSONArray = jSONObject.getJSONArray("ah")
-            for (i in 0 until jSONArray.length()) {
-                accessHistories.add(AccessHistory().fromJSON(jSONArray.getJSONObject(i)))
+            touchedTime = jSONObject["tt"]?.jsonPrimitive?.longOrNull ?: 0L
+            weight = jSONObject["wt"]?.jsonPrimitive?.intOrNull ?: 0
+            host = jSONObject["host"]?.jsonPrimitive?.content
+            val jSONArray = jSONObject["ah"]?.jsonArray
+            if (jSONArray != null) {
+                for (element in jSONArray) {
+                    accessHistories.add(AccessHistory().fromJSON(element.jsonObject))
+                }
             }
         }
         return this
@@ -77,19 +85,18 @@ open class WeightedHost @JvmOverloads constructor(
         }
     }
 
-    @Throws(JSONException::class)
-    fun toJSON(): JSONObject {
+    fun toJSON(): JsonObject {
         synchronized(this) {
-            val jSONObject = JSONObject()
-            jSONObject.put("tt", touchedTime)
-            jSONObject.put("wt", weight)
-            jSONObject.put("host", host)
-            val jSONArray = JSONArray()
-            for (history in accessHistories) {
-                jSONArray.put(history.toJSON())
+            return buildJsonObject {
+                put("tt", touchedTime)
+                put("wt", weight)
+                host?.let { put("host", it) }
+                put("ah", buildJsonArray {
+                    for (history in accessHistories) {
+                        add(history.toJSON())
+                    }
+                })
             }
-            jSONObject.put("ah", jSONArray)
-            return jSONObject
         }
     }
 

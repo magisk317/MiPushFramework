@@ -12,8 +12,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.text.TextUtils
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
@@ -107,7 +106,7 @@ class MiPushManifestChecker private constructor(
 
         private fun warnServiceIssueOnce(cacheKey: String, message: String) {
             if (warnedServiceIssues.add(cacheKey)) {
-                Napier.w(message, tag = MiPushManifestChecker::class.java.simpleName)
+                Logger.withTag(MiPushManifestChecker::class.java.simpleName).w { message }
             }
         }
 

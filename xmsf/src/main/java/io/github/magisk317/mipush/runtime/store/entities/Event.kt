@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.runtime.store.entities
 
-import android.text.TextUtils
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Ignore
@@ -125,7 +124,7 @@ class Event {
 
     @ColumnInfo(name = "reg_sec")
     var regSec: String? = null
-        get() = if (TextUtils.isEmpty(field)) {
+        get() = if (field.isNullOrEmpty()) {
             if (!regSecLoaded) {
                 field = Utils.getRegSec(pkg, userId)
                 regSecLoaded = true
@@ -136,7 +135,7 @@ class Event {
         }
         set(value) {
             field = value
-            regSecLoaded = !TextUtils.isEmpty(value)
+            regSecLoaded = !value.isNullOrEmpty()
         }
 
     @Ignore

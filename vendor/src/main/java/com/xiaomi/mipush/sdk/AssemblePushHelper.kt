@@ -1,20 +1,23 @@
 package com.xiaomi.mipush.sdk
 
-import com.xiaomi.channel.commonutils.logger.MyLog
-
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.text.TextUtils
+import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import com.xiaomi.channel.commonutils.android.SharedPrefsCompat
 import com.xiaomi.channel.commonutils.android.SystemUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.push.service.PushConstants
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -55,16 +58,37 @@ object AssemblePushHelper {
         val sharedPreferences = context.getSharedPreferences("mipush_extra", 0)
         val tokenKey = getTokenKey(AssemblePush.ASSEMBLE_PUSH_HUAWEI)
         val tokenKey2 = getTokenKey(AssemblePush.ASSEMBLE_PUSH_FCM)
-        val z = !TextUtils.isEmpty(sharedPreferences.getString(tokenKey, "")) && TextUtils.isEmpty(sharedPreferences.getString(tokenKey2, ""))
+        val z = !sharedPreferences.getString(tokenKey, "").isNullOrEmpty() && sharedPreferences.getString(tokenKey2, "").isNullOrEmpty()
         if (z && tokenKey != null) {
             PushServiceClient.getInstance(context).send3rdPushHint(2, tokenKey)
         }
     }
 
     @JvmStatic
+    fun getAssemblePush(intent: Intent?): AssemblePush {
+        if (intent == null || intent.extras == null) {
+            return AssemblePush.ASSEMBLE_PUSH_HUAWEI
+        }
+        val extras = intent.extras ?: return AssemblePush.ASSEMBLE_PUSH_HUAWEI
+        if (extras.getString("pushMsg") != null) {
+            return AssemblePush.ASSEMBLE_PUSH_HUAWEI
+        }
+        if (extras.getString(KEY_MESSAGE_ID) != null) {
+            return AssemblePush.ASSEMBLE_PUSH_FCM
+        }
+        if (extras.getString(COS_PUSH_TOKEN) != null) {
+            return AssemblePush.ASSEMBLE_PUSH_COS
+        }
+        if (extras.getString(FTOS_PUSH_TOKEN) != null) {
+            return AssemblePush.ASSEMBLE_PUSH_FTOS
+        }
+        return AssemblePush.ASSEMBLE_PUSH_HUAWEI
+    }
+
+    @JvmStatic
     fun clearToken(context: Context, assemblePush: AssemblePush) {
         val tokenKey = getTokenKey(assemblePush)
-        if (TextUtils.isEmpty(tokenKey)) return
+        if (tokenKey.isNullOrEmpty()) return
         SharedPrefsCompat.apply(context.getSharedPreferences("mipush_extra", 0).edit().putString(tokenKey, ""))
     }
 
@@ -83,7 +107,7 @@ object AssemblePushHelper {
     fun getAssemblePushExtra(context: Context, assemblePush: AssemblePush): HashMap<String, String> {
         val map = HashMap<String, String>()
         val tokenKey = getTokenKey(assemblePush)
-        if (TextUtils.isEmpty(tokenKey)) return map
+        if (tokenKey.isNullOrEmpty()) return map
         val str = when (assemblePush) {
             AssemblePush.ASSEMBLE_PUSH_HUAWEI -> {
                 var i = -1
@@ -91,25 +115,32 @@ object AssemblePushHelper {
                     val applicationInfo = context.packageManager.getApplicationInfo(context.packageName, 128)
                     i = applicationInfo.metaData.getInt(Constants.HUAWEI_HMS_CLIENT_APPID)
                 } catch (e: Exception) {
-                    MyLog.e(e.toString())
+                    Logger.e(e) { "Failed to get HUAWEI_HMS_CLIENT_APPID" }
                 }
                 val brandName = AssemblePushUtils.getPhoneBrand(context).name
-                val token = if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""
+                val token = getAssemblePushToken(context, assemblePush)
                 "brand:$brandName${Constants.WAVE_SEPARATOR}token:$token${Constants.WAVE_SEPARATOR}package_name:${context.packageName}${Constants.WAVE_SEPARATOR}app_id:$i"
             }
-            AssemblePush.ASSEMBLE_PUSH_FCM -> "brand:${PhoneBrand.FCM.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
-            AssemblePush.ASSEMBLE_PUSH_COS -> "brand:${PhoneBrand.OPPO.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
-            AssemblePush.ASSEMBLE_PUSH_FTOS -> "brand:${PhoneBrand.VIVO.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_FCM -> "brand:${PhoneBrand.FCM.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, assemblePush)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_COS -> "brand:${PhoneBrand.OPPO.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, assemblePush)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_FTOS -> "brand:${PhoneBrand.VIVO.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, assemblePush)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
         }
         map[Constants.ASSEMBLE_PUSH_REG_INFO] = str
         return map
     }
 
     @JvmStatic
-    fun getAssemblePushToken(context: Context, key: String): String {
+    fun getAssemblePushToken(context: Context, assemblePush: AssemblePush): String? {
+        val tokenKey = getTokenKey(assemblePush)
+        if (tokenKey.isNullOrEmpty()) return null
         return synchronized(this) {
-            mTokens[key] ?: ""
+            mTokens[tokenKey] ?: context.getSharedPreferences("mipush_extra", 0).getString(tokenKey, "")
         }
+    }
+
+    @JvmStatic
+    fun getAssemblePushTokenKey(assemblePush: AssemblePush): String? {
+        return getTokenKey(assemblePush)
     }
 
     @JvmStatic
@@ -132,7 +163,7 @@ object AssemblePushHelper {
                 null
             }
         } catch (e: Exception) {
-            MyLog.e(e.toString())
+            Logger.e(e) { "Failed to get MiPushReceiver" }
             null
         }
     }
@@ -172,36 +203,61 @@ object AssemblePushHelper {
     @JvmStatic
     fun parseMiPushMessage(str: String): MiPushMessage {
         val miPushMessage = MiPushMessage()
-        if (!TextUtils.isEmpty(str)) {
+        if (str.isNotEmpty()) {
             try {
-                val jSONObject = JSONObject(str)
-                if (jSONObject.has(KEY_MESSAGE_ID)) miPushMessage.messageId = jSONObject.getString(KEY_MESSAGE_ID)
-                if (jSONObject.has(KEY_DESC)) miPushMessage.description = jSONObject.getString(KEY_DESC)
-                if (jSONObject.has(KEY_TITLE)) miPushMessage.title = jSONObject.getString(KEY_TITLE)
-                if (jSONObject.has(KEY_CONTENT)) miPushMessage.content = jSONObject.getString(KEY_CONTENT)
-                if (jSONObject.has(KEY_PASS_THROUGH)) miPushMessage.passThrough = jSONObject.getInt(KEY_PASS_THROUGH)
-                if (jSONObject.has(KEY_NOTIFY_TYPE)) miPushMessage.notifyType = jSONObject.getInt(KEY_NOTIFY_TYPE)
-                if (jSONObject.has(KEY_MESSAGE_TYPE)) miPushMessage.messageType = jSONObject.getInt(KEY_MESSAGE_TYPE)
-                if (jSONObject.has(KEY_ALIAS)) miPushMessage.alias = jSONObject.getString(KEY_ALIAS)
-                if (jSONObject.has(KEY_TOPIC)) miPushMessage.topic = jSONObject.getString(KEY_TOPIC)
-                if (jSONObject.has(KEY_USER_ACCOUNT)) miPushMessage.userAccount = jSONObject.getString(KEY_USER_ACCOUNT)
-                if (jSONObject.has(KEY_NOTIFY_ID)) miPushMessage.notifyId = jSONObject.getInt(KEY_NOTIFY_ID)
-                if (jSONObject.has(KEY_CATEGORY)) miPushMessage.category = jSONObject.getString(KEY_CATEGORY)
-                if (jSONObject.has(KEY_NOTIFIED)) miPushMessage.isNotified = jSONObject.getBoolean(KEY_NOTIFIED)
-                if (jSONObject.has(KEY_EXTRA)) {
-                    val jSONObject2 = jSONObject.getJSONObject(KEY_EXTRA)
+                val jSONObject = Json.parseToJsonElement(str).jsonObject
+                var firstFieldError: Exception? = null
+
+                fun <T> readField(block: () -> T): T? = try {
+                    block()
+                } catch (e: Exception) {
+                    if (firstFieldError == null) {
+                        firstFieldError = e
+                    }
+                    null
+                }
+
+                readField { jSONObject[KEY_MESSAGE_ID]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.messageId = it }
+                readField { jSONObject[KEY_DESC]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.description = it }
+                readField { jSONObject[KEY_TITLE]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.title = it }
+                readField { jSONObject[KEY_CONTENT]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.content = it }
+                readField { jSONObject[KEY_PASS_THROUGH]?.jsonPrimitive?.intOrNull }
+                    ?.let { miPushMessage.passThrough = it }
+                readField { jSONObject[KEY_NOTIFY_TYPE]?.jsonPrimitive?.intOrNull }
+                    ?.let { miPushMessage.notifyType = it }
+                readField { jSONObject[KEY_MESSAGE_TYPE]?.jsonPrimitive?.intOrNull }
+                    ?.let { miPushMessage.messageType = it }
+                readField { jSONObject[KEY_ALIAS]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.alias = it }
+                readField { jSONObject[KEY_TOPIC]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.topic = it }
+                readField { jSONObject[KEY_USER_ACCOUNT]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.userAccount = it }
+                readField { jSONObject[KEY_NOTIFY_ID]?.jsonPrimitive?.intOrNull }
+                    ?.let { miPushMessage.notifyId = it }
+                readField { jSONObject[KEY_CATEGORY]?.jsonPrimitive?.content }
+                    ?.let { miPushMessage.category = it }
+                readField { jSONObject[KEY_NOTIFIED]?.jsonPrimitive?.booleanOrNull }
+                    ?.let { miPushMessage.isNotified = it }
+                readField { jSONObject[KEY_EXTRA]?.jsonObject }?.let { jSONObject2 ->
                     val map = HashMap<String, String>()
-                    val keys = jSONObject2.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        map[key] = jSONObject2.getString(key)
+                    for ((k, v) in jSONObject2) {
+                        readField { v.jsonPrimitive.content }?.let { map[k] = it }
                     }
                     if (map.isNotEmpty()) {
                         miPushMessage.extra = map
                     }
                 }
+
+                firstFieldError?.let { error ->
+                    Logger.e(error) { "Failed to parse MiPushMessage" }
+                }
             } catch (e: Exception) {
-                MyLog.e(e.toString())
+                Logger.e(e) { "Failed to parse MiPushMessage" }
             }
         }
         return miPushMessage
@@ -220,32 +276,32 @@ object AssemblePushHelper {
     private fun saveAssemblePushToken(context: Context, assemblePush: AssemblePush, token: String) {
         synchronized(this) {
             val tokenKey = getTokenKey(assemblePush)
-            if (TextUtils.isEmpty(tokenKey)) {
-                MyLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
+            if (tokenKey.isNullOrEmpty()) {
+                Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
                 return
             }
             SharedPrefsCompat.apply(context.getSharedPreferences("mipush_extra", 0).edit().putString(tokenKey, token))
-            MyLog.w("ASSEMBLE_PUSH : update sp file success!  $token")
+            Logger.w { "ASSEMBLE_PUSH : update sp file success! token=${DefaultLogSanitizer.redactArg(token)}" }
         }
     }
 
     @JvmStatic
     fun saveAssemblePushTokenAfterAck(context: Context, assemblePush: AssemblePush, token: String) {
         ScheduledJobManager.getInstance(context).addOneShootJob {
-            if (TextUtils.isEmpty(token)) return@addOneShootJob
+            if (token.isEmpty()) return@addOneShootJob
             val strArrSplit = token.split(Constants.WAVE_SEPARATOR)
             var strSubstring = ""
             for (str2 in strArrSplit) {
-                if (!TextUtils.isEmpty(str2) && str2.startsWith("token:")) {
+                if (str2.isNotEmpty() && str2.startsWith("token:")) {
                     strSubstring = str2.substring(str2.indexOf(":") + 1)
                     break
                 }
             }
-            if (TextUtils.isEmpty(strSubstring)) {
-                MyLog.w("ASSEMBLE_PUSH : receive incorrect token")
+            if (strSubstring.isEmpty()) {
+                Logger.w { "ASSEMBLE_PUSH : receive incorrect token" }
                 return@addOneShootJob
             }
-            MyLog.w("ASSEMBLE_PUSH : receive correct token")
+            Logger.w { "ASSEMBLE_PUSH : receive correct token" }
             saveAssemblePushToken(context, assemblePush, strSubstring)
             checkAssemblePushStatus(context)
         }
@@ -254,11 +310,11 @@ object AssemblePushHelper {
     private fun saveAssembleToken(assemblePush: AssemblePush, token: String) {
         synchronized(this) {
             val tokenKey = getTokenKey(assemblePush)
-            if (TextUtils.isEmpty(tokenKey)) {
-                MyLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
-            } else if (TextUtils.isEmpty(token)) {
-                MyLog.w("ASSEMBLE_PUSH : token is null")
-            } else if (tokenKey != null) {
+            if (tokenKey.isNullOrEmpty()) {
+                Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
+            } else if (token.isEmpty()) {
+                Logger.w { "ASSEMBLE_PUSH : token is null" }
+            } else {
                 mTokens[tokenKey] = token
             }
         }
@@ -271,19 +327,19 @@ object AssemblePushHelper {
 
     @JvmStatic
     fun uploadToken(context: Context, assemblePush: AssemblePush, token: String) {
-        if (TextUtils.isEmpty(token)) return
+        if (token.isEmpty()) return
         val sharedPreferences = context.getSharedPreferences("mipush_extra", 0)
         val tokenKey = getTokenKey(assemblePush)
-        if (TextUtils.isEmpty(tokenKey)) {
-            MyLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
+        if (tokenKey.isNullOrEmpty()) {
+            Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
             return
         }
         val string = sharedPreferences.getString(tokenKey, "")
-        if (!TextUtils.isEmpty(string) && token == string) {
-            MyLog.w("ASSEMBLE_PUSH : do not need to send token")
+        if (!string.isNullOrEmpty() && token == string) {
+            Logger.w { "ASSEMBLE_PUSH : do not need to send token" }
             return
         }
-        MyLog.w("ASSEMBLE_PUSH : send token upload")
+        Logger.w { "ASSEMBLE_PUSH : send token upload" }
         saveAssembleToken(assemblePush, token)
         val retryType = AssemblePushInfoHelper.getRetryType(assemblePush) ?: return
         PushServiceClient.getInstance(context).sendAssemblePushTokenCommon(null, retryType, assemblePush)

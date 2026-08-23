@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/MiTinyDataClient.java
  * No stock 7.4.67-C same-path tiny-data client source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 object MiTinyDataClient {
     const val PENDING_REASON_APPID = "com.xiaomi.xmpushsdk.tinydataPending.appId"
     const val PENDING_REASON_CHANNEL = "com.xiaomi.xmpushsdk.tinydataPending.channel"

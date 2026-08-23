@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
@@ -55,8 +56,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
@@ -91,6 +90,7 @@ import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
+@Immutable
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
     val lastReceiveTime: String,

@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.common.utils.Utils
 
@@ -34,7 +34,7 @@ object CrashHandler {
                 crashInfo.append(stackTrace[i])
             }
             Utils.makeText(crashInfo, Toast.LENGTH_LONG)
-            Napier.e("Mi Push Crash", e, tag = tag)
+            Logger.withTag(tag).e(e) { "Mi Push Crash" }
             writeCrashToFile(logDir, e)
         }
     }

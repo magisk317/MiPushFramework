@@ -250,7 +250,7 @@ fun MainScreen(
         val targetPage = currentRoute?.let { route -> tabRoutes.indexOf(route).takeIf { it >= 0 } }
             ?: return@LaunchedEffect
         if (pagerState.pagerState.currentPage != targetPage) {
-            pagerState.scrollToPage(targetPage)
+            pagerState.pagerState.scrollToPage(targetPage)
         }
     }
     val allowScrollChrome = currentRoute?.let { route ->

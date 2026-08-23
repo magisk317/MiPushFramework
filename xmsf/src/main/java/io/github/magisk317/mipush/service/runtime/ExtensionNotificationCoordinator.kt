@@ -12,7 +12,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.SystemClock
-import android.util.Base64
+import java.util.Base64
 import com.xiaomi.channel.commonutils.android.SystemProperties
 import com.xiaomi.mipush.sdk.aidl.IExtensionCallback
 import com.xiaomi.mipush.sdk.aidl.IExtensionInterface
@@ -29,6 +29,19 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
+
+internal object ExtensionNotificationBase64 {
+    private val encoder = Base64.getMimeEncoder(76, byteArrayOf('\n'.code.toByte()))
+    private val decoder = Base64.getMimeDecoder()
+
+    fun encode(value: ByteArray): String {
+        if (value.isEmpty()) return ""
+        val encoded = encoder.encodeToString(value)
+        return if (encoded.endsWith('\n')) encoded else "$encoded\n"
+    }
+
+    fun decode(value: String): ByteArray = decoder.decode(value)
+}
 
 internal object ExtensionNotificationContract {
     const val SERVICE_ACTION = "com.xiaomi.push.sdk.action.receive_extension_message"
@@ -175,7 +188,7 @@ internal object ExtensionNotificationContract {
     fun decodeTemporaryLargeIcon(metaInfo: PushMetaInfo): Bitmap? {
         val encoded = metaInfo.extra?.get(TEMP_LARGE_ICON)?.takeIf(String::isNotEmpty) ?: return null
         return runCatching {
-            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            val bytes = ExtensionNotificationBase64.decode(encoded)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         }.getOrNull()
     }
@@ -187,7 +200,8 @@ internal object ExtensionNotificationContract {
         return runCatching {
             ByteArrayOutputStream().use { output ->
                 if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) return null
-                Base64.encodeToString(output.toByteArray(), Base64.DEFAULT).takeIf(String::isNotEmpty)
+                ExtensionNotificationBase64.encode(output.toByteArray())
+                    .takeIf(String::isNotEmpty)
             }
         }.getOrNull()
     }

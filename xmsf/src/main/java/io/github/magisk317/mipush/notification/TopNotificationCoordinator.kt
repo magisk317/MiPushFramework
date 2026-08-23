@@ -12,7 +12,7 @@ import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicLong
 
@@ -194,7 +194,7 @@ internal object TopNotificationCoordinator {
         if (shouldCancel) {
             ScheduledJobManager.getInstance(context.applicationContext).cancelJob(jobId)
         }
-        Napier.d("cancel removed top notification job=$jobId accepted=$shouldCancel", tag = TAG)
+        Logger.withTag(TAG).d { "cancel removed top notification job=$jobId accepted=$shouldCancel" }
     }
 
     /** Cancels lifecycle state immediately when MiPush receives an explicit server cancel. */
@@ -378,7 +378,7 @@ internal object TopNotificationCoordinator {
                     }
                     true -> Unit
                 }
-                Napier.d("repost top notification job=$jobId delay=${plan.nextDelaySeconds}", tag = TAG)
+                Logger.withTag(TAG).d { "repost top notification job=$jobId delay=${plan.nextDelaySeconds}" }
             }
             UpdateAction.DOWNGRADE -> {
                 val updated = rebuildCommonNotification(context, notification, nowMs)
@@ -388,7 +388,7 @@ internal object TopNotificationCoordinator {
                 }
                 val posted = postIfCurrent(jobId, slot, generation, updated) ?: return
                 deactivate(context, jobId, slot, generation)
-                Napier.d("downgrade top notification job=$jobId posted=$posted", tag = TAG)
+                Logger.withTag(TAG).d { "downgrade top notification job=$jobId posted=$posted" }
                 return
             }
             UpdateAction.STOP -> {
@@ -436,7 +436,7 @@ internal object TopNotificationCoordinator {
                 )
             }
             if (added == false) {
-                Napier.w("failed to schedule top notification job=$jobId delay=$delaySeconds", tag = TAG)
+                Logger.withTag(TAG).w { "failed to schedule top notification job=$jobId delay=$delaySeconds" }
                 deactivate(context, jobId, slot, generation)
             }
         }
@@ -483,11 +483,9 @@ internal object TopNotificationCoordinator {
                 }
                 ?.notification
         }.onFailure {
-            Napier.w(
-                "query active top notification failed pkg=${slot.packageName} id=${slot.notificationId}",
-                it,
-                tag = TAG,
-            )
+            Logger.withTag(TAG).w(it) {
+                "query active top notification failed pkg=${slot.packageName} id=${slot.notificationId}"
+            }
         }.getOrNull()
     }
 
@@ -523,7 +521,7 @@ internal object TopNotificationCoordinator {
                 .setExtras(extras)
                 .build()
         }.onFailure {
-            Napier.w("downgrade top notification failed", it, tag = TAG)
+            Logger.withTag(TAG).w(it) { "downgrade top notification failed" }
         }.getOrNull()
     }
 

@@ -8,6 +8,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.Target
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -107,6 +108,28 @@ class ExtensionNotificationContractTest {
         assertNotNull(decoded)
         assertEquals(32, decoded!!.width)
         assertEquals(24, decoded.height)
+    }
+
+    @Test
+    fun `temporary icon base64 preserves Android default MIME behavior`() {
+        val source = ByteArray(128) { it.toByte() }
+        val legacyEncoded = android.util.Base64.encodeToString(source, android.util.Base64.DEFAULT)
+
+        assertEquals(legacyEncoded, ExtensionNotificationBase64.encode(source))
+        assertArrayEquals(
+            android.util.Base64.decode(legacyEncoded, android.util.Base64.DEFAULT),
+            ExtensionNotificationBase64.decode(legacyEncoded),
+        )
+
+        val decorated = "?!${legacyEncoded.replace("\n", "\r\n")}?"
+        val legacyDecoded = runCatching {
+            android.util.Base64.decode(decorated, android.util.Base64.DEFAULT)
+        }
+        val migratedDecoded = runCatching { ExtensionNotificationBase64.decode(decorated) }
+        assertEquals(legacyDecoded.isSuccess, migratedDecoded.isSuccess)
+        if (legacyDecoded.isSuccess && migratedDecoded.isSuccess) {
+            assertArrayEquals(legacyDecoded.getOrThrow(), migratedDecoded.getOrThrow())
+        }
     }
 
     @Test

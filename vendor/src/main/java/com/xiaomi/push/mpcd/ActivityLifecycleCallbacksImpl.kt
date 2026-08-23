@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
-import android.text.TextUtils
 import com.xiaomi.push.mpcd.job.CollectionJob
 import com.xiaomi.xmpush.thrift.ClientCollectionType
 import com.xiaomi.xmpush.thrift.DataCollectionItem
@@ -36,19 +35,15 @@ class ActivityLifecycleCallbacksImpl(
 
     override fun onActivityPaused(activity: Activity) {
         val localClassName = activity.localClassName
-        if (TextUtils.isEmpty(mActiveStartTS) || TextUtils.isEmpty(localClassName)) return
+        if (mActiveStartTS.isEmpty() || localClassName.isNullOrEmpty()) return
         mCurrentActiveActivity = ""
-        if (!TextUtils.isEmpty("") && !TextUtils.equals(mCurrentActiveActivity, localClassName)) {
-            mActiveStartTS = ""
-            return
-        }
         writeData("${mContext.packageName}${Constants.TYPE_SEPARATOR}$localClassName:$mActiveStartTS,${System.currentTimeMillis() / 1000}")
         mActiveStartTS = ""
         mCurrentActiveActivity = ""
     }
 
     override fun onActivityResumed(activity: Activity) {
-        if (TextUtils.isEmpty(mCurrentActiveActivity)) {
+        if (mCurrentActiveActivity.isEmpty()) {
             mCurrentActiveActivity = activity.localClassName
         }
         mActiveStartTS = (System.currentTimeMillis() / 1000).toString()

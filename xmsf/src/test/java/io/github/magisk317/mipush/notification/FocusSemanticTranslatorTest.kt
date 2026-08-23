@@ -7,19 +7,13 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
 class FocusSemanticTranslatorTest {
 
     @Test
     fun `non MIUI progress focus is translated to native live update semantics`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "状态更新"
                 description = "处理中"
@@ -42,7 +36,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `non MIUI non progress focus remains a standard notification`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "Alice"
                 description = "hello"
@@ -64,7 +58,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `non MIUI progress focus falls back below Android 16`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "状态更新"
                 description = "处理中"
@@ -84,7 +78,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `MIUI configured focus keeps private extras instead of native translation`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "状态更新"
                 description = "处理中"
@@ -106,7 +100,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `MIUI configured focus does not depend on local generated focus enablement`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "状态更新"
                 description = "处理中"
@@ -126,7 +120,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `MIUI configured focus outranks a generated fallback`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "Configured title"
                 description = "Configured body"
@@ -147,7 +141,7 @@ class FocusSemanticTranslatorTest {
     @Test
     fun `MIUI generated focus uses island proxy path`() {
         val plan = FocusSemanticTranslator.plan(
-            context = RuntimeEnvironment.getApplication(),
+            detected = null,
             metaInfo = PushMetaInfo().apply {
                 title = "骑手已取餐"
                 description = "正在配送中 预计5分钟送达"

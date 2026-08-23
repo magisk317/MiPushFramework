@@ -1,7 +1,6 @@
 package com.xiaomi.slim
 
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.string.CloudCoder
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.PushClientsManager
@@ -23,26 +22,22 @@ internal object Binder {
         connection: Connection,
     ) {
         if (challenge.isNullOrEmpty()) {
-             MyLog.w("[Slim] Challenge is empty, skip bind sig")
+             Logger.w { "[Slim] Challenge is empty, skip bind sig" }
              return
         }
         var strGenerateSignature: String? = null
         val xMMsgBind = ChannelMessage.XMMsgBind().apply {
-            if (!TextUtils.isEmpty(clientLoginInfo.token)) {
+            if (!clientLoginInfo.token.isNullOrEmpty()) {
                 token = clientLoginInfo.token
             }
-            if (!TextUtils.isEmpty(clientLoginInfo.clientExtra)) {
+            if (!clientLoginInfo.clientExtra.isNullOrEmpty()) {
                 clientAttrs = clientLoginInfo.clientExtra
             }
-            if (!TextUtils.isEmpty(clientLoginInfo.cloudExtra)) {
+            if (!clientLoginInfo.cloudExtra.isNullOrEmpty()) {
                 cloudAttrs = clientLoginInfo.cloudExtra
             }
             kick = if (clientLoginInfo.kick) "1" else Blob.CLIENT_PING_ID
-            method = if (TextUtils.isEmpty(clientLoginInfo.authMethod)) {
-                "XIAOMI-SASL"
-            } else {
-                clientLoginInfo.authMethod
-            }
+            method = clientLoginInfo.authMethod.ifEmpty { "XIAOMI-SASL" }
         }
 
         val blob = Blob().apply {
@@ -50,8 +45,8 @@ internal object Binder {
             setChannelId(clientLoginInfo.chid.toInt())
             mPackageName = clientLoginInfo.pkgName
             setCmd(Blob.CMD_BIND, null)
-            packetID = packetID
-            MyLog.w("[Slim]: bind id=$packetID")
+            packetID = Blob.nextID()
+            Logger.w { "[Slim]: bind id=$packetID" }
         }
 
         val map: MutableMap<String, String> = mutableMapOf(

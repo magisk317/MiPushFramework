@@ -1,8 +1,9 @@
 package com.xiaomi.clientreport.data
 
-import com.xiaomi.channel.commonutils.logger.MyLog
-import org.json.JSONException
-import org.json.JSONObject
+import co.touchlab.kermit.Logger
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class EventClientReport : BaseClientReport() {
     @JvmField var eventContent: String? = null
@@ -15,16 +16,18 @@ class EventClientReport : BaseClientReport() {
         fun getBlankInstance(): EventClientReport = EventClientReport()
     }
 
-    override fun toJson(): JSONObject? {
+    override fun toJsonObject(): JsonObject? {
         return try {
-            val json = super.toJson() ?: return null
-            json.put("eventId", eventId)
-            json.put("eventType", eventType)
-            json.put("eventTime", eventTime)
-            json.put("eventContent", eventContent ?: "")
-            json
-        } catch (e: JSONException) {
-            MyLog.e(e)
+            val base = super.toJsonObject() ?: return null
+            buildJsonObject {
+                base.forEach { (k, v) -> put(k, v) }
+                eventId?.let { put("eventId", it) }
+                put("eventType", eventType)
+                put("eventTime", eventTime)
+                put("eventContent", eventContent ?: "")
+            }
+        } catch (e: Exception) {
+            Logger.e(e) { "toJsonObject error" }
             null
         }
     }

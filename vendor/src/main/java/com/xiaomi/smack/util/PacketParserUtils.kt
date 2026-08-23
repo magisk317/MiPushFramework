@@ -1,7 +1,6 @@
 package com.xiaomi.smack.util
 
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.push.service.CommonPacketExtensionProvider
 import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.push.service.PushServiceConstants
@@ -162,7 +161,7 @@ object PacketParserUtils {
                 response.channelId = chid
                 response.error = XMPPError(XMPPError.Condition.feature_not_implemented)
                 connection.sendPacket(response)
-                MyLog.e("iq usage error. send packet in packet parser.")
+                Logger.e { "iq usage error. send packet in packet parser." }
                 return null
             }
             object : IQ() {
@@ -250,33 +249,33 @@ object PacketParserUtils {
         }
         try {
             val seq = xmlPullParser.getAttributeValue("", "seq")
-            if (!TextUtils.isEmpty(seq)) {
+            if (!seq.isNullOrEmpty()) {
                 message.seq = seq
             }
         } catch (e: Exception) {
         }
         try {
             val mSeq = xmlPullParser.getAttributeValue("", "mseq")
-            if (!TextUtils.isEmpty(mSeq)) {
+            if (!mSeq.isNullOrEmpty()) {
                 message.mSeq = mSeq
             }
         } catch (e: Exception) {
         }
         try {
             val fSeq = xmlPullParser.getAttributeValue("", "fseq")
-            if (!TextUtils.isEmpty(fSeq)) {
+            if (!fSeq.isNullOrEmpty()) {
                 message.fSeq = fSeq
             }
         } catch (e: Exception) {
         }
         try {
             val status = xmlPullParser.getAttributeValue("", "status")
-            if (!TextUtils.isEmpty(status)) {
+            if (!status.isNullOrEmpty()) {
                 message.status = status
             }
         } catch (e: Exception) {
         }
-        message.setIsTransient(!TextUtils.isEmpty(transient) && transient.equals("true", ignoreCase = true))
+        message.setIsTransient(!transient.isNullOrEmpty() && transient.equals("true", ignoreCase = true))
         message.type = xmlPullParser.getAttributeValue("", "type")
         val language = getLanguageAttribute(xmlPullParser)
         if (language == null || "" == language.trim()) {
@@ -290,7 +289,7 @@ object PacketParserUtils {
             when (xmlPullParser.next()) {
                 XmlPullParser.START_TAG -> {
                     val name = xmlPullParser.name
-                    val namespace = xmlPullParser.namespace.takeUnless { TextUtils.isEmpty(it) }
+                    val namespace = xmlPullParser.namespace.takeUnless { it.isNullOrEmpty() }
                         ?: PushServiceConstants.XM_CHAT_GROUP_NAMESPACE
                     when (name) {
                         "subject" -> {
@@ -300,7 +299,7 @@ object PacketParserUtils {
                         "body" -> {
                             val encode = xmlPullParser.getAttributeValue("", "encode")
                             val content = parseContent(xmlPullParser)
-                            if (TextUtils.isEmpty(encode)) {
+                            if (encode.isNullOrEmpty()) {
                                 message.body = content
                             } else {
                                 message.setBody(content, encode)

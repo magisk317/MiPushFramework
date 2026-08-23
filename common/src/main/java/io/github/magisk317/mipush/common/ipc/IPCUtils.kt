@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
-import android.util.Log
+import co.touchlab.kermit.Logger
 
 /**
  * Created by Trumeet on 2017/12/22.
@@ -24,12 +24,12 @@ object IPCUtils {
                 try {
                     binder.linkToDeath({
                         if (!binder.isBinderAlive && !binder.pingBinder()) {
-                            Log.w("IPCUtils", "Binder died!")
+                            Logger.withTag("IPCUtils").w { "Binder died!" }
                             listener.onDisconnected()
                         }
                     }, 0)
                 } catch (e: RemoteException) {
-                    Log.e("IPCUtils", "Unable to link to death", e)
+                    Logger.withTag("IPCUtils").e(e) { "Unable to link to death" }
                 }
                 listener.onReady(binder)
             }

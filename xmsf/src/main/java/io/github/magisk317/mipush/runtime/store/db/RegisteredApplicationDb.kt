@@ -7,8 +7,6 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.text.TextUtils
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel

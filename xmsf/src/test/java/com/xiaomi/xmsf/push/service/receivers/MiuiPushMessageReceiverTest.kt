@@ -100,6 +100,19 @@ class MiuiPushMessageReceiverTest {
             MiuiPushMessageReceiver.TaskCommand.UNKNOWN,
             MiuiPushMessageReceiver.taskCommandFor("not-json"),
         )
+        listOf(
+            "[]",
+            "{\"CMD\":null}",
+            "{\"CMD\":{}}",
+            "{\"CMD\":[]}",
+            "{\"CMD\":123}",
+        ).forEach { content ->
+            assertEquals(
+                MiuiPushMessageReceiver.TaskCommand.UNKNOWN,
+                MiuiPushMessageReceiver.taskCommandFor(content),
+                content,
+            )
+        }
     }
 
     @Test

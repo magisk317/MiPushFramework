@@ -94,7 +94,7 @@ class MIPushEventProcessorTest {
         every { pushAction.context } returns RuntimeEnvironment.getApplication()
         every { pushAction.currentConnection } returns connection
         every { pushAction.executeJob(capture(ackJob)) } just Runs
-        every { connection.isBinaryConnection() } returns true
+        every { connection.isBinaryConnection } returns true
         every { connection.send(capture(sentBlob)) } just Runs
         every { observer.loadAccount(any(), "MIPushHelper.sendPacket") } returns account
         every { observer.shouldAcceptProfile(any()) } returns false

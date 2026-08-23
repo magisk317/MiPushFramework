@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 
 /**
@@ -30,7 +30,7 @@ object FocusNotificationLifecycle {
             runCatching {
                 NotificationManagerEx.cancel(packageName, resolvedTag, notificationId, userId)
             }.onFailure {
-                Napier.w("focus end target cancel failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+                Logger.withTag(TAG).w(it) { "focus end target cancel failed pkg=$packageName id=$notificationId: ${it.message}" }
             }
         }
     }

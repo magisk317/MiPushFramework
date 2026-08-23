@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
@@ -81,9 +82,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import android.util.Log
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -734,7 +733,7 @@ private fun EventGroupList(
                 hasMore = hasMore,
             )
         } catch (error: RuntimeReadUnavailableException) {
-            Log.w("ManagerRuntime", "EventList loadNextPage unavailable status=${error.status}")
+            Logger.withTag("ManagerRuntime").w { "EventList loadNextPage unavailable status=${error.status}" }
             // Do not snapshot empty transport failures; keep previous UI if any.
             if (isRefresh && allEvents.isEmpty()) {
                 viewModel.invalidateEventListSnapshot()
@@ -905,10 +904,9 @@ private fun EventDetailsDialog(
                                 onClick = {
                                     replayScope.launch {
                                         val outcome = viewModel.mockMessage(clickedEvent.event)
-                                        Napier.d(
-                                            "Replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName} outcome=$outcome",
-                                            tag = "EventListPage",
-                                        )
+                                        Logger.withTag("EventListPage").d {
+                                            "Replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName} outcome=$outcome"
+                                        }
                                         Utils.makeText(
                                             context,
                                             context.getString(outcome.feedbackStringRes()),
@@ -1150,7 +1148,7 @@ private fun EventList(
                     onRefreshed()
                 }
             } catch (error: RuntimeReadUnavailableException) {
-                Log.w("ManagerRuntime", "EventList doLoadMore unavailable status=${error.status}")
+                Logger.withTag("ManagerRuntime").w { "EventList doLoadMore unavailable status=${error.status}" }
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     onRefreshed()
@@ -1178,7 +1176,7 @@ private fun EventList(
                     onRefreshed()
                 }
             } catch (error: RuntimeReadUnavailableException) {
-                Log.w("ManagerRuntime", "EventList doRefresh unavailable status=${error.status}")
+                Logger.withTag("ManagerRuntime").w { "EventList doRefresh unavailable status=${error.status}" }
                 withContext(Dispatchers.Main) {
                     if (items.isEmpty()) {
                         viewModel.invalidateEventListSnapshot()
@@ -1578,6 +1576,7 @@ private fun date(year: Int, month: Int, day: Int): Date {
 }
 
 
+@Immutable
 data class EventInfoForDisplay(
     val id: Long,
     val packageName: String,

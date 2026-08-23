@@ -59,7 +59,7 @@ object MIPushNotificationHelper {
 
     @JvmStatic
     fun clearLocalNotifyType(context: Context, packageName: String) {
-        context.getSharedPreferences(PREF_KEY_NOTIFY_TYPE, 0).edit().remove(packageName).commit()
+        context.getSharedPreferences(PREF_KEY_NOTIFY_TYPE, 0).edit().remove(packageName).apply()
     }
 
     @JvmStatic
@@ -191,7 +191,7 @@ object MIPushNotificationHelper {
 
     @JvmStatic
     fun setLocalNotifyType(context: Context, packageName: String, notifyType: Int) {
-        context.getSharedPreferences(PREF_KEY_NOTIFY_TYPE, 0).edit().putInt(packageName, notifyType).commit()
+        context.getSharedPreferences(PREF_KEY_NOTIFY_TYPE, 0).edit().putInt(packageName, notifyType).apply()
     }
 
     @JvmStatic

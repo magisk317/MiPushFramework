@@ -5,7 +5,6 @@ import io.github.magisk317.mipush.xposed.BuildConfig
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.XposedRuntime
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
-import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.logging.XposedLogClient
 import java.lang.reflect.Method
 
@@ -70,7 +69,7 @@ object XLog {
                 source = SOURCE,
                 level = level,
                 tag = tag,
-                message = safeMessage,
+                message = message ?: "",
                 throwable = throwable?.stackTraceToString() ?: "",
             ),
         )
@@ -78,14 +77,10 @@ object XLog {
 
     private fun safeArgs(args: Array<Any?>?): String {
         if (args == null) return "null"
-        if (!LogSanitizerConfig.isEnabled()) return args.contentDeepToString()
         return args.joinToString(prefix = "[", postfix = "]") { DefaultLogSanitizer.redactArg(it) }
     }
 
-    private fun safeArg(value: Any?): String {
-        if (!LogSanitizerConfig.isEnabled()) return value.toString()
-        return DefaultLogSanitizer.redactArg(value)
-    }
+    private fun safeArg(value: Any?): String = DefaultLogSanitizer.redactArg(value)
 
     private fun priorityFor(level: String): Int = when (level) {
         "E" -> Log.ERROR

@@ -5,7 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.telephony.TelephonyManager
 import android.text.TextUtils
-import android.util.Log
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.TelephonyUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.string.MD5
@@ -101,7 +101,7 @@ object Network {
         var realUrl: String? = null
 
         override fun toString(): String {
-            return String.format("resCode = %1\$d, headers = %2\$s", ResponseCode, AllHeaders.toString())
+            return String.format(Locale.US, "resCode = %1\$d, headers = %2\$s", ResponseCode, AllHeaders.toString())
         }
     }
 
@@ -160,10 +160,10 @@ object Network {
                 outputStream.write(buffer, 0, read)
             }
         } catch (e: IOException) {
-            Log.e(LogTag, "error while download file:" + e.javaClass.simpleName)
+            Logger.withTag(LogTag).e { "error while download file:" + e.javaClass.simpleName }
             return false
         } catch (throwable: Throwable) {
-            Log.e(LogTag, "error while download file$throwable")
+            Logger.withTag(LogTag).e { "error while download file$throwable" }
             return false
         }
     }
@@ -195,12 +195,12 @@ object Network {
             IOUtils.closeQuietly(outputStream)
             return !interruptedByNetwork
         } catch (e: IOException) {
-            Log.e(LogTag, "error while download file:" + e.javaClass.simpleName)
+            Logger.withTag(LogTag).e { "error while download file:" + e.javaClass.simpleName }
             IOUtils.closeQuietly(inputStream)
             IOUtils.closeQuietly(outputStream)
             return false
         } catch (throwable: Throwable) {
-            Log.e(LogTag, "error while download file$throwable")
+            Logger.withTag(LogTag).e { "error while download file$throwable" }
             IOUtils.closeQuietly(inputStream)
             IOUtils.closeQuietly(outputStream)
             return false
@@ -390,8 +390,8 @@ object Network {
                 stringBuffer.append(URLEncoder.encode(value, "UTF-8"))
                 stringBuffer.append("&")
             } catch (e: UnsupportedEncodingException) {
-                Log.d(LogTag, "Failed to convert from params map to string: $e")
-                Log.d(LogTag, "map: $params")
+                Logger.withTag(LogTag).d { "Failed to convert from params map to string: $e" }
+                Logger.withTag(LogTag).d { "map: $params" }
                 return null
             }
         }
@@ -526,16 +526,16 @@ object Network {
                 index++
             }
         } catch (e: MalformedURLException) {
-            Log.e(LogTag, "Failed to transform URL", e)
+            Logger.withTag(LogTag).e(e) { "Failed to transform URL" }
             return null
         } catch (e: IOException) {
-            Log.e(LogTag, "Failed to get mime type", e)
+            Logger.withTag(LogTag).e(e) { "Failed to get mime type" }
             return null
         } catch (e: URISyntaxException) {
-            Log.e(LogTag, "Failed to parse URI", e)
+            Logger.withTag(LogTag).e(e) { "Failed to parse URI" }
             return null
         } catch (throwable: Throwable) {
-            Log.e(LogTag, "Failed to get HttpHeaderInfo", throwable)
+            Logger.withTag(LogTag).e(throwable) { "Failed to get HttpHeaderInfo" }
             return null
         }
     }
@@ -645,7 +645,7 @@ object Network {
                 outputStream.flush()
             }
             httpResponse.responseCode = httpUrlConnection.responseCode
-            Log.d(LogTag, "Http POST Response Code: " + httpResponse.responseCode)
+            Logger.withTag(LogTag).d { "Http POST Response Code: " + httpResponse.responseCode }
             var index = 0
             while (true) {
                 val headerFieldKey = httpUrlConnection.getHeaderFieldKey(index)
@@ -729,6 +729,7 @@ object Network {
     }
 
     @JvmStatic
+    @android.annotation.SuppressLint("InlinedApi")
     fun is5GConnected(context: Context?): Boolean {
         return getActiveCellularSubtype(context) == TelephonyManager.NETWORK_TYPE_NR
     }
@@ -878,7 +879,7 @@ object Network {
                     }
                 }
             }
-            Log.v(LogTag, "XML charset detected is: $encoding")
+            Logger.withTag(LogTag).d { "XML charset detected is: $encoding" }
             return encoding
         } finally {
             IOUtils.closeQuietly(inputStream)

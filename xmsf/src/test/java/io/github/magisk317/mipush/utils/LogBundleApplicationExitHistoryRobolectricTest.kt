@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.utils
 
 import android.app.Application
 import android.content.Context
+import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -44,7 +45,7 @@ class LogBundleApplicationExitHistoryRobolectricTest {
         File(LogBundleExporter.getLogDir(context), "runtime.$currentDate.jsonl")
             .writeText("""{"timestamp":1,"message":"hello"}""")
 
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(context, DiagnosticExportMode.FULL)
 
         val zip = result.file
         assertNotNull(zip)

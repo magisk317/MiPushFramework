@@ -46,7 +46,7 @@ object MiPushClient4Hybrid {
     }
 
     private fun addPullNotificationTime(context: Context, str: String) {
-        context.getSharedPreferences("mipush_extra", 0).edit().putLong(LAST_PULL_NOTIFICATION_PREFIX + str, System.currentTimeMillis()).commit()
+        context.getSharedPreferences("mipush_extra", 0).edit().putLong(LAST_PULL_NOTIFICATION_PREFIX + str, System.currentTimeMillis()).apply()
     }
 
     private fun getDeviceStatus(miPushMessage: MiPushMessage, z: Boolean): Short {

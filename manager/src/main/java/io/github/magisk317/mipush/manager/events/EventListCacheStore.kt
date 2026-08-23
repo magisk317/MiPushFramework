@@ -101,9 +101,9 @@ class EventListCacheStore(
         val raw = json.encodeToString(payload)
         dataStore.edit { prefs -> prefs[stringPreferencesKey(scopedKey(queryKey))] = raw }
         _updates.tryEmit(queryKey)
-        this.logI(
-            "event cache write query=$queryKey events=${events.size} user=${currentUserIdProvider().coerceAtLeast(0)}",
-        )
+        this.logI {
+            "event cache write query=$queryKey events=${events.size} user=${currentUserIdProvider().coerceAtLeast(0)}"
+        }
     }
 
     /** Drop every cached query bucket (e.g. on clear-history). */

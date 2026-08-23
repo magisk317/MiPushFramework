@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.common.manager
 
-import android.util.Base64
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -68,14 +68,10 @@ object EventDebugJson {
             put("container", JsonNull)
         } else {
             put("payloadBytes", payload.size)
+            val previewSlice = if (payload.size <= PAYLOAD_BASE64_PREVIEW_BYTES) payload else payload.copyOf(PAYLOAD_BASE64_PREVIEW_BYTES)
             put(
                 "payloadBase64Preview",
-                Base64.encodeToString(
-                    payload,
-                    0,
-                    minOf(payload.size, PAYLOAD_BASE64_PREVIEW_BYTES),
-                    Base64.NO_WRAP,
-                ) + if (payload.size > PAYLOAD_BASE64_PREVIEW_BYTES) "…" else "",
+                Base64.getEncoder().encodeToString(previewSlice) + if (payload.size > PAYLOAD_BASE64_PREVIEW_BYTES) "…" else "",
             )
             put(
                 "container",

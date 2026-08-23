@@ -9,12 +9,20 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
+import android.os.SystemClock
+import co.touchlab.kermit.Logger
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmsf.services.IMainProcBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Stock-compatible keep-alive binding runtime with a polling process source.
@@ -77,13 +85,13 @@ object KeepAliveRuntimeAdapter {
         val keepAlive = runCatching {
             connectedBridge.getOnlineBooleanConfig(ONLINE_CONFIG_KEY_KEEP_ALIVE, true)
         }.getOrElse {
-            Log.w(TAG, "Keep-alive online config unavailable", it)
+            Logger.withTag(TAG).w(it) { "Keep-alive online config unavailable" }
             return
         }
         val oneTrack = runCatching {
             connectedBridge.getOnlineBooleanConfig(ONLINE_CONFIG_KEY_ONETRACK, true)
         }.getOrElse {
-            Log.w(TAG, "OneTrack online config unavailable", it)
+            Logger.withTag(TAG).w(it) { "OneTrack online config unavailable" }
             snapshot().oneTrackEnabled
         }
         // Preserve the stock subprocess state without overriding the product-wide
@@ -201,11 +209,7 @@ object KeepAliveRuntimeAdapter {
         // KeepAlive state is process-local. A package-data callback resolved for another user
         // must not clear a same-named target in this process.
         if (normalizedUserId != processUserId) {
-            Log.w(
-                TAG,
-                "skip keep-alive cleanup for foreign user=$normalizedUserId " +
-                    "currentUser=$processUserId package=$targetPackage",
-            )
+            Logger.withTag(TAG).w { "skip keep-alive cleanup for foreign user=$normalizedUserId currentUser=$processUserId package=$targetPackage" }
             return
         }
         ensureInitialized(context)
@@ -311,7 +315,7 @@ object KeepAliveRuntimeAdapter {
             }
         }
         if (shouldLogFallback) {
-            Log.w(TAG, "Process observer unavailable; using ${RECONCILE_INTERVAL_MS}ms polling fallback")
+            Logger.withTag(TAG).w { "Process observer unavailable; using ${RECONCILE_INTERVAL_MS}ms polling fallback" }
             MagiskOtel.event(
                 name = "push.keepalive",
                 attributes = mapOf(
@@ -398,7 +402,7 @@ object KeepAliveRuntimeAdapter {
                 }
             }
         }
-        Log.i(TAG, "Process observer registered; polling fallback disabled")
+        Logger.withTag(TAG).i { "Process observer registered; polling fallback disabled" }
         MagiskOtel.event(
             name = "push.keepalive",
             attributes = mapOf(
@@ -580,7 +584,7 @@ object KeepAliveRuntimeAdapter {
         retryCount: Int,
     ) {
         if (retryCount > MAX_BIND_RETRY_COUNT) {
-            Log.w(TAG, "Keep-alive binding stopped after $MAX_BIND_RETRY_COUNT retries: ${strategy.targetPackage}")
+            Logger.withTag(TAG).w { "Keep-alive binding stopped after $MAX_BIND_RETRY_COUNT retries: ${strategy.targetPackage}" }
             return
         }
         val mayBind = synchronized(lock) {
@@ -594,7 +598,7 @@ object KeepAliveRuntimeAdapter {
             KeepAliveEnvironment.snapshot(context),
         )
         if (environmentBlock != null) {
-            Log.i(TAG, "Keep-alive binding blocked for ${strategy.targetPackage}: $environmentBlock")
+            Logger.withTag(TAG).i { "Keep-alive binding blocked for ${strategy.targetPackage}: $environmentBlock" }
             return
         }
 
@@ -616,10 +620,7 @@ object KeepAliveRuntimeAdapter {
                 }
                 if (isCurrent) {
                     cancelPendingRetry(strategy.targetPackage)
-                    Log.i(
-                        TAG,
-                        "Keep-alive target connected package=${strategy.targetPackage} trigger=$triggerProcess",
-                    )
+                    Logger.withTag(TAG).i { "Keep-alive target connected package=${strategy.targetPackage} trigger=$triggerProcess" }
                     MagiskOtel.event(
                         name = "push.keepalive",
                         attributes = mapOf(
@@ -652,10 +653,10 @@ object KeepAliveRuntimeAdapter {
 
         scheduleBindRetry(context, strategy, triggerProcess, retryCount + 1)
         val bound = runCatching { context.bindService(intent, connection, Context.BIND_AUTO_CREATE) }
-            .onFailure { Log.w(TAG, "Keep-alive target binding failed", it) }
+            .onFailure { Logger.withTag(TAG).w(it) { "Keep-alive target binding failed" } }
             .getOrDefault(false)
         if (!bound) {
-            Log.w(TAG, "Keep-alive target bindService returned false package=${strategy.targetPackage}")
+            Logger.withTag(TAG).w { "Keep-alive target bindService returned false package=${strategy.targetPackage}" }
             synchronized(lock) {
                 if (bindings[strategy.targetPackage] === record) {
                     bindings.remove(strategy.targetPackage)
@@ -682,10 +683,7 @@ object KeepAliveRuntimeAdapter {
             }
         }
         if (shouldRetry) {
-            Log.w(
-                TAG,
-                "Keep-alive target binding lost package=${strategy.targetPackage} reason=$reason; retry scheduled",
-            )
+            Logger.withTag(TAG).w { "Keep-alive target binding lost package=${strategy.targetPackage} reason=$reason; retry scheduled" }
             MagiskOtel.event(
                 name = "push.keepalive",
                 attributes = mapOf(
@@ -743,7 +741,7 @@ object KeepAliveRuntimeAdapter {
         cancelTargetCallbacks(targetPackage)
         val binding = synchronized(lock) { bindings.remove(targetPackage) } ?: return
         runCatching { context.unbindService(binding.connection) }
-            .onFailure { Log.w(TAG, "Keep-alive target unbind failed", it) }
+            .onFailure { Logger.withTag(TAG).w(it) { "Keep-alive target unbind failed" } }
     }
 
     private fun unbindAll() {
@@ -797,50 +795,50 @@ object KeepAliveRuntimeAdapter {
     internal fun parseStrategy(configJson: String?): Strategy? {
         if (configJson.isNullOrBlank()) return null
         return runCatching {
-            val root = JSONObject(configJson)
-            val targetPackage = root.optString("package").trim()
-            val targetClass = root.optString("class").trim()
-            val targetAction = root.optString("action").trim()
+            val root = Json.parseToJsonElement(configJson).jsonObject
+            val targetPackage = root["package"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+            val targetClass = root["class"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+            val targetAction = root["action"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
             if (!PACKAGE_PATTERN.matches(targetPackage) || (targetClass.isBlank() && targetAction.isBlank())) {
                 return null
             }
             val triggers = buildSet {
-                val array = root.optJSONArray("app_list")
+                val array = root["app_list"]?.jsonArray
                 if (array != null) {
-                    for (index in 0 until array.length()) {
-                        array.optString(index).trim().takeIf(String::isNotBlank)?.let(::add)
+                    for (element in array) {
+                        element.jsonPrimitive.contentOrNull?.trim()?.takeIf(String::isNotBlank)?.let(::add)
                     }
                 }
             }
             val blockedDevices = buildSet {
-                val array = root.optJSONArray("dev_black_list")
+                val array = root["dev_black_list"]?.jsonArray
                 if (array != null) {
-                    for (index in 0 until array.length()) {
-                        array.optString(index).trim().takeIf(String::isNotBlank)?.let { add(it.lowercase()) }
+                    for (element in array) {
+                        element.jsonPrimitive.contentOrNull?.trim()?.takeIf(String::isNotBlank)?.let { add(it.lowercase()) }
                     }
                 }
             }
             Strategy(
                 targetPackage = targetPackage,
                 targetClass = targetClass,
-                targetProcess = root.optString("process").trim(),
+                targetProcess = root["process"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty(),
                 targetAction = targetAction,
                 triggerProcesses = triggers,
-                bindEvenAlive = root.optBoolean("bind_even_alive", false),
-                memoryStandardMb = root.optInt("men_std", 0),
-                memoryUsageRate = root.optInt("mem_usage_rate", 0),
-                batteryLowRate = root.optInt("battery_low_rate", 0),
-                maxTemperatureCelsius = root.optDouble("max_temperature", 0.0).toFloat(),
+                bindEvenAlive = root["bind_even_alive"]?.jsonPrimitive?.booleanOrNull ?: false,
+                memoryStandardMb = root["men_std"]?.jsonPrimitive?.intOrNull ?: 0,
+                memoryUsageRate = root["mem_usage_rate"]?.jsonPrimitive?.intOrNull ?: 0,
+                batteryLowRate = root["battery_low_rate"]?.jsonPrimitive?.intOrNull ?: 0,
+                maxTemperatureCelsius = (root["max_temperature"]?.jsonPrimitive?.doubleOrNull ?: 0.0).toFloat(),
                 deviceBlackList = blockedDevices,
                 // Stock 7.4.67-C uses need_stat only for keep-alive statistics. Preserve the
                 // wire value for contract parity without re-enabling OneTrack uploads.
-                needStat = root.optBoolean("need_stat", true),
-                ignoreMiuiLite = root.optBoolean("ignore_miui_lite", false),
-                calmDownPeriodMs = root.optInt("calm_down_period", 0),
+                needStat = root["need_stat"]?.jsonPrimitive?.booleanOrNull ?: true,
+                ignoreMiuiLite = root["ignore_miui_lite"]?.jsonPrimitive?.booleanOrNull ?: false,
+                calmDownPeriodMs = root["calm_down_period"]?.jsonPrimitive?.intOrNull ?: 0,
                 supportedOnDevice = Build.DEVICE.lowercase() !in blockedDevices,
             )
         }.onFailure {
-            Log.w(TAG, "Rejected malformed keep-alive strategy")
+            Logger.withTag(TAG).w { "Rejected malformed keep-alive strategy" }
         }.getOrNull()
     }
 

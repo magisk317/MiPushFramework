@@ -23,7 +23,7 @@ object MIPushAppAbsentManager {
         context.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS, 0)
             .edit()
             .remove(packageName)
-            .commit()
+            .apply()
     }
 
     @JvmStatic
@@ -37,7 +37,7 @@ object MIPushAppAbsentManager {
     fun rememberPendingRegistration(context: Context, packageName: String?, appId: String?) {
         val pkg = packageName?.takeIf { it.isNotBlank() } ?: return
         val resolvedAppId = appId?.takeIf { it.isNotBlank() } ?: return
-        pendingRegistrationPrefs(context).edit().putString(pkg, resolvedAppId).commit()
+        pendingRegistrationPrefs(context).edit().putString(pkg, resolvedAppId).apply()
     }
 
     @JvmStatic
@@ -47,7 +47,7 @@ object MIPushAppAbsentManager {
 
     @JvmStatic
     fun forgetPendingRegistration(context: Context, packageName: String) {
-        pendingRegistrationPrefs(context).edit().remove(packageName).commit()
+        pendingRegistrationPrefs(context).edit().remove(packageName).apply()
     }
 
     @JvmStatic
@@ -89,14 +89,14 @@ object MIPushAppAbsentManager {
                 break
             }
         }
-        editor.commit()
+        editor.apply()
     }
 
     private fun enqueue(context: Context, packageName: String, appId: String) {
         pendingPrefs(context)
             .edit()
             .putString(packageName, appId)
-            .commit()
+            .apply()
     }
 
     private fun send(

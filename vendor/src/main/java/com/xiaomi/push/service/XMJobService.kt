@@ -13,6 +13,7 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.timers.Alarm
 
+@android.annotation.SuppressLint("StaticFieldLeak")
 class XMJobService : Service() {
     private var jobBinder: IBinder? = null
 

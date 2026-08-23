@@ -673,8 +673,16 @@ open class ApplicationInfoPage : ComponentActivity() {
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
                                         NotificationChannelBadge(text = badge)
+                                        Text(
+                                            text = channelTitle,
+                                            softWrap = true,
+                                            overflow = TextOverflow.Clip,
+                                        )
                                         if (!channel.enabled) {
                                             NotificationChannelBadge(
                                                 text = disabledBadge,
@@ -683,12 +691,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                                             )
                                         }
                                     }
-                                    Text(
-                                        text = channelTitle,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        softWrap = true,
-                                        overflow = TextOverflow.Clip,
-                                    )
                                 }
                             },
                             text = {
@@ -880,10 +882,19 @@ private fun NotificationChannelRow(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NotificationChannelBadge(text = badge)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f, fill = false),
+                softWrap = true,
+                overflow = TextOverflow.Clip,
+                maxLines = 8,
+            )
             if (!enabled) {
                 NotificationChannelBadge(
                     text = disabledBadge,
@@ -891,17 +902,6 @@ private fun NotificationChannelRow(
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                softWrap = true,
-                overflow = TextOverflow.Clip,
-                maxLines = 8,
-            )
         }
         if (summary.isNotBlank()) {
             Text(

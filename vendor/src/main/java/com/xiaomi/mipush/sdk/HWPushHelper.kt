@@ -1,12 +1,12 @@
 package com.xiaomi.mipush.sdk
 
-import com.xiaomi.channel.commonutils.logger.MyLog
-
 import android.content.Context
 import android.content.Intent
-import android.text.TextUtils
-import org.json.JSONArray
-import org.json.JSONObject
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -26,11 +26,12 @@ object HWPushHelper {
     fun hasNetwork(context: Context): Boolean = AssemblePushHelper.hasNetwork(context)
 
     fun isHmsTokenSynced(context: Context): Boolean {
-        val tokenKey = AssemblePushHelper.getTokenKey(AssemblePush.ASSEMBLE_PUSH_HUAWEI)
-        if (TextUtils.isEmpty(tokenKey)) return false
-        val assemblePushToken = AssemblePushHelper.getAssemblePushToken(context, tokenKey!!)
+        val assemblePush = AssemblePush.ASSEMBLE_PUSH_HUAWEI
+        val tokenKey = AssemblePushHelper.getTokenKey(assemblePush)
+        if (tokenKey.isNullOrEmpty()) return false
+        val assemblePushToken = AssemblePushHelper.getAssemblePushToken(context, assemblePush)
         val syncStatus = OperatePushHelper.getInstance(context).getSyncStatus(RetryType.UPLOAD_HUAWEI_TOKEN)
-        return !(TextUtils.isEmpty(assemblePushToken) || TextUtils.isEmpty(syncStatus) || !OperatePushHelper.SYNCED.equals(syncStatus))
+        return !(assemblePushToken.isNullOrEmpty() || syncStatus.isNullOrEmpty() || OperatePushHelper.SYNCED != syncStatus)
     }
 
     fun isUserOpenHmsPush(context: Context): Boolean = MiPushClient.getOpenHmsPush(context)
@@ -39,18 +40,19 @@ object HWPushHelper {
 
     fun notifyHmsNotificationMessageClicked(context: Context, data: String?) {
         var str2 = ""
-        if (!TextUtils.isEmpty(data)) {
+        if (!data.isNullOrEmpty()) {
             try {
-                val jSONArray = JSONArray(data!!)
-                for (i in 0 until jSONArray.length()) {
-                    val jSONObject = jSONArray.getJSONObject(i)
-                    if (jSONObject.has("pushMsg")) {
-                        str2 = jSONObject.getString("pushMsg")
+                val jSONArray = Json.parseToJsonElement(data).jsonArray
+                for (element in jSONArray) {
+                    val jSONObject = element.jsonObject
+                    val pushMsg = jSONObject["pushMsg"]?.jsonPrimitive?.content
+                    if (pushMsg != null) {
+                        str2 = pushMsg
                         break
                     }
                 }
             } catch (e: Exception) {
-                MyLog.e(e.toString())
+                KermitLoggerCompat.e("Failed to parse HMS notification message", e)
                 str2 = ""
             }
         }
@@ -66,12 +68,12 @@ object HWPushHelper {
     fun notifyHmsPassThoughMessageArrived(context: Context, data: String?) {
         var string = ""
         try {
-            if (!TextUtils.isEmpty(data)) {
-                val jSONObject = JSONObject(data!!)
-                string = if (jSONObject.has("content")) jSONObject.getString("content") else ""
+            if (!data.isNullOrEmpty()) {
+                val jSONObject = Json.parseToJsonElement(data).jsonObject
+                string = jSONObject["content"]?.jsonPrimitive?.content.orEmpty()
             }
         } catch (e: Exception) {
-            MyLog.e(e.toString())
+            KermitLoggerCompat.e("Failed to parse HMS pass-through message", e)
             string = ""
         }
         val miPushReceiver = AssemblePushHelper.getMiPushReceiver(context)

@@ -102,7 +102,8 @@ class PackageConfig(private val configurations: Configurations) {
                 val cfgKey = cfgKeys.next()
                 val field = data.javaClass.declaredFields.firstOrNull { it.name == cfgKey } ?: return null
                 val newPath = concat(path, arrayOf(cfgKey))
-                val value = Global.configValueConverter().convert(root, newPath, field.get(data))
+                val rawValue = runCatching { field.get(data) }.getOrNull()
+                val value = Global.configValueConverter().convert(root, newPath, rawValue)
 
                 val isMap = value is Map<*, *>
                 val isTBase = value is TBase<*, *>
@@ -110,7 +111,7 @@ class PackageConfig(private val configurations: Configurations) {
                 var cfgSubObj: ConfigJsonObject? = null
                 if (isMap || isTBase) {
                     try {
-                        cfgSubObj = cfgMatch.getConfigJsonObject(cfgKey)
+                        cfgSubObj = cfgMatch.getJSONObject(cfgKey)
                     } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${value.javaClass.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
@@ -135,7 +136,7 @@ class PackageConfig(private val configurations: Configurations) {
                             return null
                         }
                     }
-                } else if (isTBase) {
+                } else if (isTBase && cfgSubObj != null) {
                     val group = match(root, value, cfgSubObj, newPath) ?: return null
                     matchGroup.putAll(group)
                 } else {
@@ -168,7 +169,7 @@ class PackageConfig(private val configurations: Configurations) {
                 var cfgSubObj: ConfigJsonObject? = null
                 if (isMap || isTBase) {
                     try {
-                        cfgSubObj = cfgReplace.getConfigJsonObject(cfgKey)
+                        cfgSubObj = cfgReplace.getJSONObject(cfgKey)
                     } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${field.type.simpleName}, not ${cfgReplace.opt(cfgKey)?.javaClass}"

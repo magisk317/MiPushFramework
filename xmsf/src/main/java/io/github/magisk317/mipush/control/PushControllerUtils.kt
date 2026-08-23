@@ -19,7 +19,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.push.service.PushServiceConstants
@@ -58,7 +57,7 @@ object PushControllerUtils {
     }
 
     @JvmStatic
-    fun pushRegistered(context: Context): Boolean = !TextUtils.isEmpty(MiPushClient.getRegId(context))
+    fun pushRegistered(context: Context): Boolean = !MiPushClient.getRegId(context).isNullOrEmpty()
 
     private fun getPrefs(context: Context): SharedPreferences {
         val appContext = context.applicationContext

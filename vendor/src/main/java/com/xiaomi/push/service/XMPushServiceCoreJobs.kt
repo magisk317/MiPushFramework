@@ -34,9 +34,10 @@ class ConnectJob(
 
     override fun process() {
         if (service.isConnected) {
-            MyLog.w("already connected. skip connect job.")
+            ReconnectDebugLog.w("connect_job_skipped connected=true")
             return
         }
+        ReconnectDebugLog.w("connect_job_executing connected=${service.isConnected}")
         service.connect()
     }
 }

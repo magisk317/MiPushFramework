@@ -226,17 +226,36 @@ internal class XMPushServiceIntentDelegate(
     }
 
     private fun handleTimer() {
-        MyLog.w("Service called on timer")
+        ReconnectDebugLog.w("timer_received")
+        val nowElapsedRealtime = android.os.SystemClock.elapsedRealtime()
+        val nowWallClockMs = System.currentTimeMillis()
         Alarm.markTimerCallback(
-            nowElapsedRealtime = android.os.SystemClock.elapsedRealtime(),
-            nowWallClockMs = System.currentTimeMillis(),
+            nowElapsedRealtime = nowElapsedRealtime,
+            nowWallClockMs = nowWallClockMs,
         )
+        val timerSnapshot = Alarm.diagnosticSnapshot(nowElapsedRealtime, nowWallClockMs)
+        val falldown = service.shouldFalldown()
+        val alarmAlive = Alarm.isAlive()
+        val isConnected = service.isConnected
+        val isConnecting = service.isConnecting
+        val shouldCheckAlive = service.shouldCheckAlive()
         val plan = service.runtimeObserver.resolveTimerPlan(
-            shouldFalldown = service.shouldFalldown(),
-            alarmAlive = Alarm.isAlive(),
-            isConnected = service.isConnected,
-            isConnecting = service.isConnecting,
-            shouldCheckAlive = service.shouldCheckAlive()
+            shouldFalldown = falldown,
+            alarmAlive = alarmAlive,
+            isConnected = isConnected,
+            isConnecting = isConnecting,
+            shouldCheckAlive = shouldCheckAlive
+        )
+        ReconnectDebugLog.w(
+            "timer_plan event=${plan.eventAction} falldown=$falldown " +
+                "alarmAlive=$alarmAlive connected=$isConnected " +
+                "connecting=$isConnecting shouldCheckAlive=$shouldCheckAlive " +
+                "stopAlarm=${plan.shouldStopAlarm} registerPing=${plan.shouldRegisterPing} " +
+                "connect=${plan.shouldConnect} checkAlive=${plan.shouldCheckAlive} " +
+                "timerClass=${timerSnapshot.timerClassName} " +
+                "nextTriggerInMs=${if (timerSnapshot.nextTriggerAtMs == 0L) -1 else timerSnapshot.nextTriggerAtMs - nowWallClockMs} " +
+                "registeredAgeMs=${if (timerSnapshot.alarmRegisteredAtMs == 0L) -1 else nowWallClockMs - timerSnapshot.alarmRegisteredAtMs} " +
+                "lastCallbackDelayMs=${timerSnapshot.lastTimerCallbackDelayMs}"
         )
         if (plan.shouldStopAlarm) {
             MyLog.w("enter falldown mode, stop alarm")

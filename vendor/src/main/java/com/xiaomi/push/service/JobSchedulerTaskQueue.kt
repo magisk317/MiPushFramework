@@ -106,6 +106,8 @@ class JobSchedulerTaskQueue {
 
     fun isEmpty(): Boolean = size == 0
 
+    fun size(): Int = size
+
     fun minimum(): JobSchedulerTaskWrapper = timerAt(0)
 
     fun purge(): Int {

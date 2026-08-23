@@ -144,10 +144,10 @@ object SyncInfoHelper {
         val jCurrentTimeMillis = System.currentTimeMillis() / 1000
         val intValue = OnlineConfig.getInstance(context).getIntValue(ConfigKey.SyncInfoFrequency.value, DEFAULT_PERIOD_IN_SECOND)
         if (j == DEFAULT_LAST_SYNC_INFO) {
-            sharedPreferences.edit().putLong(LAST_SYNC_INFO, jCurrentTimeMillis).commit()
+            sharedPreferences.edit().putLong(LAST_SYNC_INFO, jCurrentTimeMillis).apply()
         } else if (Math.abs(jCurrentTimeMillis - j) > intValue) {
             doSyncInfoAsync(context, true)
-            sharedPreferences.edit().putLong(LAST_SYNC_INFO, jCurrentTimeMillis).commit()
+            sharedPreferences.edit().putLong(LAST_SYNC_INFO, jCurrentTimeMillis).apply()
         }
     }
 }

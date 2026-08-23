@@ -8,7 +8,6 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
-import android.text.TextUtils
 import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.push.service.NotificationManagerHelper
@@ -99,7 +98,7 @@ object NotificationChannelManager {
 
     @JvmStatic
     fun isNotificationChannelEnabled(packageName: String, channelId: String?): Boolean {
-        if (!TextUtils.isEmpty(channelId)) {
+        if (!channelId.isNullOrEmpty()) {
             return try {
                 val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
                 isNotificationChannelEnabled(channel)

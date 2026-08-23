@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
@@ -153,8 +152,8 @@ object RegistrationPayloadRepair {
             setReason(RegistrationReason.Init)
             if (!MIUIUtils.isGlobalRegion()) {
                 val imei = DeviceInfo.quicklyGetIMEI(context)
-                if (!TextUtils.isEmpty(imei)) {
-                    setImeiMd5(XMStringUtils.getMd5Digest(imei!!) + "," + DeviceInfo.quicklyGetSubIMEISMd5(context))
+                if (!imei.isNullOrEmpty()) {
+                    setImeiMd5(XMStringUtils.getMd5Digest(imei) + "," + DeviceInfo.quicklyGetSubIMEISMd5(context))
                 }
             }
             val spaceId = DeviceInfo.getSpaceId()

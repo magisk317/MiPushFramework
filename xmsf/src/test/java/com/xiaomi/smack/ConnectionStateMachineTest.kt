@@ -4,6 +4,7 @@ import android.app.Application
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.smack.packet.Packet
+import com.xiaomi.slim.Blob
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -109,7 +110,17 @@ class ConnectionStateMachineTest {
             setChallenge(challenge)
         }
 
-        override fun isBinaryConnection(): Boolean = true
+        override val host: String = "test.mipush"
+
+        override val isBinaryConnection: Boolean = true
+
+        override fun initConnection() = Unit
+
+        override fun send(blob: Blob) = Unit
+
+        override fun batchSend(blobArray: Array<Blob>) = Unit
+
+        override fun sendPingInternal(isServerPing: Boolean) = Unit
 
         override fun sendPacket(packet: Packet) = Unit
 

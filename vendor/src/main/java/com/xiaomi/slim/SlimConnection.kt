@@ -1,7 +1,6 @@
 package com.xiaomi.slim
 
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
 import com.xiaomi.smack.Connection
@@ -86,13 +85,13 @@ class SlimConnection(
     override fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo) {
         synchronized(this) {
             if (challenge.isNullOrEmpty()) {
-                MyLog.w("[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing")
+                Logger.w { "[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing" }
                 return
             }
-            MyLog.w(
+            Logger.w {
                 "[Slim] bind request instance=${hashCode()} chid=${clientLoginInfo.chid} " +
                     "status=${clientLoginInfo.status} shuttingDown=$isShuttingDown host=$host"
-            )
+            }
             Binder.bind(clientLoginInfo, challenge, this)
         }
     }
@@ -126,25 +125,26 @@ class SlimConnection(
             // Reconnection reuses the service-owned SlimConnection instance. Reset the shutdown
             // guard here so a previously closed connection can send bind/register blobs again.
             isShuttingDown = false
-            MyLog.w(
+            Logger.w {
                 "[Slim] initConnection instance=${hashCode()} " +
                     "reusedAfterShutdown=$wasShuttingDown socket=${socket?.hashCode()} host=$host"
-            )
+            }
             initReaderAndWriter()
             mWriter?.openStream()
         }
     }
 
-    override fun isBinaryConnection(): Boolean = true
+    override val isBinaryConnection: Boolean
+        get() = true
 
     internal fun notifyDataArrived(blob: Blob?) {
         if (blob == null) return
-        if (blob.hasErr()) {
-            MyLog.w("[Slim] RCV blob chid=${blob.channelId}; id=${blob.packetID}; errCode=${blob.errCode}; err=${blob.errStr}")
+        if (blob.hasErr) {
+            Logger.w { "[Slim] RCV blob chid=${blob.channelId}; id=${blob.packetID}; errCode=${blob.errCode}; err=${blob.errStr}" }
         }
         val inboundPlan = mPushAction.runtimeObserver.resolveSlimInboundPlan(blob.channelId, blob.cmd)
         if (inboundPlan.action == PushSlimInboundAction.PingReceived) {
-            MyLog.w("[Slim] RCV ping id=${blob.packetID}")
+            Logger.w { "[Slim] RCV ping id=${blob.packetID}" }
         }
         
         inboundPlan.eventAction?.let { eventAction ->
@@ -172,7 +172,7 @@ class SlimConnection(
     internal fun onChallengeReceived(receivedChallenge: String?, source: String) {
         synchronized(this) {
             if (receivedChallenge.isNullOrEmpty()) {
-                MyLog.w("[Slim] RCV challenge missing in CONN response from $source")
+                Logger.w { "[Slim] RCV challenge missing in CONN response from $source" }
                 return
             }
             if (isConnecting) {
@@ -180,53 +180,53 @@ class SlimConnection(
             }
             setChallenge(receivedChallenge)
             if (challenge == receivedChallenge) {
-                MyLog.w("[Slim] RCV challenge accepted from $source")
+                Logger.w { "[Slim] RCV challenge accepted from $source" }
             }
         }
     }
 
     override fun send(blob: Blob) {
         if (isShuttingDown) {
-            MyLog.w(
+            Logger.w {
                 "[Slim] skip sending blob as connection is shutting down " +
                     "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
-            )
+            }
             return
         }
         val writer = mWriter
         if (writer == null) {
-            MyLog.w(
+            Logger.w {
                 "[Slim] skip sending blob because writer is null " +
                     "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
-            )
+            }
             notifyConnectionError(10, IOException("the writer is null."))
             return
         }
         try {
-            MyLog.w(
+            Logger.w {
                 "[Slim] send blob instance=${hashCode()} cmd=${blob.cmd} " +
                     "chid=${blob.channelId} packetId=${blob.packetID} host=$host"
-            )
+            }
             val bytesWritten = writer.write(blob)
             setWriteAlive()
             val packageName = blob.packageName
-            if (!TextUtils.isEmpty(packageName)) {
+            if (!packageName.isNullOrEmpty()) {
                 try {
                     TrafficUtils.distributionTraffic(
                         mContext,
-                        packageName!!,
+                        packageName,
                         bytesWritten.toLong(),
                         false,
                         true,
                         System.currentTimeMillis(),
                     )
                 } catch (th: Throwable) {
-                    MyLog.e(th)
+                    Logger.e(th) { "Traffic distribution failed" }
                 }
             }
             notifyPacketSent(blob)
         } catch (e: Exception) {
-            MyLog.w("[Slim] send blob failed: $e")
+            Logger.w(e) { "[Slim] send blob failed: $e" }
             notifyConnectionError(10, e)
         }
     }
@@ -240,7 +240,7 @@ class SlimConnection(
     override fun sendPingInternal(isServerPing: Boolean) {
         val ping = getPing(isServerPing)
         val pingPlan = mPushAction.runtimeObserver.resolveSlimSendPingPlan()
-        MyLog.w("[Slim] SND ping id=${ping.packetID}")
+        Logger.w { "[Slim] SND ping id=${ping.packetID}" }
         mPushAction.runtimeObserver.onChannelEvent(null, pingPlan.eventAction, "SlimConnection.sendPing")
         send(ping)
     }
@@ -251,10 +251,10 @@ class SlimConnection(
     ) {
         synchronized(this) {
             if (isShuttingDown) return
-            MyLog.w(
+            Logger.w {
                 "[Slim] shutdown instance=${hashCode()} reason=$reason " +
                     "error=${error?.javaClass?.simpleName}:${error?.message}"
-            )
+            }
             isShuttingDown = true
             mReader?.let {
                 it.shutdown()
@@ -264,7 +264,7 @@ class SlimConnection(
                 try {
                     it.shutdown()
                 } catch (e: Exception) {
-                    MyLog.e(e)
+                    Logger.e(e) { "Writer shutdown failed" }
                 }
                 mWriter = null
                 mDerivedKey = null

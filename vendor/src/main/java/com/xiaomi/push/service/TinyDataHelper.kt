@@ -1,7 +1,6 @@
 package com.xiaomi.push.service
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.SystemUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -19,7 +18,7 @@ object TinyDataHelper {
     const val KEY_UPLOAD_WAY = "uploadWay"
     const val SDK_CHANNEL = "push_sdk_channel"
 
-    private var sdf = SimpleDateFormat("yyyy/MM/dd")
+    private var sdf = SimpleDateFormat("yyyy/MM/dd", java.util.Locale.US)
     private var dayPrefix = sdf.format(System.currentTimeMillis())
     private val idGen = AtomicLong(0)
 
@@ -57,7 +56,7 @@ object TinyDataHelper {
     fun nextTinyDataItemId(): String {
         synchronized(TinyDataHelper::class.java) {
             val today = sdf.format(System.currentTimeMillis())
-            if (!TextUtils.equals(dayPrefix, today)) {
+            if (dayPrefix != today) {
                 idGen.set(0L)
                 dayPrefix = today
             }
@@ -129,15 +128,15 @@ object TinyDataHelper {
             MyLog.w("item is null, verfiy ClientUploadDataItem failed.")
             return true
         }
-        if (!channelOptional && TextUtils.isEmpty(item.channel)) {
+        if (!channelOptional && item.channel.isNullOrEmpty()) {
             MyLog.w("item.channel is null or empty, verfiy ClientUploadDataItem failed.")
             return true
         }
-        if (TextUtils.isEmpty(item.category)) {
+        if (item.category.isNullOrEmpty()) {
             MyLog.w("item.category is null or empty, verfiy ClientUploadDataItem failed.")
             return true
         }
-        if (TextUtils.isEmpty(item.name)) {
+        if (item.name.isNullOrEmpty()) {
             MyLog.w("item.name is null or empty, verfiy ClientUploadDataItem failed.")
             return true
         }

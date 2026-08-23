@@ -32,7 +32,7 @@ class AppConfigurationUtilsTest {
     }
 
     @Test
-    fun `unhooked snapshot hides native channels`() {
+    fun `unhooked snapshot also includes native channels`() {
         val snapshot = NotificationChannelSnapshot(
             packageName = "com.example",
             isHooked = false,
@@ -45,25 +45,26 @@ class AppConfigurationUtilsTest {
 
         val sections = AppConfigurationUtils.notificationChannelSections(snapshot)
 
-        assertEquals(1, sections.size)
-        assertEquals(listOf("managed"), sections.single().channels.map { it.id })
+        assertEquals(2, sections.size)
+        assertEquals(listOf("managed"), sections[0].channels.map { it.id })
+        assertEquals(listOf("native"), sections[1].channels.map { it.id })
     }
 
     @Test
-    fun `notification content distinguishes empty hidden and visible channel data`() {
+    fun `notification content distinguishes empty and visible channel data`() {
         val empty = snapshot(isHooked = false)
-        val hidden = snapshot(
+        val visibleNative = snapshot(
             isHooked = false,
             channels = listOf(channel(id = "native")),
         )
-        val visible = snapshot(
+        val visibleManaged = snapshot(
             isHooked = false,
             channels = listOf(channel(id = "managed", managedByMiPush = true)),
         )
 
         assertEquals(NotificationChannelContentKind.EMPTY, contentKind(empty))
-        assertEquals(NotificationChannelContentKind.HIDDEN, contentKind(hidden))
-        assertEquals(NotificationChannelContentKind.VISIBLE, contentKind(visible))
+        assertEquals(NotificationChannelContentKind.VISIBLE, contentKind(visibleNative))
+        assertEquals(NotificationChannelContentKind.VISIBLE, contentKind(visibleManaged))
     }
 
     @Test

@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
@@ -39,11 +39,11 @@ object LegacyNotificationIdentityMigration {
             }
         }
         if (!allPackagesInspected) {
-            Napier.w("legacy notification identity migration deferred after an active-notification query failed", tag = TAG)
+            Logger.withTag(TAG).w { "legacy notification identity migration deferred after an active-notification query failed" }
             return
         }
         prefs.edit().putBoolean(KEY_COMPLETED, true).apply()
-        Napier.i("legacy notification identity migration completed packages=${packages.size} removed=$removed", tag = TAG)
+        Logger.withTag(TAG).i { "legacy notification identity migration completed packages=${packages.size} removed=$removed" }
     }
 
     internal fun isLegacyIdentity(tag: String?): Boolean = tag?.startsWith(LEGACY_TAG_PREFIX) == true

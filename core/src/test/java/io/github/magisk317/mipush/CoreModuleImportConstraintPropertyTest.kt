@@ -58,7 +58,7 @@ class CoreModuleImportConstraintPropertyTest {
             "io.github.magisk317.mipush.diagnostics",
             "io.github.magisk317.mipush.notification",
             // Libraries declared in core/build.gradle.kts
-            "io.github.aakira.napier",
+            "co.touchlab.kermit",
         )
 
         private val IMPORT_REGEX = Regex("""^\s*import\s+(.+)\s*$""")

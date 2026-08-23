@@ -2,7 +2,6 @@ package com.xiaomi.push.service
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 
 class MIPushAppInfo private constructor(context: Context) {
@@ -33,21 +32,21 @@ class MIPushAppInfo private constructor(context: Context) {
         sharedPreferences.getString(PREF_KEY_UNREGISTERED_PKGS, "")
             ?.split(",")
             ?.forEach { pkg ->
-                if (TextUtils.isEmpty(pkg)) {
+                if (pkg.isEmpty()) {
                     unRegisteredPkg.add(pkg)
                 }
             }
         sharedPreferences.getString(PREF_KEY_DISABLE_PUSH_PKGS, "")
             ?.split(",")
             ?.forEach { pkg ->
-                if (!TextUtils.isEmpty(pkg)) {
+                if (pkg.isNotEmpty()) {
                     disabledPushPkg.add(pkg)
                 }
             }
         sharedPreferences.getString(PREF_KEY_DISABLE_PUSH_PKGS_CACHE, "")
             ?.split(",")
             ?.forEach { pkg ->
-                if (!TextUtils.isEmpty(pkg)) {
+                if (pkg.isNotEmpty()) {
                     disabledPushPkgCache.add(pkg)
                 }
             }
@@ -126,6 +125,6 @@ class MIPushAppInfo private constructor(context: Context) {
         appContext.getSharedPreferences(PREF_NAME, 0)
             .edit()
             .putString(key, XMStringUtils.join(values, ","))
-            .commit()
+            .apply()
     }
 }

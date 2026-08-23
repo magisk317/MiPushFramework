@@ -2,10 +2,10 @@ package com.xiaomi.clientreport.processor
 
 import android.content.Context
 import android.text.format.Formatter
-import android.util.Base64
+import java.util.Base64
+import co.touchlab.kermit.Logger
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ByteUtils
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 import com.xiaomi.clientreport.data.BaseClientReport
@@ -77,20 +77,20 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 if (read == -1) break
                 bArr[0] = read.toByte()
                 if (bufferedInputStream.read(bArr, 1, 3) != 3) {
-                    MyLog.e("eventData read from cache file failed cause magicNumber error")
+                    Logger.e { "eventData read from cache file failed cause magicNumber error" }
                     break
                 }
                 if (ByteUtils.toInt(bArr) != MAGIC_NUMBER) {
-                    MyLog.e("eventData read from cache file failed cause magicNumber error")
+                    Logger.e { "eventData read from cache file failed cause magicNumber error" }
                     break
                 }
                 if (bufferedInputStream.read(bArr) != 4) {
-                    MyLog.e("eventData read from cache file failed cause lengthBuffer error")
+                    Logger.e { "eventData read from cache file failed cause lengthBuffer error" }
                     break
                 }
                 val i = ByteUtils.toInt(bArr)
                 if (i < 1 || i > DATA_MAX_SIZE) {
-                    MyLog.e("eventData read from cache file failed cause lengthBuffer < 1 || lengthBuffer > 4K")
+                    Logger.e { "eventData read from cache file failed cause lengthBuffer < 1 || lengthBuffer > 4K" }
                     break
                 }
                 val bArr2 = ByteArray(i)
@@ -101,7 +101,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                     i2 += read2
                 }
                 if (i2 != i) {
-                    MyLog.e("eventData read from cache file failed cause buffer size not equal length")
+                    Logger.e { "eventData read from cache file failed cause buffer size not equal length" }
                     break
                 }
                 val strBytesToString = bytesToString(bArr2)
@@ -110,7 +110,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 }
             }
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "readFile error" }
         } finally {
             IOUtils.closeQuietly(bufferedInputStream)
         }
@@ -122,7 +122,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
             try {
                 fileLock.release()
             } catch (e: IOException) {
-                MyLog.e(e)
+                Logger.e(e) { "release lock error" }
             }
         }
         IOUtils.closeQuietly(randomAccessFile)
@@ -166,11 +166,11 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                     bufferedOutputStream.write(bArrStringToBytes)
                     bufferedOutputStream.flush()
                 } else {
-                    MyLog.e("event data throw a invalid item ")
+                    Logger.e { "event data throw a invalid item " }
                 }
             }
         } catch (e: Exception) {
-            MyLog.e("event data write to cache file failed cause exception", e)
+            Logger.e(e) { "event data write to cache file failed cause exception" }
         } finally {
             IOUtils.closeQuietly(bufferedOutputStream)
             releaseLock(randomAccessFile, fileLock)
@@ -187,29 +187,27 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
         if (eventKeyWithDefault.isNullOrEmpty()) return ""
         val key = ClientReportUtil.parseKey(eventKeyWithDefault)
         return try {
-            XMStringUtils.bytesToString(
-                Base64.decode(
-                    DataCryptUtils.mipushDecrypt(key, bArr),
-                    2,
-                ),
-            ) ?: ""
+            val decrypted = DataCryptUtils.mipushDecrypt(key, bArr)
+            val decoded = runCatching { Base64.getDecoder().decode(decrypted) }
+                .getOrElse { Base64.getMimeDecoder().decode(decrypted) }
+            XMStringUtils.bytesToString(decoded) ?: ""
         } catch (e: InvalidAlgorithmParameterException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         } catch (e: InvalidKeyException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         } catch (e: NoSuchAlgorithmException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         } catch (e: BadPaddingException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         } catch (e: IllegalBlockSizeException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         } catch (e: NoSuchPaddingException) {
-            MyLog.e(e)
+            Logger.e(e) { "decrypt error" }
             ""
         }
     }
@@ -217,12 +215,8 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
     override fun preProcess(baseClientReport: BaseClientReport) {
         if (baseClientReport is EventClientReport && mEventMap != null) {
             val firstEventFileName = getFirstEventFileName(baseClientReport)
-            var arrayList2 = mEventMap!![firstEventFileName]
-            if (arrayList2 == null) {
-                arrayList2 = ArrayList()
-            }
+            val arrayList2 = mEventMap!!.getOrPut(firstEventFileName) { ArrayList() }
             arrayList2.add(baseClientReport)
-            mEventMap!![firstEventFileName] = arrayList2
         }
     }
 
@@ -254,19 +248,19 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 val randomAccessFile3 = randomAccessFile2
                 val fileLock2 = fileLockLock
                 val file5 = file3
-                var randomAccessFile4: RandomAccessFile? = randomAccessFile2
-                var fileLock3: FileLock? = fileLockLock
+                val randomAccessFile4: RandomAccessFile? = randomAccessFile2
+                val fileLock3: FileLock? = fileLockLock
                 var file: File? = file3
                 try {
                     if (file4.length() > DATA_FILE_MAX_SIZE.toLong()) {
-                        MyLog.e("eventData read from cache file failed because ${file4.name} is too big")
+                        Logger.e { "eventData read from cache file failed because ${file4.name} is too big" }
                         reportDropFile(file4.name, Formatter.formatFileSize(mContext, file4.length()))
                         file4.delete()
                         if (fileLockLock != null && fileLockLock.isValid) {
                             try {
                                 fileLockLock.release()
                             } catch (e: IOException) {
-                                MyLog.e(e)
+                                Logger.e(e) { "release lock error" }
                             }
                         }
                         IOUtils.closeQuietly(randomAccessFile2)
@@ -286,19 +280,19 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                             try {
                                 fileLockLock.release()
                             } catch (e: IOException) {
-                                MyLog.e(e)
+                                Logger.e(e) { "release lock error" }
                             }
                         }
                         IOUtils.closeQuietly(randomAccessFile2)
                         file = file6
                     }
                 } catch (e: Exception) {
-                    MyLog.e(e)
+                    Logger.e(e) { "readAndSend error" }
                     if (fileLock3 != null && fileLock3.isValid) {
                         try {
                             fileLock3.release()
                         } catch (e: IOException) {
-                            MyLog.e(e)
+                            Logger.e(e) { "release lock error" }
                         }
                     }
                     IOUtils.closeQuietly(randomAccessFile4)
@@ -310,7 +304,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                         try {
                             fileLock2.release()
                         } catch (e: IOException) {
-                            MyLog.e(e)
+                            Logger.e(e) { "release lock error" }
                         }
                     }
                     IOUtils.closeQuietly(randomAccessFile3)
@@ -322,7 +316,6 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 file?.delete()
             }
         }
-
     }
 
     override fun send(list: List<String>) {
@@ -347,19 +340,19 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
         val key = ClientReportUtil.parseKey(eventKeyWithDefault)
         return try {
             if (key.size > 1) {
-                DataCryptUtils.mipushEncrypt(key, Base64.encode(bytes, 2))
+                DataCryptUtils.mipushEncrypt(key, Base64.getEncoder().encode(bytes))
             } else {
                 ByteArray(0)
             }
         } catch (e: Exception) {
-            MyLog.e(e)
+            Logger.e(e) { "encrypt error" }
             ByteArray(0)
         }
     }
 
     override fun write(baseClientReportArr: Array<BaseClientReport>) {
         if (baseClientReportArr.isEmpty()) {
-            MyLog.w("event data write to cache file failed because data null")
+            Logger.w { "event data write to cache file failed because data null" }
             return
         }
         var baseClientReportArr2 = baseClientReportArr

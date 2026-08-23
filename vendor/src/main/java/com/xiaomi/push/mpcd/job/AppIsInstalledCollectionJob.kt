@@ -2,7 +2,6 @@ package com.xiaomi.push.mpcd.job
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.push.mpcd.Constants
@@ -21,9 +20,9 @@ class AppIsInstalledCollectionJob(
 ) : CollectionJob(context, period) {
 
     private fun revertAppList(): Array<String>? {
-        if (TextUtils.isEmpty(mApps)) return null
+        if (mApps.isEmpty()) return null
         val decoded = Base64Coder.decodeString(mApps)
-        if (TextUtils.isEmpty(decoded)) return null
+        if (decoded.isEmpty()) return null
         return if (decoded.contains(",")) decoded.split(",").toTypedArray() else arrayOf(decoded)
     }
 
@@ -57,7 +56,7 @@ class AppIsInstalledCollectionJob(
                 val appInfo = packageInfo.applicationInfo ?: continue
                 if (sb.isNotEmpty()) sb.append(Constants.ITEM_SEPARATOR)
                 var installer = getInstallerPackageNameCompat(pm, pkg)
-                if (TextUtils.isEmpty(installer)) installer = "null"
+                if (installer.isNullOrEmpty()) installer = "null"
                 sb.append(appInfo.loadLabel(pm))
                 sb.append(",")
                 sb.append(packageInfo.packageName)

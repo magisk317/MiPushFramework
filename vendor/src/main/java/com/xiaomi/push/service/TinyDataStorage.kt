@@ -1,7 +1,6 @@
 package com.xiaomi.push.service
 
 import android.content.Context
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.android.SharedPreferenceManager
 import com.xiaomi.channel.commonutils.file.IOUtils
@@ -64,7 +63,7 @@ object TinyDataStorage {
     fun getTinyDataKeyWithDefault(context: Context): ByteArray {
         var value = SharedPreferenceManager.getInstance(context)
             .getStringValue(PushConstants.SP_NAME_MIPUSH, PushConstants.SP_KEY_TINY_DATA_KEY, "")
-        if (TextUtils.isEmpty(value)) {
+        if (value.isNullOrEmpty()) {
             value = XMStringUtils.generateRandomString(20)
             SharedPreferenceManager.getInstance(context)
                 .setStringnValue(PushConstants.SP_NAME_MIPUSH, PushConstants.SP_KEY_TINY_DATA_KEY, value)

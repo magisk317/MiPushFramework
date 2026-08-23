@@ -18,7 +18,6 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.MIPushNotificationViewSupport
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.notification.SweetTagHandler
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.platform.support.Global

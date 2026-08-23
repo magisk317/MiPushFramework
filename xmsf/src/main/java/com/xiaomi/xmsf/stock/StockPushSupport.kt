@@ -6,7 +6,6 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcel
-import android.text.TextUtils
 import androidx.core.content.edit
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.push.service.NotificationManagerHelper
@@ -16,7 +15,12 @@ import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
 import kotlinx.coroutines.runBlocking
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.lang.reflect.InvocationTargetException
 
 /** Stock-compatible delegates for com.xiaomi.push.provider.PushSupportProvider. */
@@ -474,20 +478,21 @@ internal object StockPushSupport {
         val encoded = prefs(context).getString(KEY_CHANNEL_STATUS_PREFIX + packageName, null)
             ?: return emptyMap()
         return runCatching {
-            val json = JSONObject(encoded)
+            val json = Json.parseToJsonElement(encoded).jsonObject
             buildMap {
-                val keys = json.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    if (isBoundedIdentifier(key)) put(key, json.optBoolean(key, true))
+                for ((key, element) in json) {
+                    if (isBoundedIdentifier(key)) {
+                        put(key, element.jsonPrimitive.booleanOrNull ?: true)
+                    }
                 }
             }
         }.getOrDefault(emptyMap())
     }
 
     private fun writeChannelStatus(context: Context, packageName: String, status: Map<String, Boolean>) {
-        val json = JSONObject()
-        status.forEach { (channelTypeId, enabled) -> json.put(channelTypeId, enabled) }
+        val json = buildJsonObject {
+            status.forEach { (channelTypeId, enabled) -> put(channelTypeId, enabled) }
+        }
         prefs(context).edit { putString(KEY_CHANNEL_STATUS_PREFIX + packageName, json.toString()) }
     }
 
@@ -504,7 +509,7 @@ internal object StockPushSupport {
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun isBoundedIdentifier(value: String): Boolean =
-        value.isNotBlank() && value.length <= MAX_IDENTIFIER_LENGTH && !TextUtils.equals(value, "null")
+        value.isNotBlank() && value.length <= MAX_IDENTIFIER_LENGTH && value != "null"
 
     private fun success(data: Bundle): Bundle = StockSurfaceSupport.pushSupportResult(CODE_OK, data)
 

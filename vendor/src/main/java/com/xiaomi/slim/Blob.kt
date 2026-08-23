@@ -1,7 +1,6 @@
 package com.xiaomi.slim
 
-import android.text.TextUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
+import co.touchlab.kermit.Logger
 import com.xiaomi.mipush.sdk.Constants
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.RC4Cryption
@@ -65,87 +64,93 @@ open class Blob {
         get() = mPackageName
 
     var from: String?
-        get() {
-            if (!mHeader.hasUuid()) return null
-            return "${mHeader.uuid}@${mHeader.server}/${mHeader.resource}"
+        get() = if (mHeader.hasUuid()) {
+            mHeader.uuid.toString() + "@" + mHeader.server + "/" + mHeader.resource
+        } else {
+            null
         }
-        set(value) {
-            if (value.isNullOrEmpty()) return
-            val iIndexOf = value.indexOf("@")
-            try {
-                val uuid = value.substring(0, iIndexOf).toLong()
-                val iIndexOf2 = value.indexOf("/", iIndexOf)
-                val server = value.substring(iIndexOf + 1, iIndexOf2)
-                val resource = value.substring(iIndexOf2 + 1)
-                mHeader.uuid = uuid
-                mHeader.server = server
+        set(fullUserName) {
+            if (fullUserName.isNullOrEmpty()) return
+            val atIndex = fullUserName.indexOf("@")
+            val user = if (atIndex != -1) {
+                fullUserName.substring(0, atIndex)
+            } else {
+                fullUserName
+            }
+            val slashPos = fullUserName.indexOf("/", atIndex)
+            val server: String
+            val resource: String?
+            if (slashPos != -1) {
+                server = fullUserName.substring(atIndex + 1, slashPos)
+                resource = fullUserName.substring(slashPos + 1)
+            } else {
+                server = fullUserName.substring(atIndex + 1)
+                resource = null
+            }
+            mHeader.uuid = user.toLongOrNull() ?: 0L
+            mHeader.server = server
+            if (resource != null) {
                 mHeader.resource = resource
-            } catch (e: Exception) {
-                MyLog.w("Blob parse user err ${e.message}")
             }
         }
 
+    val payloadString: String
+        get() = mPayload.toString(Charsets.UTF_8)
+
+    val hasErr: Boolean
+        get() = mHeader.hasErrCode()
+
     var packetID: String?
-        get() {
-            val id = mHeader.id
-            if (ID_NOT_AVAILABLE == id) return null
-            if (!mHeader.hasId()) {
-                val nextId = nextID()
-                mHeader.id = nextId
-                return nextId
-            }
-            return id
-        }
-        set(value) {
-            mHeader.id = value
+        get() = if (mHeader.id == ID_NOT_AVAILABLE) null else mHeader.id
+        set(packetID) {
+            mHeader.id = packetID ?: ID_NOT_AVAILABLE
         }
 
     open val serializedSize: Int
-        get() = mHeader.serializedSize + HEADER_SIZE + mPayload.size
+        get() = mHeader.serializedSize + 8 + mPayload.size
 
-    fun hasErr(): Boolean = mHeader.hasErrCode()
+    val isLegacyPayload: Boolean
+        get() = mPayloadType == PAYLOAD_XML
 
-    fun getDecryptedPayload(security: String?): ByteArray {
-        return when (mHeader.cipher) {
-            CIPHER_RC4 -> {
-                val s = security ?: return mPayload.also { MyLog.w("RC4 decrypt skipped: null security") }
-                val id = packetID ?: return mPayload.also { MyLog.w("RC4 decrypt skipped: null packetID") }
-                RC4Cryption.encrypt(RC4Cryption.generateKeyForRC4(s, id), mPayload)
+    val isBlobPayload: Boolean
+        get() = mPayloadType == PAYLOAD_BINARY
+
+    val isThriftPayload: Boolean
+        get() = mPayloadType == PAYLOAD_THRIFT
+
+    fun getDecryptedPayload(key: String?): ByteArray {
+        return when {
+            mHeader.cipher == CIPHER_NONE -> mPayload
+            mHeader.cipher == CIPHER_RC4 && key != null -> {
+                val packetId = packetID ?: return mPayload
+                RC4Cryption.encrypt(
+                    RC4Cryption.generateKeyForRC4(key, packetId),
+                    mPayload,
+                )
             }
-            CIPHER_NONE -> mPayload
-            else -> {
-                MyLog.w("unknow cipher = ${mHeader.cipher}")
-                mPayload
-            }
+            else -> mPayload
         }
     }
 
-    fun setFrom(
-        uuid: Long,
-        server: String,
-        resource: String?,
-    ) {
-        if (uuid != 0L) {
-            mHeader.uuid = uuid
-        }
-        if (!TextUtils.isEmpty(server)) {
-            mHeader.server = server
-        }
-        if (resource.isNullOrEmpty()) return
-        mHeader.resource = resource
-    }
-
-    fun setCmd(
-        cmd: String,
-        subcmd: String?,
-    ) {
-        if (TextUtils.isEmpty(cmd)) {
-            throw IllegalArgumentException("command should not be empty")
-        }
+    fun setCmd(cmd: String, subcmd: String?) {
         mHeader.cmd = cmd
-        mHeader.clearSubcmd()
-        if (subcmd.isNullOrEmpty()) return
-        mHeader.subcmd = subcmd
+        if (subcmd != null) {
+            mHeader.subcmd = subcmd
+        }
+    }
+
+    fun setErrCode(errCode: Int) {
+        mHeader.errCode = errCode
+    }
+
+    fun setErrStr(errStr: String?) {
+        if (errStr != null) {
+            mHeader.errStr = errStr
+        }
+    }
+
+    fun setPayload(payload: ByteArray) {
+        mPayload = payload
     }
 
     fun setPayload(
@@ -160,7 +165,7 @@ open class Blob {
             if (id == null) {
                 mHeader.cipher = CIPHER_NONE
                 mPayload = payload
-                MyLog.w("setPayload: null packetID, falling back to CIPHER_NONE")
+                Logger.w { "setPayload: null packetID, falling back to CIPHER_NONE" }
             } else {
                 mHeader.cipher = CIPHER_RC4
                 mPayload = RC4Cryption.encrypt(
@@ -282,7 +287,7 @@ open class Blob {
             val chId = try {
                 packet.channelId?.toInt() ?: 1
             } catch (e: Exception) {
-                MyLog.w("Blob parse chid err ${e.message}")
+                Logger.w { "Blob parse chid err ${e.message}" }
                 1
             }
             blob.setChannelId(chId)
@@ -299,7 +304,7 @@ open class Blob {
                     PAYLOAD_BINARY
                 }
             } catch (e: UnsupportedEncodingException) {
-                MyLog.w("Blob setPayload err: ${e.message}")
+                Logger.w { "Blob setPayload err: ${e.message}" }
             }
             return blob
         }
@@ -323,7 +328,7 @@ open class Blob {
                 byteBufferSlice.get(bArr, 0, i)
                 Blob(clientHeader, s, bArr)
             } catch (e: Exception) {
-                MyLog.w("read Blob err :${e.message}")
+                Logger.w { "read Blob err :${e.message}" }
                 throw IOException("Malformed Input")
             }
         }

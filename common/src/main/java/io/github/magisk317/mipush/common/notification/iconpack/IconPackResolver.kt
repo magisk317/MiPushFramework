@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.common.notification.iconpack
 
 import android.content.Context
 import android.graphics.Bitmap
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import java.util.LinkedHashMap
 import kotlin.math.ceil
 import kotlin.math.max
@@ -127,13 +127,12 @@ fun interface IconPackObservationLogger {
 }
 
 private val DefaultIconPackObservationLogger = IconPackObservationLogger { observation ->
-    Napier.w(
+    Logger.withTag("IconPackResolver").w {
         "icon-pack fallback state=${observation.state} error=${observation.errorType} " +
             "reason=${observation.fallbackReason} " +
             "pkgDigest=${observation.targetPackageDigest} userDigest=${observation.userDigest} " +
-            "sourceDigest=${observation.sourceDigest}",
-        tag = "IconPackResolver",
-    )
+            "sourceDigest=${observation.sourceDigest}"
+    }
 }
 
 

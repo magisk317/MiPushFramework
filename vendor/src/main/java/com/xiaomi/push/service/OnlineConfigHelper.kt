@@ -1,6 +1,5 @@
 package com.xiaomi.push.service
 
-import android.util.Pair
 import com.xiaomi.channel.commonutils.misc.CollectionUtils
 import com.xiaomi.xmpush.thrift.ConfigListType
 import com.xiaomi.xmpush.thrift.ConfigType
@@ -53,7 +52,7 @@ object OnlineConfigHelper {
 
     @JvmStatic
     fun setVersion(onlineConfig: OnlineConfig, configListType: ConfigListType, version: Int) {
-        onlineConfig.preferences.edit().putInt(getVersionKey(configListType), version).commit()
+        onlineConfig.preferences.edit().putInt(getVersionKey(configListType), version).apply()
     }
 
     @JvmStatic

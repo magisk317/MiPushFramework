@@ -6,7 +6,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import io.github.aakira.napier.Napier
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 

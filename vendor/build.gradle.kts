@@ -10,23 +10,27 @@ android {
     // Keep the exception local so first-party modules retain the full repository lint policy.
     lint {
         disable += setOf(
-            "ApplySharedPref",
-            "ConstantLocale",
-            "DefaultLocale",
-            "DefaultUncaughtExceptionDelegation",
-            "DiscouragedApi",
-            "HardwareIds",
-            "InlinedApi",
-            "MissingPermission",
-            "NewApi",
+            // Version checks are redundant with minSdk 28 but serve as defensive coding.
+            // Removing them from frozen vendor code risks introducing regressions.
             "ObsoleteSdkInt",
-            "PrivateApi",
-            "QueryPermissionsNeeded",
-            "SimpleDateFormat",
-            "StaticFieldLeak",
-            "UnspecifiedRegisterReceiverFlag",
+            // Mechanical Kotlin extension replacements in vendor code risk behavior changes.
             "UseKtx",
+            // Custom Xiaomi protocol constants don't match Android framework expectations.
+            // Changing them would break protocol compatibility.
             "WrongConstant",
+            // Package visibility queries are handled by xmsf manifest's <queries> element.
+            "QueryPermissionsNeeded",
+            // Permissions are declared in xmsf's manifest and inherited at runtime.
+            // Vendor code cannot declare its own permissions.
+            "MissingPermission",
+            // Hidden/reflection APIs are required for XMSF functionality.
+            "DiscouragedApi",
+            // Stock behavior overrides crash handler for telemetry; changing breaks parity.
+            "DefaultUncaughtExceptionDelegation",
+            // Core XMSF requires hidden Android API access.
+            "PrivateApi",
+            // Device identifiers required for push registration protocol.
+            "HardwareIds",
         )
     }
 
@@ -44,7 +48,8 @@ dependencies {
     implementation(project(":magisk-xposed-kit:logging"))
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.napier)
+    implementation(libs.kermit)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

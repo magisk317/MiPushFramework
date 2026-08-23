@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.common.plugin
 
 import android.content.ComponentName
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 
 /**
  * 提供对于推送提供程序的检索功能
@@ -18,12 +18,12 @@ object PluginManager {
     @JvmStatic
     fun isEnabled(name: ComponentName?): Boolean {
         if (name == null) {
-            Napier.w("isEnabled called with null ComponentName", tag = TAG)
+            Logger.withTag(TAG).w { "isEnabled called with null ComponentName" }
             return false
         }
         // Plugin system not yet implemented — default to enabled for backward compatibility.
         // When the plugin registry is implemented, this should query actual enabled state.
-        Napier.d("isEnabled: ${name.flattenToShortString()} (default=true, plugin registry not implemented)", tag = TAG)
+        Logger.withTag(TAG).d { "isEnabled: ${name.flattenToShortString()} (default=true, plugin registry not implemented)" }
         return true
     }
 
@@ -33,7 +33,7 @@ object PluginManager {
     @JvmStatic
     fun verifyComponent(name: ComponentName): Boolean {
         // Plugin system not yet implemented — default to valid for backward compatibility.
-        Napier.d("verifyComponent: ${name.flattenToShortString()} (default=true, plugin registry not implemented)", tag = TAG)
+        Logger.withTag(TAG).d { "verifyComponent: ${name.flattenToShortString()} (default=true, plugin registry not implemented)" }
         return true
     }
 }

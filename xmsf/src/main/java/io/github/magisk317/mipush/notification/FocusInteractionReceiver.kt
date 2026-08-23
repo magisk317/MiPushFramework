@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.service.notification.StatusBarNotification
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 class FocusInteractionReceiver : BroadcastReceiver() {
@@ -51,17 +51,17 @@ class FocusInteractionReceiver : BroadcastReceiver() {
         }
         when (type) {
             TYPE_CLICK -> {
-                Napier.i("focus notification click pkg=$pkg id=$id tag=$tag", tag = TAG)
+                Logger.withTag(TAG).i { "focus notification click pkg=$pkg id=$id tag=$tag" }
             }
             TYPE_PULL_DOWN -> {
-                Napier.i("focus notification pull-down pkg=$pkg id=$id tag=$tag", tag = TAG)
+                Logger.withTag(TAG).i { "focus notification pull-down pkg=$pkg id=$id tag=$tag" }
             }
             TYPE_PANEL_ACTION -> {
                 val status = intent.getIntExtra("status", -1)
-                Napier.i("focus notification panel action pkg=$pkg status=$status", tag = TAG)
+                Logger.withTag(TAG).i { "focus notification panel action pkg=$pkg status=$status" }
             }
             else -> {
-                Napier.d("focus interaction unknown type=$type pkg=$pkg", tag = TAG)
+                Logger.withTag(TAG).d { "focus interaction unknown type=$type pkg=$pkg" }
             }
         }
         MagiskOtel.event(

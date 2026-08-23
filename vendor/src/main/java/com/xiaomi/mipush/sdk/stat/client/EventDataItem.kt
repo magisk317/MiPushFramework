@@ -1,8 +1,8 @@
 package com.xiaomi.mipush.sdk.stat.client
 
-import android.text.TextUtils
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /*
  * Local legacy stat client model retained for compatibility.
@@ -124,19 +124,15 @@ class EventDataItem {
         }
 
         private fun mapToJson(map: Map<String, String>): String {
-            val jSONObject = JSONObject()
-            if (map.isNotEmpty()) {
-                try {
-                    for (str in map.keys) {
-                        if (!TextUtils.isEmpty(str)) {
-                            jSONObject.put(str, "${map[str]}")
-                        }
+            if (map.isEmpty()) return "{}"
+            val obj = buildJsonObject {
+                for ((k, v) in map) {
+                    if (k.isNotEmpty()) {
+                        put(k, v)
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
-            return jSONObject.toString()
+            return obj.toString()
         }
     }
 
@@ -175,28 +171,16 @@ class EventDataItem {
             mValue = value
         }
 
-    fun toJson(): JSONObject {
-        val jSONObject = JSONObject()
-        try {
-            if (!TextUtils.isEmpty(mCategory)) {
-                jSONObject.put("category", mCategory)
-            }
-            if (!TextUtils.isEmpty(mKey)) {
-                jSONObject.put("key", mKey)
-            }
-            if (!TextUtils.isEmpty(mValue)) {
-                jSONObject.put("value", mValue)
-            }
-            if (!TextUtils.isEmpty(mType)) {
-                jSONObject.put("type", mType)
-            }
+    fun toJson(): JsonObject {
+        return buildJsonObject {
+            mCategory?.takeIf { it.isNotEmpty() }?.let { put("category", it) }
+            mKey?.takeIf { it.isNotEmpty() }?.let { put("key", it) }
+            mValue?.takeIf { it.isNotEmpty() }?.let { put("value", it) }
+            mType?.takeIf { it.isNotEmpty() }?.let { put("type", it) }
             if (mParams.isNotEmpty()) {
-                jSONObject.put("params", mapToJson(mParams))
+                put("params", mapToJson(mParams))
             }
-            jSONObject.put("timeStamp", mTimeStamp)
-        } catch (e: JSONException) {
-            e.printStackTrace()
+            put("timeStamp", mTimeStamp)
         }
-        return jSONObject
     }
 }
