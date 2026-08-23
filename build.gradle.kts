@@ -1,7 +1,6 @@
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
 import dev.detekt.gradle.extensions.DetektExtension
-import org.gradle.api.artifacts.VersionCatalogsExtension
 import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
@@ -10,9 +9,11 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.parcelize) apply false
     alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.robolectric.junit5) apply false
     alias(libs.plugins.detekt) apply false
@@ -43,24 +44,6 @@ buildscript {
         mavenCentral()
         gradlePluginPortal()
     }
-    configurations.all {
-        resolutionStrategy {
-            // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
-            force("io.netty:netty-codec:5.0.0.Alpha2")
-            force("io.netty:netty-codec-http:5.0.0.Alpha2")
-            force("io.netty:netty-codec-http2:5.0.0.Alpha2")
-            force("io.netty:netty-common:5.0.0.Alpha2")
-            force("io.netty:netty-handler:5.0.0.Alpha2")
-            force("io.netty:netty-handler-proxy:5.0.0.Alpha2")
-            force("org.apache.commons:commons-lang3:3.20.0")
-            force("org.apache.httpcomponents:httpclient:4.5.14")
-            force("org.bitbucket.b_c:jose4j:0.9.6")
-            force("org.bouncycastle:bcpkix-jdk18on:1.84")
-            force("org.bouncycastle:bcprov-jdk18on:1.84")
-            force("org.jdom:jdom2:2.0.6.1")
-            // END AUTO FORCED DEPENDENCIES (managed by workflow)
-        }
-    }
 }
 
 val versionNameOverride = providers.gradleProperty("versionName")
@@ -90,13 +73,6 @@ extra["gitCommit"] = gitCommit
 extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 val catalog = libs
-val forcedKotlinVersion = extensions
-    .getByType<VersionCatalogsExtension>()
-    .named("libs")
-    .findVersion("kotlin")
-    .get()
-    .requiredVersion
-val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
 val detektBlockingProjects = setOf(
     ":app",
     ":common",
@@ -172,35 +148,6 @@ subprojects {
 }
 
 allprojects {
-    configurations.configureEach {
-        resolutionStrategy {
-            // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
-            force("io.netty:netty-codec:5.0.0.Alpha2")
-            force("io.netty:netty-codec-http:5.0.0.Alpha2")
-            force("io.netty:netty-codec-http2:5.0.0.Alpha2")
-            force("io.netty:netty-common:5.0.0.Alpha2")
-            force("io.netty:netty-handler:5.0.0.Alpha2")
-            force("io.netty:netty-handler-proxy:5.0.0.Alpha2")
-            force("org.apache.commons:commons-lang3:3.20.0")
-            force("org.apache.httpcomponents:httpclient:4.5.14")
-            force("org.bitbucket.b_c:jose4j:0.9.6")
-            force("org.bouncycastle:bcpkix-jdk18on:1.84")
-            force("org.bouncycastle:bcprov-jdk18on:1.84")
-            force("org.jdom:jdom2:2.0.6.1")
-            // END AUTO FORCED DEPENDENCIES (managed by workflow)
-
-            // Custom migration overrides for Java 26 compatibility
-            force("org.jetbrains.kotlin:kotlin-metadata-jvm:$forcedKotlinVersion")
-            force("org.ow2.asm:asm:9.10.1")
-            force("org.ow2.asm:asm-commons:9.10.1")
-            force("org.ow2.asm:asm-tree:9.10.1")
-            force("org.ow2.asm:asm-analysis:9.10.1")
-            force("org.ow2.asm:asm-util:9.10.1")
-            force("net.bytebuddy:byte-buddy:$forcedByteBuddyVersion")
-            force("net.bytebuddy:byte-buddy-agent:$forcedByteBuddyVersion")
-        }
-    }
-
     gradle.taskGraph.whenReady {
         allTasks.forEach { task ->
             if (task.name == "mockableAndroidJar") {

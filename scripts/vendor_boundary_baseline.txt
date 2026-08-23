@@ -1,5 +1,14 @@
-# Existing product-layer imports retained in vendor for compatibility migration.
-# New io.github.magisk317.* imports under vendor/src/main are forbidden.
+# Vendor Product-Layer Import Baseline
+# Each entry represents a deliberate, documented compatibility debt.
+# Format: relative/path.kt|import statement
+# Every entry MUST have: stock source, impact, verification status.
+# See docs/vendor_boundary_audit.md for full details.
+
+# === Category 1: MagiskOtel Structured Telemetry (13 entries) ===
+# Source: stock com.xiaomi.channel.commonutils.logger.MyLog
+# Impact: Structured JSONL events, no behavior change
+# Verified: PushPacketRuntimeTest + runtime JSONL output
+vendor/src/main/java/com/xiaomi/mipush/sdk/AssemblePushHelper.kt|import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 vendor/src/main/java/com/xiaomi/mipush/sdk/MiPushClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
 vendor/src/main/java/com/xiaomi/mipush/sdk/MiTinyDataClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
 vendor/src/main/java/com/xiaomi/mipush/sdk/PushMessageHandler.kt|import io.github.magisk317.xposed.logging.MagiskOtel
@@ -7,12 +16,28 @@ vendor/src/main/java/com/xiaomi/mipush/sdk/PushServiceClient.kt|import io.github
 vendor/src/main/java/com/xiaomi/push/service/ClientEventDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
 vendor/src/main/java/com/xiaomi/push/service/MIPushAckDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
 vendor/src/main/java/com/xiaomi/push/service/MIPushEventProcessor.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/PacketSync.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/XMPushServicePacketDelegate.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+
+# === Category 2: LoggerExtensions Structured Logging (5 entries) ===
+# Source: stock MyLog
+# Impact: Kermit structured facade, sanitization support
+# Verified: LogSanitizationContractRobolectricTest
 vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logD
 vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logE
 vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logI
 vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logV
 vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logW
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/PacketSync.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+
+# === Category 3: DefaultLogSanitizer (1 entry) ===
+# Source: stock logging (no sanitization)
+# Impact: Token/secret redaction, prevents logcat leakage
+# Verified: LogSanitizationContractRobolectricTest
+vendor/src/main/java/com/xiaomi/mipush/sdk/AssemblePushHelper.kt|import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+
+# === Category 4: PushServiceBroadcastActions Contract (1 entry) ===
+# Source: stock PushConstants hardcoded strings
+# Impact: Shared contract constants, no behavior change
+# Verified: ExportedStockServiceContractTest + XMPushServiceAppIntentDelegateContractTest
 vendor/src/main/java/com/xiaomi/push/service/XMPushServiceMessenger.kt|import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
-vendor/src/main/java/com/xiaomi/push/service/XMPushServicePacketDelegate.kt|import io.github.magisk317.xposed.logging.MagiskOtel

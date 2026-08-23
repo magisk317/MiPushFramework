@@ -54,4 +54,5 @@ dependencies {
     implementation(project(":manager"))
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kermit)
 }

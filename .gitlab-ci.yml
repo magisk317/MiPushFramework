@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: main
+    ref: db32dc00ab454095eb2846e1906a03b34283c586
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: main
+    ref: db32dc00ab454095eb2846e1906a03b34283c586
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: main
+    ref: db32dc00ab454095eb2846e1906a03b34283c586
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: main
+    ref: db32dc00ab454095eb2846e1906a03b34283c586
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -39,7 +39,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "main"
+  MAGISK_CI_TOOLKIT_REF: "db32dc00ab454095eb2846e1906a03b34283c586"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -389,31 +389,80 @@ android:detekt:
       junit:
         - "**/build/test-results/test*/TEST-*.xml"
 
-android:test:robolectric:
+android:test:robolectric-xmsf-1:
   extends: .mipush_robolectric_tests
   variables:
-    MAGISK_ANDROID_TEST_SHARDS: >-
-      common-notification common-utils common-other core
-      xposed-systemui xposed-island xposed-other
-      xmsf-stock xmsf-notification xmsf-service xmsf-manager xmsf-runtime xmsf-other
-      manager-events manager-main manager-connection manager-other
+    MAGISK_ANDROID_TEST_SHARDS: robolectric-xmsf-1
   needs:
     - job: android:ci:play-alpha
       artifacts: false
       optional: true
 
+android:test:robolectric-xmsf-2:
+  extends: .mipush_robolectric_tests
+  variables:
+    MAGISK_ANDROID_TEST_SHARDS: robolectric-xmsf-2
+  needs:
+    - job: android:ci:play-alpha
+      artifacts: false
+      optional: true
+
+android:test:robolectric-support:
+  extends: .mipush_robolectric_tests
+  variables:
+    MAGISK_ANDROID_TEST_SHARDS: robolectric-support
+  needs:
+    - job: android:ci:play-alpha
+      artifacts: false
+      optional: true
+
+android:test:pure-modules:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  image: "eclipse-temurin:26.0.1_8-jdk"
+  stage: quality
+  tags:
+    - magisk-arm64-linux
+  needs:
+    - job: android:ci:play-alpha
+      artifacts: false
+      optional: true
+  cache: []
+  variables:
+    MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      bash scripts/ci/run_test_shards.sh $MAGISK_ANDROID_TEST_SHARDS
+  artifacts:
+    name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
 android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # The coverage gate consumes the AMD Robolectric job's artifacts but does
+  # The coverage gate consumes the AMD Robolectric jobs' artifacts but does
   # not execute Robolectric. Keep the gate on ARM after Alpha publishing.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:test:robolectric
+    - job: android:test:robolectric-xmsf-1
+      artifacts: true
+    - job: android:test:robolectric-xmsf-2
+      artifacts: true
+    - job: android:test:robolectric-support
+      artifacts: true
+    - job: android:test:pure-modules
       artifacts: true
     - job: android:ci:play-alpha
       artifacts: false
