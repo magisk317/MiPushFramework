@@ -186,6 +186,7 @@
                 android:name="com.xiaomi.xmsf.provider.IslandPreferenceProvider"
                 android:authorities="com.xiaomi.xmsf.island.prefs"
                 android:exported="true" />
+        <!-- Stock SDK compatibility: read-only fixed online-config row; insert/delete/update no-op. -->
         <provider
                 android:name="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
                 android:authorities="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
@@ -201,6 +202,7 @@
                 android:authorities="com.xiaomi.push.provider.PUSH_SUPPORT"
                 android:permission="com.xiaomi.push.permission.PUSH_SUPPORT"
                 android:exported="true" />
+        <!-- Stock SDK compatibility probe; returns capability flag only, all mutations inert. -->
         <provider
                 android:name="com.xiaomi.push.provider.PushCommonProvider"
                 android:authorities="com.xiaomi.push.provider.PUSH_COMMON"

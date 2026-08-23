@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import co.touchlab.kermit.Logger
 import android.widget.Toast
 import com.xiaomi.xmsf.app.R
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
@@ -26,10 +26,10 @@ class ManagerUiRedirectActivity : Activity() {
         try {
             startActivity(redirect)
         } catch (error: ActivityNotFoundException) {
-            Log.w(TAG, "manager package missing for $requestedClass", error)
+            Logger.withTag(TAG).w(error) { "manager package missing for $requestedClass" }
             Toast.makeText(this, R.string.manager_ui_unavailable, Toast.LENGTH_LONG).show()
         } catch (error: SecurityException) {
-            Log.w(TAG, "manager entry blocked for $requestedClass", error)
+            Logger.withTag(TAG).w(error) { "manager entry blocked for $requestedClass" }
             Toast.makeText(this, R.string.manager_ui_unavailable, Toast.LENGTH_LONG).show()
         }
         finish()
