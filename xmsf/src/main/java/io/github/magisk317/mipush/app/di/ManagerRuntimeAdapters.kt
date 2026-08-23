@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Process
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
@@ -276,7 +276,10 @@ class XmsfManagerLogGateway : ManagerLogGateway {
     }
 
     override suspend fun buildLogBundle(context: Context): ManagerLogExportResult {
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(
+            context = context,
+            mode = DiagnosticExportModes.fromDebugLoggingSetting(context),
+        )
         return ManagerLogExportResult(file = result.file, details = result.details)
     }
 
@@ -635,10 +638,9 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
             .sortedWith(ManagerApplicationReadPolicy.comparator)
             .toList()
-        Napier.d(
-            "manager app list loaded total=${catalog.totalCandidatePackages} shown=${apps.size} ms=${timer.elapsed()}",
-            tag = "XmsfManagerApplicationGateway",
-        )
+        Logger.withTag("XmsfManagerApplicationGateway").d {
+            "manager app list loaded total=${catalog.totalCandidatePackages} shown=${apps.size} ms=${timer.elapsed()}"
+        }
         return ManagerApplications(
             registeredPkgs = registered.mapValues {
                 it.value.toManagerApplication(
@@ -736,10 +738,9 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         // Force-register must actively request elevation (KSU/Magisk prompt).
         // refreshRootAccessIfGranted() returns false when grant state is still unknown.
         if (!PermissionUtils.requestRootAccess()) {
-            Napier.w(
-                "force-register aborted: root not granted pkg=$packageName",
-                tag = "XmsfManagerApplicationGateway",
-            )
+            Logger.withTag("XmsfManagerApplicationGateway").w {
+                "force-register aborted: root not granted pkg=$packageName"
+            }
             return ManagerForceRegisterResult(
                 succeeded = false,
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_requires_root),

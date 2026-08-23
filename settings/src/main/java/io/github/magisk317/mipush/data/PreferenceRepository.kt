@@ -129,6 +129,7 @@ class PreferenceRepository constructor(
     private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
     private val COLOR_STATUS_BAR_ICON_GLOBAL = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_GLOBAL_KEY)
     private val DUAL_APP_ENABLED = booleanPreferencesKey(DUAL_APP_ENABLED_KEY)
+    private val LAST_WELCOME_NOTIFIED_UPDATE_TIME = longPreferencesKey("last_welcome_notified_update_time")
 
     // Getters
     val accessMode: Flow<String> = dataStore.data.map { it[ACCESS_MODE] ?: "0" }
@@ -204,35 +205,19 @@ class PreferenceRepository constructor(
     val iconRemoteAccelerator: Flow<String> = dataStore.data.map {
         it[ICON_REMOTE_ACCELERATOR] ?: ConfigDefaults.ICON_REMOTE_ACCELERATOR
     }
+    val lastWelcomeNotifiedUpdateTime: Flow<Long> = dataStore.data.map {
+        it[LAST_WELCOME_NOTIFIED_UPDATE_TIME] ?: 0L
+    }
 
     val debugMode: Flow<Boolean> = isDebugMode
     val logSanitizationEnabled: Flow<Boolean> = isLogSanitizationEnabled
     val analyticsEnabled: Flow<Boolean> = isAnalyticsEnabled
     val showAllEvents: Flow<Boolean> = isShowAllEvents
 
-    suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot {
-        val preferences = dataStore.data.first()
-        return IslandSettingsSnapshot(
-            enabled = preferences[ISLAND_ENABLED] ?: true,
-            timeoutSecs = (preferences[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1),
-            firstFloat = preferences[ISLAND_FIRST_FLOAT] ?: true,
-            enableFloat = preferences[ISLAND_ENABLE_FLOAT] ?: true,
-            showNotification = preferences[ISLAND_SHOW_NOTIFICATION] ?: true,
-            showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
-            focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
-            colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
-            colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
-            dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
-            logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
-            rendererMode = preferences[ISLAND_RENDERER_MODE] ?: "auto",
-            visualEnabled = preferences[ISLAND_VISUAL_ENABLED] ?: true,
-            dynamicColor = preferences[ISLAND_DYNAMIC_COLOR] ?: true,
-            blurEnabled = preferences[ISLAND_BLUR_ENABLED] ?: true,
-            glassEnabled = preferences[ISLAND_GLASS_ENABLED] ?: true,
-            outerGlowEnabled = preferences[ISLAND_OUTER_GLOW_ENABLED] ?: true,
-            animationEnabled = preferences[ISLAND_ANIMATION_ENABLED] ?: true,
-        )
-    }
+    suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot =
+        toSnapshot(dataStore.data.first())
+
+    // Setters
 
     // Setters
     suspend fun setAccessMode(mode: String) {
@@ -395,6 +380,14 @@ class PreferenceRepository constructor(
         dataStore.edit { it[LAST_CONFIG_SYNC_TIME] = time }
     }
 
+    suspend fun getLastWelcomeNotifiedUpdateTime(): Long {
+        return dataStore.data.first()[LAST_WELCOME_NOTIFIED_UPDATE_TIME] ?: 0L
+    }
+
+    suspend fun setLastWelcomeNotifiedUpdateTime(time: Long) {
+        dataStore.edit { it[LAST_WELCOME_NOTIFIED_UPDATE_TIME] = time }
+    }
+
     suspend fun setConfigRemoteRepository(repository: String) {
         dataStore.edit { it[CONFIG_REMOTE_REPOSITORY] = repository }
     }
@@ -520,7 +513,7 @@ class PreferenceRepository constructor(
         return out.values.sortedBy { it.key }
     }
 
-    private companion object {
+    companion object {
         const val DEFAULT_UI_KIT_STYLE = 0
         const val DEFAULT_LAUNCHER_ICON = "default"
         const val LEGACY_LAUNCHER_ICON = "legacy"
@@ -528,4 +521,30 @@ class PreferenceRepository constructor(
         fun normalizeLauncherIcon(iconId: String): String =
             if (iconId == LEGACY_LAUNCHER_ICON) LEGACY_LAUNCHER_ICON else DEFAULT_LAUNCHER_ICON
     }
+
+    /**
+     * Pure conversion from [Preferences] to [IslandSettingsSnapshot].
+     * Used by both [readIslandSettingsSnapshot] and the DataStore Flow observer
+     * in IslandOptionsSnapshotReader.
+     */
+    fun toSnapshot(preferences: Preferences): IslandSettingsSnapshot = IslandSettingsSnapshot(
+        enabled = preferences[ISLAND_ENABLED] ?: true,
+        timeoutSecs = (preferences[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1),
+        firstFloat = preferences[ISLAND_FIRST_FLOAT] ?: true,
+        enableFloat = preferences[ISLAND_ENABLE_FLOAT] ?: true,
+        showNotification = preferences[ISLAND_SHOW_NOTIFICATION] ?: true,
+        showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
+        focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
+        colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
+        colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
+        dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
+        logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
+        rendererMode = preferences[ISLAND_RENDERER_MODE] ?: "auto",
+        visualEnabled = preferences[ISLAND_VISUAL_ENABLED] ?: true,
+        dynamicColor = preferences[ISLAND_DYNAMIC_COLOR] ?: true,
+        blurEnabled = preferences[ISLAND_BLUR_ENABLED] ?: true,
+        glassEnabled = preferences[ISLAND_GLASS_ENABLED] ?: true,
+        outerGlowEnabled = preferences[ISLAND_OUTER_GLOW_ENABLED] ?: true,
+        animationEnabled = preferences[ISLAND_ANIMATION_ENABLED] ?: true,
+    )
 }
