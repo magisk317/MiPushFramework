@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.common.configurations
 
-import io.github.aakira.napier.Napier
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -89,7 +88,7 @@ object Lisp {
 
     private fun evaluateCond(expr: ConfigJsonArray, extension: Evaluable): Any? {
         for (i in 1 until expr.length()) {
-            val clause = expr.optConfigJsonArray(i) ?: return null
+            val clause = expr.optJSONArray(i) ?: return null
             val test = clause.opt(0)
             if (test is ConfigJsonArray) {
                 if (evaluate(test, extension) == true) {

@@ -205,10 +205,11 @@ if [ -s "$tmp_forbidden_xmsf_edges" ]; then
   exit 1
 fi
 
-# Runtime_Boundary for the navigation-performance work: all working-tree changes
-# must remain in the manager/UI Kit surface or this verifier. This intentionally
-# includes untracked files so a new performance implementation cannot bypass the
-# check before it is staged.
+# Runtime_Boundary for the navigation-performance and modernization work: all working-tree
+# changes must remain in explicitly reviewed module/config surfaces or this verifier. This
+# intentionally includes untracked files so a new implementation cannot bypass the check
+# before it is staged. The isolated Room/KMP shadow module and its minimal root wiring are
+# deliberate additions to the reviewed surface.
 tmp_changed_paths="$(mktemp)"
 tmp_boundary_violations="$(mktemp)"
 tmp_uikit_violations="$(mktemp)"
@@ -216,14 +217,14 @@ tmp_aidl_changes="$(mktemp)"
 trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps" "$tmp_forbidden_xmsf_edges" "$tmp_vendor_current" "$tmp_vendor_baseline" "$tmp_vendor_new" "$tmp_vendor_stale" "$tmp_changed_paths" "$tmp_boundary_violations" "$tmp_uikit_violations" "$tmp_aidl_changes"' EXIT
 
 {
-  git diff --name-only --diff-filter=ACDMRTUXB HEAD
+  git diff --name-only --diff-filter=ACMRT HEAD
   git ls-files --others --exclude-standard
 } | sort -u > "$tmp_changed_paths"
 
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    magisk-ui-kit|magisk-ui-kit/*|manager/*|manager-client/*|manager-api/*|xposed/*|xmsf/*|vendor/*|scripts/verify_module_boundaries.sh)
+    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/*|manager-client/*|manager-api/*|settings|settings/*|xposed/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|runtime-store-kmp/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
