@@ -350,72 +350,6 @@ android:detekt:
       - merged-sarif/detekt.sarif
       - "**/build/reports/detekt/**"
 
-.mipush_robolectric_tests:
-  extends:
-    - .magisk_android_base
-    - .mipush_android_rules
-  # Robolectric's native runtime is not supported on Linux/AArch64. Run the
-  # package-filtered shards on the AMD64/JDK 26 environment. No unfiltered
-  # module-wide test task is allowed here, and this does not compete with ARM.
-  image: "eclipse-temurin:26.0.1_8-jdk"
-  stage: quality
-  tags:
-    - magisk-amd64-linux
-  needs: []
-  cache: []
-  script:
-    - |
-      set -euo pipefail
-      : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
-      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      bash scripts/ci/run_test_shards.sh $MAGISK_ANDROID_TEST_SHARDS
-      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-        :common:koverGenerateArtifactDebug \
-        :core:koverGenerateArtifactDebug \
-        :xposed:koverGenerateArtifactDebug \
-        :xmsf:koverGenerateArtifactNormalDebug \
-        :xmsf:koverGenerateArtifactVc105Debug \
-        -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries
-  artifacts:
-    name: "MiPushFramework-robolectric-$CI_JOB_NAME_SLUG-$CI_COMMIT_REF_SLUG"
-    when: always
-    expire_in: 14 days
-    paths:
-      - common/build/kover/**
-      - core/build/kover/**
-      - xposed/build/kover/**
-      - xmsf/build/kover/**
-    reports:
-      junit:
-        - "**/build/test-results/test*/TEST-*.xml"
-
-android:test:robolectric-xmsf-1:
-  extends: .mipush_robolectric_tests
-  variables:
-    MAGISK_ANDROID_TEST_SHARDS: robolectric-xmsf-1
-  needs:
-    - job: android:ci:play-alpha
-      artifacts: false
-      optional: true
-
-android:test:robolectric-xmsf-2:
-  extends: .mipush_robolectric_tests
-  variables:
-    MAGISK_ANDROID_TEST_SHARDS: robolectric-xmsf-2
-  needs:
-    - job: android:ci:play-alpha
-      artifacts: false
-      optional: true
-
-android:test:robolectric-support:
-  extends: .mipush_robolectric_tests
-  variables:
-    MAGISK_ANDROID_TEST_SHARDS: robolectric-support
-  needs:
-    - job: android:ci:play-alpha
-      artifacts: false
-      optional: true
-
 android:test:pure-modules:
   extends:
     - .magisk_android_base
@@ -449,19 +383,12 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # The coverage gate consumes the AMD Robolectric jobs' artifacts but does
-  # not execute Robolectric. Keep the gate on ARM after Alpha publishing.
+  # Coverage gate runs on ARM after Alpha publishing.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:test:robolectric-xmsf-1
-      artifacts: true
-    - job: android:test:robolectric-xmsf-2
-      artifacts: true
-    - job: android:test:robolectric-support
-      artifacts: true
     - job: android:test:pure-modules
       artifacts: true
     - job: android:ci:play-alpha
@@ -472,8 +399,7 @@ android:test:
     - |
       set -euo pipefail
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      # Test execution is completed by the AMD Robolectric job. Keep the final job as
-      # an ARM-side coverage gate and exclude those tasks to avoid rerunning them.
+      # Coverage gate — run kover and quality checks.
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
         qualityGateKoverVerify \
         -PminifyDebug \

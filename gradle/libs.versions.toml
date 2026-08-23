@@ -51,8 +51,6 @@ mockk = "1.14.11"
 navigation = "2.10.0-rc01"
 netty-codec = "5.0.0.Alpha2"
 netty-runtime = "5.0.0.Alpha2"
-robolectric = "4.17-beta-3"
-robolectric-junit5 = "0.9.0"
 room = "2.8.4"
 sqlite = "2.6.2"
 startup = "1.2.0"
@@ -105,8 +103,6 @@ markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
 miuix = { module = "top.yukonga.miuix.kmp:miuix", version.ref = "miuix" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 palette = { module = "androidx.palette:palette", version = "1.0.0" }
-robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-robolectric-junit5-extension = { module = "tech.apter.junit5.jupiter:robolectric-extension", version.ref = "robolectric-junit5" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -120,4 +116,3 @@ kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref =
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-robolectric-junit5 = { id = "tech.apter.junit5.jupiter.robolectric-extension-gradle-plugin", version.ref = "robolectric-junit5" }

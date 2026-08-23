@@ -1,17 +1,16 @@
 package com.xiaomi.network
 
-import android.app.Application
+import android.content.Context
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
+import com.xiaomi.channel.commonutils.network.Network
+import java.io.File
 import java.io.IOException
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
 class FallbackParityTest {
     @Test
     fun `failed access history changes weighted host ordering`() {
@@ -27,7 +26,13 @@ class FallbackParityTest {
 
     @Test
     fun `missing local bucket returns ineffective refresh proxy`() {
-        val context: Application = RuntimeEnvironment.getApplication()
+        mockkStatic(Network::class)
+        every { Network.hasNetwork(any()) } returns false
+
+        val context = mockk<Context> {
+            every { packageName } returns "com.xiaomi.network.test"
+            every { filesDir } returns File(System.getProperty("java.io.tmpdir"))
+        }
         val fallback = HostManager(context).getFallbacksByHost("missing.example", false)
 
         requireNotNull(fallback)

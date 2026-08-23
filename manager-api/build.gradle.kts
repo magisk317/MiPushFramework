@@ -1,6 +1,5 @@
 plugins {
     id("magisk.android.library")
-    alias(libs.plugins.robolectric.junit5)
 }
 
 android {
@@ -13,7 +12,5 @@ android {
 
 dependencies {
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

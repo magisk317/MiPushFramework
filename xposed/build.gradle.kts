@@ -9,7 +9,6 @@ import org.gradle.kotlin.dsl.configure
 
 plugins {
     id("magisk.android.library")
-    alias(libs.plugins.robolectric.junit5)
 }
 
 abstract class GenerateCompatProfilesTask : DefaultTask() {
@@ -149,8 +148,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.robolectric.junit5.extension)
     testImplementation(libs.mockk)
     testImplementation(libs.jqwik)
     testRuntimeOnly(libs.junit.platform.launcher)

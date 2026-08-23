@@ -1,24 +1,21 @@
 package com.xiaomi.smack
 
-import android.app.Application
+import android.content.Context
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.smack.packet.Packet
 import com.xiaomi.slim.Blob
+import com.xiaomi.channel.commonutils.network.Network
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 import java.util.concurrent.CancellationException
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
 class ConnectionStateMachineTest {
     @Test
     fun `valid challenge is the only connecting to connected transition`() {
@@ -76,8 +73,11 @@ class ConnectionStateMachineTest {
     }
 
     private fun fixture(): Fixture {
+        mockkStatic(Network::class)
+        every { Network.hasNetwork(any()) } returns true
+
         val action = mockk<IPushServiceAction>(relaxed = true)
-        val context: Application = RuntimeEnvironment.getApplication()
+        val context = mockk<Context>(relaxed = true)
         val connection = TestConnection(
             action,
             context,
@@ -95,7 +95,7 @@ class ConnectionStateMachineTest {
 
     private class TestConnection(
         action: IPushServiceAction,
-        context: Application,
+        context: Context,
         configuration: ConnectionConfiguration,
     ) : Connection(action, context, configuration) {
         override fun connect() {

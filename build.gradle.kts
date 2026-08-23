@@ -15,7 +15,6 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.kotlin.serialization) apply false
-    alias(libs.plugins.robolectric.junit5) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.kover) apply false
     id("magisk.maintenance")

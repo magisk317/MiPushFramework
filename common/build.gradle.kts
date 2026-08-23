@@ -10,7 +10,6 @@ import org.gradle.kotlin.dsl.configure
 plugins {
     id("magisk.android.library")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.robolectric.junit5)
 }
 
 abstract class GenerateMiPushPropTemplateTask : DefaultTask() {
@@ -119,8 +118,6 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.jqwik)
     testImplementation(libs.mockk)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

@@ -1,7 +1,6 @@
 plugins {
     id("magisk.android.library")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.robolectric.junit5)
 }
 
 android {
@@ -16,7 +15,6 @@ dependencies {
     implementation(libs.androidx.documentfile)
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.robolectric.junit5.extension)
+    testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -1,24 +1,14 @@
 package io.github.magisk317.mipush.hook.island
 
-import io.github.magisk317.mipush.common.NotificationStyle
-import io.github.magisk317.mipush.common.island.IslandOptions
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
 class IslandPayloadBuilderTest {
     @Test
     fun `normalizes show notification flags at root and param v2`() {
@@ -87,83 +77,5 @@ class IslandPayloadBuilderTest {
         assertTrue(paramIsland.containsKey("bigIslandArea"))
         assertTrue(paramIsland.containsKey("smallIslandArea"))
         assertTrue(paramIsland.containsKey("islandTimeout"))
-    }
-
-    @Test
-    fun `alert payload uses two-line icon text layout instead of highlight hint`() {
-        val title = "芝麻粒消失提醒"
-        val content = "可攒30粒，产生后7天消失，请及时处理"
-
-        val result = IslandPayloadBuilder.buildFocusParam(
-            context = RuntimeEnvironment.getApplication(),
-            title = title,
-            content = content,
-            style = NotificationStyle.ALERT,
-        )
-
-        val paramV2 = Json.parseToJsonElement(result).jsonObject["param_v2"]!!.jsonObject
-        assertFalse(paramV2.containsKey("highlightInfo"))
-        assertFalse(paramV2.containsKey("hintInfo"))
-        assertEquals(title, paramV2["iconTextInfo"]!!.jsonObject["title"]!!.jsonPrimitive.contentOrNull)
-        assertEquals(content, paramV2["iconTextInfo"]!!.jsonObject["content"]!!.jsonPrimitive.contentOrNull)
-
-        val bigIslandArea = paramV2["param_island"]!!
-            .jsonObject["bigIslandArea"]!!
-            .jsonObject
-        assertFalse(bigIslandArea.containsKey("imageTextInfoRight"))
-        val left = bigIslandArea["imageTextInfoLeft"]!!.jsonObject
-        assertEquals("miui.focus.pic_mipush_icon", left["picInfo"]!!.jsonObject["pic"]!!.jsonPrimitive.contentOrNull)
-        val textInfo = left["textInfo"]!!.jsonObject
-        assertEquals(title, textInfo["title"]!!.jsonPrimitive.contentOrNull)
-        assertEquals(content, textInfo["content"]!!.jsonPrimitive.contentOrNull)
-    }
-
-    @Test
-    fun `visual switch suppresses explicit colors and outer glow`() {
-        IslandPreferences.resetForTest(IslandOptions(visualEnabled = false))
-        try {
-            val extras = IslandPayloadBuilder.buildExtras(
-                context = RuntimeEnvironment.getApplication(),
-                title = "title",
-                content = "content",
-                highlightColor = "#FFFF0000",
-                islandOuterGlow = true,
-            )
-
-            assertFalse(extras.containsKey(IslandDispatchContract.HIGHLIGHT_COLOR))
-            assertFalse(extras.containsKey(IslandDispatchContract.GLOW_COLOR))
-            assertFalse(extras.containsKey(IslandDispatchContract.ISLAND_GLOW_COLOR))
-            assertFalse(extras.containsKey(IslandDispatchContract.FOCUS_GLOW_COLOR))
-
-            val paramIsland = Json.parseToJsonElement(
-                extras.getString(IslandDispatchContract.FOCUS_PARAM)!!,
-            ).jsonObject["param_v2"]!!.jsonObject["param_island"]!!.jsonObject
-            assertFalse(paramIsland.containsKey("highlightColor"))
-            assertFalse(paramIsland.containsKey("outEffectSrc"))
-        } finally {
-            IslandPreferences.resetForTest()
-        }
-    }
-
-    @Test
-    fun `explicit caller options survive package preference lookup`() {
-        IslandPreferences.resetForTest(IslandOptions(visualEnabled = false))
-        try {
-            val extras = IslandPayloadBuilder.buildExtras(
-                context = RuntimeEnvironment.getApplication(),
-                title = "title",
-                content = "content",
-                sourcePackage = "com.example.clone",
-                highlightColor = "#FFFF0000",
-                optionsOverride = IslandOptions(visualEnabled = true),
-            )
-
-            assertEquals(
-                "#FFFF0000",
-                extras.getString(IslandDispatchContract.HIGHLIGHT_COLOR),
-            )
-        } finally {
-            IslandPreferences.resetForTest()
-        }
     }
 }

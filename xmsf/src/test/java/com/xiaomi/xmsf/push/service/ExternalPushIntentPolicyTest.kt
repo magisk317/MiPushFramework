@@ -1,13 +1,15 @@
 package com.xiaomi.xmsf.push.service
 
+import android.content.Intent
+import android.os.Bundle
 import com.xiaomi.push.service.PushConstants
+import io.mockk.every
+import io.mockk.mockk
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
 class ExternalPushIntentPolicyTest {
     @Test
     fun `external sdk transport actions remain compatible`() {
@@ -64,27 +66,51 @@ class ExternalPushIntentPolicyTest {
 
     @Test
     fun `open channel extras are fully preserved across sanitized copy`() {
-        val source = android.content.Intent(PushConstants.ACTION_OPEN_CHANNEL).apply {
-            putExtra(PushConstants.EXTRA_CHANNEL_ID, "11")
-            putExtra(PushConstants.EXTRA_SECURITY, "test_security_token")
-            putExtra(PushConstants.EXTRA_TOKEN, "test_token")
-            putExtra(PushConstants.EXTRA_USER_ID, "user_123")
-            putExtra(PushConstants.EXTRA_PACKAGE_NAME, "com.example.client")
-            putExtra(PushConstants.EXTRA_AUTH_METHOD, "XIAOMI-PASS")
-            putExtra(PushConstants.EXTRA_KICK, true)
-            putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, "com.example.client")
+        val sourceExtras = mutableMapOf<String, Any?>(
+            PushConstants.EXTRA_CHANNEL_ID to "11",
+            PushConstants.EXTRA_SECURITY to "test_security_token",
+            PushConstants.EXTRA_TOKEN to "test_token",
+            PushConstants.EXTRA_USER_ID to "user_123",
+            PushConstants.EXTRA_PACKAGE_NAME to "com.example.client",
+            PushConstants.EXTRA_AUTH_METHOD to "XIAOMI-PASS",
+            PushConstants.EXTRA_KICK to true,
+            PushConstants.MIPUSH_EXTRA_APP_PACKAGE to "com.example.client",
+        )
+        val source = mockk<Intent>(relaxed = true)
+        every { source.action } returns PushConstants.ACTION_OPEN_CHANNEL
+        every { source.getStringExtra(any()) } answers { sourceExtras[firstArg()] as? String }
+        every { source.getBooleanExtra(any(), any()) } answers {
+            (sourceExtras[firstArg()] as? Boolean) ?: secondArg()
         }
-        val target = android.content.Intent()
+        every { source.hasExtra(any()) } answers { sourceExtras.containsKey(firstArg()) }
+        val sourceBundle = mockk<Bundle>()
+        every { sourceBundle.get(any()) } answers { sourceExtras[firstArg()] }
+        every { source.extras } returns sourceBundle
+
+        val targetExtras = mutableMapOf<String, Any?>()
+        val target = mockk<Intent>(relaxed = true)
+        every { target.putExtra(any<String>(), any<String>()) } answers {
+            targetExtras[firstArg()] = secondArg<String>()
+            target
+        }
+        every { target.putExtra(any<String>(), any<Boolean>()) } answers {
+            targetExtras[firstArg()] = secondArg<Boolean>()
+            target
+        }
+        every { target.getStringExtra(any()) } answers { targetExtras[firstArg()] as? String }
+        every { target.getBooleanExtra(any(), any()) } answers {
+            (targetExtras[firstArg()] as? Boolean) ?: secondArg()
+        }
+
         ExternalPushIntentPolicy.copyAllowedExtras(source, target)
 
-        org.junit.jupiter.api.Assertions.assertEquals("11", target.getStringExtra(PushConstants.EXTRA_CHANNEL_ID))
-        org.junit.jupiter.api.Assertions.assertEquals("test_security_token", target.getStringExtra(PushConstants.EXTRA_SECURITY))
-        org.junit.jupiter.api.Assertions.assertEquals("test_token", target.getStringExtra(PushConstants.EXTRA_TOKEN))
-        org.junit.jupiter.api.Assertions.assertEquals("user_123", target.getStringExtra(PushConstants.EXTRA_USER_ID))
-        org.junit.jupiter.api.Assertions.assertEquals("com.example.client", target.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME))
-        org.junit.jupiter.api.Assertions.assertEquals("XIAOMI-PASS", target.getStringExtra(PushConstants.EXTRA_AUTH_METHOD))
-        org.junit.jupiter.api.Assertions.assertTrue(target.getBooleanExtra(PushConstants.EXTRA_KICK, false))
-        org.junit.jupiter.api.Assertions.assertEquals("com.example.client", target.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE))
+        assertEquals("11", target.getStringExtra(PushConstants.EXTRA_CHANNEL_ID))
+        assertEquals("test_security_token", target.getStringExtra(PushConstants.EXTRA_SECURITY))
+        assertEquals("test_token", target.getStringExtra(PushConstants.EXTRA_TOKEN))
+        assertEquals("user_123", target.getStringExtra(PushConstants.EXTRA_USER_ID))
+        assertEquals("com.example.client", target.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME))
+        assertEquals("XIAOMI-PASS", target.getStringExtra(PushConstants.EXTRA_AUTH_METHOD))
+        assertTrue(target.getBooleanExtra(PushConstants.EXTRA_KICK, false))
+        assertEquals("com.example.client", target.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE))
     }
 }
-

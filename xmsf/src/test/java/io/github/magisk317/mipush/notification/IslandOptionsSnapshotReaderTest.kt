@@ -1,17 +1,15 @@
 package io.github.magisk317.mipush.notification
 
+import android.content.Context
 import io.github.magisk317.mipush.common.island.IslandRendererMode
 import io.github.magisk317.mipush.data.IslandSettingsSnapshot
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
 class IslandOptionsSnapshotReaderTest {
     @AfterEach
     fun clearSettingsCache() {
@@ -20,7 +18,9 @@ class IslandOptionsSnapshotReaderTest {
 
     @Test
     fun `global reads use the cached settings after initialization`() {
-        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val context = mockk<Context> {
+            every { applicationContext } returns mockk(relaxed = true)
+        }
         IslandOptionsSnapshotReader.updateCachedSettings(
             settings(
                 enabled = false,

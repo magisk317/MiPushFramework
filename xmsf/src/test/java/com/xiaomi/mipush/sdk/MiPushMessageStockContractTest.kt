@@ -1,21 +1,89 @@
 package com.xiaomi.mipush.sdk
 
 import android.os.Bundle
+import io.mockk.every
+import io.mockk.mockkConstructor
+import io.mockk.unmockkConstructor
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 import java.util.HashMap
+import java.util.concurrent.ConcurrentHashMap
 
-// Keep Robolectric: this test relies on Android framework implementations indirectly;
-// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
 class MiPushMessageStockContractTest {
+
+    private val bundleStores = ConcurrentHashMap<Int, MutableMap<String, Any?>>()
+
+    @BeforeEach
+    fun setupBundleMock() {
+        mockkConstructor(Bundle::class)
+
+        every { anyConstructed<Bundle>().putString(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<String?>()
+        }
+        every { anyConstructed<Bundle>().getString(any()) } answers {
+            bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? String
+        }
+        every { anyConstructed<Bundle>().putBoolean(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<Boolean>()
+        }
+        every { anyConstructed<Bundle>().getBoolean(any()) } answers {
+            (bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Boolean) ?: false
+        }
+        every { anyConstructed<Bundle>().getBoolean(any(), any()) } answers {
+            (bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Boolean) ?: secondArg()
+        }
+        every { anyConstructed<Bundle>().putInt(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<Int>()
+        }
+        every { anyConstructed<Bundle>().getInt(any()) } answers {
+            (bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Int) ?: 0
+        }
+        every { anyConstructed<Bundle>().getInt(any(), any()) } answers {
+            (bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Int) ?: secondArg()
+        }
+        every { anyConstructed<Bundle>().putSerializable(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<java.io.Serializable?>()
+        }
+        every { anyConstructed<Bundle>().getSerializable(any()) } answers {
+            bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? java.io.Serializable
+        }
+        every { anyConstructed<Bundle>().putStringArrayList(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<ArrayList<String>?>()
+        }
+        every { anyConstructed<Bundle>().getStringArrayList(any()) } answers {
+            bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? ArrayList<String>
+        }
+        every { anyConstructed<Bundle>().putBundle(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<Bundle?>()
+        }
+        every { anyConstructed<Bundle>().getBundle(any()) } answers {
+            bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Bundle
+        }
+        every { anyConstructed<Bundle>().putLong(any(), any()) } answers {
+            bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<Long>()
+        }
+        every { anyConstructed<Bundle>().getLong(any()) } answers {
+            (bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? Long) ?: 0L
+        }
+        every { anyConstructed<Bundle>().containsKey(any()) } answers {
+            bundleStores[System.identityHashCode(self)]?.containsKey(firstArg()) ?: false
+        }
+        every { anyConstructed<Bundle>().keySet() } answers {
+            bundleStores[System.identityHashCode(self)]?.keys ?: emptySet<String>()
+        }
+    }
+
+    @AfterEach
+    fun teardownBundleMock() {
+        bundleStores.clear()
+        unmockkConstructor(Bundle::class)
+    }
+
     @Test
     fun `stock message bundle keeps 3_7_9 keys and serializable extra shape`() {
         val message = MiPushMessage().apply {

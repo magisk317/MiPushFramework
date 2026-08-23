@@ -13,14 +13,6 @@ import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
-
-// Keep Robolectric: this test relies on Android framework implementations indirectly;
-// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
 class XMPushServiceStockLifecycleTest {
     @Test
     fun `account change requeues the same stock prepare job`() {

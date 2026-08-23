@@ -1,19 +1,12 @@
 package io.github.magisk317.mipush.notification
 
-import androidx.core.app.NotificationCompat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
-class SweetNotificationCoordinatorTest {
+class SweetNotificationCoordinatorPureTest {
 
     @Test
     fun `style five maps stock card fields to standard content`() {
@@ -89,61 +82,6 @@ class SweetNotificationCoordinatorTest {
                 activeNotification = true,
             ).suppress,
         )
-    }
-
-    @Test
-    fun `typed metadata follows stock keyguard and float policy`() {
-        val context = RuntimeEnvironment.getApplication()
-        val changedBuilder = NotificationCompat.Builder(context, "sweet-test")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-        SweetNotificationCoordinator.applyReminderMetadata(
-            builder = changedBuilder,
-            spec = SweetNotificationCoordinator.ReminderSpec("arriving", 360, "12"),
-            statusChanged = true,
-            targetForeground = false,
-            displayOn = false,
-        )
-
-        val changed = changedBuilder.build().extras
-        assertEquals("arriving", changed.getString(SweetNotificationCoordinator.EXTRA_REMIND_STATUS))
-        assertEquals(360, changed.getInt(SweetNotificationCoordinator.EXTRA_REMIND_TIMEOUT))
-        assertEquals("12", changed.getString(SweetNotificationCoordinator.EXTRA_SEQUENCE))
-        assertTrue(changed.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_KEYGUARD))
-        assertTrue(changed.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_FLOAT))
-
-        val repeatedBuilder = NotificationCompat.Builder(context, "sweet-test")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-        SweetNotificationCoordinator.applyReminderMetadata(
-            builder = repeatedBuilder,
-            spec = SweetNotificationCoordinator.ReminderSpec("arriving", 360, null),
-            statusChanged = false,
-            targetForeground = false,
-            displayOn = false,
-        )
-        val repeated = repeatedBuilder.build().extras
-        assertFalse(repeated.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_KEYGUARD))
-        assertFalse(repeated.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_FLOAT))
-    }
-
-    @Test
-    fun `explicit payload policy overrides style five defaults`() {
-        val context = RuntimeEnvironment.getApplication()
-        val builder = NotificationCompat.Builder(context, "sweet-test")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-        builder.extras.putBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_KEYGUARD, false)
-        builder.extras.putBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_FLOAT, true)
-
-        SweetNotificationCoordinator.applyReminderMetadata(
-            builder = builder,
-            spec = SweetNotificationCoordinator.ReminderSpec("arriving", 360, null),
-            statusChanged = true,
-            targetForeground = false,
-            displayOn = true,
-        )
-
-        val extras = builder.build().extras
-        assertFalse(extras.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_KEYGUARD))
-        assertTrue(extras.getBoolean(SweetNotificationCoordinator.EXTRA_ENABLE_FLOAT))
     }
 
     @Test

@@ -1,7 +1,8 @@
 package io.github.magisk317.mipush.utils
 
-import android.app.Application
 import android.content.Context
+import io.mockk.every
+import io.mockk.mockk
 import java.io.File
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
@@ -9,22 +10,22 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
+import org.junit.jupiter.api.io.TempDir
 
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
-@Execution(ExecutionMode.SAME_THREAD)
-class ActiveConfigurationSnapshotStoreRobolectricTest {
+class ActiveConfigurationSnapshotStoreTest {
+    @TempDir
+    lateinit var tempDir: File
+
     private lateinit var context: Context
 
     @BeforeEach
     fun setUp() {
-        context = RuntimeEnvironment.getApplication()
+        val appContext = mockk<Context> {
+            every { filesDir } returns tempDir
+        }
+        context = mockk {
+            every { applicationContext } returns appContext
+        }
         ActiveConfigurationSnapshotStore.directory(context).deleteRecursively()
     }
 

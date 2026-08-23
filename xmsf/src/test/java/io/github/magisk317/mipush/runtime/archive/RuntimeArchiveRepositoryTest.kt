@@ -1,12 +1,8 @@
 package io.github.magisk317.mipush.runtime.archive
 
-import android.app.Application
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeStoreDatabase
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
  * Validates that the KMP RuntimeStoreDatabase is constructible via Koin
@@ -17,8 +13,6 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * not unit tests. The schema correctness is verified by the KMP module's
  * own compile-time schema export (runtime-store-kmp/schemas/).
  */
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
 class RuntimeArchiveRepositoryTest {
     @Test
     fun `RuntimeStoreDatabase class is accessible from xmsf`() {

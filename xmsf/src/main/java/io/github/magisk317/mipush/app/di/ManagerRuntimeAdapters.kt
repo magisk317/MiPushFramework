@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.utils.DiagnosticExportModes
 import io.github.magisk317.mipush.common.manager.ManagerForceRegisterResult
 import io.github.magisk317.mipush.common.manager.ManagerApplications
 import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot

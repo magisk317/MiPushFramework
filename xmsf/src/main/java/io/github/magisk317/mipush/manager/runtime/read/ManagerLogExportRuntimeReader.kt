@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.utils.LogBundleExporter
+import io.github.magisk317.mipush.utils.DiagnosticExportModes
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import android.os.SystemClock

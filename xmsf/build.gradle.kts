@@ -2,7 +2,6 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.testing.Test
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
@@ -12,7 +11,6 @@ plugins {
     id("magisk.android.library")
     id("magisk.android.room")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.robolectric.junit5)
 }
 
 extra["artifactBaseName"] = "xmsf"
@@ -171,36 +169,6 @@ android {
     }
 }
 
-tasks.withType<Test>().configureEach {
-    jvmArgs(
-        "-Xshare:off",
-        "--enable-native-access=ALL-UNNAMED",
-        "--sun-misc-unsafe-memory-access=allow",
-        "--add-opens=java.base/java.lang=ALL-UNNAMED",
-        "--add-opens=java.base/java.util=ALL-UNNAMED",
-        "--add-opens=java.base/java.io=ALL-UNNAMED",
-        "--add-opens=java.base/java.net=ALL-UNNAMED",
-        "--add-opens=java.base/java.security=ALL-UNNAMED",
-        "--add-opens=java.base/java.text=ALL-UNNAMED",
-        "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
-        "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "-XX:+EnableDynamicAgentLoading",
-        "-Xmx4g",
-    )
-    useJUnitPlatform()
-    // The Robolectric JUnit 5 extension creates SDK-specific sandboxes. Running
-    // those sandboxes concurrently can make ZipFS reopen the same Android font
-    // archive and fail with FileSystemAlreadyExistsException.
-    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
-    systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
-    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
-    // Isolate each test class; Robolectric's native runtime is not safe to tear
-    // down and recreate between SDK sandboxes on the CI JDK.
-    maxParallelForks = 1
-    forkEvery = 1
-}
-
 tasks.matching {
     (it.name.startsWith("process") && it.name.endsWith("Resources")) ||
         (it.name.startsWith("merge") && it.name.endsWith("Assets"))
@@ -238,8 +206,6 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.robolectric.junit5.extension)
     testImplementation(libs.conscrypt.openjdk.uber)
     testImplementation(libs.jqwik)
     testImplementation(libs.androidx.sqlite.bundled)

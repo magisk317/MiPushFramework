@@ -6,19 +6,27 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
 import io.github.magisk317.mipush.utils.PackageConfig
+import io.github.magisk317.mipush.platform.support.Global
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-// Keep Robolectric: this test relies on Android framework implementations indirectly;
-// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
 class ConfigurationRuntimeContractTest {
+    @org.junit.jupiter.api.BeforeEach
+    fun installPureJvmConverter() {
+        mockkStatic(Global::class)
+        every { Global.configValueConverter() } returns io.github.magisk317.mipush.utils.ConfigValueConverter()
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    fun removePureJvmConverter() {
+        unmockkStatic(Global::class)
+    }
+
     @Test
     fun `remote config json is parsed by runtime and preserves notification policy operations`() {
         val configurations = Configurations(ConfigurationsLoader())
