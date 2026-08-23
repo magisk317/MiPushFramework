@@ -15,7 +15,7 @@ activity-compose = "1.13.0"
 agp = "9.3.1"
 annotation = "1.10.0"
 coil3 = "3.5.0"
-conscrypt = "2.6.2"
+conscrypt = "2.6.3"
 
 asm = "9.10.1"
 bouncycastle = "1.84"
