@@ -17,7 +17,10 @@ class ManagerLogExportRuntimeReader(
     fun export(): ManagerLogExportResultDto {
         val started = SystemClock.elapsedRealtime()
         logI("ManagerRuntime exportRuntimeLogs start")
-        val result = LogBundleExporter.buildLogBundle(context)
+        val result = LogBundleExporter.buildLogBundle(
+            context = context,
+            mode = DiagnosticExportModes.fromDebugLoggingSetting(context),
+        )
         val file = result.file
         val details = result.details.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
         if (file == null || !file.isFile) {

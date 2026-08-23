@@ -8,7 +8,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
-import android.util.Log
+import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_BITMAP
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_PACKAGE
@@ -61,14 +61,14 @@ class IconPackProvider : ContentProvider() {
             runCatching { Global.iconConfigurations().get(targetPackage) }.getOrNull()
         }
             ?: return emptyCursor().also {
-                Log.w(TAG, "configuration unavailable target=$targetPackage source=embedded-and-user")
+                Logger.withTag(TAG).w { "configuration unavailable target=$targetPackage source=embedded-and-user" }
             }
         if (config.isEnabled != true) {
-            Log.d(TAG, "configuration disabled target=$targetPackage")
+            Logger.withTag(TAG).d { "configuration disabled target=$targetPackage" }
             return emptyCursor()
         }
         val bitmap = config.bitmap()?.takeIf { !it.isRecycled }
-            ?: return emptyCursor().also { Log.w(TAG, "bitmap unavailable target=$targetPackage") }
+            ?: return emptyCursor().also { Logger.withTag(TAG).w { "bitmap unavailable target=$targetPackage" } }
         val bytes = runCatching {
             ByteArrayOutputStream().use { output ->
                 if (!bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)) return@runCatching null
@@ -93,7 +93,7 @@ class IconPackProvider : ContentProvider() {
             val loaded = runCatching {
                 Global.iconConfigurations().init(appContext, Uri.parse(directory))
             }.getOrDefault(false)
-            Log.d(TAG, "load directory=$directory result=$loaded")
+            Logger.withTag(TAG).d { "load directory=$directory result=$loaded" }
             if (loaded) loadedDirectory = directory
         }
     }
@@ -103,7 +103,7 @@ class IconPackProvider : ContentProvider() {
         synchronized(loadLock) {
             if (embeddedLoaded) return
             embeddedLoaded = embeddedConfigurations.initFromAssets(appContext)
-            Log.d(TAG, "load embedded configurations result=$embeddedLoaded")
+            Logger.withTag(TAG).d { "load embedded configurations result=$embeddedLoaded" }
         }
     }
 

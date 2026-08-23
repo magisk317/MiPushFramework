@@ -4,16 +4,19 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import com.xiaomi.xmsf.R
-import io.github.aakira.napier.Antilog
-import io.github.aakira.napier.DebugAntilog
-import io.github.aakira.napier.LogLevel
-import io.github.aakira.napier.Napier
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.xposed.logging.JsonLineEncoder
+import io.github.magisk317.xposed.logging.JsonLineField
+import io.github.magisk317.xposed.logging.LogSink
+import io.github.magisk317.xposed.logging.LoggingKit
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.ArrayDeque
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -38,13 +41,13 @@ object LogUtils {
     // Unified single-letter level mapping aligned with android.util.Log priorities.
     // Module-side XLog.d/.i/.w/.e writes D/I/W/E through the same content provider,
     // so normalizing here keeps runtime.*.jsonl consistent across both producers.
-    private fun LogLevel.toShortLetter(): String = when (this) {
-        LogLevel.VERBOSE -> "V"
-        LogLevel.DEBUG -> "D"
-        LogLevel.INFO -> "I"
-        LogLevel.WARNING -> "W"
-        LogLevel.ERROR -> "E"
-        LogLevel.ASSERT -> "A"
+    private fun Severity.toShortLetter(): String = when (this) {
+        Severity.Verbose -> "V"
+        Severity.Debug -> "D"
+        Severity.Info -> "I"
+        Severity.Warn -> "W"
+        Severity.Error -> "E"
+        Severity.Assert -> "A"
     }
 
     private val writeLock = Any()
@@ -56,7 +59,7 @@ object LogUtils {
     private var retentionDays: Int = DEFAULT_RETENTION_DAYS
 
     @Volatile
-    private var minLogLevel: LogLevel = LogLevel.VERBOSE
+    private var minLogLevel: Severity = Severity.Verbose
 
     data class ShareIntentResult(
         val intent: Intent?,
@@ -105,22 +108,24 @@ object LogUtils {
     fun init(context: Context) {
         val resolved = context.applicationContext ?: context
         appContext = resolved
-        Napier.takeLogarithm()
         runCatching {
             deleteLegacyTextLogFiles(resolved)
             pruneAllLogArtifacts(resolved, Date(), force = true)
-            Napier.base(FileAntilog(resolved))
+            LoggingKit.init(
+                defaultTag = "MiPush",
+                minSeverity = minLogLevel,
+                sink = fileLogSink(resolved),
+            )
         }.onFailure {
-            // Do NOT fall back to DebugAntilog in production -- it leaks logs to logcat.
-            // FileAntilog failure means logs are silently discarded; the init error itself
-            // is reported via android.util.Log so it's still visible in bugreport/logcat.
-            android.util.Log.e("MiPushFramework", "FileAntilog init failed, logs will be discarded", it)
+            // 文件日志初始化失败时不回退到会泄露日志的默认 writer。
+            android.util.Log.e("MiPushFramework", "Kermit file log init failed, logs will be discarded", it)
         }
     }
 
     @JvmStatic
-    fun setMinLogLevel(level: LogLevel) {
+    fun setMinLogLevel(level: Severity) {
         minLogLevel = level
+        Logger.setMinSeverity(level)
     }
 
     fun setRetentionDays(days: Int) {
@@ -139,23 +144,22 @@ object LogUtils {
             retentionDays = DEFAULT_RETENTION_DAYS
             lastFullPruneAtMs = 0L
         }
-        Napier.takeLogarithm()
+        Logger.setLogWriters(emptyList())
+        Logger.setMinSeverity(Severity.Verbose)
     }
 
-    private class FileAntilog(private val context: Context) : Antilog() {
-        override fun performLog(priority: LogLevel, tag: String?, throwable: Throwable?, message: String?) {
-            if (priority < minLogLevel) return
-            LogUtils.appendRuntimeLog(
-                context = context,
-                level = priority.toShortLetter(),
-                tag = tag.orEmpty(),
-                message = message.orEmpty(),
-                throwable = throwable?.stackTraceToString().orEmpty(),
-                route = "app",
-                packageName = context.packageName,
-                processName = LogUtils.currentProcessName(),
-            )
-        }
+    private fun fileLogSink(context: Context): LogSink = LogSink { event ->
+        appendRuntimeLog(
+            context = context,
+            level = event.level.shortName,
+            tag = event.tag,
+            message = event.message,
+            throwable = event.throwableText.orEmpty(),
+            route = "app",
+            packageName = context.packageName,
+            processName = currentProcessName(),
+            alreadySanitized = true,
+        )
     }
 
     fun appendModuleLog(
@@ -167,6 +171,7 @@ object LogUtils {
         processName: String,
         message: String,
         throwable: String,
+        alreadySanitized: Boolean = false,
     ) {
         appendRuntimeLog(
             context = context.applicationContext ?: context,
@@ -177,6 +182,7 @@ object LogUtils {
             route = sanitizeSegment(source.ifBlank { "module" }),
             packageName = packageName,
             processName = processName,
+            alreadySanitized = alreadySanitized,
         )
     }
 
@@ -189,6 +195,7 @@ object LogUtils {
         route: String,
         packageName: String,
         processName: String,
+        alreadySanitized: Boolean = false,
     ) {
         val now = Date()
         val thread = Thread.currentThread()
@@ -196,8 +203,8 @@ object LogUtils {
             timestamp = now.time,
             level = level,
             tag = tag,
-            message = DefaultLogSanitizer.sanitizeIfEnabled(message),
-            throwable = DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+            message = if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
+            throwable = if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
             route = route,
             packageName = packageName,
             processName = processName,
@@ -246,7 +253,10 @@ object LogUtils {
     @JvmStatic
     fun prepareShareIntent(context: Context): ShareIntentResult {
         return runCatching {
-            val export = LogBundleExporter.buildLogBundle(context)
+            val export = LogBundleExporter.buildLogBundle(
+                context = context,
+                mode = DiagnosticExportModes.fromDebugLoggingSetting(context),
+            )
             val file = export.file ?: return ShareIntentResult(null, export.details)
             ShareIntentResult(
                 intent = LogBundleExporter.buildShareIntent(context, file),
@@ -273,15 +283,25 @@ object LogUtils {
     }
 
     fun readLogFile(context: Context, name: String, maxLines: Int = MAX_READ_LINES): RuntimeLogFileContent? {
+        require(maxLines >= 0) { "maxLines must be non-negative" }
         val safeName = File(name).name
         val file = getRuntimeLogFiles(context).firstOrNull { it.name == safeName } ?: return null
-        val lines = file.readLines()
-        val displayed = lines.takeLast(maxLines)
+        val tail = ArrayDeque<String>()
+        var lineCount = 0
+        file.bufferedReader().useLines { lines ->
+            lines.forEach { line ->
+                lineCount += 1
+                if (maxLines == 0) return@forEach
+                if (tail.size == maxLines) tail.removeFirst()
+                tail.addLast(line)
+            }
+        }
+        val displayed = tail.toList()
         return RuntimeLogFileContent(
             name = file.name,
             sizeBytes = file.length(),
             displayedLineCount = displayed.size,
-            truncated = lines.size > displayed.size,
+            truncated = lineCount > displayed.size,
             text = displayed.joinToString("\n"),
         )
     }
@@ -344,8 +364,9 @@ object LogUtils {
     internal fun pruneAllLogArtifacts(context: Context, now: Date = Date(), force: Boolean = true) {
         val resolved = context.applicationContext ?: context
         val nowMs = now.time
+        // Non-forced maintenance is called from every append. Keep that hot path
+        // to a timestamp check; directory scans happen at most once per interval.
         if (!force && lastFullPruneAtMs > 0L && nowMs - lastFullPruneAtMs < FULL_PRUNE_INTERVAL_MS) {
-            pruneExpiredRuntimeLogs(LogBundleExporter.getLogDir(resolved), now)
             return
         }
         lastFullPruneAtMs = nowMs
@@ -480,57 +501,21 @@ object LogUtils {
         }.getOrNull()
     }
 
-    private fun encodeJsonLine(entry: RuntimeLogEntry): String {
-        return buildString {
-            append('{')
-            append("\"time\":").appendJsonString(
-                Instant.ofEpochMilli(entry.timestamp).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
-            )
-            append(",\"level\":").appendJsonString(entry.level)
-            append(",\"tag\":").appendJsonString(entry.tag)
-            append(",\"message\":").appendJsonString(entry.message)
-            if (entry.throwable.isNotBlank()) {
-                append(",\"throwable\":").appendJsonString(entry.throwable)
-            }
-            append(",\"route\":").appendJsonString(entry.route)
-            if (entry.packageName.isNotBlank()) {
-                append(",\"packageName\":").appendJsonString(entry.packageName)
-            }
-            if (entry.processName.isNotBlank()) {
-                append(",\"processName\":").appendJsonString(entry.processName)
-            }
-            append(",\"pid\":").append(entry.pid)
-            if (entry.threadName.isNotBlank()) {
-                append(",\"threadName\":").appendJsonString(entry.threadName)
-            }
-            append('}')
-        }
-    }
-
-    private fun StringBuilder.appendJsonString(value: String): StringBuilder {
-        append('"')
-        value.forEach { ch ->
-            when (ch) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\b' -> append("\\b")
-                '\u000C' -> append("\\f")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> {
-                    if (ch.code < 0x20) {
-                        append("\\u")
-                        append(ch.code.toString(16).padStart(4, '0'))
-                    } else {
-                        append(ch)
-                    }
-                }
-            }
-        }
-        append('"')
-        return this
-    }
+    private fun encodeJsonLine(entry: RuntimeLogEntry): String = JsonLineEncoder.encode(
+        JsonLineField.string(
+            "time",
+            Instant.ofEpochMilli(entry.timestamp).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
+        ),
+        JsonLineField.string("level", entry.level),
+        JsonLineField.string("tag", entry.tag),
+        JsonLineField.string("message", entry.message),
+        JsonLineField.string("throwable", entry.throwable, include = entry.throwable.isNotBlank()),
+        JsonLineField.string("route", entry.route),
+        JsonLineField.string("packageName", entry.packageName, include = entry.packageName.isNotBlank()),
+        JsonLineField.string("processName", entry.processName, include = entry.processName.isNotBlank()),
+        JsonLineField.number("pid", entry.pid),
+        JsonLineField.string("threadName", entry.threadName, include = entry.threadName.isNotBlank()),
+    )
 
     private fun sanitizeSegment(value: String): String {
         return value

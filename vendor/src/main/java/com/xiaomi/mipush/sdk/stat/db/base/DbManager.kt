@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/stat/db/base/DbManager.java
  * No stock 7.4.67-C same-path stat source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class DbManager private constructor(private val mContext: Context) {
 
     private var mBaseDbHelperFactory: BaseDbHelperFactory? = null

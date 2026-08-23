@@ -2,7 +2,6 @@ package com.xiaomi.mipush.sdk.stat
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.SharedPrefsCompat
 import com.xiaomi.channel.commonutils.misc.ScheduledJobConstants
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -12,7 +11,6 @@ import com.xiaomi.mipush.sdk.stat.db.MessageDbHelperFactory
 import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract
 import com.xiaomi.mipush.sdk.stat.db.MessageInsertJob
 import com.xiaomi.mipush.sdk.stat.db.base.DbManager
-import com.xiaomi.mipush.sdk.stat.db.MyLog
 import com.xiaomi.mipush.sdk.stat.upload.BaseDataSender
 import com.xiaomi.mipush.sdk.stat.upload.BaseScheduleWorker
 import com.xiaomi.mipush.sdk.stat.upload.DefaultDbPathGetter
@@ -24,8 +22,9 @@ import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.push.service.TinyDataHelper
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 import com.xiaomi.xmpush.thrift.ConfigKey
-import org.json.JSONException
-import org.json.JSONObject
+import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.lang.ref.WeakReference
 
 /*
@@ -34,6 +33,7 @@ import java.lang.ref.WeakReference
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/stat/PushStatClientManager.java
  * No stock 7.4.67-C same-path stat source was found in the split source tree.
  */
+@android.annotation.SuppressLint("StaticFieldLeak")
 class PushStatClientManager private constructor(private val mContext: Context) {
 
     companion object {
@@ -69,7 +69,7 @@ class PushStatClientManager private constructor(private val mContext: Context) {
             override fun getJobId(): String = ScheduledJobConstants.STAT_UPLOAD_JOB_ID
 
             override fun run() {
-                MyLog.v("exec== mUploadJob")
+                KermitLoggerCompat.v("exec== mUploadJob")
                 if (mScheduleJob != null) {
                     mScheduleJob!!.onUpload(mContext)
                     updateTime(mSPUploadKey)
@@ -82,7 +82,7 @@ class PushStatClientManager private constructor(private val mContext: Context) {
             override fun getJobId(): String = ScheduledJobConstants.STAT_CHECK_DB_ID
 
             override fun run() {
-                MyLog.v("exec== DbSizeControlJob")
+                KermitLoggerCompat.v("exec== DbSizeControlJob")
                 DbManager.getInstance(mContext).execR(
                     DbSizeControlJob(getDbPath(), WeakReference(mContext)),
                 )
@@ -111,7 +111,7 @@ class PushStatClientManager private constructor(private val mContext: Context) {
 
     private fun checkTime(str: String, i: Int): Boolean {
         val jCurrentTimeMillis = System.currentTimeMillis() - getLastTime(str)
-        MyLog.v("checkTime:  period = $jCurrentTimeMillis   frequency = ${i * 1000}")
+        KermitLoggerCompat.v("checkTime:  period = $jCurrentTimeMillis   frequency = ${i * 1000}")
         return jCurrentTimeMillis > (i * 1000).toLong()
     }
 
@@ -174,14 +174,11 @@ class PushStatClientManager private constructor(private val mContext: Context) {
     }
 
     private fun recorderChannel(str: String?) {
-        if (TextUtils.isEmpty(str)) return
-        val jSONObject = JSONObject()
-        try {
-            jSONObject.put("channel", str)
-            record(jSONObject.toString())
-        } catch (e: JSONException) {
-            e.printStackTrace()
+        if (str.isNullOrEmpty()) return
+        val json = buildJsonObject {
+            put("channel", str)
         }
+        record(json.toString())
     }
 
     private fun resetUploadFrequency(i: Int, i2: Int) {
@@ -277,12 +274,12 @@ class PushStatClientManager private constructor(private val mContext: Context) {
         str3: String,
         iDbPathGetter: IDbPathGetter,
     ) {
-        if (TextUtils.isEmpty(str)) {
-            MyLog.e("packageName can not be null; ")
+        if (str.isEmpty()) {
+            KermitLoggerCompat.e("packageName can not be null; ")
             return
         }
-        if (TextUtils.isEmpty(str2)) {
-            MyLog.e("appId can not be null; ")
+        if (str2.isEmpty()) {
+            KermitLoggerCompat.e("appId can not be null; ")
             return
         }
         val longValue = OnlineConfig.getInstance(mContext)
@@ -319,7 +316,7 @@ class PushStatClientManager private constructor(private val mContext: Context) {
     }
 
     fun record(str: String?) {
-        if (OCSwitch() && !TextUtils.isEmpty(str)) {
+        if (OCSwitch() && !str.isNullOrEmpty()) {
             record(UploadDataHelper.wrapperData(mContext, str))
         }
     }

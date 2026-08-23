@@ -24,6 +24,7 @@ import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
 
 object LogBundleExporter {
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
@@ -79,7 +80,10 @@ object LogBundleExporter {
         rootCommandAccess = DefaultRootCommandAccess
     }
 
-    fun buildLogBundle(context: Context): ExportResult = synchronized(opLock) {
+    fun buildLogBundle(
+        context: Context,
+        mode: DiagnosticExportMode,
+    ): ExportResult = synchronized(opLock) {
         val exportStarted = SystemClock.elapsedRealtime()
         val now = Date()
         val timestamp = LogUtils.dateInfo(now)
@@ -99,7 +103,8 @@ object LogBundleExporter {
                 if (deletedLegacyLogs > 0) {
                     details += "legacy runtime text logs cleared: $deletedLegacyLogs"
                 }
-                collectWithMaxParallelism(context, stagingDir, details)
+                details += "export mode=${mode.name}"
+                collectWithMaxParallelism(context, stagingDir, details, mode)
             },
             onInfo = { logI(it) },
             onWarning = { logW(it) },
@@ -137,6 +142,7 @@ object LogBundleExporter {
         context: Context,
         stagingDir: File,
         details: MutableList<String>,
+        mode: DiagnosticExportMode,
     ) {
         val safeDetails = Collections.synchronizedList(details)
         val workers = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(6)
@@ -160,25 +166,30 @@ object LogBundleExporter {
                 submit("captureApplicationExitHistory") {
                     captureApplicationExitHistory(context, stagingDir, safeDetails)
                 },
-                submit("captureLogcat") { captureLogcat(stagingDir, safeDetails) },
+                submit("captureLogcat") { captureLogcat(stagingDir, safeDetails, mode) },
             )
             localJobs.forEach { it.get() }
             error.get()?.let { throw it }
 
-            // Root-heavy path: sequential.
-            run {
-                val started = SystemClock.elapsedRealtime()
-                if (!copyLsposedLogs(stagingDir, safeDetails)) {
-                    safeDetails += "lsposed log missing or unreadable"
+            if (mode.capturesRootHeavyDiagnostics) {
+                // Root-heavy path: sequential.
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    if (!copyLsposedLogs(stagingDir, safeDetails)) {
+                        safeDetails += "lsposed log missing or unreadable"
+                    }
+                    safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
+                    logI("LogBundleExporter copyLsposedLogs tookMs=${SystemClock.elapsedRealtime() - started}")
                 }
-                safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
-                logI("LogBundleExporter copyLsposedLogs tookMs=${SystemClock.elapsedRealtime() - started}")
-            }
-            run {
-                val started = SystemClock.elapsedRealtime()
-                captureXmsfKeepaliveDiagnostics(stagingDir, safeDetails)
-                safeDetails += "keepaliveDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
-                logI("LogBundleExporter keepaliveDiagnostics tookMs=${SystemClock.elapsedRealtime() - started}")
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    captureXmsfKeepaliveDiagnostics(stagingDir, safeDetails)
+                    safeDetails += "keepaliveDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
+                    logI("LogBundleExporter keepaliveDiagnostics tookMs=${SystemClock.elapsedRealtime() - started}")
+                }
+            } else {
+                safeDetails += "lsposed diagnostics skipped in standard mode"
+                safeDetails += "xmsf keeper diagnostics skipped in standard mode"
             }
 
             val sanitizeStarted = SystemClock.elapsedRealtime()
@@ -515,10 +526,24 @@ object LogBundleExporter {
         return false
     }
 
-    private fun captureLogcat(stagingDir: File, details: MutableList<String>) {
+    private fun captureLogcat(
+        stagingDir: File,
+        details: MutableList<String>,
+        mode: DiagnosticExportMode,
+    ) {
         val logcatDir = File(stagingDir, "logcat")
         if (!ensureDirectory(logcatDir, recreateWhenFile = true)) return
         val output = File(logcatDir, "logcat_all.txt")
+        if (mode.usesBoundedLogcat) {
+            val bounded = dumpCommandOutput(
+                listOf("logcat", "-d", "-v", "threadtime", "-t", "24h", "-b", "main,system,crash"),
+                output,
+            )
+            if (bounded) {
+                details += "logcat: direct bounded main,system,crash 24h"
+            }
+            return
+        }
         val direct = dumpCommandOutput(listOf("logcat", "-d", "-v", "threadtime", "-b", "all"), output)
         if (direct) {
             details += "logcat: direct"
