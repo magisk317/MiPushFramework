@@ -98,8 +98,11 @@ class XMPushServiceStockLifecycle(
         }
         if (plan.shouldCheckAlive) { service.checkAlive(false) }
         if (plan.shouldConnect) {
-            service.jobController.removeJobs(XMPushServiceJob.TYPE_CONNECT)
-            service.executeJob(ConnectJob(service))
+            // 避免频繁网络变化导致 ConnectJob 被反复移除/重加而无法执行。
+            // 如果队列中已有待执行的 ConnectJob，则不再重复调度。
+            if (!service.jobController.hasJob(XMPushServiceJob.TYPE_CONNECT)) {
+                service.executeJob(ConnectJob(service))
+            }
         }
         if (plan.shouldDisconnect) {
             service.executeJob(DisconnectJob(service, NETWORK_UNAVAILABLE_DISCONNECT_REASON, null))
