@@ -418,6 +418,18 @@ class ManagerRuntimeClient(
             )
             if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(availability.value)
+        } catch (error: android.os.TransactionTooLargeException) {
+            logWarn(
+                "transaction too large capability=$capability " +
+                    "message=${error.message ?: "unknown"}",
+            )
+            emitClientCall(
+                result = "error",
+                reason = "transaction_too_large",
+                capability = capability,
+                statusOk = false,
+            )
+            ManagerRuntimeResult.Failed("runtime_response_too_large")
         } catch (_: RemoteException) {
             logWarn("remote exception capability=$capability")
             val current = releaseSession(
@@ -436,10 +448,10 @@ class ManagerRuntimeClient(
             if (!currentCoroutineContext().isActive) throw error
             ManagerRuntimeResult.Unavailable(availability.value)
         } catch (error: RuntimeException) {
-            // A method-level malformed/unsupported response must not tear down unrelated features.
+            val errorType = error.javaClass.simpleName.ifBlank { "RuntimeException" }
             logWarn(
                 "runtime operation failed capability=$capability " +
-                    "type=${error.javaClass.simpleName.ifBlank { "RuntimeException" }} " +
+                    "type=$errorType " +
                     "reason=${runtimeExceptionDiagnosticReason(error)}",
             )
             emitClientCall(

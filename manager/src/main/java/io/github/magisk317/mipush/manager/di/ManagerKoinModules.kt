@@ -182,6 +182,9 @@ object ManagerDependencies {
     @Volatile
     private var maintenanceSyncStarted = false
 
+    @Volatile
+    private var standaloneEventSyncStarted = false
+
     /** Load manager definitions into the Koin host already created by MiPushFrameworkApp. */
     @Synchronized
     fun startFromAppShell(context: Context) {
@@ -276,6 +279,10 @@ object ManagerDependencies {
             client = koin.get(),
             preferenceRepository = koin.get(),
         )
+        if (!standaloneEventSyncStarted) {
+            standaloneEventSyncStarted = true
+            koin.get<EventListBackgroundSyncCoordinator>().startStandalonePeriodicRefresh()
+        }
         appScope.launch(Dispatchers.IO) {
             val iconId = runCatching {
                 koin.get<PreferenceRepository>().selectedLauncherIcon.first()
