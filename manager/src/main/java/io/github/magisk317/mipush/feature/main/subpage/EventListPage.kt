@@ -655,10 +655,9 @@ private fun EventGroupList(
         val listKey = viewModel.cacheKey(query, "", refreshSignal)
         if (restoredListKey == listKey) return@LaunchedEffect
         withFrameNanos { }
-        // Cache-first: serve from the persistent store (or in-memory snapshot)
-        // immediately so the page paints without a 3s+ remote round-trip.
-        // We do NOT proactively hit the runtime here; remote is only used on
-        // a genuine cache miss, user pull-to-refresh, or background silent refresh.
+        // Cache-first keeps cold-start UI responsive. Automatic refresh is owned by the
+        // background coordinator (XMSF maintenance cycle or standalone periodic worker),
+        // and cacheUpdates below applies its result without blocking this page.
         if (viewModel.loadFromCacheIfPresent(query, "", refreshSignal)) {
             val cached = viewModel.getEventListSnapshot(query = query, packageName = "", refreshSignal = refreshSignal)
             if (cached != null) {

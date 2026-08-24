@@ -26,10 +26,11 @@ import io.github.magisk317.mipush.common.utils.Utils
  * Strategy:
  *  - On app start / page open we serve from this cache first so the UI paints
  *    immediately (no 3s+ remote `event_list` round-trip on cold start).
- *  - We never proactively fetch from the runtime on start; remote is only hit
- *    on user pull-to-refresh, on an empty cache, or during a silent refresh.
- *  - Silent refresh (idle / good-network / periodic) updates this store in the
- *    background without disturbing what the user is currently looking at.
+ *  - Automatic refresh is driven by the XMSF maintenance cycle in app-shell mode,
+ *    or by the standalone host's periodic background coordinator. User pull-to-refresh
+ *    remains an explicit immediate refresh, not the only way to obtain new events.
+ *  - Background refresh updates this store without disturbing the visible list;
+ *    `updates` lets an open page apply the new cache contents asynchronously.
  */
 class EventListCacheStore(
     private val context: Context,

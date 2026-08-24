@@ -136,7 +136,7 @@ object ManagerProtocol {
     const val WRITE_DETAIL_GRANT_SILENT_FAILED = "grant_silent_failed"
     const val WRITE_DETAIL_ROOT_AVAILABLE = "root_available"
     const val WRITE_DETAIL_ROOT_MISSING = "root_missing"
-    const val DEFAULT_MAX_PAGE_SIZE = 100
+    const val DEFAULT_MAX_PAGE_SIZE = 50
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64
     const val MAX_CAPABILITY_LENGTH = 128

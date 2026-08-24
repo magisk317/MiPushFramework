@@ -11,7 +11,8 @@ object PageRemoteCallPolicy {
     val firstScreen = RemoteCallBudget(RemotePriority.TRANSITION_CRITICAL, 8_000L, 250L)
     val visiblePage = RemoteCallBudget(RemotePriority.VISIBLE_PAGE, 8_000L, 750L)
     val userAction = RemoteCallBudget(RemotePriority.USER_ACTION, 12_000L, 1_500L)
-    val backgroundRefresh = RemoteCallBudget(RemotePriority.BACKGROUND_REFRESH, 8_000L, 100L)
+    // Event history projection may decode payloads and app metadata on the runtime side.
+    val backgroundRefresh = RemoteCallBudget(RemotePriority.BACKGROUND_REFRESH, 30_000L, 100L)
 
     fun budget(userInitiated: Boolean, backgroundRefresh: Boolean): RemoteCallBudget = when {
         userInitiated -> userAction

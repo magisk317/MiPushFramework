@@ -3,8 +3,6 @@ package io.github.magisk317.mipush.feature.main
 import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.fadeIn
@@ -272,15 +270,6 @@ fun MainScreen(
     val pageScrollChromeState = chromeController.pageScrollChromeState
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Pager is always composed; alpha hides it during detail transitions without
-        // destroying the composition tree.  This avoids the expensive recreate cycle and
-        // the second ViewRootImpl that AnimatedVisibility would spawn.
-        val pagerAlpha by animateFloatAsState(
-            targetValue = if (isTopLevelRoute) 1f else 0f,
-            animationSpec = tween(io.github.magisk317.uikit.surface.TAB_NAV_TRANSITION_MS, easing = EaseInOut),
-            label = "pagerAlpha",
-        )
-        Box(modifier = Modifier.fillMaxSize().alpha(pagerAlpha)) {
         PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
@@ -289,6 +278,7 @@ fun MainScreen(
             onTabReselected = { index ->
                 tabRoutes.getOrNull(index)?.let(::triggerRefreshForRoute)
             },
+            pagerVisible = isTopLevelRoute,
             onChromeTransition = { transition ->
                 performanceHandle[0]?.let { handle ->
                     if (transition.settledPage == handle.token.targetPage) {
@@ -377,7 +367,7 @@ fun MainScreen(
                 )
             }
         }
-        } // pager alpha Box
+        }
 
         // Detail overlay — rendered directly on top of the pager when a non-top-level
         // route is active.  No AnimatedVisibility to avoid spawning a second ViewRootImpl.
