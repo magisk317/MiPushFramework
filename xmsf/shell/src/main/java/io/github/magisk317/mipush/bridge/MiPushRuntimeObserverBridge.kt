@@ -24,7 +24,6 @@ import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.MIPushAccount
 import com.xiaomi.push.service.MIPushAccountUtils
 import com.xiaomi.push.service.MIPushAppAbsentManager
-import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.PushBindResultPlan
 import com.xiaomi.push.service.PushBucketFetchPlan
 import com.xiaomi.push.service.PushBucketReconnectPlan
@@ -83,7 +82,6 @@ import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeNotification
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeNotificationObservationSink
-import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.service.ForegroundHelper
@@ -141,6 +139,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     private val accountExecutionAdapter = MiPushRuntimeAccountExecutionAdapter(
         observer = this,
+    )
+
+    private val accountClientCoordinator = MiPushRuntimeAccountClientCoordinator(
+        observerState = observerState,
     )
 
     init {
@@ -308,22 +310,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun attachAccountClient(client: Any) {
-        val account = client as? MIPushAccount ?: return
-        val service = observerState.service()
-            ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
-            ?: return
-        val created = attachMIPushAccountClient(
-            account = account,
-            service = service,
-            manager = PushClientsManager.getInstance(),
-        )
-        PushRuntimeChannelTracker.syncNow(
-            if (created) {
-                "MiPushRuntimeObserverBridge.attachAccountClient:created"
-            } else {
-                "MiPushRuntimeObserverBridge.attachAccountClient:existing"
-            },
-        )
+        accountClientCoordinator.attachAccountClient(client)
     }
 
     override fun onChannelEvent(packageName: String?, event: String, reason: String) {
@@ -476,7 +463,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
                                     this@MiPushRuntimeObserverBridge,
                                 )
                                 if (newAccount != null) {
-                                    attachMIPushAccountClient(newAccount, service, PushClientsManager.getInstance())
+                                    accountClientCoordinator.attachAccount(newAccount, service, PushClientsManager.getInstance())
                                     val client = PushClientsManager.getInstance().getClientLoginInfoByChidAndUserId(
                                         PushConstants.MIPUSH_CHANNEL,
                                         newAccount.account
@@ -634,7 +621,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             val service = observerState.service()
                 ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
             if (service != null) {
-                attachMIPushAccountClient(account, service, PushClientsManager.getInstance())
+                accountClientCoordinator.attachAccount(account, service, PushClientsManager.getInstance())
             }
         }
 
@@ -765,19 +752,4 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         @Suppress("UNCHECKED_CAST")
         PushClientsStateSupport.resetAllClients(clients as Iterable<HashMap<String?, PushClientsManager.ClientLoginInfo>>, reason)
     }
-}
-
-internal fun attachMIPushAccountClient(
-    account: MIPushAccount,
-    service: XMPushServiceCore,
-    manager: PushClientsManager,
-): Boolean = synchronized(manager) {
-    if (manager.getAllClientLoginInfoByChid(PushConstants.MIPUSH_CHANNEL).isNotEmpty()) {
-        return@synchronized false
-    }
-    account.toClientLoginInfo(service, service).also { loginInfo ->
-        MIPushHelper.prepareClientLoginInfo(service, loginInfo)
-        manager.addActiveClient(loginInfo)
-    }
-    true
 }
