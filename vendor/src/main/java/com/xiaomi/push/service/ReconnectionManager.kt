@@ -48,8 +48,7 @@ class ReconnectionManager(
             PushReconnectAction.SkipExistingJob -> return
 
             PushReconnectAction.Immediate -> {
-                pushAction.removeJobs(1)
-                pushAction.executeJob(ConnectJob(pushAction))
+                pushAction.replaceJobs(XMPushServiceJob.TYPE_CONNECT, ConnectJob(pushAction))
                 return
             }
 
