@@ -51,7 +51,7 @@ android {
 dependencies {
     implementation(project(":common"))
     implementation(project(":xmsf"))
-    implementation(project(":manager"))
+    implementation(project(":manager:ui"))
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kermit)

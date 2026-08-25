@@ -44,8 +44,8 @@ android {
 // properties run through the existing JUnit 5 debug unit-test tasks.
 val navigationPerformancePropertyTests = tasks.register("navigationPerformancePropertyTests") {
     group = "verification"
-    description = "Runs Manager and manager-client unit/property tests for navigation performance."
-    dependsOn(":manager:testDebugUnitTest", ":manager-client:testDebugUnitTest")
+    description = "Runs Manager and manager:client unit/property tests for navigation performance."
+    dependsOn(":manager:ui:testDebugUnitTest", ":manager:client:testDebugUnitTest")
 }
 
 val navigationPerformanceVerification = tasks.register("verifyNavigationPerformance") {
@@ -75,7 +75,7 @@ tasks.configureEach {
 dependencies {
     implementation(project(":common"))
     implementation(project(":configuration"))
-    implementation(project(":manager-client"))
+    implementation(project(":manager:client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
     implementation(project(":core"))

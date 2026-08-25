@@ -56,8 +56,8 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":manager"))
-    implementation(project(":manager-client"))
+    implementation(project(":manager:ui"))
+    implementation(project(":manager:client"))
     implementation(project(":xposed"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.koin.android)

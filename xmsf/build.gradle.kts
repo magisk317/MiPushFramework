@@ -182,7 +182,7 @@ tasks.configureEach {
 }
 
 dependencies {
-    implementation(project(":manager-api"))
+    implementation(project(":manager:contract"))
     implementation(project(":magisk-xposed-kit:diagnostics"))
     implementation(project(":diagnostics"))
     implementation(project(":core"))
