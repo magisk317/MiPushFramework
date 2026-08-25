@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.eventDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.DayCount
 import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
@@ -20,7 +21,8 @@ import io.github.magisk317.mipush.runtime.store.event.EventType
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventQuery
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventQueryPolicy
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeQueryArgument
-import io.github.magisk317.mipush.runtime.store.kmp.DayCount
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventDeletionRepository
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventDeletionStore
 
 /**
  * @author Trumeet
@@ -29,8 +31,6 @@ import io.github.magisk317.mipush.runtime.store.kmp.DayCount
 object EventDb {
     /** 事件记录默认保留天数(与既有硬编码行为保持一致)。 */
     const val DEFAULT_RETENTION_DAYS = EventRetentionPolicy.DEFAULT_RETENTION_DAYS
-    private const val UNDO_RETENTION_MS = EventRetentionPolicy.UNDO_RETENTION_MS
-    private const val MAX_UNDO_EVENTS = EventRetentionPolicy.MAX_UNDO_EVENTS
 
     class RegistrationInfo {
         @JvmField
@@ -140,60 +140,49 @@ object EventDb {
      * 注册状态事件(type 20/21)由 [RuntimeEventDao.deleteHistory] 的 SQL 永久保留。
      */
     suspend fun deleteHistoryAsync(retentionDays: Int = DEFAULT_RETENTION_DAYS) {
-        val days = retentionDays.coerceAtLeast(1)
-        val cutoff = System.currentTimeMillis() - 1000L * 3600L * 24 * days
-        eventDao.deleteHistory(cutoff, currentUserId())
+        deletionRepository().deleteHistory(retentionDays)
     }
 
-    suspend fun deleteByIdAsync(id: Long): Boolean {
-        return eventDao.deleteById(id, currentUserId()) > 0
-    }
+    suspend fun deleteByIdAsync(id: Long): Boolean =
+        deletionRepository().deleteById(id)
 
     suspend fun deleteByIdWithUndoSnapshotAsync(
         id: Long,
         packageName: String,
         userId: Int = currentUserId(),
-    ): Boolean {
-        val scopedUserId = userId.coerceAtLeast(0)
-        val deleted = eventDao.deleteByIdWithUndoSnapshotForPackage(id, scopedUserId, packageName)
-        if (deleted) {
-            eventDao.pruneDeletedEvents(
-                cutoff = System.currentTimeMillis() - UNDO_RETENTION_MS,
-                maxCount = MAX_UNDO_EVENTS,
-                userId = scopedUserId,
-            )
-        }
-        return deleted
-    }
+    ): Boolean = deletionRepository(userId).deleteByIdWithUndoSnapshot(
+        id = id,
+        packageName = packageName,
+        requestedUserId = userId,
+    )
 
     suspend fun restoreDeletedEventAsync(
         id: Long,
         packageName: String,
         userId: Int = currentUserId(),
-    ): Long? {
-        return eventDao.restoreDeletedEventForPackage(id, userId.coerceAtLeast(0), packageName)
-    }
+    ): Long? = deletionRepository(userId).restoreDeletedEvent(
+        id = id,
+        packageName = packageName,
+        requestedUserId = userId,
+    )
 
     /** 按本地日历日聚合可清理事件的条数(排除注册态),供日历清理界面高亮与计数。 */
-    suspend fun countEventsByDayAsync(): List<DayCount> {
-        return eventDao.countEventsByDay(currentUserId())
-    }
+    suspend fun countEventsByDayAsync(): List<DayCount> =
+        deletionRepository().countEventsByDay()
 
     /**
      * 删除某个时间区间 [start, end) 内的可清理事件(排除注册态),供"仅清理当天"使用。
      * @return 实际删除条数。
      */
-    suspend fun deleteHistoryInRangeAsync(start: Long, end: Long): Int {
-        return eventDao.deleteHistoryInRange(start, end, currentUserId())
-    }
+    suspend fun deleteHistoryInRangeAsync(start: Long, end: Long): Int =
+        deletionRepository().deleteHistoryInRange(start, end)
 
     /**
      * 清理某个时间点之前的可清理事件(排除注册态),供"清理此日期及之前"使用。
      * @return 实际删除条数。
      */
-    suspend fun deleteHistoryBeforeAsync(cutoff: Long): Int {
-        return eventDao.deleteHistory(cutoff, currentUserId())
-    }
+    suspend fun deleteHistoryBeforeAsync(cutoff: Long): Int =
+        deletionRepository().deleteHistoryBefore(cutoff)
 
     suspend fun queryRegisteredAsync(): RegistrationInfo {
         val events = eventDao.queryRegisteredStatus(currentUserId())
@@ -246,6 +235,46 @@ object EventDb {
                 is RuntimeQueryArgument.TextValue -> statement.bindText(index + 1, argument.value)
             }
         }
+    }
+
+    private fun deletionRepository(userId: Int = currentUserId()): RuntimeEventDeletionRepository =
+        RuntimeEventDeletionRepository(
+            store = EventDeletionDaoAdapter,
+            userId = userId,
+            nowMillis = { System.currentTimeMillis() },
+        )
+
+    private object EventDeletionDaoAdapter : RuntimeEventDeletionStore {
+        override suspend fun deleteHistory(cutoffMillis: Long, userId: Int): Int =
+            eventDao.deleteHistory(cutoffMillis, userId)
+
+        override suspend fun deleteById(id: Long, userId: Int): Int =
+            eventDao.deleteById(id, userId)
+
+        override suspend fun deleteByIdWithUndoSnapshotForPackage(
+            id: Long,
+            userId: Int,
+            packageName: String,
+        ): Boolean = eventDao.deleteByIdWithUndoSnapshotForPackage(id, userId, packageName)
+
+        override suspend fun pruneDeletedEvents(cutoffMillis: Long, maxCount: Int, userId: Int) {
+            eventDao.pruneDeletedEvents(cutoffMillis, maxCount, userId)
+        }
+
+        override suspend fun restoreDeletedEventForPackage(
+            id: Long,
+            userId: Int,
+            packageName: String,
+        ): Long? = eventDao.restoreDeletedEventForPackage(id, userId, packageName)
+
+        override suspend fun countEventsByDay(userId: Int): List<DayCount> =
+            eventDao.countEventsByDay(userId)
+
+        override suspend fun deleteHistoryInRange(
+            startMillis: Long,
+            endMillis: Long,
+            userId: Int,
+        ): Int = eventDao.deleteHistoryInRange(startMillis, endMillis, userId)
     }
 
     private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
