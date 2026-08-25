@@ -8,7 +8,10 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.service.RegisterRecorder
+import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
+import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.utils.RegSecUtils
@@ -17,6 +20,22 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import org.apache.thrift.TBase
 
 object DefaultPushShellBridge : PushShellBridge {
+    override fun ensurePushServiceCreated(pushService: com.xiaomi.push.service.XMPushServiceCore) {
+        XMPushServiceLifecycleBridge.ensureCreated(pushService)
+    }
+
+    override fun onPushServiceDestroy(pushService: com.xiaomi.push.service.XMPushServiceCore?) {
+        XMPushServiceLifecycleBridge.onDestroy(pushService)
+    }
+
+    override fun onPushConnectionStatusChanged(connectionStatus: ConnectionStatus) {
+        XMPushServiceLifecycleBridge.onConnectionStatusChanged(connectionStatus)
+    }
+
+    override fun observePushConnectionState(newStatus: Int, reason: Int, source: String) {
+        PushRuntimeChannelTracker.observeConnectionState(newStatus, reason, source)
+    }
+
     override fun markHook(point: String) {
         io.github.magisk317.mipush.hook.Hooked.mark(point)
     }

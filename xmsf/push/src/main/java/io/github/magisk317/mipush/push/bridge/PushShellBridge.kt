@@ -3,12 +3,17 @@ package io.github.magisk317.mipush.push.bridge
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import org.apache.thrift.TBase
 
 /** Shell-owned integrations required by the reusable push pipeline. */
 interface PushShellBridge {
     fun receiveFromApplication(intent: Intent)
+    fun ensurePushServiceCreated(pushService: com.xiaomi.push.service.XMPushServiceCore)
+    fun onPushServiceDestroy(pushService: com.xiaomi.push.service.XMPushServiceCore?)
+    fun onPushConnectionStatusChanged(connectionStatus: ConnectionStatus)
+    fun observePushConnectionState(newStatus: Int, reason: Int, source: String)
     fun markHook(point: String)
     fun isPushDebugEnabled(): Boolean
     fun formatContainerForDebug(container: XmPushActionContainer?): String

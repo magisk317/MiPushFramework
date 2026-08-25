@@ -3,19 +3,17 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
-import io.github.magisk317.mipush.push.hook.HookedMethodHandler
 import co.touchlab.kermit.Logger
-import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
-import io.github.magisk317.mipush.runtime.core.ConnectionStatus
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
+import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 
 class ModernHookHandler : HookedMethodHandler {
     override fun shouldSendBroadcast(
@@ -34,7 +32,7 @@ class ModernHookHandler : HookedMethodHandler {
         newMessageIntent: Intent
     ) {
         HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
-        XMPushServiceLifecycleBridge.ensureCreated(pushService)
+        PushShellBridgeHolder.require().ensurePushServiceCreated(pushService)
         Logger.withTag("ModernHookHandler").d { "postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}" }
         newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
             ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
@@ -60,7 +58,7 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun onCreate(joinPoint: Any?, pushService: XMPushServiceCore) {
         HookTraceCompat.onServiceCreate(pushService)
-        XMPushServiceLifecycleBridge.ensureCreated(pushService)
+        PushShellBridgeHolder.require().ensurePushServiceCreated(pushService)
     }
 
     override fun onStartCommand(joinPoint: Any?) {
@@ -77,13 +75,15 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun onDestroy(joinPoint: Any?) {
         HookTraceCompat.onDestroy()
-        XMPushServiceLifecycleBridge.onDestroy(null)
+        PushShellBridgeHolder.require().onPushServiceDestroy(null)
     }
 
     override fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception) {
         HookTraceCompat.onConnectionStatusChanged(newStatus, reason, e)
-        XMPushServiceLifecycleBridge.onConnectionStatusChanged(ConnectionStatus.of(newStatus.coerceIn(0, 2)))
-        PushRuntimeChannelTracker.observeConnectionState(
+        PushShellBridgeHolder.require().onPushConnectionStatusChanged(
+            ConnectionStatus.of(newStatus.coerceIn(0, 2))
+        )
+        PushShellBridgeHolder.require().observePushConnectionState(
             newStatus = newStatus,
             reason = reason,
             source = "ModernHookHandler.setConnectionStatus"
