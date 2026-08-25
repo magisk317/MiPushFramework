@@ -78,7 +78,9 @@ import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeObservationAdapter
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeRegistrationChannelObservationAdapter
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
+import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
@@ -115,6 +117,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     @Volatile
     private var activeConnection: Connection? = null
     private val runtimeObservationSink: PushRuntimeObservationSink = AndroidPushRuntimeObservationAdapter
+    private val runtimeRegistrationChannelObservationSink: PushRuntimeRegistrationChannelObservationSink =
+        AndroidPushRuntimeRegistrationChannelObservationAdapter
 
     init {
         XMPushServiceCore.observer = this
@@ -265,7 +269,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
-        PushRuntime.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
         runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Disconnected,
             source = "MiPushRuntimeObserverBridge.reconnectionFailed",
@@ -299,7 +303,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
         synchronized(this) { activeConnection = connection }
         publishConnectionStatus(ConnectionStatus.connected)
-        PushRuntime.observeChannelEvent(
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(
             null,
             "reconnect_success",
             "MiPushRuntimeObserverBridge.reconnectionSuccessful",
@@ -346,7 +350,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         runtimeObservationSink.observeDisconnectReason(reason)
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
-        PushRuntime.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
         runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Disconnected,
             source = "MiPushRuntimeObserverBridge.connectionClosed",
@@ -374,7 +378,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         // Stock XMSF 7.4.67-C keeps qa.b in Connecting after the TCP socket opens and changes it to
         // Connected only when setChallenge accepts a non-empty CONN challenge. The older bridge
         // also reset the notification session here, so an invalid handshake looked connected.
-        PushRuntime.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
         runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Connecting,
             source = "MiPushRuntimeObserverBridge.connectionStarted",
@@ -385,7 +389,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun notifyConnectionError(reason: Int, exc: Exception?) {
-        PushRuntime.observeChannelEvent(null, "connection_error", "MiPushRuntimeObserverBridge.notifyConnectionError:$reason")
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_error", "MiPushRuntimeObserverBridge.notifyConnectionError:$reason")
     }
 
     override fun requestConnection(source: String, reason: String) {
@@ -467,7 +471,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String) {
         if (!isTrackedPackage(packageName)) return
-        PushRuntime.observeRegistrationState(packageName, state, reason, message)
+        runtimeRegistrationChannelObservationSink.observeRegistrationState(
+            packageName = packageName,
+            state = state,
+            source = reason,
+            reason = message,
+            nowMs = System.currentTimeMillis(),
+        )
     }
 
     override fun onApplicationIntentReceived(intent: Intent) {
@@ -480,7 +490,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
         if (!isTrackedPackage(packageName)) return
-        PushRuntime.observeRegistrationResult(packageName, success, source, reason)
+        runtimeRegistrationChannelObservationSink.observeRegistrationResult(
+            packageName = packageName,
+            success = success,
+            source = source,
+            reason = reason,
+            nowMs = System.currentTimeMillis(),
+        )
     }
 
     override fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? {
@@ -504,7 +520,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun observeUnregistration(packageName: String, state: PushRegistrationState) {
         if (!isTrackedPackage(packageName)) return
-        PushRuntime.observeUnregistration(packageName, "MiPushRuntimeObserverBridge.observeUnregistration", state.name)
+        runtimeRegistrationChannelObservationSink.observeUnregistration(
+            packageName = packageName,
+            source = "MiPushRuntimeObserverBridge.observeUnregistration",
+            reason = state.name,
+            nowMs = System.currentTimeMillis(),
+        )
     }
 
     override fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {
@@ -549,7 +570,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onChannelEvent(packageName: String?, event: String, reason: String) {
-        PushRuntime.observeChannelEvent(packageName, event, reason)
+        runtimeRegistrationChannelObservationSink.observeChannelEvent(packageName, event, reason)
     }
 
     override fun onChannelStateChanged(
@@ -562,7 +583,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         reasonCode: Int?,
         reasonMsg: String?
     ) {
-        PushRuntime.observeChannelState(
+        runtimeRegistrationChannelObservationSink.observeChannelState(
             packageName = packageName,
             channelId = chid,
             userId = userId,
@@ -570,7 +591,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             state = state,
             source = reason,
             reasonCode = reasonCode,
-            reasonMessage = reasonMsg
+            reasonMessage = reasonMsg,
+            nowMs = System.currentTimeMillis(),
         )
     }
 
