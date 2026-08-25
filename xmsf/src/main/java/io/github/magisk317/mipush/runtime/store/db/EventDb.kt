@@ -15,6 +15,9 @@ import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
 import io.github.magisk317.mipush.runtime.store.event.EventType
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventQuery
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventQueryPolicy
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeQueryArgument
 import io.github.magisk317.mipush.runtime.store.kmp.DayCount
 
 /**
@@ -89,32 +92,15 @@ object EventDb {
         text: String?,
         userId: Int = currentUserId(),
     ): List<RuntimeEventRow> {
-        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
-        val args = mutableListOf<Any>(userId.coerceAtLeast(0))
-        if (lastId != null) {
-            queryBuilder.append(" AND id < ?")
-            args.add(lastId)
-        }
-        if (!pkg.isNullOrBlank()) {
-            queryBuilder.append(" AND pkg = ?")
-            args.add(pkg)
-        }
-        if (!types.isNullOrEmpty()) {
-            queryBuilder.append(" AND type IN (")
-            queryBuilder.append(types.joinToString(",") { "?" })
-            queryBuilder.append(")")
-            args.addAll(types)
-        }
-        if (!text.isNullOrBlank()) {
-            // 搜索只打 UI 对齐的快照列;search_text 为空时回退 dev_info 兼容极少数无快照的旧记录。
-            queryBuilder.append(" AND (search_text LIKE ? OR (search_text IS NULL AND dev_info LIKE ?))")
-            args.add("%$text%")
-            args.add("%$text%")
-        }
-        queryBuilder.append(" ORDER BY id DESC LIMIT ?")
-        args.add(size)
-
-        return eventDao.queryRaw(roomRawQuery(queryBuilder.toString(), args))
+        val query = RuntimeEventQueryPolicy.byId(
+            lastId = lastId,
+            size = size,
+            types = types,
+            packageName = pkg,
+            text = text,
+            userId = userId,
+        )
+        return eventDao.queryRaw(roomRawQuery(query))
     }
 
     @JvmStatic
@@ -135,29 +121,15 @@ object EventDb {
         pkg: String?,
         text: String?
     ): List<RuntimeEventRow> {
-        val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
-        val args = mutableListOf<Any>(currentUserId())
-        if (!pkg.isNullOrBlank()) {
-            queryBuilder.append(" AND pkg = ?")
-            args.add(pkg)
-        }
-        if (!types.isNullOrEmpty()) {
-            queryBuilder.append(" AND type IN (")
-            queryBuilder.append(types.joinToString(",") { "?" })
-            queryBuilder.append(")")
-            args.addAll(types)
-        }
-        if (!text.isNullOrBlank()) {
-            // 搜索打 UI 对齐的 search_text 快照;兼容极少数仅有旧 dev_info 的残留行。
-            queryBuilder.append(" AND (search_text LIKE ? OR dev_info LIKE ?)")
-            args.add("%$text%")
-            args.add("%$text%")
-        }
-        queryBuilder.append(" ORDER BY date DESC LIMIT ? OFFSET ?")
-        args.add(limit)
-        args.add(skip)
-
-        return eventDao.queryRaw(roomRawQuery(queryBuilder.toString(), args))
+        val query = RuntimeEventQueryPolicy.page(
+            offset = skip,
+            limit = limit,
+            types = types,
+            packageName = pkg,
+            text = text,
+            userId = currentUserId(),
+        )
+        return eventDao.queryRaw(roomRawQuery(query))
     }
 
     /**
@@ -260,13 +232,12 @@ object EventDb {
         return eventDao.getAllLastReceiveTimes(currentUserId()).associate { it.pkg to it.date }
     }
 
-    private fun roomRawQuery(sql: String, args: List<Any>): RoomRawQuery = RoomRawQuery(sql) { statement ->
-        args.forEachIndexed { index, value ->
-            when (value) {
-                is Int -> statement.bindLong(index + 1, value.toLong())
-                is Long -> statement.bindLong(index + 1, value)
-                is String -> statement.bindText(index + 1, value)
-                else -> error("Unsupported runtime event query argument: ${value::class.java.name}")
+    private fun roomRawQuery(query: RuntimeEventQuery): RoomRawQuery = RoomRawQuery(query.sql) { statement ->
+        query.arguments.forEachIndexed { index, argument ->
+            when (argument) {
+                is RuntimeQueryArgument.IntValue -> statement.bindLong(index + 1, argument.value.toLong())
+                is RuntimeQueryArgument.LongValue -> statement.bindLong(index + 1, argument.value)
+                is RuntimeQueryArgument.TextValue -> statement.bindText(index + 1, argument.value)
             }
         }
     }
