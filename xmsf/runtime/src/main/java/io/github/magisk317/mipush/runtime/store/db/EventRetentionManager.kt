@@ -28,11 +28,19 @@ object EventRetentionManager {
     @Volatile
     private var retentionDaysProvider: (() -> Int)? = null
 
+    @Volatile
+    private var deleteHistoryHandler: (suspend (Int) -> Unit)? = null
+
     private val retentionState = AtomicReference(EventRetentionState())
 
     /** 注入保留天数来源(通常由 app 层从 [PreferenceRepository] 缓存回传)。 */
     fun install(provider: () -> Int) {
         retentionDaysProvider = provider
+    }
+
+    /** 注入持久化层的历史删除操作,避免 runtime 反向依赖 shell 的 EventDb。 */
+    fun installDeleteHistory(handler: suspend (Int) -> Unit) {
+        deleteHistoryHandler = handler
     }
 
     /** 当前保留天数;未注入 provider 时退回默认值。 */
@@ -52,7 +60,8 @@ object EventRetentionManager {
         val startedAt = System.nanoTime()
         try {
             runCatching {
-                EventDb.deleteHistoryAsync(start.retentionDays)
+                deleteHistoryHandler?.invoke(start.retentionDays)
+                    ?: error("EventRetentionManager delete history handler is not installed")
                 MagiskOtel.event(
                     name = "push.control",
                     attributes = mapOf(
@@ -99,7 +108,8 @@ object EventRetentionManager {
         val startedAt = System.nanoTime()
         try {
             runCatching {
-                EventDb.deleteHistoryAsync(start.retentionDays)
+                deleteHistoryHandler?.invoke(start.retentionDays)
+                    ?: error("EventRetentionManager delete history handler is not installed")
                 MagiskOtel.event(
                     name = "push.control",
                     attributes = mapOf(

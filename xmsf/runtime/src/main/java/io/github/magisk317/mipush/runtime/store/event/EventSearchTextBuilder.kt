@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.runtime.store.event
 import android.content.Context
 import io.github.magisk317.mipush.runtime.store.kmp.EventSearchTextPolicy
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 
 /**
  * 生成与记录列表 UI 对齐的可搜索文本快照。
@@ -38,7 +38,7 @@ object EventSearchTextBuilder {
     fun build(context: Context, type: EventType): String {
         val pkg = type.pkg
         val applicationName = if (!pkg.isNullOrBlank()) {
-            runCatching { Global.applicationNameCache().getAppName(context, pkg)?.toString() }
+            runCatching { ApplicationNameCache.getAppName(context, pkg)?.toString() }
                 .getOrNull()
         } else {
             null

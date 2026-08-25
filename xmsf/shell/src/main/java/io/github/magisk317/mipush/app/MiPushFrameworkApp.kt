@@ -49,6 +49,7 @@ import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
+import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import io.github.magisk317.mipush.app.di.AppDependencies
@@ -157,6 +158,7 @@ open class MiPushFrameworkApp : Application() {
     private fun initEventRetention() {
         val cachedRetentionDays = java.util.concurrent.atomic.AtomicInteger(7)
         EventRetentionManager.install { cachedRetentionDays.get() }
+        EventRetentionManager.installDeleteHistory { days -> EventDb.deleteHistoryAsync(days) }
         applicationScope.launch {
             preferenceRepository.eventRetentionDays.collect { days ->
                 cachedRetentionDays.set(days.coerceAtLeast(1))

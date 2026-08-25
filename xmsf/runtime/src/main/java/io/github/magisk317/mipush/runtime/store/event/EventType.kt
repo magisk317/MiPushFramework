@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event
 
 import android.content.Context
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 
 /**
  * 喂给 event 的详细信息。
@@ -11,7 +11,7 @@ import io.github.magisk317.mipush.platform.support.Global
 abstract class EventType(var type: Int, val info: String?, val pkg: String?, val payload: ByteArray?) {
 
     open fun getTitle(context: Context): CharSequence {
-        return Global.applicationNameCache().getAppName(context, pkg ?: "") ?: (pkg ?: "")
+        return ApplicationNameCache.getAppName(context, pkg ?: "") ?: (pkg ?: "")
     }
 
     abstract fun getSummary(context: Context): CharSequence?

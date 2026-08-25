@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.runtime.store.db
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeIslandSettings
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRepository
@@ -80,7 +80,7 @@ object RegisteredApplicationDb {
     }.getOrNull()
 
     @JvmStatic
-    internal fun getIslandSettings(pkg: String, requestedUserId: Int? = null): RuntimeIslandSettings? {
+    fun getIslandSettings(pkg: String, requestedUserId: Int? = null): RuntimeIslandSettings? {
         val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
         return runBlocking {
             repository(userId).getIslandSettings(pkg)
@@ -113,8 +113,7 @@ object RegisteredApplicationDb {
             store = DatabaseRegisteredApplicationStore,
             userId = userId,
             appNameForPackage = { pkg ->
-                Global.applicationNameCache()
-                    .getAppName(requireNotNull(Utils.getApplication()), pkg)
+                ApplicationNameCache.getAppName(requireNotNull(Utils.getApplication()), pkg)
                     .toString()
             },
         )
