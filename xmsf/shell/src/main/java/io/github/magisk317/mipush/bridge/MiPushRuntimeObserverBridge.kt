@@ -66,7 +66,6 @@ import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
 import com.xiaomi.smack.packet.Packet
 import io.github.magisk317.mipush.common.compat.NotificationCompatBridge
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
@@ -121,7 +120,6 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val registrationExecutionAdapter = MiPushRuntimeRegistrationExecutionAdapter(
         appContext = appContext,
         observationSink = runtimeRegistrationChannelObservationSink,
-        isTrackedPackage = ::isTrackedPackage,
     )
     private val messageNotificationExecutionAdapter = MiPushRuntimeMessageNotificationExecutionAdapter(
         appContext = appContext,
@@ -158,17 +156,6 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
                 XMPushServiceCore.observer ?: MiPushRuntimeObserverBridge(context)
             }
         }
-    }
-
-    // The registration/channel observers below only want to track packages the framework serves,
-    // which is why they filter out system packages. But xmsf itself is an updated system app
-    // (flags carry SYSTEM | UPDATED_SYSTEM_APP), so a plain isUserApplication check also rejected
-    // the push host's own registration. That silently dropped xmsf's cached registration payload,
-    // leaving the request stranded with no way to reach the server after chid 5 bound.
-    private fun isTrackedPackage(packageName: String): Boolean {
-        return packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME ||
-            packageName == appContext.packageName ||
-            Utils.isUserApplication(appContext, packageName)
     }
 
     override fun onServiceCreated(service: android.app.Service) =

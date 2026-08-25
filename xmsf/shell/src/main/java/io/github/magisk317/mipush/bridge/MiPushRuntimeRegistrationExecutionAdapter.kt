@@ -7,12 +7,14 @@ import com.xiaomi.push.service.IPendingPacketSender
 import com.xiaomi.push.service.MIPushAppAbsentManager
 import com.xiaomi.push.service.MIPushClientManager
 import com.xiaomi.push.service.PushClientsManager
+import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushRegistrationPayloadRepairResult
 import com.xiaomi.push.service.PushRegistrationState
 import com.xiaomi.push.service.PushServiceRegisterAppAction
 import com.xiaomi.push.service.PushServiceRegisterAppPlan
 import com.xiaomi.push.service.XMPushServiceProxy
 import io.github.magisk317.mipush.push.pipeline.PackageDataClearedCoordinator
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
@@ -23,8 +25,17 @@ import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
 internal class MiPushRuntimeRegistrationExecutionAdapter(
     private val appContext: Context,
     private val observationSink: PushRuntimeRegistrationChannelObservationSink,
-    private val isTrackedPackage: (String) -> Boolean,
 ) {
+    // The registration/channel observers below only want to track packages the framework serves,
+    // which is why they filter out system packages. But xmsf itself is an updated system app
+    // (flags carry SYSTEM | UPDATED_SYSTEM_APP), so a plain isUserApplication check also rejected
+    // the push host's own registration. That silently dropped xmsf's cached registration payload,
+    // leaving the request stranded with no way to reach the server after chid 5 bound.
+    private fun isTrackedPackage(packageName: String): Boolean {
+        return packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME ||
+            packageName == appContext.packageName ||
+            Utils.isUserApplication(appContext, packageName)
+    }
     fun onRegistrationStateChanged(
         packageName: String,
         state: PushRegistrationState,
