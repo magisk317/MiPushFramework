@@ -193,6 +193,7 @@ dependencies {
     implementation(project(":pinned"))
     implementation(project(":magisk-xposed-kit"))
     implementation(project(":runtime-store-kmp"))
+    implementation(project(":xmsf-notification"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.sqlite.bundled)
 
