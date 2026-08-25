@@ -130,6 +130,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         observationSink = runtimeRegistrationChannelObservationSink,
         isTrackedPackage = ::isTrackedPackage,
     )
+    private val messageNotificationExecutionAdapter = MiPushRuntimeMessageNotificationExecutionAdapter(
+        appContext = appContext,
+        notificationObservationSink = runtimeNotificationObservationSink,
+    )
+
     init {
         XMPushServiceCore.observer = this
     }
@@ -159,10 +164,6 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME ||
             packageName == appContext.packageName ||
             Utils.isUserApplication(appContext, packageName)
-    }
-
-    private fun frameworkProcessor(): PushMessageProcessor {
-        return AppDependencies.get<PushMessageProcessor>(appContext)
     }
 
     override fun onServiceCreated(service: android.app.Service) =
@@ -271,9 +272,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         message: String,
     ) = registrationExecutionAdapter.onRegistrationStateChanged(packageName, state, reason, message)
 
-    override fun onApplicationIntentReceived(intent: Intent) {
-        MiPushRuntimeBridge.onApplicationIntentReceived(appContext, intent)
-    }
+    override fun onApplicationIntentReceived(intent: Intent) =
+        messageNotificationExecutionAdapter.onApplicationIntentReceived(intent)
 
     override fun onPackageDataCleared(packageName: String) {
         PackageDataClearedCoordinator.handle(appContext, packageName)
@@ -373,13 +373,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         notifier: IPendingPacketErrorNotifier,
     ) = registrationExecutionAdapter.notifyRegisterError(errorCode, errorMessage, notifier)
 
-    override fun cachePendingMessage(packageName: String, payload: ByteArray) {
-        PushRuntimePendingPacketStore.addPendingMessage(packageName, payload)
-    }
+    override fun cachePendingMessage(packageName: String, payload: ByteArray) =
+        messageNotificationExecutionAdapter.cachePendingMessage(packageName, payload)
 
-    override fun addPendingMessage(packageName: String, payload: ByteArray) {
-        PushRuntimePendingPacketStore.addPendingMessage(packageName, payload)
-    }
+    override fun addPendingMessage(packageName: String, payload: ByteArray) =
+        messageNotificationExecutionAdapter.addPendingMessage(packageName, payload)
 
     override fun shouldNotifyClient(
         client: PushClientsManager.ClientLoginInfo,
@@ -417,39 +415,23 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
     }
 
-    override fun onPayloadReceived(context: Context, payload: ByteArray?, size: Long, source: String) {
-        payload?.let { MiPushRuntimeBridge.onPayloadFromServer(context, it, size, source) }
-    }
+    override fun onPayloadReceived(context: Context, payload: ByteArray?, size: Long, source: String) =
+        messageNotificationExecutionAdapter.onPayloadReceived(context, payload, size, source)
 
-    override fun shouldAcceptProfile(container: Any): Boolean {
-        val pushContainer = container as? com.xiaomi.xmpush.thrift.XmPushActionContainer ?: return true
-        return StockSurfaceSupport.isProfileAllowed(appContext, pushContainer)
-    }
+    override fun shouldAcceptProfile(container: Any): Boolean =
+        messageNotificationExecutionAdapter.shouldAcceptProfile(container)
 
-    override fun processMIPushMessage(payload: ByteArray, trafficBytes: Long) {
-        // Don't re-enter onPayloadFromServer here — it was already called by onPayloadReceived
-        // via ClientEventDispatcher.notifyPacketArrival, which marks the message as seen.
-        // Re-entering would cause shouldProcessPayloadIdentity to return false (duplicate),
-        // so notifyPushMessage would never be called.
-        MyMIPushNotificationHelper.notifyPushMessage(
-            context = appContext,
-            decryptedContent = payload,
-            dispatchMessageArrived = true,
-        )
-    }
+    override fun processMIPushMessage(payload: ByteArray, trafficBytes: Long) =
+        messageNotificationExecutionAdapter.processMIPushMessage(payload, trafficBytes)
 
-    override fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent) {
-        HookTraceCompat.processIntent(intent)
-        frameworkProcessor().forwardToTargetApplication(appContext, payload)
-    }
+    override fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent) =
+        messageNotificationExecutionAdapter.postProcessMIPushMessage(targetPackage, payload, intent)
 
-    override fun notifyPacketArrival(chid: String, blob: Blob) {
-        HookTraceCompat.processIntent(Intent("blob:$chid"))
-    }
+    override fun notifyPacketArrival(chid: String, blob: Blob) =
+        messageNotificationExecutionAdapter.notifyPacketArrival(chid, blob)
 
-    override fun notifyPacketArrival(chid: String, packet: Packet) {
-        HookTraceCompat.processIntent(Intent("packet:$chid"))
-    }
+    override fun notifyPacketArrival(chid: String, packet: Packet) =
+        messageNotificationExecutionAdapter.notifyPacketArrival(chid, packet)
 
     override fun constructBindBlob(client: Any): Blob? {
         // Blob construction is handled internally inside legacy-runtime now, no delegation needed
@@ -461,12 +443,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return null
     }
 
-    override fun processPendingMessages(source: String, sender: IPendingPacketSender) {
-        val pushAction = XMPushServiceProxy.get() ?: return
-        PushRuntimePendingPacketStore.processPendingMessages(source) { packageName, payload ->
-            MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
-        }
-    }
+    override fun processPendingMessages(source: String, sender: IPendingPacketSender) =
+        messageNotificationExecutionAdapter.processPendingMessages(source, sender)
 
     override fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) =
         registrationExecutionAdapter.processPendingRegistrationRequests(source, sender)
@@ -475,74 +453,26 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         // Managed dynamically via Dispatcher
     }
 
-    override fun packToContainer(payload: ByteArray): Any? {
-        return XMPushUtils.packToContainer(payload)
-    }
+    override fun packToContainer(payload: ByteArray): Any? =
+        messageNotificationExecutionAdapter.packToContainer(payload)
 
-    override fun shouldSendBroadcast(context: Context, packageName: String, container: Any, metaInfo: Any?): Boolean {
-        val pushService = io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService() ?: return true
-        val xmContainer = container as? com.xiaomi.xmpush.thrift.XmPushActionContainer ?: return true
-        val xmMetaInfo = metaInfo as? com.xiaomi.xmpush.thrift.PushMetaInfo ?: return true
-        return io.github.magisk317.mipush.push.hook.ExplicitHookBridge.shouldSendBroadcast(pushService, packageName, xmContainer, xmMetaInfo)
-    }
+    override fun shouldSendBroadcast(context: Context, packageName: String, container: Any, metaInfo: Any?): Boolean =
+        messageNotificationExecutionAdapter.shouldSendBroadcast(context, packageName, container, metaInfo)
 
-    override fun isDuplicate(packageName: String, msgId: String): Boolean {
-        val pushService = io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService() ?: return false
-        return io.github.magisk317.mipush.push.hook.ExplicitHookBridge.isDuplicateMessage(pushService, packageName, msgId)
-    }
+    override fun isDuplicate(packageName: String, msgId: String): Boolean =
+        messageNotificationExecutionAdapter.isDuplicate(packageName, msgId)
 
-    override fun processMIPushIntent(intent: Intent): Any? {
-        return com.xiaomi.mipush.sdk.PushMessageProcessor.getInstance(appContext).processIntent(intent)
-    }
+    override fun processMIPushIntent(intent: Intent): Any? =
+        messageNotificationExecutionAdapter.processMIPushIntent(intent)
 
-    override val notificationHandler: IPushNotificationHandler = object : IPushNotificationHandler {
-        override fun handleNotification(packageName: String, payload: ByteArray): Boolean {
-            val startedAt = System.nanoTime()
-            fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
-                val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
-                val attrs = mutableMapOf(
-                    "result" to result,
-                    "duration_ms" to durationMs.toString(),
-                    "process" to "main",
-                    "target_package" to packageName,
-                    "payload_size" to payload.size.toString(),
-                )
-                if (reason != null) {
-                    attrs["reason"] = reason
-                }
-                MagiskOtel.event(
-                    name = "push.receive",
-                    attributes = attrs,
-                    statusOk = statusOk,
-                )
-            }
+    override val notificationHandler: IPushNotificationHandler
+        get() = messageNotificationExecutionAdapter.notificationHandler
 
-            return try {
-                MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
-                emit(result = "ok")
-                true
-            } catch (error: RuntimeException) {
-                emit(
-                    result = "error",
-                    statusOk = false,
-                    reason = error.javaClass.simpleName,
-                )
-                throw error
-            }
-        }
+    override fun onNotificationEvent(packageName: String?, event: String, source: String) =
+        messageNotificationExecutionAdapter.onNotificationEvent(packageName, event, source)
 
-        override fun clearNotification(packageName: String, notifyId: Int) {
-            // Current product layer clears notifications via runtime bridge + controller.
-        }
-    }
-
-    override fun onNotificationEvent(packageName: String?, event: String, source: String) {
-        runtimeNotificationObservationSink.observeNotificationEvent(packageName, event, source)
-    }
-
-    override fun rebuildRestoredNotification(context: Context, notification: Notification): Notification? {
-        return NotificationCompatBridge.buildSilencedRestoredNotification(context, notification)
-    }
+    override fun rebuildRestoredNotification(context: Context, notification: Notification): Notification? =
+        messageNotificationExecutionAdapter.rebuildRestoredNotification(context, notification)
 
     override fun resolveKick(kickType: String?, kickReason: String?): PushKickPlan {
         return PushPacketSyncRuntime.resolveKick(kickType, kickReason)
