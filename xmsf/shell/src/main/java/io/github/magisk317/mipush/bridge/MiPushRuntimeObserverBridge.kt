@@ -59,7 +59,6 @@ import com.xiaomi.push.service.PushSlimWritePlan
 import com.xiaomi.push.service.PushSocketFailurePlan
 import com.xiaomi.push.service.PushSocketHostSelectionPlan
 import com.xiaomi.push.service.PushClientsManager
-import com.xiaomi.push.service.ReconnectDebugLog
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceProxy
 import com.xiaomi.slim.Blob
@@ -137,6 +136,18 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val accountClientCoordinator = MiPushRuntimeAccountClientCoordinator(
         observerState = observerState,
     )
+    private val accountRecoveryCoordinator = MiPushRuntimeAccountRecoveryCoordinator(
+        appContext = appContext,
+        observerState = observerState,
+        accountClientCoordinator = accountClientCoordinator,
+        observer = this,
+    )
+    private val reconnectCoordinator = MiPushRuntimeReconnectCoordinator(
+        appContext = appContext,
+        observerState = observerState,
+        accountClientCoordinator = accountClientCoordinator,
+    )
+    private val compatibilityAdapter = MiPushRuntimeCompatibilityAdapter(appContext)
 
     init {
         XMPushServiceCore.observer = this
@@ -198,11 +209,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun startForegroundService() = connectionLifecycleAdapter.startForegroundService()
 
-    override fun getMIID(): String? = "0"
+    override fun getMIID(): String? = compatibilityAdapter.getMIID()
 
-    override fun sendBroadcast(intent: Intent) {
-        appContext.sendBroadcast(intent)
-    }
+    override fun sendBroadcast(intent: Intent) = compatibilityAdapter.sendBroadcast(intent)
 
     override fun applyStoredAccountEnvironment(context: Context): MIPushAccount? {
         return accountExecutionAdapter.applyStoredAccountEnvironment(context)
@@ -378,15 +387,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     override fun notifyPacketArrival(chid: String, packet: Packet) =
         messageNotificationExecutionAdapter.notifyPacketArrival(chid, packet)
 
-    override fun constructBindBlob(client: Any): Blob? {
-        // Blob construction is handled internally inside legacy-runtime now, no delegation needed
-        return null
-    }
+    override fun constructBindBlob(client: Any): Blob? = compatibilityAdapter.constructBindBlob(client)
 
-    override fun constructUnbindBlob(chid: String, userId: String): Blob? {
-        // Blob construction is handled internally inside legacy-runtime now, no delegation needed
-        return null
-    }
+    override fun constructUnbindBlob(chid: String, userId: String): Blob? =
+        compatibilityAdapter.constructUnbindBlob(chid, userId)
 
     override fun processPendingMessages(source: String, sender: IPendingPacketSender) =
         messageNotificationExecutionAdapter.processPendingMessages(source, sender)
@@ -394,9 +398,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     override fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) =
         registrationExecutionAdapter.processPendingRegistrationRequests(source, sender)
 
-    override fun removeCachedMsgId(msgId: String) {
-        // Managed dynamically via Dispatcher
-    }
+    override fun removeCachedMsgId(msgId: String) = compatibilityAdapter.removeCachedMsgId(msgId)
 
     override fun packToContainer(payload: ByteArray): Any? =
         messageNotificationExecutionAdapter.packToContainer(payload)
@@ -426,47 +428,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     override fun resolveBindResult(success: Boolean, errorType: String?, errorReason: String?): PushBindResultPlan {
         val plan = MiPushRuntimePolicyExecutionAdapter.resolveBindResult(success, errorType, errorReason)
         if (plan.shouldReportInvalidSig) {
-            logW("SMACK: channel bind failed due to invalid-sig, scheduling account refresh and reconnect")
-            val service = observerState.service()
-                ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
-            if (service != null && Network.hasNetwork(appContext)) {
-                service.executeJob(
-                    object : com.xiaomi.push.service.XMPushServiceCore.Job(
-                        com.xiaomi.push.service.XMPushServiceJob.TYPE_PREPARE_MIPUSH_ACCOUNT
-                    ) {
-                        override fun getDesc(): String = "refresh mi push account after invalid-sig"
-                        override fun process() {
-                            try {
-                                val newAccount = MIPushAccountUtils.register(
-                                    service,
-                                    service.packageName,
-                                    MIPushAccountUtils.MIPUSH_MIUI_APPID,
-                                    MIPushAccountUtils.MIPUSH_MIUI_APP_TOKEN,
-                                    this@MiPushRuntimeObserverBridge,
-                                )
-                                if (newAccount != null) {
-                                    accountClientCoordinator.attachAccount(newAccount, service, PushClientsManager.getInstance())
-                                    val client = PushClientsManager.getInstance().getClientLoginInfoByChidAndUserId(
-                                        PushConstants.MIPUSH_CHANNEL,
-                                        newAccount.account
-                                    )
-                                    if (service.isConnected && client != null) {
-                                        service.executeJob(com.xiaomi.push.service.BindJob(service, client))
-                                    } else {
-                                        service.scheduleConnect(true)
-                                    }
-                                } else {
-                                    logW("register returned null after invalid-sig, scheduling reconnect to retry")
-                                    PushRuntime.observeAccountEvent("refresh_failed_invalid_sig", "MiPushRuntimeObserverBridge.resolveBindResult")
-                                    service.scheduleConnect(true)
-                                }
-                            } catch (e: Exception) {
-                                logW("failed to register new account after invalid-sig", e)
-                            }
-                        }
-                    }
-                )
-            }
+            accountRecoveryCoordinator.scheduleInvalidSignatureRefresh()
         }
         return plan
     }
@@ -557,65 +519,26 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         pushEnabled: Boolean,
         superPowerMode: Boolean,
         extremePowerMode: Boolean,
-    ): PushShouldReconnectPlan {
-        val account = MIPushAccountUtils.getMIPushAccount(appContext)
-        val hasAccount = account != null
-        val effectiveCount = if (hasAccount && activeClientCount == 0) 1 else activeClientCount
-        val plan = MiPushRuntimePolicyExecutionAdapter.planShouldReconnect(
-            hasNetwork,
-            effectiveCount,
-            pushDisabled,
-            pushEnabled,
-            superPowerMode,
-            extremePowerMode,
-        )
-        ReconnectDebugLog.w(
-            "should_reconnect_policy result=${plan.shouldReconnect} hasNetwork=$hasNetwork " +
-                "hasAccount=$hasAccount activeClients=$activeClientCount " +
-                "effectiveClients=$effectiveCount pushDisabled=$pushDisabled " +
-                "pushEnabled=$pushEnabled superPowerMode=$superPowerMode " +
-                "extremePowerMode=$extremePowerMode"
-        )
-        return plan
-    }
+    ): PushShouldReconnectPlan = reconnectCoordinator.resolveShouldReconnectPlan(
+        hasNetwork = hasNetwork,
+        activeClientCount = activeClientCount,
+        pushDisabled = pushDisabled,
+        pushEnabled = pushEnabled,
+        superPowerMode = superPowerMode,
+        extremePowerMode = extremePowerMode,
+    )
 
     override fun resolveReconnectAttemptPlan(
         state: com.xiaomi.push.service.PushReconnectState,
         force: Boolean,
         isConnected: Boolean,
         hasReconnectionJob: Boolean
-    ): PushReconnectAttemptPlan {
-        val hasNetwork = Network.hasNetwork(appContext)
-        val account = MIPushAccountUtils.getMIPushAccount(appContext)
-        val hasAccount = account != null
-        val activeClientCount = PushClientsManager.getInstance().getActiveClientCount()
-        val effectiveClients = activeClientCount > 0 || hasAccount
-        val allowedByPolicy = hasNetwork && (effectiveClients || force)
-        ReconnectDebugLog.w(
-            "reconnect_policy hasNetwork=$hasNetwork hasAccount=$hasAccount " +
-                "activeClients=$activeClientCount effectiveClients=$effectiveClients " +
-                "allowed=$allowedByPolicy force=$force connected=$isConnected " +
-                "pendingJob=$hasReconnectionJob attempts=${state.attempts} " +
-                "shortLive=${state.shortLiveConnCount} curDelay=${state.curDelay}"
-        )
-
-        if (hasAccount && activeClientCount == 0) {
-            val service = observerState.service()
-                ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
-            if (service != null) {
-                accountClientCoordinator.attachAccount(account, service, PushClientsManager.getInstance())
-            }
-        }
-
-        return MiPushRuntimePolicyExecutionAdapter.planReconnect(
-            state = state,
-            forceImmediate = force,
-            currentlyConnected = isConnected,
-            allowedByPolicy = allowedByPolicy,
-            hasPendingConnectJob = hasReconnectionJob,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    ): PushReconnectAttemptPlan = reconnectCoordinator.resolveReconnectAttemptPlan(
+        state = state,
+        force = force,
+        isConnected = isConnected,
+        hasReconnectionJob = hasReconnectionJob,
+    )
 
     override fun resolveCandidateHosts(targetHost: String, fallbackHosts: List<String>): PushSocketHostSelectionPlan {
         return MiPushRuntimePolicyExecutionAdapter.resolveCandidateHosts(targetHost, fallbackHosts)
