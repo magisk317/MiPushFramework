@@ -41,6 +41,9 @@ object ManifestChecker {
         Thread {
             try {
                 val packageInfo = context.packageManager.getPackageInfo(context.packageName, 4612)
+                if (context.packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME) {
+                    return@Thread
+                }
                 checkReceivers(context)
                 checkServices(context, packageInfo)
                 checkPermissions(context, packageInfo)
