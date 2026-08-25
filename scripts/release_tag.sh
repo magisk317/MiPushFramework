@@ -83,8 +83,9 @@ run_pre_push_checks() {
   local gradle_args=(
     --warning-mode all
     :common:compileDebugKotlin
-    :xmsf:assembleNormalDebug
-    :xmsf:assembleVc105Debug
+    :xmsf:runtime:compileDebugKotlin
+    :xmsf:shell:assembleNormalDebug
+    :xmsf:shell:assembleVc105Debug
     :app:assembleRelease
     :mipush:assembleRelease
     -PbuildSplits

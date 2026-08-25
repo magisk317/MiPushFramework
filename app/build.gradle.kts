@@ -50,7 +50,8 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":xmsf"))
+    implementation(project(":xmsf:shell"))
+    implementation(project(":xmsf:runtime"))
     implementation(project(":manager:ui"))
 
     implementation(libs.kotlinx.coroutines.android)

@@ -28,19 +28,19 @@ tmp_vendor_stale="$(mktemp)"
 trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps" "$tmp_forbidden_xmsf_edges" "$tmp_vendor_current" "$tmp_vendor_baseline" "$tmp_vendor_new" "$tmp_vendor_stale"' EXIT
 
 required_deep_xiaomi_scan_roots=(
-  "manager-api/src/main/aidl"
-  "manager-api/src/main/java"
-  "manager-client/src/main/java"
-  "manager/src/main/java"
+  "manager/contract/src/main/aidl"
+  "manager/contract/src/main/java"
+  "manager/client/src/main/java"
+  "manager/ui/src/main/java"
   "settings/src/main/java"
-  "xmsf/src/main/java/io/github/magisk317/mipush/app"
+  "xmsf/shell/src/main/java/io/github/magisk317/mipush/app"
 )
 
 required_manager_app_scan_roots=(
-  "manager-api/src/main/aidl"
-  "manager-api/src/main/java"
-  "manager-client/src/main/java"
-  "manager/src/main/java"
+  "manager/contract/src/main/aidl"
+  "manager/contract/src/main/java"
+  "manager/client/src/main/java"
+  "manager/ui/src/main/java"
   "settings/src/main/java"
 )
 
@@ -81,7 +81,7 @@ require_scan_roots "${required_manager_app_scan_roots[@]}"
     rg -n "$manager_app_pattern" "$root" || true
   done
 
-  rg -n "$deep_xiaomi_string_pattern" "manager/src/main/java" "settings/src/main/java" || true
+  rg -n "$deep_xiaomi_string_pattern" "manager/ui/src/main/java" "settings/src/main/java" || true
 } | while IFS=: read -r path _line import_line; do
   [ -n "${path:-}" ] || continue
   printf '%s|%s\n' "$path" "$import_line"
@@ -139,9 +139,9 @@ if [ -s "$tmp_vendor_stale" ]; then
   exit 1
 fi
 
-for build_file in "manager/build.gradle.kts" "settings/build.gradle.kts"; do
+for build_file in "manager/ui/build.gradle.kts" "settings/build.gradle.kts"; do
   if [ -f "$build_file" ]; then
-    rg -n 'project\(":(vendor|xmsf|pinned)"\)' "$build_file" \
+    rg -n 'project\(":(vendor|xmsf:shell|pinned)"\)' "$build_file" \
       | while IFS=: read -r path _line import_line; do
         [ -n "${path:-}" ] || continue
         printf '%s|%s\n' "$path" "$import_line"
@@ -149,9 +149,9 @@ for build_file in "manager/build.gradle.kts" "settings/build.gradle.kts"; do
   fi
 done
 
-for build_file in "manager-api/build.gradle.kts" "manager-client/build.gradle.kts"; do
+for build_file in "manager/contract/build.gradle.kts" "manager/client/build.gradle.kts"; do
   if [ -f "$build_file" ]; then
-    rg -n 'project\(":(common|core|pinned|settings|vendor|xmsf)"\)' "$build_file" \
+    rg -n 'project\(":(common|core|pinned|settings|vendor|xmsf:shell)"\)' "$build_file" \
       | while IFS=: read -r path _line import_line; do
         [ -n "${path:-}" ] || continue
         printf '%s|%s\n' "$path" "$import_line"
@@ -161,7 +161,7 @@ done
 
 if [ -s "$tmp_forbidden_deps" ]; then
   echo "Manager boundary build scripts contain forbidden project dependencies." >&2
-  echo "Manager UI may use shared contracts; manager-api/client must stay independent of runtime implementations." >&2
+  echo "Manager UI may use shared contracts; manager contract/client must stay independent of runtime implementations." >&2
   echo >&2
   cat "$tmp_forbidden_deps" >&2
     exit 1
@@ -185,7 +185,7 @@ fi
 # a common contract and implemented by an xmsf adapter. This prevents a data
 # repository from reaching back into Android notification construction APIs.
 xmsf_layer_edges=(
-  "xmsf/src/main/java/io/github/magisk317/mipush/runtime/data|io.github.magisk317.mipush.notification."
+  "xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/data|io.github.magisk317.mipush.notification."
 )
 for edge in "${xmsf_layer_edges[@]}"; do
   source_root="${edge%%|*}"
@@ -224,7 +224,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/*|manager-client/*|manager-api/*|settings|settings/*|xposed/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|runtime-store-kmp/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
+    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|settings|settings/*|xposed/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|app/build.gradle.kts|mipush/build.gradle.kts|README.md|scripts/checks/verify_shared_submodule_compat.sh|scripts/ci/run_test_shards.sh|scripts/ci/select_android_test_tasks.sh|scripts/release_tag.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|xmsf/runtime/store/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
@@ -232,11 +232,22 @@ while IFS= read -r changed_path; do
   esac
 done < "$tmp_changed_paths"
 
-# AIDL files are in the allowed manager-api module, but their external semantics
+# AIDL files are in the allowed manager contract module, but their external semantics
 # are explicitly outside this feature's boundary. Any working-tree AIDL change
 # therefore fails until it is reviewed as a separate protocol change.
 while IFS= read -r changed_path; do
   case "$changed_path" in
+    manager/contract/src/main/aidl/*|xmsf/shell/src/main/aidl/*)
+      case "$changed_path" in
+        manager/contract/*) old_path="manager-api/${changed_path#manager/contract/}" ;;
+        xmsf/shell/*) old_path="xmsf/${changed_path#xmsf/shell/}" ;;
+      esac
+      if git cat-file -e "HEAD:$old_path" 2>/dev/null &&
+        git show "HEAD:$old_path" | cmp -s - "$changed_path"; then
+        continue
+      fi
+      printf '%s\n' "$changed_path" >> "$tmp_aidl_changes"
+      ;;
     */src/main/aidl/*|*.aidl)
       printf '%s\n' "$changed_path" >> "$tmp_aidl_changes"
       ;;
@@ -262,7 +273,7 @@ fi
 {
   rg -n 'io\.github\.magisk317\.mipush|com\.xiaomi\.xmsf' \
     magisk-ui-kit/src magisk-ui-kit/build.gradle.kts || true
-  rg -n 'project\(":(manager|manager-api|manager-client|xmsf|vendor|pinned)"\)' \
+  rg -n 'project\(":(manager:ui|manager:contract|manager:client|xmsf:shell|vendor|pinned)"\)' \
     magisk-ui-kit/build.gradle.kts || true
 } > "$tmp_uikit_violations"
 
@@ -273,7 +284,7 @@ if [ -s "$tmp_uikit_violations" ]; then
 fi
 
 manager_notification_framework="$({
-  rg -n 'android\.app\.NotificationChannel(Group)?' "manager/src/main/java" || true
+  rg -n 'android\.app\.NotificationChannel(Group)?' "manager/ui/src/main/java" || true
 })"
 if [ -n "$manager_notification_framework" ]; then
   echo "Manager notification UI must consume DTO/domain models, not Android notification channels." >&2
@@ -284,7 +295,7 @@ fi
 
 app_host="app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt"
 mipush_host="mipush/src/main/java/io/github/magisk317/mipush/app/App.kt"
-framework_host="xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt"
+framework_host="xmsf/shell/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt"
 
 require_bootstrap_contract() {
   local pattern="$1"
@@ -297,7 +308,7 @@ require_bootstrap_contract() {
 }
 
 require_bootstrap_contract \
-  'implementation\(project\(":manager"\)\)' \
+  'implementation\(project\(":manager:ui"\)\)' \
   "app/build.gradle.kts" \
   ":app must package the manager bootstrap implementation."
 require_bootstrap_contract \
@@ -323,7 +334,7 @@ require_bootstrap_contract \
 
 forbidden_entrypoint_bootstrap="$({
   rg -n 'ManagerDependencies\.(ensureStarted|startAsRemoteHost|startFromAppShell)' \
-    "manager/src/main/java/io/github/magisk317/mipush/feature" \
+    "manager/ui/src/main/java/io/github/magisk317/mipush/feature" \
     "mipush/src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt" \
     "mipush/src/main/java/io/github/magisk317/mipush/app/widget" || true
 })"
@@ -336,7 +347,7 @@ fi
 
 xmsf_manager_bootstrap="$({
   rg -n 'io\.github\.magisk317\.mipush\.manager\.di|managerKoinModule|ManagerDependencies' \
-    "xmsf/src/main/java" || true
+    "xmsf/shell/src/main/java" || true
 })"
 if [ -n "$xmsf_manager_bootstrap" ]; then
   echo "xmsf Koin/runtime sources must not own manager UI bootstrap definitions." >&2

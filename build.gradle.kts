@@ -88,7 +88,8 @@ val detektBlockingProjects = setOf(
     ":pinned",
     ":settings",
     ":vendor",
-    ":xmsf",
+    ":xmsf:runtime",
+    ":xmsf:shell",
     ":xposed",
 )
 val qualityGateKoverModules = listOf("common", "core", "xposed", "xmsf")

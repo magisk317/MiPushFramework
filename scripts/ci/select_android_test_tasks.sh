@@ -41,10 +41,10 @@ while IFS= read -r path; do
       select_task common-notification; select_task common-utils; select_task common-other ;;
     core/*)
       select_task core; select_task xmsf-runtime; select_task xmsf-service ;;
-    xmsf/*) select_task xmsf-stock; select_task xmsf-notification; select_task xmsf-service
+    xmsf/shell/*|xmsf/notification/*|xmsf/runtime/*) select_task xmsf-stock; select_task xmsf-notification; select_task xmsf-service
       select_task xmsf-runtime; select_task xmsf-other ;;
     xposed/*) select_task xposed-systemui; select_task xposed-island; select_task xposed-other ;;
-    manager/*|manager-api/*|manager-client/*|settings/*|configuration/*|vendor/*|pinned/*)
+    manager/ui/*|manager/contract/*|manager/client/*|settings/*|configuration/*|vendor/*|pinned/*)
       select_task manager-events; select_task manager-main; select_task manager-connection; select_task manager-other ;;
     app/*) select_task app-compile ;;
     mipush/*) select_task mipush-compile ;;
