@@ -27,8 +27,9 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import kotlinx.coroutines.runBlocking
@@ -294,7 +295,7 @@ object MiPushRuntimeBridge {
         applyRegistrationStateFromContainer(context, container, application)
         val messageId = MessageIdentity.fromContainer(container)
         logD("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
-        runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
+        runBlocking { EventDb.insertEventAsync(EventRowResultType.OK, eventType) }
         logD("recordEvent done pkg=$pkg action=${container.action?.name} messageId=$messageId")
     }
 
@@ -422,7 +423,7 @@ object MiPushRuntimeBridge {
     private fun applyRegistrationStateFromContainer(
         context: Context,
         container: XmPushActionContainer,
-        application: RegisteredApplication
+        application: RuntimeRegisteredApplicationRow
     ) {
         val registrationOutcome = resolveRegistrationResultOutcome(container)
         if (registrationOutcome != null) {
@@ -445,7 +446,7 @@ object MiPushRuntimeBridge {
             source = RegistrationStateStore.Source.SERVER_RESULT
         )
         when (nextType) {
-            RegisteredApplication.RegisteredType.Registered -> {
+            RegisteredAppRegisteredType.Registered -> {
                 MIPushAppInfo.getInstance(context).removeUnRegisteredPkg(application.packageName)
                 PushRuntime.observeRegistrationResult(
                     packageName = application.packageName,
@@ -453,7 +454,7 @@ object MiPushRuntimeBridge {
                     source = "server_result:${container.action}"
                 )
             }
-            RegisteredApplication.RegisteredType.Unregistered -> {
+            RegisteredAppRegisteredType.Unregistered -> {
                 MIPushAppInfo.getInstance(context).addUnRegisteredPkg(application.packageName)
                 PushRuntime.observeUnregistration(
                     packageName = application.packageName,
@@ -489,7 +490,7 @@ object MiPushRuntimeBridge {
                 val regSecret = result.regSecret?.takeIf { it.isNotBlank() }
                 if (result.errorCode == 0L && appId != null && regSecret != null) {
                     ConfirmedRegistrationTransition(
-                        registeredType = RegisteredApplication.RegisteredType.Registered,
+                        registeredType = RegisteredAppRegisteredType.Registered,
                         appId = appId,
                         regSecret = regSecret,
                     )
@@ -498,7 +499,7 @@ object MiPushRuntimeBridge {
                 }
             }
             is XmPushActionUnRegistrationResult -> {
-                ConfirmedRegistrationTransition(RegisteredApplication.RegisteredType.Unregistered)
+                ConfirmedRegistrationTransition(RegisteredAppRegisteredType.Unregistered)
                     .takeIf { result.errorCode == 0L }
             }
             else -> null
@@ -540,7 +541,7 @@ object MiPushRuntimeBridge {
         transition: ConfirmedRegistrationTransition,
     ) {
         when (transition.registeredType) {
-            RegisteredApplication.RegisteredType.Registered -> {
+            RegisteredAppRegisteredType.Registered -> {
                 val appId = transition.appId ?: return
                 val regSecret = transition.regSecret ?: return
                 // Stock XMSF 7.4.67-C i0 accepts registration only when errorCode is zero and
@@ -549,7 +550,7 @@ object MiPushRuntimeBridge {
                 MIPushAppAbsentManager.rememberRegisteredPackage(context, packageName, appId)
                 Utils.setRegSec(context, packageName, regSecret)
             }
-            RegisteredApplication.RegisteredType.Unregistered ->
+            RegisteredAppRegisteredType.Unregistered ->
                 MIPushAppAbsentManager.forgetRegisteredPackage(context, packageName)
         }
     }

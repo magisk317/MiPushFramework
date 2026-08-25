@@ -94,7 +94,7 @@ library. This includes Room entities, DAOs, and the runtime store facade.
   a stable storage API for both.
 - **Risk:** High. Runtime state is the most sensitive area; schema migrations and
   user-scoped identity must be preserved exactly.
-- **Prerequisite:** KMP shadow database migration plan validated on device.
+- **Prerequisite:** KMP production database migration plan validated on device.
 - **Estimated effort:** Large.
 
 ### Phase 3: Extract `:xmsf-push`

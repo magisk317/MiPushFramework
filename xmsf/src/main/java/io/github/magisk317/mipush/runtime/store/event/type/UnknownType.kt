@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event.type
 
 import android.content.Context
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.EventType
 
 /**
@@ -12,19 +12,19 @@ class UnknownType(mType: Int, mInfo: String?, pkg: String?, payload: ByteArray?)
 
     override fun getSummary(context: Context): CharSequence? {
         return when (type) {
-            Event.Type.Registration -> "Registration"
-            Event.Type.Notification -> "Notification"
-            Event.Type.SendMessage -> "SendMessage"
-            Event.Type.Command -> "Command"
-            Event.Type.AckMessage -> "AckMessage"
-            Event.Type.MultiConnectionBroadcast -> "MultiConnectionBroadcast"
-            Event.Type.MultiConnectionResult -> "MultiConnectionResult"
-            Event.Type.ReportFeedback -> "ReportFeedback"
-            Event.Type.UnRegistration -> "UnRegistration"
-            Event.Type.UnSubscription -> "UnSubscription"
-            Event.Type.SetConfig -> "SetConfig"
-            Event.Type.Subscription -> "Subscription"
-            Event.Type.RegistrationResult -> "RegistrationResult"
+            EventRowType.Registration -> "Registration"
+            EventRowType.Notification -> "Notification"
+            EventRowType.SendMessage -> "SendMessage"
+            EventRowType.Command -> "Command"
+            EventRowType.AckMessage -> "AckMessage"
+            EventRowType.MultiConnectionBroadcast -> "MultiConnectionBroadcast"
+            EventRowType.MultiConnectionResult -> "MultiConnectionResult"
+            EventRowType.ReportFeedback -> "ReportFeedback"
+            EventRowType.UnRegistration -> "UnRegistration"
+            EventRowType.UnSubscription -> "UnSubscription"
+            EventRowType.SetConfig -> "SetConfig"
+            EventRowType.Subscription -> "Subscription"
+            EventRowType.RegistrationResult -> "RegistrationResult"
             else -> null
         }
     }

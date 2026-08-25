@@ -30,7 +30,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
@@ -360,7 +360,7 @@ class RegistrationHelper(
                 )
                 RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {
-                    EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
+                    EventDb.insertEventAsync(EventRowResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
                 }
                 logI("force register fallback for $packageName dispatched")
                 emitHelperRegister(
@@ -408,7 +408,7 @@ class RegistrationHelper(
                 )
                 RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {
-                    EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
+                    EventDb.insertEventAsync(EventRowResultType.OK, RegistrationType("force_trigger", packageName, null))
                 }
                 logI("force register for $packageName dispatched")
                 emitHelperRegister(

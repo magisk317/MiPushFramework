@@ -446,6 +446,18 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
         packetDelegate.registerForMiPushApp(payload, packageName)
     }
 
+    override fun replaceJobs(type: Int, job: XMPushServiceJob) {
+        // Keep removal and replacement on the scheduler thread as one operation. If these are
+        // posted as two independent zero-delay jobs, the removal job can run first and delete the
+        // replacement ConnectJob before it gets a chance to execute.
+        jobController.executeJobDelayed(object : JobScheduler.Job(type) {
+            override fun run() {
+                jobController.removeJobs(type)
+                jobController.executeJobDelayed(job, 0L)
+            }
+        }, 0L)
+    }
+
     override fun removeJobs(type: Int) {
         // Defer to JobSchedulerThread to avoid deadlock: BlobReader thread calls
         // onChallengeReceived → setConnectionStatus → removeJobs while the

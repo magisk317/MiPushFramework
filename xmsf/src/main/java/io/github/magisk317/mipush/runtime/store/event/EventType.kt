@@ -2,14 +2,13 @@ package io.github.magisk317.mipush.runtime.store.event
 
 import android.content.Context
 import io.github.magisk317.mipush.platform.support.Global
-import io.github.magisk317.mipush.runtime.store.entities.Event
 
 /**
- * 喂给 [Event] 的详细信息。
+ * 喂给 event 的详细信息。
  *
  * Created by Trumeet on 2018/2/7.
  */
-abstract class EventType(@param:Event.Type var type: Int, val info: String?, val pkg: String?, val payload: ByteArray?) {
+abstract class EventType(var type: Int, val info: String?, val pkg: String?, val payload: ByteArray?) {
 
     open fun getTitle(context: Context): CharSequence {
         return Global.applicationNameCache().getAppName(context, pkg ?: "") ?: (pkg ?: "")

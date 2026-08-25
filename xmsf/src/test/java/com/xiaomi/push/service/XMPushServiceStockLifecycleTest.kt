@@ -68,7 +68,7 @@ class XMPushServiceStockLifecycleTest {
         fixture.lifecycle.networkChanged()
 
         verify(exactly = 1) {
-            fixture.jobScheduler.removeJobs(XMPushServiceJob.TYPE_CONNECT)
+            fixture.jobScheduler.hasJob(XMPushServiceJob.TYPE_CONNECT)
         }
         assertEquals(XMPushServiceJob.TYPE_CONNECT, fixture.jobs.single().type)
         verify(exactly = 1) { fixture.service.updateAlarmTimer() }

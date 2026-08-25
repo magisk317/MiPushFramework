@@ -15,7 +15,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
@@ -101,7 +101,7 @@ class RegisterRecorder(private val context: Context) {
     }
 
     fun saveRegisterAppRecord(pkg: String) {
-        runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType(null, pkg, null)) }
+        runBlocking { EventDb.insertEventAsync(EventRowResultType.OK, RegistrationType(null, pkg, null)) }
     }
 
     fun isRegisterAppRequest(intent: Intent?): Boolean {

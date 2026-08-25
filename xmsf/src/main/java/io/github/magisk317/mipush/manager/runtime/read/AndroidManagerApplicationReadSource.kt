@@ -13,7 +13,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.utils.RegistrationHelper
 
 /** Android-backed source whose methods are reads only. */
@@ -173,9 +173,9 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
                 PackageManager.GET_SERVICES or
                 PackageManager.GET_RECEIVERS
         private val REGISTRATION_EVENT_TYPES = setOf(
-            Event.Type.Registration,
-            Event.Type.RegistrationResult,
-            Event.Type.UnRegistration,
+            EventRowType.Registration,
+            EventRowType.RegistrationResult,
+            EventRowType.UnRegistration,
         )
     }
 }

@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.runtime.store.db
 
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
 import java.util.concurrent.atomic.AtomicBoolean
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -17,13 +18,10 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * - 启动时一次([pruneNow]);
  * - 入库时节流触发([maybePrune]),避免每条消息都全表扫描。
  *
- * 注册状态事件(type 20/21)由 [EventDao.deleteHistory] 的 SQL 永久保留,
+ * 注册状态事件(type 20/21)由 [RuntimeEventDao.deleteHistory] 的 SQL 永久保留,
  * 不受保留天数影响。
  */
 object EventRetentionManager {
-
-    /** 两次自动清理之间的最小间隔,避免高频写入时反复清理。 */
-    private const val PRUNE_INTERVAL_MS = 6L * 3600L * 1000L
 
     @Volatile
     private var retentionDaysProvider: (() -> Int)? = null
@@ -40,7 +38,7 @@ object EventRetentionManager {
 
     /** 当前保留天数;未注入 provider 时退回默认值。 */
     fun retentionDays(): Int =
-        runCatching { retentionDaysProvider?.invoke() }.getOrNull() ?: EventDb.DEFAULT_RETENTION_DAYS
+        runCatching { retentionDaysProvider?.invoke() }.getOrNull() ?: EventRetentionPolicy.DEFAULT_RETENTION_DAYS
 
     /** 立即清理(启动时调用一次)。 */
     suspend fun pruneNow() {
@@ -82,7 +80,7 @@ object EventRetentionManager {
     /** 节流清理(入库后调用);距上次清理不足间隔或已有清理在跑时直接跳过。 */
     suspend fun maybePruneAfterInsert() {
         val now = System.currentTimeMillis()
-        if (now - lastPruneAtMs < PRUNE_INTERVAL_MS) {
+        if (!EventRetentionPolicy.shouldPrune(now, lastPruneAtMs, pruneInProgress.get())) {
             return
         }
         if (!pruneInProgress.compareAndSet(false, true)) {

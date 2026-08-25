@@ -10,7 +10,9 @@ class EventRepositoryContractTest {
     fun `restore only consumes a runtime owned deleted snapshot`() {
         val repository = readSource("io/github/magisk317/mipush/runtime/data/EventRepository.kt")
         val database = readSource("io/github/magisk317/mipush/runtime/store/db/EventDb.kt")
-        val dao = readSource("io/github/magisk317/mipush/runtime/store/db/EventDao.kt")
+        val dao = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt"
+        )
         val adapter = readSource("io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt")
 
         assertTrue(repository.contains("EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId) ?: 0L"))
@@ -20,13 +22,13 @@ class EventRepositoryContractTest {
         assertTrue(dao.contains("val event = getById(id, userId) ?: return false"))
         assertTrue(dao.contains("if (event.pkg != packageName) return false"))
         assertTrue(dao.contains("if (deleted.pkg != packageName) return null"))
-        assertTrue(dao.contains("insertDeletedEvent(DeletedEvent.fromEvent(event, System.currentTimeMillis()))"))
+        assertTrue(dao.contains("insertDeletedEvent(event.toDeletedEvent(System.currentTimeMillis()))"))
         assertTrue(adapter.contains("EventDebugJson.format(owned)"))
         assertFalse(adapter.contains("EventDebugJson.format(event)"))
         assertTrue(adapter.contains("resolveEventForMock(event) ?: return null"))
         assertTrue(adapter.contains("userId = userId,"))
         assertTrue(adapter.contains("userId = userId,\n            pkg = packageName,"))
-        assertTrue(adapter.contains("it.userId = userId"))
+        assertTrue(adapter.contains("userId = userId"))
         assertTrue(adapter.contains("RegSecUtils.getContainerWithRegSec(resolved.payload, resolved.regSec)\n            ?: return null"))
         assertFalse(repository.contains("EventDb.insertEventAsync(restored)"))
         assertFalse(repository.contains("EventDb.insertOrReplaceEventAsync(restored)"))
@@ -37,6 +39,7 @@ class EventRepositoryContractTest {
         val candidates = listOf(
             File("src/main/java/$relativePath"),
             File("xmsf/src/main/java/$relativePath"),
+            File("../$relativePath"),
         )
         return candidates.firstOrNull(File::isFile)?.readText()
             ?: error("Source not found: $relativePath from ${File(".").absolutePath}")

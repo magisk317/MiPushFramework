@@ -77,6 +77,8 @@ object Constants {
 
     const val MANAGER_APP_NAME = "io.github.magisk317.mipush"
 
+    const val XMSF_KEEPER_APP_NAME = "com.xiaomi.xmsfkeeper"
+
     @JvmField
     val PUSH_SERVICE_VERSION_CODE = BuildConfig.PUSH_VERSION_CODE.toInt()
 

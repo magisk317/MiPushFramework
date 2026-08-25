@@ -1,24 +1,29 @@
 package io.github.magisk317.mipush.runtime.store
 
 import android.content.Context
-import androidx.room.Room
-import io.github.magisk317.mipush.runtime.store.db.AppDatabase
-import io.github.magisk317.mipush.runtime.store.db.AppDatabaseMigrations
-import io.github.magisk317.mipush.runtime.store.db.EventDao
-import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDao
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventDao
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationDao
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeStoreDatabase
+import io.github.magisk317.mipush.runtime.store.kmp.configureRuntimeStoreKmp
+import io.github.magisk317.xposed.logging.MagiskOtel
+import kotlinx.coroutines.runBlocking
 
 /**
  * Created by Trumeet on 2017/12/23.
  */
 object DatabaseUtils {
-    @Volatile
-    private var database: AppDatabase? = null
+    private const val DATABASE_SCHEMA_VERSION = 9
+    private const val USER_SCOPE_MIGRATION_PREFS = "database_identity_migration"
+    private const val USER_SCOPE_MIGRATION_KEY = "v7_done"
 
-    val eventDao: EventDao
+    @Volatile
+    private var database: RuntimeStoreDatabase? = null
+
+    val eventDao: RuntimeEventDao
         get() = requireNotNull(database) { "DatabaseUtils.init(context) must be called first" }.eventDao()
 
-    val registeredApplicationDao: RegisteredApplicationDao
+    val registeredApplicationDao: RuntimeRegisteredApplicationDao
         get() = requireNotNull(database) { "DatabaseUtils.init(context) must be called first" }.registeredApplicationDao()
 
     @JvmStatic
@@ -26,21 +31,35 @@ object DatabaseUtils {
         getDatabase(context)
     }
 
-    fun getDatabase(context: Context): AppDatabase {
+    fun getDatabase(context: Context): RuntimeStoreDatabase {
         database?.let { return it }
         synchronized(this) {
             database?.let { return it }
-            val db = Room.databaseBuilder(
-                context.applicationContext,
-                AppDatabase::class.java,
-                "db"
-            )
-                .addMigrations(*AppDatabaseMigrations.ALL)
-                .build()
-            // Migrate before publishing the singleton so no DAO can observe the default user.
-            migrateLegacyUserScope(context.applicationContext, db)
-            database = db
-            return db
+            try {
+                val appContext = context.applicationContext
+                val db = configureRuntimeStoreKmp(appContext, databaseName = "db")
+                // Migrate before publishing the singleton so no DAO can observe the default user.
+                migrateLegacyUserScope(appContext, db)
+                database = db
+                emitStoreEvent(
+                    reason = "open",
+                    userId = Utils.myUserId().coerceAtLeast(0),
+                    userScopeMigrationComplete = appContext
+                        .getSharedPreferences(USER_SCOPE_MIGRATION_PREFS, Context.MODE_PRIVATE)
+                        .getBoolean(USER_SCOPE_MIGRATION_KEY, false),
+                    statusOk = true,
+                )
+                return db
+            } catch (error: Exception) {
+                emitStoreEvent(
+                    reason = "open_failed",
+                    userId = runCatching { Utils.myUserId().coerceAtLeast(0) }.getOrDefault(-1),
+                    userScopeMigrationComplete = false,
+                    statusOk = false,
+                    error = error,
+                )
+                throw error
+            }
         }
     }
 
@@ -48,32 +67,44 @@ object DatabaseUtils {
      * v7 stores old rows with the migration default user 0. The database is scoped by Android
      * user, so assign those legacy rows to the actual owner once before enforcing user filters.
      */
-    private fun migrateLegacyUserScope(context: Context, db: AppDatabase) {
-        val preferences = context.getSharedPreferences("database_identity_migration", Context.MODE_PRIVATE)
-        if (preferences.getBoolean("v7_done", false)) return
+    private fun migrateLegacyUserScope(context: Context, db: RuntimeStoreDatabase) {
+        val preferences = context.getSharedPreferences(USER_SCOPE_MIGRATION_PREFS, Context.MODE_PRIVATE)
+        if (preferences.getBoolean(USER_SCOPE_MIGRATION_KEY, false)) return
         synchronized(this) {
-            if (preferences.getBoolean("v7_done", false)) return
+            if (preferences.getBoolean(USER_SCOPE_MIGRATION_KEY, false)) return
             val userId = Utils.myUserId().coerceAtLeast(0)
             if (userId != 0) {
-                val writableDatabase = db.openHelper.writableDatabase
-                writableDatabase.beginTransaction()
-                try {
-                    writableDatabase.execSQL(
-                        "UPDATE EVENT SET user_id = ? WHERE user_id = 0",
-                        arrayOf(userId),
-                    )
-                    writableDatabase.execSQL(
-                        "UPDATE REGISTERED_APPLICATION SET user_id = ? WHERE user_id = 0",
-                        arrayOf(userId),
-                    )
-                    writableDatabase.setTransactionSuccessful()
-                } finally {
-                    writableDatabase.endTransaction()
-                }
+                runBlocking { db.eventDao().migrateLegacyUserScope(userId) }
             }
-            check(preferences.edit().putBoolean("v7_done", true).commit()) {
+            check(preferences.edit().putBoolean(USER_SCOPE_MIGRATION_KEY, true).commit()) {
                 "Failed to persist database identity migration state"
             }
+        }
+    }
+
+    private fun emitStoreEvent(
+        reason: String,
+        userId: Int,
+        userScopeMigrationComplete: Boolean,
+        statusOk: Boolean,
+        error: Exception? = null,
+    ) {
+        runCatching {
+            val attributes = mutableMapOf(
+                "result" to if (statusOk) "ok" else "error",
+                "process" to "xmsf",
+                "stage" to "runtime_store",
+                "reason" to reason,
+                "schema_version" to DATABASE_SCHEMA_VERSION.toString(),
+                "user_id" to userId.toString(),
+                "user_scope_migration" to if (userScopeMigrationComplete) "complete" else "pending",
+            )
+            error?.let { attributes["error_class"] = it.javaClass.simpleName }
+            MagiskOtel.event(
+                name = "push.control",
+                attributes = attributes,
+                statusOk = statusOk,
+            )
         }
     }
 }

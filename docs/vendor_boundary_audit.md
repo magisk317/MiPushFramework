@@ -73,22 +73,20 @@
 
 ---
 
-## 附录：runtime-store-kmp 并行数据库（Plan B）
+## 附录：runtime-store-kmp 生产数据库
 
 > 新增日期：2026-08-22
-> 对应文档：modernization_and_architecture_recommendations_refined.md § Plan B
+> 对应文档：modernization_and_architecture_recommendations_refined.md § runtime storage
 
 ### 模块概述
 
-`runtime-store-kmp/` 是一个 Kotlin Multiplatform 模块，作为 Plan B 并行数据库运行。它提供与 `xmsf` 模块中 `AppDatabase` 相同的 schema（version 9），但使用 KMP `room.generateKotlin = true` 生成类型安全的 Kotlin 查询。
+`runtime-store-kmp/` 是生产运行时存储的 Kotlin Multiplatform 模块。它维护 v9 schema，并使用 KMP `room.generateKotlin = true` 生成类型安全的 Kotlin 查询；xmsf 通过 Bundled SQLite driver 打开既有的 `db` 文件。
 
 ### 与 vendor 边界的关系
 
-runtime-store-kmp **不引入新的 vendor 边界穿透**。它的数据来源于：
-- `xmsf` 模块的 `EventRepository`（通过 Koin 注入）
-- 自身的 `RuntimeArchiveRepository`（试点）
+runtime-store-kmp **不引入新的 vendor 边界穿透**。它的数据来源于 xmsf 的运行时存储业务路径（通过 Koin 注入的 KMP DAO）。
 
-所有 stock SDK ingress 仍通过 vendor → xmsf 路径处理。KMP 模块仅作为并行存储层，不影响现有 vendor 边界契约。
+所有 stock SDK ingress 仍通过 vendor → xmsf 路径处理。KMP 模块只负责存储实现，不改变现有 vendor 边界契约。
 
 ### 文件清单
 
@@ -97,15 +95,17 @@ runtime-store-kmp **不引入新的 vendor 边界穿透**。它的数据来源�
 | `commonMain/RuntimeStoreDatabase.kt` | KMP Room 数据库定义（v9 schema） |
 | `commonMain/RuntimeStoreDaos.kt` | 类型安全 DAO 接口 |
 | `commonMain/RuntimeStoreRows.kt` | 查询结果数据类 |
-| `androidMain/RuntimeStoreDatabase.android.kt` | Android 平台驱动实现 |
+| `androidMain/RuntimeStoreDatabase.android.kt` | Android Bundled SQLite driver 与生产 `db` builder |
+| `commonMain/RuntimeStoreMigrations.kt` | v1→v9 生产数据库迁移 |
 
 ### 验证状态
 
-- `:xmsf:testNormalDebugUnitTest` — `AppDatabaseBackupRestoreTest` ✅ (5/5 PASSED)
-- KMP 模块编译验证 — 待 `:runtime-store-kmp:compileKotlin` 确认
+- `:runtime-store-kmp:compileAndroidMain` — 已通过
+- `:xmsf:compileNormalDebugKotlin` — 已通过
+- `RuntimeStoreMigrationContractTest` — 已通过
 
 ### 退出条件
 
-1. KMP 模块通过 `:runtime-store-kmp:build` 编译
-2. 并行运行期间数据一致性验证（xmsf Room vs KMP Room 输出对比）
-3. 归档查询性能基准（KMP 归档查询 vs xmsf EventRepository 查询）
+1. KMP 模块通过 `:runtime-store-kmp:compileAndroidMain` 编译
+2. 生产 builder 使用 `db` 与 v9 migration registry
+3. xmsf 业务路径只消费 KMP DAO，不再保留 Android Room 数据库壳

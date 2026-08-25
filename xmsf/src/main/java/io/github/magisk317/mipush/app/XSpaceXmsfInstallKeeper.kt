@@ -138,50 +138,55 @@ object XSpaceXmsfInstallKeeper {
             return RepairResult(Stage.XSPACE_USER_NOT_FOUND)
         }
 
-        val xmsfList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        val managerList = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        val xmsfInstalled = isPackageListed(xmsfList, Constants.SERVICE_APP_NAME)
-        val managerInstalled = isPackageListed(managerList, Constants.MANAGER_APP_NAME)
+        val packageNames = listOf(
+            Constants.SERVICE_APP_NAME,
+            Constants.MANAGER_APP_NAME,
+            Constants.XMSF_KEEPER_APP_NAME,
+        )
+        val installedPackages = packageNames.filter { packageName ->
+            isPackageListed(
+                runRootCommand(listPackageCommand(packageName), PACKAGE_LIST_TIMEOUT_MS),
+                packageName,
+            )
+        }
 
         if (!isDualAppEnabled) {
-            // Toggle is OFF: uninstall both packages if present
-            if (!xmsfInstalled && !managerInstalled) {
+            // Toggle is OFF: uninstall all synchronized XSpace packages if present.
+            if (installedPackages.isEmpty()) {
                 return RepairResult(Stage.ALREADY_SYNCHRONIZED)
             }
-            if (xmsfInstalled) {
-                runRootCommand(uninstallCommand(Constants.SERVICE_APP_NAME), UNINSTALL_TIMEOUT_MS)
+            installedPackages.forEach { packageName ->
+                runRootCommand(uninstallCommand(packageName), UNINSTALL_TIMEOUT_MS)
             }
-            if (managerInstalled) {
-                runRootCommand(uninstallCommand(Constants.MANAGER_APP_NAME), UNINSTALL_TIMEOUT_MS)
+            val allRemoved = packageNames.none { packageName ->
+                isPackageListed(
+                    runRootCommand(listPackageCommand(packageName), PACKAGE_LIST_TIMEOUT_MS),
+                    packageName,
+                )
             }
-            val afterXmsf = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-            val afterManager = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-            val bothRemoved = !isPackageListed(afterXmsf, Constants.SERVICE_APP_NAME) &&
-                !isPackageListed(afterManager, Constants.MANAGER_APP_NAME)
-            return if (bothRemoved) {
+            return if (allRemoved) {
                 RepairResult(Stage.UNINSTALL_SUCCEEDED)
             } else {
                 RepairResult(Stage.UNINSTALL_VERIFY_FAILED)
             }
         }
 
-        // Toggle is ON: install both packages if not present
-        if (xmsfInstalled && managerInstalled) {
+        // Toggle is ON: install all synchronized XSpace packages if absent.
+        val missingPackages = packageNames.filterNot { it in installedPackages }
+        if (missingPackages.isEmpty()) {
             return RepairResult(Stage.ALREADY_SYNCHRONIZED)
         }
-
-        if (!xmsfInstalled) {
-            runRootCommand(installExistingCommand(Constants.SERVICE_APP_NAME), INSTALL_TIMEOUT_MS)
-        }
-        if (!managerInstalled) {
-            runRootCommand(installExistingCommand(Constants.MANAGER_APP_NAME), INSTALL_TIMEOUT_MS)
+        missingPackages.forEach { packageName ->
+            runRootCommand(installExistingCommand(packageName), INSTALL_TIMEOUT_MS)
         }
 
-        val afterXmsf = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        val afterManager = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        val bothInstalled = isPackageListed(afterXmsf, Constants.SERVICE_APP_NAME) &&
-            isPackageListed(afterManager, Constants.MANAGER_APP_NAME)
-        return if (bothInstalled) {
+        val allInstalled = packageNames.all { packageName ->
+            isPackageListed(
+                runRootCommand(listPackageCommand(packageName), PACKAGE_LIST_TIMEOUT_MS),
+                packageName,
+            )
+        }
+        return if (allInstalled) {
             RepairResult(Stage.INSTALL_EXISTING_SUCCEEDED)
         } else {
             RepairResult(Stage.VERIFY_FAILED)

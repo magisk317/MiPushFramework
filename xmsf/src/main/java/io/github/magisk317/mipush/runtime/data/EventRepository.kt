@@ -34,9 +34,12 @@ import kotlinx.serialization.json.JsonElement
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.store.db.DayCount
 import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.DayCount
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.service.PushServiceStarter
@@ -71,7 +74,7 @@ class EventRepository constructor(
         )
     }
 
-    fun getStatusDescription(item: Event): String =
+    fun getStatusDescription(item: RuntimeEventRow): String =
         getStatusDescription(item, RegSecUtils.getContainerWithRegSec(item))
 
     /**
@@ -79,11 +82,11 @@ class EventRepository constructor(
      * projection needs both the decorated summary and the channel/status label; decoding the
      * payload again for the latter made each row repeat the most expensive part of the read.
      */
-    fun getStatusDescription(item: Event, container: XmPushActionContainer?): String {
+    fun getStatusDescription(item: RuntimeEventRow, container: XmPushActionContainer?): String {
         return when (item.result) {
-            Event.ResultType.OK -> getStatusDescriptionByEvent(container)
-            Event.ResultType.DENY_DISABLED -> context.getString(R.string.status_deny_disable)
-            Event.ResultType.DENY_USER -> context.getString(R.string.status_deny_user)
+            EventRowResultType.OK -> getStatusDescriptionByEvent(container)
+            EventRowResultType.DENY_DISABLED -> context.getString(R.string.status_deny_disable)
+            EventRowResultType.DENY_USER -> context.getString(R.string.status_deny_user)
             else -> ""
         }
     }
@@ -102,33 +105,33 @@ class EventRepository constructor(
         return ""
     }
 
-    fun getEventsById(lastId: Long?, size: Int, packetName: String, query: String): List<Event> {
+    fun getEventsById(lastId: Long?, size: Int, packetName: String, query: String): List<RuntimeEventRow> {
         var types: Set<Int>? = null
         if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
             types = setOf(
-                Event.Type.SendMessage,
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration
+                EventRowType.SendMessage,
+                EventRowType.Registration,
+                EventRowType.RegistrationResult,
+                EventRowType.UnRegistration
             )
         }
         return runBlocking { EventDb.queryByIdAsync(lastId, size, types, packetName, query) }
     }
 
-    fun getEvents(pageIndex: Int, pageSize: Int, packetName: String, query: String): List<Event> {
+    fun getEvents(pageIndex: Int, pageSize: Int, packetName: String, query: String): List<RuntimeEventRow> {
         var types: Set<Int>? = null
         if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
             types = setOf(
-                Event.Type.SendMessage,
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration
+                EventRowType.SendMessage,
+                EventRowType.Registration,
+                EventRowType.RegistrationResult,
+                EventRowType.UnRegistration
             )
         }
         return EventDb.queryByPage(pageIndex, pageSize, types, packetName, query)
     }
 
-    suspend fun deleteEvent(event: Event): Boolean {
+    suspend fun deleteEvent(event: RuntimeEventRow): Boolean {
         val id = event.id ?: return false
         if (event.pkg.isBlank()) return false
         return EventDb.deleteByIdWithUndoSnapshotAsync(id, event.pkg, event.userId)
@@ -149,7 +152,7 @@ class EventRepository constructor(
         return EventDb.deleteHistoryBeforeAsync(cutoff)
     }
 
-    suspend fun restoreEvent(event: Event): Long {
+    suspend fun restoreEvent(event: RuntimeEventRow): Long {
         val preferredId = event.id
         if (preferredId != null && preferredId > 0L && event.pkg.isNotBlank()) {
             return EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId) ?: 0L
@@ -303,7 +306,7 @@ class EventRepository constructor(
         return outcome
     }
 
-    fun getContent(event: Event, containerWithRegSec: XmPushActionContainer): String {
+    fun getContent(event: RuntimeEventRow, containerWithRegSec: XmPushActionContainer): String {
         return try {
             val newContainer = containerWithRegSec.deepCopy()
             configurations.handle(event.pkg, newContainer)
@@ -314,8 +317,8 @@ class EventRepository constructor(
         }
     }
 
-    fun getJson(event: Event): CharSequence? {
-        val container = event.container ?: return null
+    fun getJson(event: RuntimeEventRow): CharSequence? {
+        val container = event.container() ?: return null
         return containerToJson(container, event.regSec)
     }
 

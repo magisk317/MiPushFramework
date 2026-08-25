@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.db
 
 import co.touchlab.kermit.Logger
-import androidx.sqlite.db.SimpleSQLiteQuery
+import androidx.room.RoomRawQuery
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import io.github.magisk317.mipush.utils.RegSecUtils
@@ -9,9 +9,13 @@ import io.github.magisk317.mipush.utils.ConvertUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.eventDao
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
 import io.github.magisk317.mipush.runtime.store.event.EventType
+import io.github.magisk317.mipush.runtime.store.kmp.DayCount
 
 /**
  * @author Trumeet
@@ -19,9 +23,9 @@ import io.github.magisk317.mipush.runtime.store.event.EventType
  */
 object EventDb {
     /** 事件记录默认保留天数(与既有硬编码行为保持一致)。 */
-    const val DEFAULT_RETENTION_DAYS = 7
-    private const val UNDO_RETENTION_MS = 24L * 60L * 60L * 1000L
-    private const val MAX_UNDO_EVENTS = 64
+    const val DEFAULT_RETENTION_DAYS = EventRetentionPolicy.DEFAULT_RETENTION_DAYS
+    private const val UNDO_RETENTION_MS = EventRetentionPolicy.UNDO_RETENTION_MS
+    private const val MAX_UNDO_EVENTS = EventRetentionPolicy.MAX_UNDO_EVENTS
 
     class RegistrationInfo {
         @JvmField
@@ -31,39 +35,39 @@ object EventDb {
         var unregistered: MutableSet<String> = HashSet()
     }
 
-    suspend fun insertEventAsync(event: Event): Long {
+    suspend fun insertEventAsync(event: RuntimeEventRow): Long {
         Logger.withTag("EventDb").d { "insertEvent() called with: $event" }
-        event.userId = currentUserId()
-        if (event.type == Event.Type.SendMessage) {
-            Utils.setLastReceiveTime(event.pkg, event.date, event.userId)
+        val scoped = event.copy(userId = currentUserId())
+        if (scoped.type == EventRowType.SendMessage) {
+            Utils.setLastReceiveTime(scoped.pkg, scoped.date, scoped.userId)
         }
-        val id = eventDao.insert(event)
+        val id = eventDao.insert(scoped)
         // 入库咽喉节流触发按天清理,避免事件表无上界增长(内部有时间间隔节流)。
         EventRetentionManager.maybePruneAfterInsert()
         return id
     }
 
-    suspend fun getByIdAsync(id: Long, userId: Int = currentUserId()): Event? =
+    suspend fun getByIdAsync(id: Long, userId: Int = currentUserId()): RuntimeEventRow? =
         eventDao.getById(id, userId.coerceAtLeast(0))
 
-    suspend fun insertOrReplaceEventAsync(event: Event): Long {
+    suspend fun insertOrReplaceEventAsync(event: RuntimeEventRow): Long {
         Logger.withTag("EventDb").d { "insertOrReplaceEvent() called with: $event" }
-        event.userId = currentUserId()
-        if (event.type == Event.Type.SendMessage) {
-            Utils.setLastReceiveTime(event.pkg, event.date, event.userId)
+        val scoped = event.copy(userId = currentUserId())
+        if (scoped.type == EventRowType.SendMessage) {
+            Utils.setLastReceiveTime(scoped.pkg, scoped.date, scoped.userId)
         }
-        val id = eventDao.insertOrReplace(event)
+        val id = eventDao.insertOrReplace(scoped)
         EventRetentionManager.maybePruneAfterInsert()
-        return if (id > 0L) id else (event.id ?: id)
+        return if (id > 0L) id else (scoped.id ?: id)
     }
 
-    suspend fun insertEventAsync(@Event.ResultType result: Int, type: EventType): Long {
+    suspend fun insertEventAsync(result: Int, type: EventType): Long {
         return insertEventAsync(createEvent(result, type))
     }
 
     @JvmStatic
-    fun createEvent(@Event.ResultType result: Int, type: EventType): Event {
-        return Event(
+    fun createEvent(result: Int, type: EventType): RuntimeEventRow {
+        return RuntimeEventRow(
             id = null,
             pkg = type.pkg ?: "",
             type = type.type,
@@ -84,7 +88,7 @@ object EventDb {
         pkg: String?,
         text: String?,
         userId: Int = currentUserId(),
-    ): List<Event> {
+    ): List<RuntimeEventRow> {
         val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
         val args = mutableListOf<Any>(userId.coerceAtLeast(0))
         if (lastId != null) {
@@ -110,7 +114,7 @@ object EventDb {
         queryBuilder.append(" ORDER BY id DESC LIMIT ?")
         args.add(size)
 
-        return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
+        return eventDao.queryRaw(roomRawQuery(queryBuilder.toString(), args))
     }
 
     @JvmStatic
@@ -120,7 +124,7 @@ object EventDb {
         types: Set<Int>?,
         pkg: String?,
         text: String?
-    ): List<Event> {
+    ): List<RuntimeEventRow> {
         return runBlocking { queryAsync((pageIndex - 1) * pageSize, pageSize, types, pkg, text) }
     }
 
@@ -130,7 +134,7 @@ object EventDb {
         types: Set<Int>?,
         pkg: String?,
         text: String?
-    ): List<Event> {
+    ): List<RuntimeEventRow> {
         val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
         val args = mutableListOf<Any>(currentUserId())
         if (!pkg.isNullOrBlank()) {
@@ -153,13 +157,13 @@ object EventDb {
         args.add(limit)
         args.add(skip)
 
-        return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
+        return eventDao.queryRaw(roomRawQuery(queryBuilder.toString(), args))
     }
 
     /**
      * 按保留天数清理事件记录。
      * @param retentionDays 保留最近多少天;小于 1 时按 1 天兜底,避免误传 0 清空全表。
-     * 注册状态事件(type 20/21)由 [EventDao.deleteHistory] 的 SQL 永久保留。
+     * 注册状态事件(type 20/21)由 [RuntimeEventDao.deleteHistory] 的 SQL 永久保留。
      */
     suspend fun deleteHistoryAsync(retentionDays: Int = DEFAULT_RETENTION_DAYS) {
         val days = retentionDays.coerceAtLeast(1)
@@ -230,7 +234,7 @@ object EventDb {
                 ) as XmPushActionRegistrationResult
             } catch (_: Exception) {
             }
-            if (event.type == Event.Type.RegistrationResult && data?.errorCode?.toInt() == 0) {
+            if (event.type == EventRowType.RegistrationResult && data?.errorCode?.toInt() == 0) {
                 info.registered.add(event.pkg)
             } else {
                 info.unregistered.add(event.pkg)
@@ -246,7 +250,7 @@ object EventDb {
             return time
         }
 
-        val event = eventDao.getLastEventByType(packageName, Event.Type.SendMessage, userId)
+        val event = eventDao.getLastEventByType(packageName, EventRowType.SendMessage, userId)
         val lastReceiveTime = event?.date ?: 0L
         Utils.setLastReceiveTime(packageName, lastReceiveTime, userId)
         return lastReceiveTime
@@ -254,6 +258,17 @@ object EventDb {
 
     suspend fun getAllLastReceiveTimesAsync(): Map<String, Long> {
         return eventDao.getAllLastReceiveTimes(currentUserId()).associate { it.pkg to it.date }
+    }
+
+    private fun roomRawQuery(sql: String, args: List<Any>): RoomRawQuery = RoomRawQuery(sql) { statement ->
+        args.forEachIndexed { index, value ->
+            when (value) {
+                is Int -> statement.bindLong(index + 1, value.toLong())
+                is Long -> statement.bindLong(index + 1, value)
+                is String -> statement.bindText(index + 1, value)
+                else -> error("Unsupported runtime event query argument: ${value::class.java.name}")
+            }
+        }
     }
 
     private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)

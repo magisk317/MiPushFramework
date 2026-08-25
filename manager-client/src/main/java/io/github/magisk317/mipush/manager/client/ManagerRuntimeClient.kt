@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.DeadObjectException
 import android.os.IBinder
+import android.os.Process
 import android.os.RemoteException
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
@@ -53,6 +54,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeoutOrNull
 
+fun interface ManagerRuntimeRecovery {
+    /** Restarts the runtime package only for the supplied Android user. */
+    fun recoverXmsf(userId: Int): Boolean
+}
+
 class ManagerRuntimeClient(
     context: Context,
     scope: CoroutineScope,
@@ -61,6 +67,7 @@ class ManagerRuntimeClient(
     private val reconnectDelayProvider: (Int) -> Long = ManagerRuntimeClientPolicy::reconnectDelayMillis,
     private val eventPageCallTimeoutMillis: Long? = null,
     private val maxReconnectAttempts: Int = ManagerRuntimeClientPolicy.DEFAULT_MAX_RECONNECT_ATTEMPTS,
+    private val runtimeRecovery: ManagerRuntimeRecovery? = null,
 ) : Closeable {
     init {
         require(maxReconnectAttempts > 0) { "maxReconnectAttempts must be positive" }
@@ -91,6 +98,7 @@ class ManagerRuntimeClient(
     private var closed = false
     private var reconnectAttempt = 0
     private var reconnectJob: Job? = null
+    private var recoveryIssued = false
 
     init {
         clientScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -343,11 +351,12 @@ class ManagerRuntimeClient(
         validator: (T, ManagerHandshake) -> String?,
         block: (IManagerRuntimeService) -> T,
     ): ManagerRuntimeResult<T> {
-        val target = currentRemoteTarget()
+        val target = awaitRemoteTarget()
         if (target == null) {
-            logWarn("call without target capability=$capability availability=${availability.value}")
+            val currentAvailability = availability.value
+            logWarn("call without target capability=$capability availability=$currentAvailability")
             emitClientCall(result = "skip", reason = "no_target", capability = capability)
-            return ManagerRuntimeResult.Unavailable(availability.value)
+            return ManagerRuntimeResult.Unavailable(currentAvailability)
         }
         if (capability !in target.handshake.supportedCapabilities) {
             emitClientCall(result = "skip", reason = "unsupported", capability = capability)
@@ -484,6 +493,25 @@ class ManagerRuntimeClient(
         )
     }
 
+
+    private suspend fun awaitRemoteTarget(): RemoteTarget? {
+        currentRemoteTarget()?.let { return it }
+        val waitMillis = callTimeoutMillis ?: DEFAULT_CALL_TIMEOUT_MS
+        return withTimeoutOrNull(waitMillis) {
+            while (currentCoroutineContext().isActive) {
+                currentRemoteTarget()?.let { return@withTimeoutOrNull it }
+                when (val state = availability.value) {
+                    ManagerRuntimeAvailability.RuntimeMissing,
+                    ManagerRuntimeAvailability.PermissionDenied,
+                    is ManagerRuntimeAvailability.Incompatible,
+                    is ManagerRuntimeAvailability.Failed,
+                    -> return@withTimeoutOrNull null
+                    else -> delay(25L)
+                }
+            }
+            null
+        }
+    }
 
     private fun currentRemoteTarget(): RemoteTarget? = synchronized(lock) {
         val state = _availability.value
@@ -638,6 +666,7 @@ class ManagerRuntimeClient(
                 session.handshakeJob = null
                 if (nextAvailability is ManagerRuntimeAvailability.Available) {
                     reconnectAttempt = 0
+                    recoveryIssued = false
                 }
             }
             MagiskOtel.event(
@@ -741,22 +770,65 @@ class ManagerRuntimeClient(
     }
 
     private fun scheduleReconnect() {
-        lateinit var scheduledJob: Job
+        var recoveryAction: ManagerRuntimeRecovery? = null
         synchronized(lock) {
             if (closed || activeSession != null || reconnectJob?.isActive == true) return
             if (reconnectAttempt >= maxReconnectAttempts) {
-                logWarn("reconnect attempts exhausted limit=$maxReconnectAttempts")
-                _availability.value = ManagerRuntimeAvailability.Failed("reconnect_exhausted")
-                emitClientCall(
-                    result = "error",
-                    reason = "reconnect_exhausted",
-                    capability = "session",
-                    statusOk = false,
-                )
-                return
+                if (!recoveryIssued && runtimeRecovery != null) {
+                    recoveryIssued = true
+                    reconnectAttempt = 0
+                    recoveryAction = runtimeRecovery
+                    logInfo(
+                        "reconnect attempts exhausted limit=$maxReconnectAttempts; " +
+                            "requesting user-scoped XMSF recovery",
+                    )
+                } else {
+                    logWarn("reconnect attempts exhausted limit=$maxReconnectAttempts")
+                    _availability.value = ManagerRuntimeAvailability.Failed("reconnect_exhausted")
+                    emitClientCall(
+                        result = "error",
+                        reason = "reconnect_exhausted",
+                        capability = "session",
+                        statusOk = false,
+                    )
+                    return
+                }
             }
-            val delayMillis = reconnectDelayProvider(reconnectAttempt)
-            reconnectAttempt += 1
+        }
+
+        recoveryAction?.let { action ->
+            clientScope.launch(ioDispatcher) {
+                val userId = currentUserId()
+                val recovered = runCatching { action.recoverXmsf(userId) }.getOrDefault(false)
+                if (recovered) {
+                    logInfo("XMSF recovery restart succeeded userId=$userId")
+                    scheduleReconnectAfter(RECOVERY_RECONNECT_DELAY_MS)
+                } else {
+                    synchronized(lock) {
+                        if (!closed) {
+                            _availability.value = ManagerRuntimeAvailability.Failed("recovery_failed")
+                        }
+                    }
+                    emitClientCall(
+                        result = "error",
+                        reason = "recovery_failed",
+                        capability = "session",
+                        statusOk = false,
+                    )
+                }
+            }
+            return
+        }
+
+        scheduleReconnectAfter()
+    }
+
+    private fun scheduleReconnectAfter(delayOverrideMs: Long? = null) {
+        lateinit var scheduledJob: Job
+        synchronized(lock) {
+            if (closed || activeSession != null || reconnectJob?.isActive == true) return
+            val delayMillis = delayOverrideMs ?: reconnectDelayProvider(reconnectAttempt)
+            if (delayOverrideMs == null) reconnectAttempt += 1
             scheduledJob = clientScope.launch(start = CoroutineStart.LAZY) {
                 delay(delayMillis)
                 synchronized(lock) {
@@ -768,6 +840,21 @@ class ManagerRuntimeClient(
         }
         scheduledJob.start()
     }
+
+    /** Starts a fresh bind/recovery cycle, e.g. when the Manager returns to the foreground. */
+    fun retryNow() {
+        synchronized(lock) {
+            if (closed) return
+            reconnectAttempt = 0
+            recoveryIssued = false
+            reconnectJob?.cancel()
+            reconnectJob = null
+        }
+        connect()
+    }
+
+    private fun currentUserId(): Int =
+        (Process.myUid() / PER_USER_RANGE).coerceAtLeast(0)
 
     private fun createBindTimeoutLocked(session: BindSession): Job {
         lateinit var timeoutJob: Job
@@ -946,6 +1033,8 @@ class ManagerRuntimeClient(
         // Observed live export ~137s with ~30MB runtime logs + root lsposed/logcat collection.
         const val LOG_EXPORT_CALL_TIMEOUT_MS = 180_000L
         const val MAX_IN_FLIGHT_REMOTE_CALLS = 6
+        private const val RECOVERY_RECONNECT_DELAY_MS = 1_000L
+        private const val PER_USER_RANGE = 100_000
     }
 }
 

@@ -12,6 +12,8 @@ interface IPushServiceAction {
     val currentConnection: Connection?
     fun executeJob(job: XMPushServiceJob)
     fun executeJobDelayed(job: XMPushServiceJob, delayMs: Long)
+    /** Removes queued jobs of [type] and enqueues [job] on the scheduler thread atomically. */
+    fun replaceJobs(type: Int, job: XMPushServiceJob)
     fun removeJobs(type: Int)
     fun removeJobs(job: XMPushServiceJob)
     fun hasJob(type: Int): Boolean

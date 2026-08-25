@@ -302,8 +302,16 @@ object ForceMiPushRegister {
     }
 
     private fun hookXiaomiPushChannelStart(packageName: String, classLoader: ClassLoader) {
+        val clazz = try {
+            classLoader.findClass("com.alibaba.laiwang.xpn.xiaomi.XiaomiPushChannel")
+        } catch (_: ClassNotFoundException) {
+            // XiaomiPushChannel is an optional Alibaba extension; absence is expected for most apps.
+            return
+        } catch (_: LinkageError) {
+            // An optional extension can also be unavailable because one of its dependencies is missing.
+            return
+        }
         runCatching {
-            val clazz = classLoader.findClass("com.alibaba.laiwang.xpn.xiaomi.XiaomiPushChannel")
             clazz.hookAllMethods("start") {
                 doBefore {
                     val appId = args.getOrNull(0) as? String
@@ -317,7 +325,7 @@ object ForceMiPushRegister {
             }
             XLog.i(TAG, "hooked XiaomiPushChannel.start for $packageName")
         }.onFailure {
-            XLog.d(TAG, "XiaomiPushChannel.start hook failed for $packageName: $it")
+            XLog.e(TAG, "XiaomiPushChannel.start hook failed for $packageName", it)
         }
     }
 

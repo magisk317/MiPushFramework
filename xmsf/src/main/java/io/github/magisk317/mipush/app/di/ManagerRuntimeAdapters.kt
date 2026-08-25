@@ -60,8 +60,13 @@ import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
@@ -200,7 +205,7 @@ class XmsfManagerEventGateway(
 
     override suspend fun getJson(event: ManagerEvent): String? {
         val owned = if (event.id > 0L) resolveEventForMock(event) ?: return null else event
-        return eventRepository.getJson(owned.toEvent())?.toString()
+        return eventRepository.getJson(owned.toEventRow())?.toString()
             ?: runCatching { EventDebugJson.format(owned) }.getOrNull()
     }
 
@@ -208,14 +213,14 @@ class XmsfManagerEventGateway(
         val resolved = if (event.id > 0L) resolveEventForMock(event) ?: return null else event
         val container = RegSecUtils.getContainerWithRegSec(resolved.payload, resolved.regSec)
             ?: return null
-        return eventRepository.getContent(resolved.toEvent(), container)
+        return eventRepository.getContent(resolved.toEventRow(), container)
     }
 
     override suspend fun deleteEvent(event: ManagerEvent): Boolean =
-        eventRepository.deleteEvent(event.toEvent())
+        eventRepository.deleteEvent(event.toEventRow())
 
     override suspend fun restoreEvent(event: ManagerEvent): ManagerEvent? {
-        val restoredId = eventRepository.restoreEvent(event.toEvent())
+        val restoredId = eventRepository.restoreEvent(event.toEventRow())
         return restoredId.takeIf { it > 0L }?.let { event.copy(id = it) }
     }
 
@@ -230,7 +235,7 @@ class XmsfManagerEventGateway(
     override suspend fun clearHistoryInRange(startMillis: Long, endMillis: Long): Int =
         eventRepository.deleteHistoryInRange(startMillis, endMillis)
 
-    private fun Event.toManagerEvent(): ManagerEvent {
+    private fun RuntimeEventRow.toManagerEvent(): ManagerEvent {
         val eventType = TypeFactory.createForDisplay(this)
         val container = RegSecUtils.getContainerWithRegSec(this)
         val summary = eventType.getSummary(context).toString()
@@ -257,8 +262,8 @@ class XmsfManagerEventGateway(
         )
     }
 
-    private fun ManagerEvent.toEvent(): Event =
-        Event(
+    private fun ManagerEvent.toEventRow(): RuntimeEventRow =
+        RuntimeEventRow(
             id = id.takeIf { it > 0L },
             userId = userId,
             pkg = packageName,
@@ -423,15 +428,20 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         if (enabled) {
             installExistingForUser(Constants.SERVICE_APP_NAME)
             installExistingForUser(Constants.MANAGER_APP_NAME)
+            installExistingForUser(Constants.XMSF_KEEPER_APP_NAME)
         } else {
             uninstallForUser(Constants.SERVICE_APP_NAME)
             uninstallForUser(Constants.MANAGER_APP_NAME)
+            uninstallForUser(Constants.XMSF_KEEPER_APP_NAME)
         }
 
         val xmsfInstalled = isPackageInstalledForUser(Constants.SERVICE_APP_NAME)
         val managerInstalled = isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+        val keeperInstalled = isPackageInstalledForUser(Constants.XMSF_KEEPER_APP_NAME)
         val expectedInstalled = enabled
-        val succeeded = xmsfInstalled == expectedInstalled && managerInstalled == expectedInstalled
+        val succeeded = xmsfInstalled == expectedInstalled &&
+            managerInstalled == expectedInstalled &&
+            keeperInstalled == expectedInstalled
         if (succeeded) {
             // Persist runtime-owned dual_app_enabled so XSpaceXmsfInstallKeeper can keep packages in sync.
             try {
@@ -465,7 +475,8 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
                 ManagerXSpaceRepairStage.PARTIAL_FAILED
             },
             xmsfInstalled = xmsfInstalled,
-            details = "enabled=$enabled, xmsfInstalled=$xmsfInstalled, managerInstalled=$managerInstalled",
+            details = "enabled=$enabled, xmsfInstalled=$xmsfInstalled, " +
+                "managerInstalled=$managerInstalled, keeperInstalled=$keeperInstalled",
         )
     }
 
@@ -486,7 +497,8 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
             return ManagerDualAppInstallationResult.NotInstalled
         }
         return if (isPackageInstalledForUser(Constants.SERVICE_APP_NAME) &&
-            isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+            isPackageInstalledForUser(Constants.MANAGER_APP_NAME) &&
+            isPackageInstalledForUser(Constants.XMSF_KEEPER_APP_NAME)
         ) {
             ManagerDualAppInstallationResult.Installed
         } else {
@@ -621,20 +633,37 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         val lastReceiveTimes = readSource.readLastReceiveTimes(
             catalog.applications.map(InstalledApplicationSnapshot::packageName),
         )
-        val displayApplications = catalog.applications
+        data class EnrichedApp(
+            val row: RuntimeRegisteredApplicationRow,
+            val existServices: Boolean,
+            val lastReceiveTimeMs: Long,
+        )
+        val enrichedApps = catalog.applications
             .map { installed ->
-                val app = registered[installed.packageName] ?: RegisteredApplicationDb.registerApplication(installed.packageName)
-                app.existServices = installed.hasMiPushServices
-                app.appName = app.appName.takeIf { it.isNotBlank() }
-                    ?: installed.appName
-                app.appNamePinYin = app.appName.lowercase(Locale.ROOT)
-                app.lastReceiveTime = Date(lastReceiveTimes[app.packageName] ?: 0L)
-                app
+                val base = registered[installed.packageName] ?: RegisteredApplicationDb.registerApplication(installed.packageName)
+                val effectiveName = base.appName.takeIf { it.isNotBlank() } ?: installed.appName
+                EnrichedApp(
+                    row = base.copy(appName = effectiveName),
+                    existServices = installed.hasMiPushServices,
+                    lastReceiveTimeMs = lastReceiveTimes[base.packageName] ?: 0L,
+                )
             }
-        reconcileLocalRegistrationState(displayApplications)
-        val apps = displayApplications
+        reconcileLocalRegistrationState(enrichedApps.map { it.row })
+        val apps = enrichedApps
             .asSequence()
-            .map { it.toManagerApplication(deriveAppNamePinYin = true) }
+            .map { enriched ->
+                enriched.row.toStoredApplicationSnapshot().toManagerApplication(
+                    installed = InstalledApplicationSnapshot(
+                        packageName = enriched.row.packageName,
+                        appName = enriched.row.appName,
+                        hasMiPushServices = enriched.existServices,
+                    ),
+                    lastReceiveTimeMs = enriched.lastReceiveTimeMs,
+                    locallyRegistered = false,
+                    fallbackToInstalledName = false,
+                    deriveAppNamePinYin = true,
+                )
+            }
             .filter { ManagerApplicationReadPolicy.matchesQuery(it, query) }
             .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
             .sortedWith(ManagerApplicationReadPolicy.comparator)
@@ -643,9 +672,17 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             "manager app list loaded total=${catalog.totalCandidatePackages} shown=${apps.size} ms=${timer.elapsed()}"
         }
         return ManagerApplications(
-            registeredPkgs = registered.mapValues {
-                it.value.toManagerApplication(
-                    deriveAppNamePinYin = it.value.appNamePinYin.isNotEmpty(),
+            registeredPkgs = registered.mapValues { (_, app) ->
+                app.toStoredApplicationSnapshot().toManagerApplication(
+                    installed = InstalledApplicationSnapshot(
+                        packageName = app.packageName,
+                        appName = app.appName,
+                        hasMiPushServices = false,
+                    ),
+                    lastReceiveTimeMs = 0L,
+                    locallyRegistered = false,
+                    fallbackToInstalledName = false,
+                    deriveAppNamePinYin = true,
                 )
             },
             items = apps,
@@ -653,10 +690,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         )
     }
 
-    private fun reconcileLocalRegistrationState(applications: List<RegisteredApplication>) {
+    private fun reconcileLocalRegistrationState(applications: List<RuntimeRegisteredApplicationRow>) {
         val candidates = applications
             .asSequence()
-            .filter { it.registeredType == RegisteredApplication.RegisteredType.NotRegistered }
+            .filter { it.registeredType == RegisteredAppRegisteredType.NotRegistered }
             .map { it.packageName }
             .toList()
         if (candidates.isEmpty()) return
@@ -666,7 +703,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             if (application.packageName in locallyRegistered) {
                 RegistrationStateStore.updateIfChanged(
                     application = application,
-                    nextType = RegisteredApplication.RegisteredType.Registered,
+                    nextType = RegisteredAppRegisteredType.Registered,
                     source = RegistrationStateStore.Source.LOCAL_PROBE,
                 )
             }
@@ -676,29 +713,47 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     override suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         var application = RegisteredApplicationDb.getRegisteredApplication(packageName)
         if (application == null && ignoreNotRegistered) {
-            application = RegisteredApplication().apply {
-                this.packageName = packageName
-                this.registeredType = RegisteredApplication.RegisteredType.NotRegistered
-                this.appName = Global.applicationNameCache().getAppName(context, packageName).toString()
-            }
+            application = RuntimeRegisteredApplicationRow(
+                id = null,
+                packageName = packageName,
+                type = RegisteredAppType.ASK,
+                notificationOnRegister = true,
+                registeredType = RegisteredAppRegisteredType.NotRegistered,
+                appName = Global.applicationNameCache().getAppName(context, packageName).toString(),
+            )
         }
         if (application != null &&
-            application.registeredType == RegisteredApplication.RegisteredType.NotRegistered &&
+            application.registeredType == RegisteredAppRegisteredType.NotRegistered &&
             RegistrationStateCompat.hasValidLocalRegistration(packageName)
         ) {
             RegistrationStateStore.updateIfChanged(
                 application = application,
-                nextType = RegisteredApplication.RegisteredType.Registered,
+                nextType = RegisteredAppRegisteredType.Registered,
                 source = RegistrationStateStore.Source.LOCAL_PROBE,
             )
+            // Re-read after state change
+            application = RegisteredApplicationDb.getRegisteredApplication(packageName) ?: application
         }
         application ?: return null
-        refreshTransientState(context, application)
-        return application.toManagerApplication()
+        val readSource = AndroidManagerApplicationReadSource(context)
+        val lastReceiveTimeMs = readSource.readLastReceiveTime(application.packageName)
+        val existServices = readSource.readInstalledApplication(application.packageName)
+            ?.hasMiPushServices == true
+        return application.toStoredApplicationSnapshot().toManagerApplication(
+            installed = InstalledApplicationSnapshot(
+                packageName = application.packageName,
+                appName = application.appName,
+                hasMiPushServices = existServices,
+            ),
+            lastReceiveTimeMs = lastReceiveTimeMs,
+            locallyRegistered = false,
+            fallbackToInstalledName = false,
+            deriveAppNamePinYin = false,
+        )
     }
 
     override suspend fun updateApplication(application: ManagerApplication) {
-        RegisteredApplicationDb.update(application.toRegisteredApplication())
+        RegisteredApplicationDb.update(application.toRegisteredApplicationRow())
     }
 
     override suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
@@ -706,9 +761,9 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             skip = 0,
             limit = 1,
             types = setOf(
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration,
+                EventRowType.Registration,
+                EventRowType.RegistrationResult,
+                EventRowType.UnRegistration,
             ),
             pkg = packageName,
             text = null,
@@ -813,12 +868,6 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
     }
 
-    private suspend fun refreshTransientState(context: Context, application: RegisteredApplication) {
-        val readSource = AndroidManagerApplicationReadSource(context)
-        application.lastReceiveTime = Date(readSource.readLastReceiveTime(application.packageName))
-        application.existServices = readSource.readInstalledApplication(application.packageName)
-            ?.hasMiPushServices == true
-    }
 }
 
 class XmsfManagerRuntimeActions(
@@ -867,42 +916,23 @@ class XmsfManagerRuntimeActions(
     }
 }
 
-private fun RegisteredApplication.toManagerApplication(
-    deriveAppNamePinYin: Boolean = false,
-): ManagerApplication =
-    toStoredApplicationSnapshot().toManagerApplication(
-        installed = InstalledApplicationSnapshot(
-            packageName = packageName,
-            appName = appName,
-            hasMiPushServices = existServices,
-        ),
-        lastReceiveTimeMs = lastReceiveTime.time,
-        locallyRegistered = false,
-        fallbackToInstalledName = false,
-        deriveAppNamePinYin = deriveAppNamePinYin,
-    )
-
-private fun ManagerApplication.toRegisteredApplication(): RegisteredApplication =
-    RegisteredApplication(
+private fun ManagerApplication.toRegisteredApplicationRow(): RuntimeRegisteredApplicationRow =
+    RuntimeRegisteredApplicationRow(
         id = id,
         packageName = packageName,
         type = type,
         notificationOnRegister = notificationOnRegister,
         registeredType = when (registeredType) {
-            ManagerApplication.RegisteredType.REGISTERED -> RegisteredApplication.RegisteredType.Registered
-            ManagerApplication.RegisteredType.UNREGISTERED -> RegisteredApplication.RegisteredType.Unregistered
-            else -> RegisteredApplication.RegisteredType.NotRegistered
+            ManagerApplication.RegisteredType.REGISTERED -> RegisteredAppRegisteredType.Registered
+            ManagerApplication.RegisteredType.UNREGISTERED -> RegisteredAppRegisteredType.Unregistered
+            else -> RegisteredAppRegisteredType.NotRegistered
         },
         appName = appName,
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
-    ).also {
-        it.userId = userId
-        it.existServices = existServices
-        it.appNamePinYin = appNamePinYin
-        it.lastReceiveTime = Date(lastReceiveTimeMs)
-    }
+        userId = userId,
+    )
 
 class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.ZygiskConfigGateway {
     companion object {

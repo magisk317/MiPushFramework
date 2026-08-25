@@ -5,7 +5,8 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.utils.ConvertUtils
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.EventType
 
 /**
@@ -21,7 +22,7 @@ object TypeFactory {
         return when (buildContainer.getAction()) {
             ActionType.SendMessage -> {
                 val eventType = NotificationType(info, pkg, payload)
-                eventType.type = Event.Type.SendMessage
+                eventType.type = EventRowType.SendMessage
                 eventType
             }
             ActionType.Notification -> NotificationType(info, pkg, payload)
@@ -31,42 +32,41 @@ object TypeFactory {
     }
 
     @JvmStatic
-    fun createForDisplay(eventFromDB: Event): EventType {
+    fun createForDisplay(eventFromDB: RuntimeEventRow): EventType {
         val pkg = eventFromDB.pkg
         val info = eventFromDB.info
         val payload = eventFromDB.payload
 
         return when (eventFromDB.type) {
-            Event.Type.Command -> CommandType(info, pkg, payload)
-            Event.Type.Notification -> NotificationType(info, pkg, payload)
-            Event.Type.SendMessage -> {
+            EventRowType.Command -> CommandType(info, pkg, payload)
+            EventRowType.Notification -> NotificationType(info, pkg, payload)
+            EventRowType.SendMessage -> {
                 val type = NotificationType(info, pkg, payload)
-                type.type = Event.Type.SendMessage
+                type.type = EventRowType.SendMessage
                 type
             }
-            Event.Type.Registration -> RegistrationType(info, pkg, payload)
-            Event.Type.RegistrationResult -> RegistrationResultType(info, pkg, payload)
+            EventRowType.Registration -> RegistrationType(info, pkg, payload)
+            EventRowType.RegistrationResult -> RegistrationResultType(info, pkg, payload)
             else -> UnknownType(eventFromDB.type, info, pkg, payload)
         }
     }
 
     @SuppressLint("WrongConstant")
     @JvmStatic
-    @Event.Type
     private fun getTypeId(type: ActionType): Int {
         return when (type) {
-            ActionType.Command -> Event.Type.Command
-            ActionType.SendMessage -> Event.Type.SendMessage
-            ActionType.Notification -> Event.Type.Notification
-            ActionType.SetConfig -> Event.Type.SetConfig
-            ActionType.AckMessage -> Event.Type.AckMessage
-            ActionType.Registration -> Event.Type.Registration
-            ActionType.Subscription -> Event.Type.Subscription
-            ActionType.ReportFeedback -> Event.Type.ReportFeedback
-            ActionType.UnRegistration -> Event.Type.UnRegistration
-            ActionType.UnSubscription -> Event.Type.UnSubscription
-            ActionType.MultiConnectionResult -> Event.Type.MultiConnectionResult
-            ActionType.MultiConnectionBroadcast -> Event.Type.MultiConnectionBroadcast
+            ActionType.Command -> EventRowType.Command
+            ActionType.SendMessage -> EventRowType.SendMessage
+            ActionType.Notification -> EventRowType.Notification
+            ActionType.SetConfig -> EventRowType.SetConfig
+            ActionType.AckMessage -> EventRowType.AckMessage
+            ActionType.Registration -> EventRowType.Registration
+            ActionType.Subscription -> EventRowType.Subscription
+            ActionType.ReportFeedback -> EventRowType.ReportFeedback
+            ActionType.UnRegistration -> EventRowType.UnRegistration
+            ActionType.UnSubscription -> EventRowType.UnSubscription
+            ActionType.MultiConnectionResult -> EventRowType.MultiConnectionResult
+            ActionType.MultiConnectionBroadcast -> EventRowType.MultiConnectionBroadcast
             else -> -1
         }
     }
