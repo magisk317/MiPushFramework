@@ -367,7 +367,6 @@ fun MainScreen(
                 )
             }
         }
-        }
 
         // Detail overlay — rendered directly on top of the pager when a non-top-level
         // route is active.  No AnimatedVisibility to avoid spawning a second ViewRootImpl.
