@@ -77,6 +77,8 @@ import io.github.magisk317.mipush.push.pipeline.PackageDataClearedCoordinator
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeObservationAdapter
+import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
@@ -112,6 +114,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private var serviceRuntimeBinding: ServiceRuntimeBinding? = null
     @Volatile
     private var activeConnection: Connection? = null
+    private val runtimeObservationSink: PushRuntimeObservationSink = AndroidPushRuntimeObservationAdapter
 
     init {
         XMPushServiceCore.observer = this
@@ -221,27 +224,29 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onConnectionStateChanged(stateName: String, reason: String, host: String?, message: String) {
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = toRuntimeConnectionState(stateName),
             source = reason.ifBlank { "MiPushRuntimeObserverBridge.onConnectionStateChanged" },
             host = host,
-            reason = message
+            reason = message,
+            nowMs = System.currentTimeMillis(),
         )
     }
 
-    override fun onPingSent(atMs: Long) = PushRuntime.observePingSent(atMs)
+    override fun onPingSent(atMs: Long) = runtimeObservationSink.observePingSent(atMs)
 
-    override fun onReadAlive(atMs: Long) = PushRuntime.observeReadAlive(atMs)
+    override fun onReadAlive(atMs: Long) = runtimeObservationSink.observeReadAlive(atMs)
 
-    override fun onPingTimeout(atMs: Long) = PushRuntime.observePingTimeout(atMs)
+    override fun onPingTimeout(atMs: Long) = runtimeObservationSink.observePingTimeout(atMs)
 
     override fun onConnectionStatusChanged(status: ConnectionStatus) {
         io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onConnectionStatusChanged(status)
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = toRuntimeConnectionState(status.name),
             source = "MiPushRuntimeObserverBridge.onConnectionStatusChanged",
             host = null,
-            reason = status.name
+            reason = status.name,
+            nowMs = System.currentTimeMillis(),
         )
     }
 
@@ -261,11 +266,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Disconnected,
             source = "MiPushRuntimeObserverBridge.reconnectionFailed",
             host = connection.host,
-            reason = error.message
+            reason = error.message,
+            nowMs = System.currentTimeMillis(),
         )
         if (failPlan.shouldBroadcastUnavailable) {
             service.broadcastNetworkAvailable(false)
@@ -276,7 +282,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun reconnectionSuccessful(connection: Connection) {
-        PushRuntime.observeReconnectConnected(System.currentTimeMillis())
+        runtimeObservationSink.observeReconnectConnected(System.currentTimeMillis())
         val service = activeServiceFor(connection)
         if (service == null) {
             logW("ignore reconnect success from stale connection")
@@ -315,11 +321,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
                 service.executeJob(com.xiaomi.push.service.BindJob(service, client))
             }
         }
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Connected,
             source = "MiPushRuntimeObserverBridge.reconnectionSuccessful",
             host = connection.host,
             reason = "reconnected",
+            nowMs = System.currentTimeMillis(),
         )
     }
 
@@ -336,15 +343,16 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
                 "errorType=${error?.javaClass?.name} message=${error?.message} " +
                 "falldown=$wasFalldown schedule=${closePlan.shouldScheduleReconnect}"
         )
-        PushRuntime.observeDisconnectReason(reason)
+        runtimeObservationSink.observeDisconnectReason(reason)
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Disconnected,
             source = "MiPushRuntimeObserverBridge.connectionClosed",
             host = connection.host,
-            reason = error?.message ?: reason.toString()
+            reason = error?.message ?: reason.toString(),
+            nowMs = System.currentTimeMillis(),
         )
         // Bridge owns all reconnect decisions. planConnectionClosed returns shouldScheduleReconnect=true
         // when not in falldown, OR when in falldown but connection failed (reason=22, read error, exception).
@@ -359,7 +367,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             return
         }
         synchronized(this) { activeConnection = connection }
-        PushRuntime.observeReconnectStarted(System.currentTimeMillis())
+        runtimeObservationSink.observeReconnectStarted(System.currentTimeMillis())
         publishConnectionStatus(ConnectionStatus.connecting)
         ReconnectDebugLog.w("connection_started host=${connection.host}")
 
@@ -367,11 +375,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         // Connected only when setChallenge accepts a non-empty CONN challenge. The older bridge
         // also reset the notification session here, so an invalid handshake looked connected.
         PushRuntime.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
-        PushRuntime.observeConnectionState(
+        runtimeObservationSink.observeConnectionState(
             state = PushConnectionState.Connecting,
             source = "MiPushRuntimeObserverBridge.connectionStarted",
             host = connection.host,
-            reason = "started"
+            reason = "started",
+            nowMs = System.currentTimeMillis(),
         )
     }
 
