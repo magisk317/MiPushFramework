@@ -135,6 +135,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         notificationObservationSink = runtimeNotificationObservationSink,
     )
 
+    private val channelClientObservationAdapter = MiPushRuntimeChannelClientObservationAdapter(
+        observationSink = runtimeRegistrationChannelObservationSink,
+    )
+
     init {
         XMPushServiceCore.observer = this
     }
@@ -337,7 +341,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onChannelEvent(packageName: String?, event: String, reason: String) {
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(packageName, event, reason)
+        channelClientObservationAdapter.onChannelEvent(packageName, event, reason)
     }
 
     override fun onChannelStateChanged(
@@ -350,21 +354,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         reasonCode: Int?,
         reasonMsg: String?
     ) {
-        runtimeRegistrationChannelObservationSink.observeChannelState(
-            packageName = packageName,
-            channelId = chid,
-            userId = userId,
-            session = session,
-            state = state,
-            source = reason,
-            reasonCode = reasonCode,
-            reasonMessage = reasonMsg,
-            nowMs = System.currentTimeMillis(),
+        channelClientObservationAdapter.onChannelStateChanged(
+            packageName, chid, userId, session, state, reason, reasonCode, reasonMsg,
         )
     }
 
     override fun syncChannelTracker(reason: String) {
-        PushRuntimeChannelTracker.syncNow(reason)
+        channelClientObservationAdapter.syncChannelTracker(reason)
     }
 
     override fun notifyRegisterError(
@@ -386,11 +382,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         reasonMessage: String?,
         errorType: String?
     ): Boolean {
-        return io.github.magisk317.mipush.service.runtime.PushClientStatusSupport.shouldNotifyClient(
-            client,
-            type,
-            reasonCode,
-            errorType
+        return channelClientObservationAdapter.shouldNotifyClient(
+            client, type, reasonCode, reasonMessage, errorType,
         )
     }
 
@@ -401,17 +394,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         reasonMessage: String?,
         errorType: String?
     ): Long {
-        return io.github.magisk317.mipush.service.runtime.PushClientStatusSupport.computeNotifyDelay(client).toLong()
+        return channelClientObservationAdapter.computeNotifyDelay(
+            client, type, reasonCode, reasonMessage, errorType,
+        )
     }
 
     override fun onClientStatusChanged(client: Any, type: Int, reasonCode: Int, reasonMessage: String?, errorType: String?) {
-        val info = client as? PushClientsManager.ClientLoginInfo ?: return
-        io.github.magisk317.mipush.service.runtime.PushClientStatusSupport.notifyClientStatus(
-            info,
-            type,
-            reasonCode,
-            reasonMessage,
-            errorType
+        channelClientObservationAdapter.onClientStatusChanged(
+            client, type, reasonCode, reasonMessage, errorType,
         )
     }
 
