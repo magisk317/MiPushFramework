@@ -108,22 +108,23 @@ import java.io.IOException
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
-    private data class ServiceRuntimeBinding(
-        val service: XMPushServiceCore,
-        val runtime: XMPushServiceLifecycleRuntime,
-    )
-
     private val appContext: Context = context.applicationContext ?: context
-    @Volatile
-    private var serviceRuntimeBinding: ServiceRuntimeBinding? = null
-    @Volatile
-    private var activeConnection: Connection? = null
     private val runtimeObservationSink: PushRuntimeObservationSink = AndroidPushRuntimeObservationAdapter
     private val runtimeRegistrationChannelObservationSink: PushRuntimeRegistrationChannelObservationSink =
         AndroidPushRuntimeRegistrationChannelObservationAdapter
     private val runtimeNotificationObservationSink: PushRuntimeNotificationObservationSink =
         AndroidPushRuntimeNotificationObservationAdapter
-
+    private val observerState = MiPushRuntimeObserverState()
+    private val connectionLifecycleAdapter = MiPushRuntimeConnectionLifecycleAdapter(
+        context = context,
+        appContext = appContext,
+        state = observerState,
+        runtimeObservationSink = runtimeObservationSink,
+        channelObservationSink = runtimeRegistrationChannelObservationSink,
+        publishConnectionStatus = { status ->
+            io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onConnectionStatusChanged(status)
+        },
+    )
     init {
         XMPushServiceCore.observer = this
     }
@@ -159,250 +160,45 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return AppDependencies.get<PushMessageProcessor>(appContext)
     }
 
-    private fun currentServiceLifecycleRuntime(service: XMPushServiceCore?):
-        XMPushServiceLifecycleRuntime? {
-        val binding = serviceRuntimeBinding ?: return null
-        return binding.runtime.takeIf { service === binding.service }
-    }
+    override fun onServiceCreated(service: android.app.Service) =
+        connectionLifecycleAdapter.onServiceCreated(service)
 
-    private fun activeServiceFor(connection: Connection): XMPushServiceCore? = synchronized(this) {
-        val service = serviceRuntimeBinding?.service ?: return@synchronized null
-        val ownsConnection = activeConnection === connection || runCatching {
-            service.currentConnection === connection || service.slimConnection === connection
-        }.getOrDefault(false)
-        service.takeIf { ownsConnection }
-    }
+    override fun onServiceDestroy() = connectionLifecycleAdapter.onServiceDestroy()
 
-    private fun releaseConnection(connection: Connection) {
-        synchronized(this) {
-            if (activeConnection === connection) activeConnection = null
-            // 失败/关闭回调可能不是由 service.disconnect() 发起，按对象身份清理旧连接引用，
-            // 避免已断开的连接继续让后续 connect() 误判为 CONNECTING。
-            serviceRuntimeBinding?.service?.let { service ->
-                if (service.currentConnection === connection) {
-                    service.clearCurrentConnection()
-                }
-            }
-        }
-    }
+    override fun configureClientChangeListener(context: Context, manager: PushClientsManager) =
+        connectionLifecycleAdapter.configureClientChangeListener(context, manager)
 
-    private fun publishConnectionStatus(status: ConnectionStatus) {
-        io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
-            .onConnectionStatusChanged(status)
-    }
+    override fun onConnectionStateChanged(stateName: String, reason: String, host: String?, message: String) =
+        connectionLifecycleAdapter.onConnectionStateChanged(stateName, reason, host, message)
 
-    private fun toRuntimeConnectionState(stateName: String): PushConnectionState {
-        return when (stateName) {
-            "Connected", ConnectionStatus.connected.name -> PushConnectionState.Connected
-            "Connecting", ConnectionStatus.connecting.name -> PushConnectionState.Connecting
-            "Disconnecting" -> PushConnectionState.Disconnecting
-            else -> PushConnectionState.Disconnected
-        }
-    }
+    override fun onPingSent(atMs: Long) = connectionLifecycleAdapter.onPingSent(atMs)
 
-    override fun onServiceCreated(service: android.app.Service) {
-        if (service is com.xiaomi.push.service.XMPushServiceCore) {
-            io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.ensureCreated(service)
-            synchronized(this) {
-                // The product listener is bound to the live Service instance. The older lazy lookup
-                // used XMPushServiceProxy, which is not cleared on destruction, so a late callback
-                // could recreate bookkeeping against a destroyed Service.
-                serviceRuntimeBinding?.runtime?.close()
-                activeConnection = null
-                serviceRuntimeBinding = ServiceRuntimeBinding(
-                    service = service,
-                    runtime = XMPushServiceLifecycleRuntime(),
-                )
-            }
-        }
-    }
+    override fun onReadAlive(atMs: Long) = connectionLifecycleAdapter.onReadAlive(atMs)
 
-    override fun onServiceDestroy() {
-        synchronized(this) {
-            activeConnection = null
-            serviceRuntimeBinding?.runtime?.close()
-            serviceRuntimeBinding = null
-        }
-        io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onDestroy(null)
-    }
+    override fun onPingTimeout(atMs: Long) = connectionLifecycleAdapter.onPingTimeout(atMs)
 
-    override fun configureClientChangeListener(context: Context, manager: PushClientsManager) {
-        currentServiceLifecycleRuntime(context as? XMPushServiceCore)
-            ?.configureClientChangeListener(manager)
-    }
+    override fun onConnectionStatusChanged(status: ConnectionStatus) =
+        connectionLifecycleAdapter.onConnectionStatusChanged(status)
 
-    override fun onConnectionStateChanged(stateName: String, reason: String, host: String?, message: String) {
-        runtimeObservationSink.observeConnectionState(
-            state = toRuntimeConnectionState(stateName),
-            source = reason.ifBlank { "MiPushRuntimeObserverBridge.onConnectionStateChanged" },
-            host = host,
-            reason = message,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    override fun reconnectionFailed(connection: Connection, error: Exception) =
+        connectionLifecycleAdapter.reconnectionFailed(connection, error)
 
-    override fun onPingSent(atMs: Long) = runtimeObservationSink.observePingSent(atMs)
+    override fun reconnectionSuccessful(connection: Connection) =
+        connectionLifecycleAdapter.reconnectionSuccessful(connection)
 
-    override fun onReadAlive(atMs: Long) = runtimeObservationSink.observeReadAlive(atMs)
+    override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) =
+        connectionLifecycleAdapter.connectionClosed(connection, reason, error)
 
-    override fun onPingTimeout(atMs: Long) = runtimeObservationSink.observePingTimeout(atMs)
+    override fun connectionStarted(connection: Connection) =
+        connectionLifecycleAdapter.connectionStarted(connection)
 
-    override fun onConnectionStatusChanged(status: ConnectionStatus) {
-        io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onConnectionStatusChanged(status)
-        runtimeObservationSink.observeConnectionState(
-            state = toRuntimeConnectionState(status.name),
-            source = "MiPushRuntimeObserverBridge.onConnectionStatusChanged",
-            host = null,
-            reason = status.name,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    override fun notifyConnectionError(reason: Int, exc: Exception?) =
+        connectionLifecycleAdapter.notifyConnectionError(reason, exc)
 
-    override fun reconnectionFailed(connection: Connection, error: Exception) {
-        val service = activeServiceFor(connection)
-        if (service == null) {
-            logW("ignore reconnection failure from stale connection")
-            return
-        }
-        val wasFalldown = service.shouldFalldown()
-        val failPlan = PushServiceConnectionRuntime.planReconnectionFailure(wasFalldown)
-        ReconnectDebugLog.w(
-            "reconnect_failed host=${connection.host} errorType=${error.javaClass.name} " +
-                "message=${error.message} falldown=$wasFalldown " +
-                "schedule=${failPlan.shouldScheduleReconnect}"
-        )
-        releaseConnection(connection)
-        publishConnectionStatus(ConnectionStatus.disconnected)
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
-        runtimeObservationSink.observeConnectionState(
-            state = PushConnectionState.Disconnected,
-            source = "MiPushRuntimeObserverBridge.reconnectionFailed",
-            host = connection.host,
-            reason = error.message,
-            nowMs = System.currentTimeMillis(),
-        )
-        if (failPlan.shouldBroadcastUnavailable) {
-            service.broadcastNetworkAvailable(false)
-        }
-        if (failPlan.shouldScheduleReconnect) {
-            service.scheduleConnect(false)
-        }
-    }
+    override fun requestConnection(source: String, reason: String) =
+        connectionLifecycleAdapter.requestConnection(source, reason)
 
-    override fun reconnectionSuccessful(connection: Connection) {
-        runtimeObservationSink.observeReconnectConnected(System.currentTimeMillis())
-        val service = activeServiceFor(connection)
-        if (service == null) {
-            logW("ignore reconnect success from stale connection")
-            return
-        }
-        val wasFalldown = service.shouldFalldown()
-        val successPlan = PushServiceConnectionRuntime.planReconnectionSuccess(
-            alarmAlive = com.xiaomi.push.service.timers.Alarm.isAlive(),
-            shouldFalldown = wasFalldown,
-        )
-        ReconnectDebugLog.w(
-            "reconnect_established host=${connection.host} falldown=$wasFalldown " +
-                "alarmAlive=${com.xiaomi.push.service.timers.Alarm.isAlive()}"
-        )
-        synchronized(this) { activeConnection = connection }
-        publishConnectionStatus(ConnectionStatus.connected)
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(
-            null,
-            "reconnect_success",
-            "MiPushRuntimeObserverBridge.reconnectionSuccessful",
-        )
-        MyMIPushNotificationHelper.markNotificationSessionStarted(
-            "MiPushRuntimeObserverBridge.reconnectionSuccessful",
-        )
-        if (successPlan.shouldBroadcastAvailable) {
-            service.broadcastNetworkAvailable(true)
-        }
-        if (successPlan.shouldResetReconnectState) {
-            service.reconnectionManager.onConnectSucceeded()
-        }
-        if (successPlan.shouldRegisterAlarm) {
-            com.xiaomi.push.service.timers.Alarm.registerPing(true)
-        }
-        if (successPlan.shouldBindAllClients) {
-            com.xiaomi.push.service.PushClientsManager.getInstance().getAllClients().forEach { client ->
-                service.executeJob(com.xiaomi.push.service.BindJob(service, client))
-            }
-        }
-        runtimeObservationSink.observeConnectionState(
-            state = PushConnectionState.Connected,
-            source = "MiPushRuntimeObserverBridge.reconnectionSuccessful",
-            host = connection.host,
-            reason = "reconnected",
-            nowMs = System.currentTimeMillis(),
-        )
-    }
-
-    override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
-        val service = activeServiceFor(connection)
-        if (service == null) {
-            logW("ignore close from stale connection reason=$reason")
-            return
-        }
-        val wasFalldown = service.shouldFalldown()
-        val closePlan = PushServiceConnectionRuntime.planConnectionClosed(wasFalldown, reason, error)
-        ReconnectDebugLog.w(
-            "connection_closed reason=$reason host=${connection.host} " +
-                "errorType=${error?.javaClass?.name} message=${error?.message} " +
-                "falldown=$wasFalldown schedule=${closePlan.shouldScheduleReconnect}"
-        )
-        runtimeObservationSink.observeDisconnectReason(reason)
-        releaseConnection(connection)
-        publishConnectionStatus(ConnectionStatus.disconnected)
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
-        runtimeObservationSink.observeConnectionState(
-            state = PushConnectionState.Disconnected,
-            source = "MiPushRuntimeObserverBridge.connectionClosed",
-            host = connection.host,
-            reason = error?.message ?: reason.toString(),
-            nowMs = System.currentTimeMillis(),
-        )
-        // Bridge owns all reconnect decisions. planConnectionClosed returns shouldScheduleReconnect=true
-        // when not in falldown, OR when in falldown but connection failed (reason=22, read error, exception).
-        if (closePlan.shouldScheduleReconnect) {
-            service.scheduleConnect(!wasFalldown)
-        }
-    }
-
-    override fun connectionStarted(connection: Connection) {
-        if (activeServiceFor(connection) == null) {
-            logW("ignore start from stale connection")
-            return
-        }
-        synchronized(this) { activeConnection = connection }
-        runtimeObservationSink.observeReconnectStarted(System.currentTimeMillis())
-        publishConnectionStatus(ConnectionStatus.connecting)
-        ReconnectDebugLog.w("connection_started host=${connection.host}")
-
-        // Stock XMSF 7.4.67-C keeps qa.b in Connecting after the TCP socket opens and changes it to
-        // Connected only when setChallenge accepts a non-empty CONN challenge. The older bridge
-        // also reset the notification session here, so an invalid handshake looked connected.
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
-        runtimeObservationSink.observeConnectionState(
-            state = PushConnectionState.Connecting,
-            source = "MiPushRuntimeObserverBridge.connectionStarted",
-            host = connection.host,
-            reason = "started",
-            nowMs = System.currentTimeMillis(),
-        )
-    }
-
-    override fun notifyConnectionError(reason: Int, exc: Exception?) {
-        runtimeRegistrationChannelObservationSink.observeChannelEvent(null, "connection_error", "MiPushRuntimeObserverBridge.notifyConnectionError:$reason")
-    }
-
-    override fun requestConnection(source: String, reason: String) {
-        PushRuntime.requestConnection(source, reason)
-    }
-
-    override fun startForegroundService() {
-        (context as? Service)?.let { ForegroundHelper(it).startForeground() }
-    }
+    override fun startForegroundService() = connectionLifecycleAdapter.startForegroundService()
 
     override fun getMIID(): String? = "0"
 
@@ -421,21 +217,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return MIPushAccountUtils.getMIPushAccount(context.applicationContext)?.envType ?: 0
     }
 
-    override fun shouldRunConnectivityTest(activeCount: Int, lastCheckTimeMs: Long, testHostsCount: Int): Boolean {
-        return NetworkCheckupRuntime.shouldRunConnectivityTest(
-            activeCount = activeCount,
-            nowMs = System.currentTimeMillis(),
-            lastCheckTimeMs = lastCheckTimeMs,
-            allowStats = true,
-            testHostsCount = testHostsCount
-        )
-    }
+    override fun shouldRunConnectivityTest(activeCount: Int, lastCheckTimeMs: Long, testHostsCount: Int): Boolean =
+        connectionLifecycleAdapter.shouldRunConnectivityTest(activeCount, lastCheckTimeMs, testHostsCount)
 
-    override fun createHostManager(context: Context, hostFilter: Any?, httpGet: Any?, userId: String): Any? {
-        val filter = hostFilter as? HostFilter
-        val getter = httpGet as? HostManager.HttpGet ?: return null
-        return HostManager(context, filter, getter, userId)
-    }
+    override fun createHostManager(context: Context, hostFilter: Any?, httpGet: Any?, userId: String): Any? =
+        connectionLifecycleAdapter.createHostManager(context, hostFilter, httpGet, userId)
 
     override fun loadAccount(context: Context, source: String): MIPushAccount? {
         val account = MIPushAccountUtils.getMIPushAccount(context.applicationContext)
@@ -556,7 +342,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun attachAccountClient(client: Any) {
         val account = client as? MIPushAccount ?: return
-        val service = synchronized(this) { serviceRuntimeBinding?.service }
+        val service = observerState.service()
             ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
             ?: return
         val created = attachMIPushAccountClient(
@@ -800,7 +586,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         val plan = PushPacketSyncRuntime.resolveBindResult(success, errorType, errorReason)
         if (plan.shouldReportInvalidSig) {
             logW("SMACK: channel bind failed due to invalid-sig, scheduling account refresh and reconnect")
-            val service = synchronized(this) { serviceRuntimeBinding?.service }
+            val service = observerState.service()
                 ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
             if (service != null && Network.hasNetwork(appContext)) {
                 service.executeJob(
@@ -970,7 +756,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
 
         if (hasAccount && activeClientCount == 0) {
-            val service = synchronized(this) { serviceRuntimeBinding?.service }
+            val service = observerState.service()
                 ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
             if (service != null) {
                 attachMIPushAccountClient(account, service, PushClientsManager.getInstance())
@@ -1099,10 +885,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return HostRequestThrottlePlan(plan.shouldRequest, plan.nextTimestampMs)
     }
 
-    override fun notifyConnectionFailed(activeClients: Any) {
-        @Suppress("UNCHECKED_CAST")
-        PushClientsStateSupport.notifyConnectionFailed(activeClients as Iterable<HashMap<String?, PushClientsManager.ClientLoginInfo>>)
-    }
+    override fun notifyConnectionFailed(activeClients: Any) =
+        connectionLifecycleAdapter.notifyConnectionFailed(activeClients)
 
     override fun resolveClientChangePlan(activeClientCount: Int, shouldUpdateAlarm: Boolean): PushClientChangePlan {
         // Under MiPushFramework with daemon keeper, never drop TCP connection when active client
