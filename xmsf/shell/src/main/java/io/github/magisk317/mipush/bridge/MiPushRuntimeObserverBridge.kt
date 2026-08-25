@@ -475,7 +475,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         messageNotificationExecutionAdapter.rebuildRestoredNotification(context, notification)
 
     override fun resolveKick(kickType: String?, kickReason: String?): PushKickPlan {
-        return PushPacketSyncRuntime.resolveKick(kickType, kickReason)
+        return MiPushRuntimePolicyExecutionAdapter.resolveKick(kickType, kickReason)
     }
 
     override fun resolveBindResult(success: Boolean, errorType: String?, errorReason: String?): PushBindResultPlan {
@@ -527,14 +527,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun resolveRedirect(hostsText: String?): PushRedirectPlan {
-        return PushPacketSyncRuntime.resolveRedirect(hostsText)
+        return MiPushRuntimePolicyExecutionAdapter.resolveRedirect(hostsText)
     }
 
     override fun resolveCloseChannelPlan(
         request: com.xiaomi.push.service.PushServiceCloseRequest,
         packageChannelIds: List<String>
     ): PushServiceClosePlan {
-        return PushServiceIntentRuntime.resolveCloseChannelPlan(request, packageChannelIds)
+        return MiPushRuntimePolicyExecutionAdapter.resolveCloseChannelPlan(request, packageChannelIds)
     }
 
     override fun resolveResetConnectionPlan(
@@ -543,7 +543,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         client: PushClientsManager.ClientLoginInfo?,
         connectionReadable: Boolean
     ): PushServiceResetConnectionPlan {
-        return PushServiceIntentRuntime.decideResetConnection(channelId, requestedSecurity, client, connectionReadable)
+        return MiPushRuntimePolicyExecutionAdapter.resolveResetConnectionPlan(
+            channelId, requestedSecurity, client, connectionReadable,
+        )
     }
 
     override fun resolveRegisterAppPlan(
@@ -566,7 +568,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         payload: ByteArray?,
         cacheMessage: Boolean
     ): PushServiceMiPushAppPlan {
-        return PushServiceIntentRuntime.resolveMiPushAppPlan(action, packageName, payload, cacheMessage)
+        return MiPushRuntimePolicyExecutionAdapter.resolveMiPushAppPlan(
+            action, packageName, payload, cacheMessage,
+        )
     }
 
     override fun resolveMiPushPayloadDispatch(
@@ -574,7 +578,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         clientStatus: PushClientsManager.ClientStatus?,
         cacheIfUnavailable: Boolean
     ): PushServiceMiPushPayloadDispatchPlan {
-        return PushServiceIntentRuntime.decideMiPushPayloadDispatch(hasActiveChannel, clientStatus, cacheIfUnavailable)
+        return MiPushRuntimePolicyExecutionAdapter.resolveMiPushPayloadDispatch(
+            hasActiveChannel, clientStatus, cacheIfUnavailable,
+        )
     }
 
     override fun resolveChannelOpenPlan(
@@ -584,15 +590,19 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         shouldRebind: Boolean,
         request: com.xiaomi.push.service.PushChannelOpenRequest
     ): PushChannelOpenPlan {
-        return PushChannelOpenRuntime.decideOpenPlan(hasNetwork, isConnected, clientStatus, shouldRebind)
+        return MiPushRuntimePolicyExecutionAdapter.resolveChannelOpenPlan(
+            hasNetwork, isConnected, clientStatus, shouldRebind, request,
+        )
     }
 
     override fun resolveConnectionAttemptPlan(isConnected: Boolean, isConnecting: Boolean): PushConnectionAttemptPlan {
-        return PushServiceConnectionRuntime.planConnect(isConnecting, isConnected)
+        return MiPushRuntimePolicyExecutionAdapter.resolveConnectionAttemptPlan(
+            isConnected, isConnecting,
+        )
     }
 
     override fun resolveCheckAlivePlan(isConnected: Boolean, hasNetwork: Boolean): PushCheckAlivePlan {
-        return PushServiceConnectionRuntime.planCheckAlive(isConnected, hasNetwork)
+        return MiPushRuntimePolicyExecutionAdapter.resolveCheckAlivePlan(isConnected, hasNetwork)
     }
 
     override fun resolveShouldReconnectPlan(
@@ -663,11 +673,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun resolveCandidateHosts(targetHost: String, fallbackHosts: List<String>): PushSocketHostSelectionPlan {
-        return PushSocketConnectionRuntime.resolveCandidateHosts(targetHost, fallbackHosts)
+        return MiPushRuntimePolicyExecutionAdapter.resolveCandidateHosts(targetHost, fallbackHosts)
     }
 
     override fun planFailureRetry(oldConnPoint: String?, newConnPoint: String?): PushSocketFailurePlan {
-        return PushSocketConnectionRuntime.planFailureRetry(oldConnPoint, newConnPoint)
+        return MiPushRuntimePolicyExecutionAdapter.planFailureRetry(oldConnPoint, newConnPoint)
     }
 
     override fun evaluateShortConnection(
@@ -678,66 +688,55 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         networkInterval: Long,
         maxShortConnCount: Int
     ): PushShortConnectionPlan {
-        return PushSocketConnectionRuntime.evaluateShortConnection(
-            nowElapsedMs = nowElapsed,
-            lastConnectedTime = lastConnectedTime,
-            hasNetwork = hasNetwork,
-            curShortConnCount = curShortConnCount,
-            shortConnectionThresholdMs = networkInterval,
-            maxShortConnCount = maxShortConnCount
+        return MiPushRuntimePolicyExecutionAdapter.evaluateShortConnection(
+            nowElapsed, lastConnectedTime, hasNetwork, curShortConnCount, networkInterval, maxShortConnCount,
         )
     }
 
     override fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan {
-        return PushSlimStreamRuntime.planHandshake(hasChallenge, hasConfigMessage)
+        return MiPushRuntimePolicyExecutionAdapter.planSlimHandshake(hasChallenge, hasConfigMessage)
     }
 
     override fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan {
-        return PushSlimConnectionRuntime.planInboundBlob(channelId, cmd)
+        return MiPushRuntimePolicyExecutionAdapter.resolveSlimInboundPlan(channelId, cmd)
     }
 
     override fun resolveSlimSendPingPlan(): PushSlimPingPlan {
-        return PushSlimConnectionRuntime.planSendPing()
+        return MiPushRuntimePolicyExecutionAdapter.resolveSlimSendPingPlan()
     }
 
     override fun planSlimPayload(packageName: String?, chid: String?, chidStatus: String?, binderStatus: String?): PushSlimPayloadPlan {
-        return PushSlimPayloadPlan(
-            action = if (binderStatus.isNullOrBlank()) PushSlimPayloadAction.DeliverBlob else PushSlimPayloadAction.None,
-            eventAction = "slim_payload_resolved"
+        return MiPushRuntimePolicyExecutionAdapter.planSlimPayload(
+            packageName, chid, chidStatus, binderStatus,
         )
     }
 
     override fun planSlimWrite(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan {
-        return PushSlimStreamRuntime.planWrite(serializedSize, cmd, currentCapacity)
-    }
-
-    override fun planConnectionEvent(event: PushConnectionListenerEvent): PushConnectionStatusPlan {
-        val state = when (event) {
-            PushConnectionListenerEvent.Connected,
-            PushConnectionListenerEvent.ReconnectionSuccessful -> com.xiaomi.push.service.PushConnectionState.Connected
-            PushConnectionListenerEvent.Connecting,
-            PushConnectionListenerEvent.ConnectionStarted -> com.xiaomi.push.service.PushConnectionState.Connecting
-            PushConnectionListenerEvent.Disconnected,
-            PushConnectionListenerEvent.ReconnectionFailed,
-            PushConnectionListenerEvent.ConnectionClosed -> com.xiaomi.push.service.PushConnectionState.Disconnected
-            else -> null
-        }
-        return PushConnectionStatusPlan(
-            eventAction = "connection_event_${event.name.lowercase()}",
-            connectionState = state
+        return MiPushRuntimePolicyExecutionAdapter.planSlimWrite(
+            serializedSize, cmd, currentCapacity,
         )
     }
 
+    override fun planConnectionEvent(event: PushConnectionListenerEvent): PushConnectionStatusPlan {
+        return MiPushRuntimePolicyExecutionAdapter.planConnectionEvent(event)
+    }
+
     override fun buildGslbRequest(baseUrl: String, sdkVersion: Int, droidVersion: Int, model: String, incremental: String, miuiType: Int): PushGslbRequest {
-        return PushHostRuntime.buildGslbRequest(baseUrl, sdkVersion, droidVersion, model, incremental, miuiType)
+        return MiPushRuntimePolicyExecutionAdapter.buildGslbRequest(
+            baseUrl, sdkVersion, droidVersion, model, incremental, miuiType,
+        )
     }
 
     override fun decideBucketFetch(fetchBucketRequested: Boolean, lastFetchTimeMs: Long, nowMs: Long, minBucketFetchDurationMs: Long): PushBucketFetchPlan {
-        return PushHostRuntime.decideBucketFetch(fetchBucketRequested, lastFetchTimeMs, nowMs, minBucketFetchDurationMs)
+        return MiPushRuntimePolicyExecutionAdapter.decideBucketFetch(
+            fetchBucketRequested, lastFetchTimeMs, nowMs, minBucketFetchDurationMs,
+        )
     }
 
     override fun decideBucketReconnect(hasConnection: Boolean, currentHost: String?, candidateHosts: List<String>): PushBucketReconnectPlan {
-        return PushHostRuntime.decideBucketReconnect(hasConnection, currentHost, candidateHosts)
+        return MiPushRuntimePolicyExecutionAdapter.decideBucketReconnect(
+            hasConnection, currentHost, candidateHosts,
+        )
     }
 
     override fun resolveChannelInfoUpdateTarget(
@@ -746,7 +745,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         requestedUserId: String?,
         pushClientsManager: PushClientsManager
     ): PushChannelInfoUpdateTarget {
-        return PushChannelInfoRuntime.resolveUpdateTarget(packageChannelIds, requestedChannelId, requestedUserId, pushClientsManager)
+        return MiPushRuntimePolicyExecutionAdapter.resolveChannelInfoUpdateTarget(
+            packageChannelIds, requestedChannelId, requestedUserId, pushClientsManager,
+        )
     }
 
     override fun applyChannelInfoUpdate(
@@ -756,34 +757,31 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         hasCloudAttr: Boolean,
         cloudAttr: String?
     ): PushChannelInfoUpdateResult {
-        return PushChannelInfoRuntime.applyUpdate(target, hasClientAttr, clientAttr, hasCloudAttr, cloudAttr)
+        return MiPushRuntimePolicyExecutionAdapter.applyChannelInfoUpdate(
+            target, hasClientAttr, clientAttr, hasCloudAttr, cloudAttr,
+        )
     }
 
     override fun planRequestUrls(baseUrl: String, localUrls: List<String>?, reservedHosts: List<String>): HostRequestUrlsPlan {
-        val plan = HostManagerRuntime.planRequestUrls(baseUrl, localUrls, reservedHosts)
-        return HostRequestUrlsPlan(plan.urls)
+        return MiPushRuntimePolicyExecutionAdapter.planRequestUrls(baseUrl, localUrls, reservedHosts)
     }
 
     override fun planRefreshTargets(allHosts: List<String>, hostsWithFallback: Set<String>): HostRefreshTargetsPlan {
-        val plan = HostManagerRuntime.planRefreshTargets(allHosts, hostsWithFallback)
-        return HostRefreshTargetsPlan(plan.targetHosts)
+        return MiPushRuntimePolicyExecutionAdapter.planRefreshTargets(allHosts, hostsWithFallback)
     }
 
     override fun planRemoteFallbackRequest(nowMs: Long, lastRequestTimeMs: Long, failureCount: Long): HostRequestThrottlePlan {
-        val plan = HostManagerRuntime.planRemoteFallbackRequest(nowMs, lastRequestTimeMs, failureCount)
-        return HostRequestThrottlePlan(plan.shouldRequest, plan.nextTimestampMs)
+        return MiPushRuntimePolicyExecutionAdapter.planRemoteFallbackRequest(
+            nowMs, lastRequestTimeMs, failureCount,
+        )
     }
 
     override fun notifyConnectionFailed(activeClients: Any) =
         connectionLifecycleAdapter.notifyConnectionFailed(activeClients)
 
     override fun resolveClientChangePlan(activeClientCount: Int, shouldUpdateAlarm: Boolean): PushClientChangePlan {
-        // Under MiPushFramework with daemon keeper, never drop TCP connection when active client
-        // count temporarily drops to 0 (e.g. during account re-registration or app unwatch).
-        return PushClientChangePlan(
-            shouldUpdateAlarm = shouldUpdateAlarm,
-            shouldDisconnect = false,
-            eventAction = if (activeClientCount <= 0) "client_change_keep_alive" else "client_change_update_alarm"
+        return MiPushRuntimePolicyExecutionAdapter.resolveClientChangePlan(
+            activeClientCount, shouldUpdateAlarm,
         )
     }
 
