@@ -195,6 +195,7 @@ dependencies {
     implementation(project(":xmsf:runtime"))
     implementation(project(":xmsf:runtime:store"))
     implementation(project(":xmsf:notification"))
+    implementation(project(":xmsf:push"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.sqlite.bundled)
 

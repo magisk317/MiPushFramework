@@ -3,8 +3,7 @@ package io.github.magisk317.mipush.push.pipeline
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.utils.RegSecUtils
-import io.github.magisk317.mipush.utils.ConvertUtils
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 
 object MessageIdentity {
     @JvmStatic
@@ -32,7 +31,10 @@ object MessageIdentity {
 
     private fun messageIdFromPushAction(container: XmPushActionContainer): String? {
         return runCatching {
-            val pushAction = ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
+            val pushAction = PushShellBridgeHolder.require().decodeMessageBody(
+                container,
+                PushShellBridgeHolder.require().getRegSec(container),
+            )
             JavaCalls.getField(pushAction!!, "id") as? String
         }.getOrNull()
     }

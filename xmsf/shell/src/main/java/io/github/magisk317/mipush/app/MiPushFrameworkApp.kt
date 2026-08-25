@@ -54,6 +54,8 @@ import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.push.bridge.DefaultPushShellBridge
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.catch
@@ -72,6 +74,7 @@ open class MiPushFrameworkApp : Application() {
         super.onCreate()
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)
+        PushShellBridgeHolder.install(DefaultPushShellBridge)
         if (!isAppMainProc(this)) {
             LogUtils.init(this)
             CrashHandler.installCrashLogger()

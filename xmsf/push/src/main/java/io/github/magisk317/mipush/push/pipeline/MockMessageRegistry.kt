@@ -7,14 +7,14 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.platform.support.XMPushUtils
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import java.security.MessageDigest
 
 object MockMessageRegistry {
     const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
     const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private const val MARK_TTL_MS = 30_000L
-    internal const val MAX_MARKED_MESSAGES = 256
+    const val MAX_MARKED_MESSAGES = 256
     private val lock = Any()
     private val markedMessageIds = LinkedHashMap<String, Long>()
 
@@ -93,7 +93,7 @@ object MockMessageRegistry {
         }
     }
 
-    internal fun markedMessageCount(): Int = synchronized(lock) { markedMessageIds.size }
+    fun markedMessageCount(): Int = synchronized(lock) { markedMessageIds.size }
 
     private fun pruneExpiredLocked(now: Long) {
         val iterator = markedMessageIds.entries.iterator()
@@ -112,7 +112,7 @@ object MockMessageRegistry {
         if (container == null) return null
         MessageIdentity.fromContainer(container)?.let { return it }
         return runCatching {
-            "payload:${sha256(XMPushUtils.packToBytes(container))}"
+            "payload:${sha256(PushShellBridgeHolder.require().packToBytes(container))}"
         }.getOrElse {
             "container:${container.packageName}|${container.action?.name}|${container.isRequest}|" +
                 "${container.isEncryptAction}|${container.metaInfo?.id.orEmpty()}|" +

@@ -8,7 +8,7 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.utils.Configurations
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 
 object BroadcastDecision {
     @JvmStatic
@@ -34,7 +34,7 @@ object BroadcastDecision {
     private fun decoratedContainer(realTargetPackage: String, container: XmPushActionContainer): XmPushActionContainer {
         val decorated = container.deepCopy()
         runCatching {
-            Configurations.getInstance().handle(realTargetPackage, decorated)
+            PushShellBridgeHolder.require().applyConfigurations(realTargetPackage, decorated)
         }
         return decorated
     }
