@@ -3,9 +3,13 @@ package io.github.magisk317.mipush.bridge
 import com.xiaomi.push.service.HostRefreshTargetsPlan
 import com.xiaomi.push.service.HostRequestThrottlePlan
 import com.xiaomi.push.service.HostRequestUrlsPlan
+import com.xiaomi.push.service.PushBindResultPlan
 import com.xiaomi.push.service.PushBucketFetchPlan
 import com.xiaomi.push.service.PushBucketReconnectPlan
 import com.xiaomi.push.service.PushChannelInfoUpdateResult
+import com.xiaomi.push.service.PushReconnectAttemptPlan
+import com.xiaomi.push.service.PushReconnectState
+import com.xiaomi.push.service.PushShouldReconnectPlan
 import com.xiaomi.push.service.PushChannelInfoUpdateTarget
 import com.xiaomi.push.service.PushChannelOpenPlan
 import com.xiaomi.push.service.PushCheckAlivePlan
@@ -34,6 +38,7 @@ import com.xiaomi.network.HostManagerRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 import io.github.magisk317.mipush.service.runtime.PushHostRuntime
+import io.github.magisk317.mipush.service.runtime.PushReconnectRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
@@ -44,6 +49,12 @@ import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
 internal object MiPushRuntimePolicyExecutionAdapter {
     fun resolveKick(kickType: String?, kickReason: String?): PushKickPlan =
         PushPacketSyncRuntime.resolveKick(kickType, kickReason)
+
+    fun resolveBindResult(
+        success: Boolean,
+        errorType: String?,
+        errorReason: String?,
+    ): PushBindResultPlan = PushPacketSyncRuntime.resolveBindResult(success, errorType, errorReason)
 
     fun resolveRedirect(hostsText: String?): PushRedirectPlan =
         PushPacketSyncRuntime.resolveRedirect(hostsText)
@@ -91,6 +102,38 @@ internal object MiPushRuntimePolicyExecutionAdapter {
 
     fun resolveCheckAlivePlan(isConnected: Boolean, hasNetwork: Boolean): PushCheckAlivePlan =
         PushServiceConnectionRuntime.planCheckAlive(isConnected, hasNetwork)
+
+    fun planShouldReconnect(
+        hasNetwork: Boolean,
+        activeClientCount: Int,
+        pushDisabled: Boolean,
+        pushEnabled: Boolean,
+        superPowerMode: Boolean,
+        extremePowerMode: Boolean,
+    ): PushShouldReconnectPlan = PushServiceConnectionRuntime.planShouldReconnect(
+        hasNetwork,
+        activeClientCount,
+        pushDisabled,
+        pushEnabled,
+        superPowerMode,
+        extremePowerMode,
+    )
+
+    fun planReconnect(
+        state: PushReconnectState,
+        forceImmediate: Boolean,
+        currentlyConnected: Boolean,
+        allowedByPolicy: Boolean,
+        hasPendingConnectJob: Boolean,
+        nowMs: Long,
+    ): PushReconnectAttemptPlan = PushReconnectRuntime.planReconnect(
+        state,
+        forceImmediate,
+        currentlyConnected,
+        allowedByPolicy,
+        hasPendingConnectJob,
+        nowMs,
+    )
 
     fun resolveCandidateHosts(targetHost: String, fallbackHosts: List<String>): PushSocketHostSelectionPlan =
         PushSocketConnectionRuntime.resolveCandidateHosts(targetHost, fallbackHosts)

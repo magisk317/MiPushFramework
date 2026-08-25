@@ -91,8 +91,6 @@ import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 import io.github.magisk317.mipush.service.runtime.PushClientsStateSupport
 import io.github.magisk317.mipush.service.runtime.PushHostRuntime
-import io.github.magisk317.mipush.service.runtime.PushReconnectRuntime
-import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
@@ -101,7 +99,6 @@ import io.github.magisk317.mipush.runtime.core.RegistrationThrottle
 import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
 import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.platform.support.XMPushUtils
-import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
 import java.io.IOException
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -442,7 +439,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun resolveBindResult(success: Boolean, errorType: String?, errorReason: String?): PushBindResultPlan {
-        val plan = PushPacketSyncRuntime.resolveBindResult(success, errorType, errorReason)
+        val plan = MiPushRuntimePolicyExecutionAdapter.resolveBindResult(success, errorType, errorReason)
         if (plan.shouldReportInvalidSig) {
             logW("SMACK: channel bind failed due to invalid-sig, scheduling account refresh and reconnect")
             val service = observerState.service()
@@ -579,7 +576,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         val account = MIPushAccountUtils.getMIPushAccount(appContext)
         val hasAccount = account != null
         val effectiveCount = if (hasAccount && activeClientCount == 0) 1 else activeClientCount
-        val plan = PushServiceConnectionRuntime.planShouldReconnect(
+        val plan = MiPushRuntimePolicyExecutionAdapter.planShouldReconnect(
             hasNetwork,
             effectiveCount,
             pushDisabled,
@@ -625,13 +622,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             }
         }
 
-        return PushReconnectRuntime.planReconnect(
+        return MiPushRuntimePolicyExecutionAdapter.planReconnect(
             state = state,
             forceImmediate = force,
             currentlyConnected = isConnected,
             allowedByPolicy = allowedByPolicy,
             hasPendingConnectJob = hasReconnectionJob,
-            nowMs = System.currentTimeMillis()
+            nowMs = System.currentTimeMillis(),
         )
     }
 
