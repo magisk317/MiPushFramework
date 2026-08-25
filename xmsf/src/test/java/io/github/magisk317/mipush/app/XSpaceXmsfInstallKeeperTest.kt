@@ -75,15 +75,18 @@ class XSpaceXmsfInstallKeeperTest {
     }
 
     @Test
-    fun `toggle off uninstalls both packages when present`() {
+    fun `toggle off uninstalls all synchronized packages when present`() {
         val runner = RecordingRootRunner(
             "cmd user list" to xspaceUsers(),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to packageListed(Constants.XMSF_KEEPER_APP_NAME),
             XSpaceXmsfInstallKeeper.uninstallCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.uninstallCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.uninstallCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
@@ -96,11 +99,12 @@ class XSpaceXmsfInstallKeeperTest {
     }
 
     @Test
-    fun `toggle on with both packages present is already synchronized`() {
+    fun `toggle on with all synchronized packages present is already synchronized`() {
         val runner = RecordingRootRunner(
             "cmd user list" to xspaceUsers(),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to packageListed(Constants.XMSF_KEEPER_APP_NAME),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
@@ -113,15 +117,18 @@ class XSpaceXmsfInstallKeeperTest {
     }
 
     @Test
-    fun `toggle on installs both packages when absent`() {
+    fun `toggle on installs all synchronized packages when absent`() {
         val runner = RecordingRootRunner(
             "cmd user list" to xspaceUsers(),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.installExistingCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.installExistingCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to packageListed(Constants.XMSF_KEEPER_APP_NAME),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
@@ -139,9 +146,12 @@ class XSpaceXmsfInstallKeeperTest {
             "cmd user list" to xspaceUsers(),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.installExistingCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.XMSF_KEEPER_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.XMSF_KEEPER_APP_NAME) to packageListed(Constants.XMSF_KEEPER_APP_NAME),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
@@ -158,6 +168,14 @@ class XSpaceXmsfInstallKeeperTest {
         assertTrue(XSpaceXmsfInstallKeeper.hasXSpaceUser("UserInfo{999:XSpace:801010} running"))
         assertTrue(XSpaceXmsfInstallKeeper.isPackageListed(packageListed(Constants.MANAGER_APP_NAME), Constants.MANAGER_APP_NAME))
         assertFalse(XSpaceXmsfInstallKeeper.isPackageListed(BoundedShellResult(0), Constants.MANAGER_APP_NAME))
+        assertEquals(
+            "cmd package install-existing --user 999 --wait com.xiaomi.xmsfkeeper",
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.XMSF_KEEPER_APP_NAME),
+        )
+        assertEquals(
+            "cmd package uninstall --user 999 com.xiaomi.xmsfkeeper",
+            XSpaceXmsfInstallKeeper.uninstallCommand(Constants.XMSF_KEEPER_APP_NAME),
+        )
     }
 
     private class RecordingRootRunner(
