@@ -13,6 +13,8 @@ import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegistrationStatePolicy
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
 import io.github.magisk317.mipush.runtime.store.event.EventType
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventQuery
@@ -206,7 +208,11 @@ object EventDb {
                 ) as XmPushActionRegistrationResult
             } catch (_: Exception) {
             }
-            if (event.type == EventRowType.RegistrationResult && data?.errorCode?.toInt() == 0) {
+            val registeredType = RuntimeRegistrationStatePolicy.resolveRegisteredType(
+                eventType = event.type,
+                errorCode = data?.errorCode,
+            )
+            if (registeredType == RegisteredAppRegisteredType.Registered) {
                 info.registered.add(event.pkg)
             } else {
                 info.unregistered.add(event.pkg)
