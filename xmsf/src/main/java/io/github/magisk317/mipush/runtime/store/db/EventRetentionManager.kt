@@ -38,7 +38,7 @@ object EventRetentionManager {
 
     /** 当前保留天数;未注入 provider 时退回默认值。 */
     fun retentionDays(): Int =
-        runCatching { retentionDaysProvider?.invoke() }.getOrNull() ?: EventDb.DEFAULT_RETENTION_DAYS
+        runCatching { retentionDaysProvider?.invoke() }.getOrNull() ?: EventRetentionPolicy.DEFAULT_RETENTION_DAYS
 
     /** 立即清理(启动时调用一次)。 */
     suspend fun pruneNow() {

@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.eventDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
@@ -22,9 +23,9 @@ import io.github.magisk317.mipush.runtime.store.kmp.DayCount
  */
 object EventDb {
     /** 事件记录默认保留天数(与既有硬编码行为保持一致)。 */
-    const val DEFAULT_RETENTION_DAYS = 7
-    private const val UNDO_RETENTION_MS = 24L * 60L * 60L * 1000L
-    private const val MAX_UNDO_EVENTS = 64
+    const val DEFAULT_RETENTION_DAYS = EventRetentionPolicy.DEFAULT_RETENTION_DAYS
+    private const val UNDO_RETENTION_MS = EventRetentionPolicy.UNDO_RETENTION_MS
+    private const val MAX_UNDO_EVENTS = EventRetentionPolicy.MAX_UNDO_EVENTS
 
     class RegistrationInfo {
         @JvmField
