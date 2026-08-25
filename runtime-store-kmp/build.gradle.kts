@@ -9,6 +9,8 @@ kotlin {
         namespace = "io.github.magisk317.mipush.runtime.store.kmp"
         compileSdk = libs.versions.compileSdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
+        withHostTest {
+        }
     }
 
     compilerOptions {

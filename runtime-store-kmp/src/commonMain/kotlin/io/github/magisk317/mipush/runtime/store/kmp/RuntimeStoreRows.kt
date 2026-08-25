@@ -6,9 +6,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 只包含可移植持久化字段的 shadow rows。
+ * 只包含可移植持久化字段的生产存储行。
  *
- * 这些实体复刻 xmsf v9 的表结构，但不被生产 xmsf 数据库引用；Android-only 的
+ * 这些实体复刻并拥有 xmsf v9 的表结构；Android-only 的
  * thrift、Context、PackageManager 和 SharedPreferences 逻辑继续留在 xmsf adapter 层。
  */
 @Entity(

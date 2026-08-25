@@ -5,12 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 
-/**
- * Room KMP shadow database for schema and generated-code validation only.
- *
- * The production owner remains xmsf's AppDatabase. This database deliberately uses a separate
- * file name and is not wired into xmsf until the schema and adapter contract are proven.
- */
+/** Room KMP database for the runtime store shared by the xmsf production path. */
 @Database(
     entities = [
         RuntimeEventRow::class,

@@ -12,7 +12,9 @@ import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.push.service.NotificationManagerPlatformSupport
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
+import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -253,12 +255,12 @@ internal object StockPushSupport {
             EventDb.queryByIdAsync(
                 lastId = null,
                 size = Int.MAX_VALUE,
-                types = setOf(Event.Type.SendMessage, Event.Type.Notification),
+                types = setOf(EventRowType.SendMessage, EventRowType.Notification),
                 pkg = null,
                 text = null,
             )
         }
-        val existingEventIds = events.mapNotNullTo(hashSetOf(), Event::id)
+        val existingEventIds = events.mapNotNullTo(hashSetOf(), RuntimeEventRow::id)
         val readEventIds = readEventIds(context, KEY_READ_EVENT_IDS)
         val deletedEventIds = readEventIds(context, KEY_DELETED_EVENT_IDS)
         if (readEventIds.retainAll(existingEventIds)) {
@@ -270,7 +272,7 @@ internal object StockPushSupport {
         return events.asSequence()
             .filterNot { it.id in deletedEventIds }
             .mapNotNull { event ->
-            val container = runCatching { event.container }.getOrNull()
+            val container = runCatching { event.container() }.getOrNull()
             val metadata = container?.metaInfo ?: return@mapNotNull null
             val channelTypeId = metadata.extra
                 ?.takeIf { it[ALLOW_BOX_EXTRA] == "true" }

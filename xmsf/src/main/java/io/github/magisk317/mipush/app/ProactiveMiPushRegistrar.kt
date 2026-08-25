@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,7 @@ object ProactiveMiPushRegistrar {
 
             // Check if already registered
             val app = RegisteredApplicationDb.getRegisteredApplication(packageName)
-            if (app != null && app.registeredType != io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication.RegisteredType.NotRegistered) continue
+            if (app != null && app.registeredType != RegisteredAppRegisteredType.NotRegistered) continue
 
             // Check if app has MiPush credentials
             val hasCredentials = hasMiPushCredentials(pkg)

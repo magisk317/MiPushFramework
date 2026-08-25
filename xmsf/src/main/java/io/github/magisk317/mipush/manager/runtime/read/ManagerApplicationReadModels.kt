@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
 import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 
 /** A persisted row copied into a read-only value object. */
 data class StoredApplicationSnapshot(
@@ -152,7 +152,7 @@ fun InstalledApplicationSnapshot.toTransientManagerApplication(
     )
 }
 
-internal fun RegisteredApplication.toStoredApplicationSnapshot(): StoredApplicationSnapshot =
+internal fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplicationSnapshot =
     StoredApplicationSnapshot(
         id = id,
         userId = userId,

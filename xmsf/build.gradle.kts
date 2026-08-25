@@ -9,7 +9,6 @@ import java.security.MessageDigest
 
 plugins {
     id("magisk.android.library")
-    id("magisk.android.room")
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -194,6 +193,8 @@ dependencies {
     implementation(project(":pinned"))
     implementation(project(":magisk-xposed-kit"))
     implementation(project(":runtime-store-kmp"))
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.sqlite.bundled)
 
     implementation(libs.kermit)
     implementation(libs.hyperisland.kit) {
@@ -208,7 +209,6 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.conscrypt.openjdk.uber)
     testImplementation(libs.jqwik)
-    testImplementation(libs.androidx.sqlite.bundled)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.palette)

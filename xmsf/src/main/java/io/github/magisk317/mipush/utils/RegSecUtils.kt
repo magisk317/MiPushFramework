@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.utils
 
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 
@@ -30,7 +30,7 @@ object RegSecUtils {
     }
 
     @JvmStatic
-    fun getContainerWithRegSec(event: Event?): XmPushActionContainer? {
+    fun getContainerWithRegSec(event: RuntimeEventRow?): XmPushActionContainer? {
         return getContainerWithRegSec(event?.payload, event?.regSec)
     }
 

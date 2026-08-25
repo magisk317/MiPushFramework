@@ -11,7 +11,7 @@ class ForceRegisterRootContractTest {
         val source = resolveSource().readText()
         val operation = source.substring(
             startIndex = source.indexOf("override suspend fun launchTargetAppAndForceRegister"),
-            endIndex = source.indexOf("private suspend fun refreshTransientState"),
+            endIndex = source.indexOf("class XmsfManagerRuntimeActions"),
         )
         val feedback = operation.substring(
             startIndex = operation.indexOf("private fun forceRegisterWithFeedback"),

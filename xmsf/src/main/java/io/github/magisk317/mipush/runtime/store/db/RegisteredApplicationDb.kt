@@ -13,7 +13,9 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
+import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppType
+import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -32,7 +34,7 @@ object RegisteredApplicationDb {
 
 
     @JvmStatic
-    fun registerApplication(pkg: String): RegisteredApplication {
+    fun registerApplication(pkg: String): RuntimeRegisteredApplicationRow {
         val startedAt = System.nanoTime()
         logD("registerApplication() called for: $pkg")
         val registeredApplication = getRegisteredApplication(pkg)
@@ -53,7 +55,7 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    fun getRegisteredApplication(pkg: String): RegisteredApplication? {
+    fun getRegisteredApplication(pkg: String): RuntimeRegisteredApplicationRow? {
         val list = getList(pkg)
         if (DEBUG) {
             logD("register -> existing list = $list")
@@ -62,23 +64,22 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    private fun create(pkg: String): RegisteredApplication {
-        val registeredApplication = RegisteredApplication(
+    private fun create(pkg: String): RuntimeRegisteredApplicationRow {
+        val registeredApplication = RuntimeRegisteredApplicationRow(
             id = null,
             packageName = pkg,
-            type = RegisteredApplication.Type.ASK,
+            type = RegisteredAppType.ASK,
             notificationOnRegister = true,
-            registeredType = RegisteredApplication.RegisteredType.NotRegistered,
+            registeredType = RegisteredAppRegisteredType.NotRegistered,
             appName = Global.applicationNameCache()
                 .getAppName(requireNotNull(Utils.getApplication()), pkg)
                 .toString()
         )
-        registeredApplication.id = insert(registeredApplication)
-        return registeredApplication
+        return registeredApplication.copy(id = insert(registeredApplication))
     }
 
     @JvmStatic
-    fun getList(pkg: String?): List<RegisteredApplication> = runBlocking {
+    fun getList(pkg: String?): List<RuntimeRegisteredApplicationRow> = runBlocking {
         if (TextUtils.isEmpty(pkg)) {
             registeredApplicationDao.getAll(currentUserId())
         } else {
@@ -92,25 +93,25 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    fun update(application: RegisteredApplication): Long = runBlocking {
+    fun update(application: RuntimeRegisteredApplicationRow): Long = runBlocking {
         val userId = currentUserId()
         // Never let a stale object id turn REPLACE into a cross-user delete.
-        application.id = registeredApplicationDao
+        val existingId = registeredApplicationDao
             .getByPackageName(application.packageName, userId)
             ?.id
-        application.userId = userId
-        val id = registeredApplicationDao.insertOrReplace(application)
-        application.id = if (application.id == null || application.id == 0L) id else application.id
-        islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = application.toIslandSettings()
-        application.id ?: id
+        val withId = application.copy(id = existingId, userId = userId)
+        val id = registeredApplicationDao.insertOrReplace(withId)
+        val finalId = if (withId.id == null || withId.id == 0L) id else (withId.id ?: id)
+        islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = withId.toIslandSettings()
+        finalId
     }
 
     @JvmStatic
-    private fun insert(application: RegisteredApplication): Long = runBlocking {
+    private fun insert(application: RuntimeRegisteredApplicationRow): Long = runBlocking {
         val userId = currentUserId()
-        application.userId = userId
-        registeredApplicationDao.insert(application).also {
-            islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = application.toIslandSettings()
+        val scoped = application.copy(userId = userId)
+        registeredApplicationDao.insert(scoped).also {
+            islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = scoped.toIslandSettings()
         }
     }
 
@@ -163,7 +164,7 @@ object RegisteredApplicationDb {
             )
             return@runBlocking false
         }
-        if (application.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
+        if (application.registeredType == RegisteredAppRegisteredType.Unregistered) {
             MagiskOtel.event(
                 name = "push.register",
                 attributes = mapOf(
@@ -178,9 +179,11 @@ object RegisteredApplicationDb {
             )
             return@runBlocking false
         }
-        application.registeredType = RegisteredApplication.RegisteredType.Unregistered
-        application.userId = userId
-        val ok = registeredApplicationDao.update(application) > 0
+        val updated = application.copy(
+            registeredType = RegisteredAppRegisteredType.Unregistered,
+            userId = userId,
+        )
+        val ok = registeredApplicationDao.update(updated) > 0
         MagiskOtel.event(
             name = "push.register",
             attributes = mapOf(
@@ -198,7 +201,7 @@ object RegisteredApplicationDb {
 
     private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
-    private fun RegisteredApplication.toIslandSettings(): IslandSettings = IslandSettings(
+    private fun RuntimeRegisteredApplicationRow.toIslandSettings(): IslandSettings = IslandSettings(
         enabled = islandEnabled,
         focusNotification = islandFocusNotification,
     )

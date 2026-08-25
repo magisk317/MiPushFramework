@@ -1,215 +1,160 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import androidx.sqlite.db.SupportSQLiteDatabase
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.slot
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeStoreMigrations
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
-class AppDatabaseMigrationContractTest {
+class RuntimeStoreMigrationContractTest {
+    @Test
+    fun `migration registry covers every production schema version`() {
+        assertEquals(8, RuntimeStoreMigrations.ALL.size)
+        RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
+            assertEquals(index + 1, migration.startVersion)
+            assertEquals(index + 2, migration.endVersion)
+        }
+    }
 
     @Test
-    fun `migration 1 to 2 creates required indexes`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_1_2.migrate(db)
-
-        assertEquals(
-            listOf(
-                "CREATE INDEX IF NOT EXISTS `index_EVENT_pkg` ON `EVENT` (`pkg`)",
-                "CREATE INDEX IF NOT EXISTS `index_EVENT_date` ON `EVENT` (`date`)",
-                "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_pkg` ON `REGISTERED_APPLICATION` (`pkg`)",
-            ),
-            statements,
+    fun `runtime store database declares the production v9 entities`() {
+        val source = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
-    }
 
-    @Test
-    fun `migration registry exposes all migrations`() {
-        assertEquals(8, AppDatabaseMigrations.ALL.size)
-        assertEquals(1, AppDatabaseMigrations.MIGRATION_1_2.startVersion)
-        assertEquals(2, AppDatabaseMigrations.MIGRATION_1_2.endVersion)
-
-        assertEquals(2, AppDatabaseMigrations.MIGRATION_2_3.startVersion)
-        assertEquals(3, AppDatabaseMigrations.MIGRATION_2_3.endVersion)
-
-        assertEquals(3, AppDatabaseMigrations.MIGRATION_3_4.startVersion)
-        assertEquals(4, AppDatabaseMigrations.MIGRATION_3_4.endVersion)
-
-        assertEquals(4, AppDatabaseMigrations.MIGRATION_4_5.startVersion)
-        assertEquals(5, AppDatabaseMigrations.MIGRATION_4_5.endVersion)
-
-        assertEquals(5, AppDatabaseMigrations.MIGRATION_5_6.startVersion)
-        assertEquals(6, AppDatabaseMigrations.MIGRATION_5_6.endVersion)
-        assertEquals(6, AppDatabaseMigrations.MIGRATION_6_7.startVersion)
-        assertEquals(7, AppDatabaseMigrations.MIGRATION_6_7.endVersion)
-        assertEquals(7, AppDatabaseMigrations.MIGRATION_7_8.startVersion)
-        assertEquals(8, AppDatabaseMigrations.MIGRATION_7_8.endVersion)
-        assertEquals(8, AppDatabaseMigrations.MIGRATION_8_9.startVersion)
-        assertEquals(9, AppDatabaseMigrations.MIGRATION_8_9.endVersion)
-    }
-
-    @Test
-    fun `migration 5 to 6 adds search_text column`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
+        assertTrue(source.contains("@Database("))
+        assertTrue(source.contains("version = 9"))
+        listOf(
+            "RuntimeEventRow::class",
+            "RuntimeDeletedEventRow::class",
+            "RuntimeRegisteredApplicationRow::class",
+        ).forEach { entity ->
+            assertTrue(source.contains(entity), "Missing production entity: $entity")
         }
+    }
 
-        AppDatabaseMigrations.MIGRATION_5_6.migrate(db)
-
-        assertEquals(
-            listOf(
-                "ALTER TABLE `EVENT` ADD COLUMN `search_text` TEXT",
-            ),
-            statements,
+    @Test
+    fun `production database facade is wired to KMP db and preserves the db filename`() {
+        val source = readSource(
+            "xmsf/src/main/java/io/github/magisk317/mipush/runtime/store/DatabaseUtils.kt",
         )
+
+        assertTrue(source.contains("RuntimeStoreDatabase"))
+        assertTrue(source.contains("configureRuntimeStoreKmp(appContext, databaseName = \"db\")"))
+        assertTrue(source.contains("RuntimeEventDao"))
+        assertTrue(source.contains("RuntimeRegisteredApplicationDao"))
+        assertFalse(source.contains("AppDatabase"))
+        assertFalse(source.contains("Room.databaseBuilder"))
     }
 
     @Test
-    fun `migration 6 to 7 adds user scope and composite application identity`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_6_7.migrate(db)
-
-        assertEquals(
-            listOf(
-                "ALTER TABLE `EVENT` ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0",
-                "ALTER TABLE `REGISTERED_APPLICATION` ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0",
-                "DROP INDEX IF EXISTS `index_EVENT_pkg`",
-                "DROP INDEX IF EXISTS `index_EVENT_date`",
-                "DROP INDEX IF EXISTS `index_REGISTERED_APPLICATION_pkg`",
-                "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_user_id_pkg` ON `REGISTERED_APPLICATION` (`user_id`, `pkg`)",
-                "CREATE INDEX IF NOT EXISTS `index_EVENT_user_id_pkg` ON `EVENT` (`user_id`, `pkg`)",
-                "CREATE INDEX IF NOT EXISTS `index_EVENT_user_id_date` ON `EVENT` (`user_id`, `date`)",
-            ),
-            statements,
+    fun `migration source preserves legacy schema operations`() {
+        val source = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreMigrations.kt",
         )
+
+        assertTrue(source.contains("override fun migrate(connection: SQLiteConnection)"))
+        listOf(
+            "CREATE INDEX IF NOT EXISTS `index_EVENT_pkg`",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN blocked",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_enabled",
+            "CREATE TABLE IF NOT EXISTS `REGISTERED_APPLICATION_new`",
+            "ALTER TABLE `EVENT` ADD COLUMN `search_text` TEXT",
+            "ALTER TABLE `EVENT` ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0",
+            "CREATE TABLE IF NOT EXISTS `DELETED_EVENT`",
+            "ALTER TABLE `DELETED_EVENT` ADD COLUMN `deleted_at` INTEGER NOT NULL DEFAULT 0",
+        ).forEach { sqlFragment ->
+            assertTrue(source.contains(sqlFragment), "Missing migration SQL: $sqlFragment")
+        }
     }
 
     @Test
-    fun `migration 3 to 4 adds per-app island controls`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_3_4.migrate(db)
-
-        assertEquals(
-            listOf(
-                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_enabled INTEGER NOT NULL DEFAULT 1",
-                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 0",
-            ),
-            statements,
+    fun `user scope migration is transactional and only publishes completion after updates`() {
+        val dao = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt",
         )
-    }
-
-    @Test
-    fun `migration 7 to 8 creates runtime event tombstones`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_7_8.migrate(db)
-
-        assertEquals(2, statements.size)
-        assertTrue(statements[0].contains("CREATE TABLE IF NOT EXISTS `DELETED_EVENT`"))
-        assertTrue(statements[0].contains("PRIMARY KEY(`id`, `user_id`)"))
-        assertTrue(statements[1].contains("index_DELETED_EVENT_user_id_date"))
-    }
-
-    @Test
-    fun `migration 8 to 9 adds tombstone deletion time`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_8_9.migrate(db)
-
-        assertEquals(
-            listOf("ALTER TABLE `DELETED_EVENT` ADD COLUMN `deleted_at` INTEGER NOT NULL DEFAULT 0"),
-            statements,
+        val database = readSource(
+            "xmsf/src/main/java/io/github/magisk317/mipush/runtime/store/DatabaseUtils.kt",
         )
+
+        assertTrue(dao.contains("@Transaction\n    suspend fun migrateLegacyUserScope"))
+        assertTrue(dao.contains("UPDATE EVENT SET user_id = :userId WHERE user_id = 0"))
+        assertTrue(dao.contains("UPDATE REGISTERED_APPLICATION SET user_id = :userId WHERE user_id = 0"))
+        assertTrue(database.contains("runBlocking { db.eventDao().migrateLegacyUserScope(userId) }"))
+        assertTrue(database.contains("USER_SCOPE_MIGRATION_KEY"))
+        assertTrue(database.contains("putBoolean(USER_SCOPE_MIGRATION_KEY, true).commit()"))
     }
 
     @Test
-    fun `migration 4 to 5 rebuilds registered applications with opt-in focus default`() {
-        val statements = mutableListOf<String>()
-        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
-        val sqlSlot = slot<String>()
-        every { db.execSQL(capture(sqlSlot)) } answers {
-            statements += sqlSlot.captured
-        }
-
-        AppDatabaseMigrations.MIGRATION_4_5.migrate(db)
-
-        assertEquals(
-            listOf(
-                """
-                CREATE TABLE IF NOT EXISTS `REGISTERED_APPLICATION_new` (
-                    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-                    `pkg` TEXT NOT NULL,
-                    `type` INTEGER NOT NULL,
-                    `notification_on_register` INTEGER NOT NULL,
-                    `blocked` INTEGER NOT NULL DEFAULT 0,
-                    `island_enabled` INTEGER NOT NULL DEFAULT 1,
-                    `island_focus_notification` INTEGER NOT NULL DEFAULT 0,
-                    `registered_type` INTEGER NOT NULL,
-                    `app_name` TEXT NOT NULL
-                )
-                """.trimIndent(),
-                """
-                INSERT INTO `REGISTERED_APPLICATION_new` (
-                    `id`,
-                    `pkg`,
-                    `type`,
-                    `notification_on_register`,
-                    `blocked`,
-                    `island_enabled`,
-                    `island_focus_notification`,
-                    `registered_type`,
-                    `app_name`
-                )
-                SELECT
-                    `id`,
-                    `pkg`,
-                    `type`,
-                    `notification_on_register`,
-                    `blocked`,
-                    `island_enabled`,
-                    `island_focus_notification`,
-                    `registered_type`,
-                    `app_name`
-                FROM `REGISTERED_APPLICATION`
-                """.trimIndent(),
-                "DROP TABLE `REGISTERED_APPLICATION`",
-                "ALTER TABLE `REGISTERED_APPLICATION_new` RENAME TO `REGISTERED_APPLICATION`",
-                "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_pkg` ON `REGISTERED_APPLICATION` (`pkg`)",
-            ),
-            statements,
+    fun `database open emits low-cardinality store observation without payload data`() {
+        val source = readSource(
+            "xmsf/src/main/java/io/github/magisk317/mipush/runtime/store/DatabaseUtils.kt",
         )
+
+        assertTrue(source.contains("reason = \"open\""))
+        assertTrue(source.contains("reason = \"open_failed\""))
+        assertTrue(source.contains("\"stage\" to \"runtime_store\""))
+        assertTrue(source.contains("\"schema_version\""))
+        assertTrue(source.contains("\"user_scope_migration\""))
+        assertTrue(source.contains("\"error_class\""))
+        assertFalse(source.contains("payload"))
+        assertFalse(source.contains("regSec"))
+    }
+
+    @Test
+    fun `all production event and application reads remain user scoped`() {
+        val dao = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt",
+        )
+
+        listOf(
+            "WHERE id = :id AND user_id = :userId",
+            "WHERE pkg = :pkg AND type = :type AND user_id = :userId",
+            "WHERE id < :lastId AND user_id = :userId",
+            "WHERE user_id = :userId ORDER BY date DESC",
+            "WHERE pkg = :pkg AND user_id = :userId",
+            "WHERE pkg = :pkg AND user_id = :userId LIMIT 1",
+            "WHERE user_id = :userId ORDER BY pkg",
+            "SET blocked = :blocked WHERE id = :id AND user_id = :userId",
+        ).forEach { queryFragment ->
+            assertTrue(dao.contains(queryFragment), "Missing user-scoped DAO query: $queryFragment")
+        }
+    }
+
+    @Test
+    fun `event facade keeps undo restore and retention behavior on KMP DAOs`() {
+        val dao = readSource(
+            "runtime-store-kmp/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt",
+        )
+        val eventDb = readSource(
+            "xmsf/src/main/java/io/github/magisk317/mipush/runtime/store/db/EventDb.kt",
+        )
+        val repository = readSource(
+            "xmsf/src/main/java/io/github/magisk317/mipush/runtime/data/EventRepository.kt",
+        )
+
+        assertTrue(dao.contains("deleteByIdWithUndoSnapshotForPackage"))
+        assertTrue(dao.contains("restoreDeletedEventForPackage"))
+        assertTrue(dao.contains("pruneDeletedEvents"))
+        assertTrue(dao.contains("type NOT IN (20, 21)"))
+        assertTrue(eventDb.contains("eventDao.deleteByIdWithUndoSnapshotForPackage"))
+        assertTrue(eventDb.contains("eventDao.restoreDeletedEventForPackage"))
+        assertTrue(repository.contains("EventDb.deleteByIdWithUndoSnapshotAsync(id, event.pkg, event.userId)"))
+        assertTrue(repository.contains("EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId)"))
+    }
+
+    private fun readSource(relativePath: String): String {
+        val candidates = listOf(
+            File(relativePath),
+            File("../$relativePath"),
+        )
+        return candidates.firstOrNull(File::isFile)?.readText()
+            ?: error("Source not found: $relativePath from ${File(".").absolutePath}")
     }
 }

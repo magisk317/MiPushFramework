@@ -7,7 +7,8 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
+import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object RegistrationStateStore {
@@ -19,16 +20,16 @@ object RegistrationStateStore {
 
     @JvmStatic
     fun updateIfChanged(
-        application: RegisteredApplication,
-        @RegisteredApplication.RegisteredType nextType: Int,
+        application: RuntimeRegisteredApplicationRow,
+        nextType: Int,
         source: Source
     ): Boolean {
         val oldType = application.registeredType
         if (oldType == nextType) {
             return false
         }
-        application.registeredType = nextType
-        RegisteredApplicationDb.update(application)
+        val updated = application.copy(registeredType = nextType)
+        RegisteredApplicationDb.update(updated)
         logI(
             "registration state changed pkg=${application.packageName}, ${labelOf(oldType)} -> ${labelOf(nextType)}, source=$source"
         )
@@ -48,10 +49,10 @@ object RegistrationStateStore {
         return true
     }
 
-    private fun labelOf(@RegisteredApplication.RegisteredType type: Int): String {
+    private fun labelOf(type: Int): String {
         return when (type) {
-            RegisteredApplication.RegisteredType.Registered -> "Registered"
-            RegisteredApplication.RegisteredType.Unregistered -> "Unregistered"
+            RegisteredAppRegisteredType.Registered -> "Registered"
+            RegisteredAppRegisteredType.Unregistered -> "Unregistered"
             else -> "NotRegistered"
         }
     }

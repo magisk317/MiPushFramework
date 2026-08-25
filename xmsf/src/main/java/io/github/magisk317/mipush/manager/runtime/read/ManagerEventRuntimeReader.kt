@@ -6,7 +6,8 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.data.EventRepository
-import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
+import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.utils.RegSecUtils
 
@@ -35,10 +36,10 @@ class ManagerEventRuntimeReader(
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
         val types: Set<Int>? = if (!configCenter.isShowAllEventsAsync()) {
             setOf(
-                Event.Type.SendMessage,
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration,
+                EventRowType.SendMessage,
+                EventRowType.Registration,
+                EventRowType.RegistrationResult,
+                EventRowType.UnRegistration,
             )
         } else {
             null
@@ -54,7 +55,7 @@ class ManagerEventRuntimeReader(
         return ManagerEventReadPage(items = takeBoundedSummaries(events))
     }
 
-    private fun takeBoundedSummaries(events: List<Event>): List<ManagerEventReadSummary> {
+    private fun takeBoundedSummaries(events: List<RuntimeEventRow>): List<ManagerEventReadSummary> {
         val items = ArrayList<ManagerEventReadSummary>(events.size)
         var estimatedBytes = EVENT_PAGE_FIXED_BYTES
         for (event in events) {
@@ -77,7 +78,7 @@ class ManagerEventRuntimeReader(
         return items
     }
 
-    private fun Event.toReadSummary(): ManagerEventReadSummary {
+    private fun RuntimeEventRow.toReadSummary(): ManagerEventReadSummary {
         val eventType = TypeFactory.createForDisplay(this)
         val container = RegSecUtils.getContainerWithRegSec(this)
         val summary = eventType.getSummary(context).toString()

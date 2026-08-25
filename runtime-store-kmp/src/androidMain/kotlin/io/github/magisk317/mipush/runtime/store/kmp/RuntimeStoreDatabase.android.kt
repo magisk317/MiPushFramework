@@ -5,15 +5,19 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 /**
- * Creates the Android Room KMP shadow database with an explicit application context.
+ * Creates the Android Room KMP database with the bundled SQLite driver.
  *
- * Room KSP generates the platform `actual RuntimeStoreDatabaseConstructor`; this adapter only
- * supplies the Android builder and remains intentionally disconnected from xmsf production code.
+ * The default name is the existing production `db` file. Keeping the builder here ensures the
+ * Android driver choice does not leak into the common database definition.
  */
-fun configureRuntimeStoreKmp(context: Context): RuntimeStoreDatabase =
+fun configureRuntimeStoreKmp(
+    context: Context,
+    databaseName: String = "db",
+): RuntimeStoreDatabase =
     Room.databaseBuilder<RuntimeStoreDatabase>(
         context = context.applicationContext,
-        name = "runtime-store-kmp-shadow.db",
+        name = databaseName,
     )
         .setDriver(BundledSQLiteDriver())
+        .addMigrations(*RuntimeStoreMigrations.ALL)
         .build()
