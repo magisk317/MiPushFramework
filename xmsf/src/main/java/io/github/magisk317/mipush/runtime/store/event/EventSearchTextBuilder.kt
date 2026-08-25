@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event
 
 import android.content.Context
+import io.github.magisk317.mipush.runtime.store.kmp.EventSearchTextPolicy
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.Global
 
@@ -35,28 +36,20 @@ object EventSearchTextBuilder {
     }
 
     fun build(context: Context, type: EventType): String {
-        // linkedSet:保序去重,避免 getTitle 回退成应用名时与包名段重复。
-        val parts = LinkedHashSet<String>()
-
         val pkg = type.pkg
-        if (!pkg.isNullOrBlank()) {
-            parts.add(pkg)
+        val applicationName = if (!pkg.isNullOrBlank()) {
             runCatching { Global.applicationNameCache().getAppName(context, pkg)?.toString() }
                 .getOrNull()
-                ?.takeIf { it.isNotBlank() && it != pkg }
-                ?.let { parts.add(it) }
+        } else {
+            null
         }
-
-        runCatching { type.getTitle(context).toString() }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { parts.add(it) }
-
-        runCatching { type.getSummary(context)?.toString() }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { parts.add(it) }
-
-        return parts.joinToString(separator = " ")
+        val title = runCatching { type.getTitle(context).toString() }.getOrNull()
+        val summary = runCatching { type.getSummary(context)?.toString() }.getOrNull()
+        return EventSearchTextPolicy.compose(
+            packageName = pkg,
+            applicationName = applicationName,
+            title = title,
+            summary = summary,
+        )
     }
 }
