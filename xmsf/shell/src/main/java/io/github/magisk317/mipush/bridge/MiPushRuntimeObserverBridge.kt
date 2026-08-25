@@ -139,6 +139,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         observationSink = runtimeRegistrationChannelObservationSink,
     )
 
+    private val accountExecutionAdapter = MiPushRuntimeAccountExecutionAdapter(
+        observer = this,
+    )
+
     init {
         XMPushServiceCore.observer = this
     }
@@ -217,14 +221,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun applyStoredAccountEnvironment(context: Context): MIPushAccount? {
-        val account = MIPushAccountUtils.getMIPushAccount(context.applicationContext) ?: return null
-        BuildSettings.setEnvType(account.envType)
-        PushRuntime.observeAccountEvent("account_env_applied", "MiPushRuntimeObserverBridge.applyStoredAccountEnvironment")
-        return account
+        return accountExecutionAdapter.applyStoredAccountEnvironment(context)
     }
 
     override fun envType(context: Context): Int {
-        return MIPushAccountUtils.getMIPushAccount(context.applicationContext)?.envType ?: 0
+        return accountExecutionAdapter.envType(context)
     }
 
     override fun shouldRunConnectivityTest(activeCount: Int, lastCheckTimeMs: Long, testHostsCount: Int): Boolean =
@@ -234,12 +235,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         connectionLifecycleAdapter.createHostManager(context, hostFilter, httpGet, userId)
 
     override fun loadAccount(context: Context, source: String): MIPushAccount? {
-        val account = MIPushAccountUtils.getMIPushAccount(context.applicationContext)
-        PushRuntime.observeAccountEvent(
-            action = if (account == null) "account_missing" else "account_loaded",
-            source = source
-        )
-        return account
+        return accountExecutionAdapter.loadAccount(context, source)
     }
 
     override fun registerAccount(
@@ -249,24 +245,15 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         appToken: String,
         source: String
     ): MIPushAccount? {
-        return try {
-            MIPushAccountUtils.register(context, packageName, appId, appToken, this).also { account ->
-                PushRuntime.observeAccountEvent(
-                    action = if (account == null) "account_register_empty" else "account_registered",
-                    source = source
-                )
-            }
-        } catch (_: IOException) {
-            PushRuntime.observeAccountEvent("account_register_failed_io", source)
-            null
-        } catch (_: Exception) {
-            PushRuntime.observeAccountEvent("account_register_failed_runtime", source)
-            null
-        }
+        return accountExecutionAdapter.registerAccount(
+            context, packageName, appId, appToken, source,
+        )
     }
 
     override fun resolveAccountUrl(region: String?, oneBoxBuild: Boolean, oneBoxHost: String, sandBoxBuild: Boolean): String {
-        return MIPushAccountUtilsRuntime.resolveAccountUrl(region, oneBoxBuild, oneBoxHost, sandBoxBuild)
+        return accountExecutionAdapter.resolveAccountUrl(
+            region, oneBoxBuild, oneBoxHost, sandBoxBuild,
+        )
     }
 
     override fun onRegistrationStateChanged(
@@ -296,8 +283,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         registrationExecutionAdapter.cacheRegistrationRequest(packageName, payload)
 
     override fun clearAccount(context: Context, packageName: String) {
-        MIPushAccountUtils.clearAccount(context)
-        PushRuntime.observeAccountEvent("account_cleared", "MiPushRuntimeObserverBridge.clearAccount:$packageName")
+        accountExecutionAdapter.clearAccount(context, packageName)
     }
 
     override fun observeUnregistration(packageName: String, state: PushRegistrationState) =
@@ -318,7 +304,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         registrationExecutionAdapter.clearRegistrationTasks(packageName)
 
     override fun onAccountEvent(packageName: String, event: String) {
-        PushRuntime.observeAccountEvent(event, "MiPushRuntimeObserverBridge.onAccountEvent:$packageName")
+        accountExecutionAdapter.onAccountEvent(packageName, event)
     }
 
     override fun attachAccountClient(client: Any) {
