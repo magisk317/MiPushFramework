@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.common.utils.logW
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,7 @@ internal data class IslandOptionsSnapshot(
  */
 internal object IslandOptionsSnapshotReader {
     private val cachedGlobalSettings = AtomicReference<IslandSettingsSnapshot?>(null)
-    private val initialized = AtomicReference(false)
+    private val initialized = AtomicBoolean(false)
 
     /**
      * Start collecting DataStore changes. Idempotent: subsequent calls are no-ops.
