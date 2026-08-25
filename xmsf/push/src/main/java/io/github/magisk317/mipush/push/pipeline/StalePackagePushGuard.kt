@@ -7,19 +7,9 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder
-import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
-import io.github.magisk317.mipush.notification.TopNotificationCoordinator
-import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
-import io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator
-import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
-import io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper
-import com.xiaomi.xmsf.stock.StockProfileIdStore
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object StalePackagePushGuard {
@@ -79,7 +69,7 @@ object StalePackagePushGuard {
     }
 
     @JvmStatic
-    internal fun resolveTargetPackage(container: XmPushActionContainer): String? {
+    fun resolveTargetPackage(container: XmPushActionContainer): String? {
         val miuiTargetPackage = container.metaInfo?.extra
             ?.get(MIPushNotificationHelper.MIUI_PACKAGE_NAME)
             ?.takeIf { it.isNotBlank() }
@@ -122,48 +112,15 @@ object StalePackagePushGuard {
             MIPushAppInfo.getInstance(context).addUnRegisteredPkg(packageName)
             RegisteredApplicationDb.markUnregistered(packageName, normalizedUserId)
         }
-        cleanup("profile_ids") { StockProfileIdStore.clear(context, packageName) }
-        cleanup("registration_secret") { Utils.removeRegSec(packageName, normalizedUserId) }
-        if (clearLastReceiveTime) {
-            cleanup("last_receive_time") { Utils.removeLastReceiveTime(packageName, normalizedUserId) }
-        }
-        cleanup("registration_record_deduper") {
-            RegistrationRecordDeduper.reset(packageName, normalizedUserId)
-        }
-        cleanup("stock_notifications") { MIPushNotificationHelper.clearNotification(context, packageName) }
-        // Package removal can bypass the package-data-cleared callback. Clear every product-owned
-        // transient surface here as well, otherwise an old notification/session can outlive the
-        // package and be reused if the same package name is later installed again.
-        cleanup("payload_deduplication") {
-            StockMiPushPayloadDeduper.clearPackageState(packageName, normalizedUserId)
-            MyMIPushNotificationHelper.clearPackageTransientState(packageName, normalizedUserId)
+        cleanup("shell_state") {
+            PushShellBridgeHolder.require()
+                .clearPackageAbsentShellState(context, packageName, normalizedUserId)
         }
         cleanup("notification_dispatch_allowance") {
             MiPushRuntimeBridge.clearPackageTransientState(packageName, normalizedUserId)
         }
         cleanup("runtime_state") {
             PushRuntime.clearPackageTransientState(packageName, normalizedUserId)
-        }
-        cleanup("top_notification_state") {
-            TopNotificationCoordinator.clearPackageState(context, packageName, normalizedUserId)
-        }
-        cleanup("sweet_notification_state") {
-            SweetNotificationCoordinator.clearPackageState(context, packageName, normalizedUserId)
-        }
-        cleanup("voip_notification_state") {
-            VoipNotificationHelper.clearPackageState(packageName, normalizedUserId)
-        }
-        cleanup("conversation_history") {
-            MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, normalizedUserId)
-        }
-        cleanup("media_sessions") {
-            NativeNotificationFeatureBuilder.clearPackageState(packageName, normalizedUserId)
-        }
-        cleanup("extension_notification_state") {
-            ExtensionNotificationCoordinator.clearPackageState(packageName, normalizedUserId)
-        }
-        cleanup("keep_alive_state") {
-            KeepAliveRuntimeAdapter.clearPackageState(context, packageName, normalizedUserId)
         }
         cleanup("runtime_observation") {
             PushRuntime.observeUnregistration(

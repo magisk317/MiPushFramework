@@ -45,6 +45,113 @@ object DefaultPushShellBridge : PushShellBridge {
         }
     }
 
+    override fun dispatchAppDataCleared(packageName: String, payload: ByteArray): Boolean {
+        return io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.withService { service ->
+            service.sendMessage(packageName, payload, true)
+            true
+        } ?: false
+    }
+
+    override fun clearPackageDataShellState(context: Context, packageName: String, userId: Int): Int {
+        return clearShellState(
+            packageName = packageName,
+            userId = userId,
+            steps = listOf(
+                "registration_record_deduper" to {
+                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                },
+                "profile_ids" to {
+                    com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
+                },
+                "payload_deduplication" to {
+                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+                },
+                "top_notification_state" to {
+                    io.github.magisk317.mipush.notification.TopNotificationCoordinator.clearPackageState(context, packageName, userId)
+                },
+                "sweet_notification_state" to {
+                    io.github.magisk317.mipush.notification.SweetNotificationCoordinator.clearPackageState(context, packageName, userId)
+                },
+                "voip_notification_state" to {
+                    io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
+                },
+                "conversation_history" to {
+                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                },
+                "media_sessions" to {
+                    io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
+                },
+                "extension_notification_state" to {
+                    io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
+                },
+                "keep_alive_state" to {
+                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                },
+            ),
+        )
+    }
+
+    override fun clearPackageAbsentShellState(context: Context, packageName: String, userId: Int): Int {
+        return clearShellState(
+            packageName = packageName,
+            userId = userId,
+            steps = listOf(
+                "registration_record_deduper" to {
+                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                },
+                "profile_ids" to {
+                    com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
+                },
+                "stock_notifications" to {
+                    com.xiaomi.push.service.MIPushNotificationHelper.clearNotification(context, packageName)
+                },
+                "payload_deduplication" to {
+                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+                },
+                "top_notification_state" to {
+                    io.github.magisk317.mipush.notification.TopNotificationCoordinator.clearPackageState(context, packageName, userId)
+                },
+                "sweet_notification_state" to {
+                    io.github.magisk317.mipush.notification.SweetNotificationCoordinator.clearPackageState(context, packageName, userId)
+                },
+                "voip_notification_state" to {
+                    io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
+                },
+                "conversation_history" to {
+                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                },
+                "media_sessions" to {
+                    io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
+                },
+                "extension_notification_state" to {
+                    io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
+                },
+                "keep_alive_state" to {
+                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                },
+            ),
+        )
+    }
+
+    private fun clearShellState(
+        packageName: String,
+        userId: Int,
+        steps: List<Pair<String, () -> Unit>>,
+    ): Int {
+        var failures = 0
+        for ((name, step) in steps) {
+            runCatching(step).onFailure {
+                failures += 1
+                co.touchlab.kermit.Logger.withTag("PushShellBridge").w(it) {
+                    "package cleanup failed step=$name pkg=$packageName user=$userId"
+                }
+            }
+        }
+        return failures
+    }
+
     override fun transferToServer(intent: Intent) {
         Global.miPushEventListener().transferToServer(intent)
     }

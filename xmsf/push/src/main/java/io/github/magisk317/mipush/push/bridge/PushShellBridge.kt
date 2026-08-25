@@ -15,6 +15,9 @@ interface PushShellBridge {
     fun transferToApplication(container: XmPushActionContainer)
     fun recordEvent(context: Context, container: XmPushActionContainer)
     fun resolveTargetPackage(container: XmPushActionContainer): String?
+    fun dispatchAppDataCleared(packageName: String, payload: ByteArray): Boolean
+    fun clearPackageDataShellState(context: Context, packageName: String, userId: Int): Int
+    fun clearPackageAbsentShellState(context: Context, packageName: String, userId: Int): Int
 
     fun packToContainer(payload: ByteArray?): XmPushActionContainer?
     fun packToBytes(container: XmPushActionContainer): ByteArray

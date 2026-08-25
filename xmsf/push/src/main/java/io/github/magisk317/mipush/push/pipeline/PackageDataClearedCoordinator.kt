@@ -9,49 +9,35 @@ import com.xiaomi.push.service.PacketHelper
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
-import com.xiaomi.xmsf.stock.StockProfileIdStore
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder
-import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
-import io.github.magisk317.mipush.notification.TopNotificationCoordinator
-import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
-import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
-import io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator
-import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-internal fun interface AppDataClearedPacketDispatcher {
+fun interface AppDataClearedPacketDispatcher {
     fun dispatch(packageName: String, payload: ByteArray): Boolean
 }
 
-internal data class PackageDataClearedResult(
+data class PackageDataClearedResult(
     val appIdPresent: Boolean,
     val packetAccepted: Boolean,
     val cleanupFailureCount: Int,
 )
 
-internal object PackageDataClearedCoordinator {
+object PackageDataClearedCoordinator {
     private const val TAG = "PackageDataClearedCoordinator"
 
     // Stock 7.4.67-C s0.d uses Notification.type=app_data_cleared. The pinned SDK 3.7.9
     // NotificationType enum predates this value, so the newer wire value stays product-owned here
     // instead of modifying the frozen pinned surface.
-    internal const val APP_DATA_CLEARED_TYPE = "app_data_cleared"
+    const val APP_DATA_CLEARED_TYPE = "app_data_cleared"
 
     private val runtimeDispatcher = AppDataClearedPacketDispatcher { packageName, payload ->
-        XMPushServiceLifecycleBridge.withService { service ->
-            service.sendMessage(packageName, payload, true)
-            true
-        } ?: false
+        PushShellBridgeHolder.require().dispatchAppDataCleared(packageName, payload)
     }
 
     fun handle(
@@ -86,11 +72,9 @@ internal object PackageDataClearedCoordinator {
                 MIPushNotificationHelper.clearLocalNotifyType(appContext, packageName)
             }
         }
-        cleanup("profile_ids") { StockProfileIdStore.clear(appContext, packageName) }
         cleanup("application_db") { RegisteredApplicationDb.markUnregistered(packageName, userId) }
         cleanup("registration_secret") { Utils.removeRegSec(packageName, userId) }
         cleanup("last_receive_time") { Utils.removeLastReceiveTime(packageName, userId) }
-        cleanup("registration_record_deduper") { RegistrationRecordDeduper.reset(packageName, userId) }
         cleanup("registration_tasks") { PushRuntimeRegistrationTaskStore.clear(packageName, userId) }
         cleanup("pending_packets") { PushRuntimePendingPacketStore.discardPackage(packageName, userId) }
         cleanup("runtime_state") {
@@ -101,33 +85,12 @@ internal object PackageDataClearedCoordinator {
                 reason = "package_data_cleared",
             )
         }
-        cleanup("payload_deduplication") {
-            StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
-            MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+        cleanup("shell_state") {
+            cleanupFailureCount += PushShellBridgeHolder.require()
+                .clearPackageDataShellState(appContext, packageName, userId)
         }
         cleanup("notification_dispatch_allowance") {
             MiPushRuntimeBridge.clearPackageTransientState(packageName, userId)
-        }
-        cleanup("top_notification_state") {
-            TopNotificationCoordinator.clearPackageState(appContext, packageName, userId)
-        }
-        cleanup("sweet_notification_state") {
-            SweetNotificationCoordinator.clearPackageState(appContext, packageName, userId)
-        }
-        cleanup("voip_notification_state") {
-            VoipNotificationHelper.clearPackageState(packageName, userId)
-        }
-        cleanup("conversation_history") {
-            MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
-        }
-        cleanup("media_sessions") {
-            NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
-        }
-        cleanup("extension_notification_state") {
-            ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
-        }
-        cleanup("keep_alive_state") {
-            KeepAliveRuntimeAdapter.clearPackageState(appContext, packageName, userId)
         }
 
         val packetAccepted = payload?.let {
@@ -180,7 +143,7 @@ internal object PackageDataClearedCoordinator {
         }
     }
 
-    internal fun buildPayload(packageName: String, appId: String): ByteArray {
+    fun buildPayload(packageName: String, appId: String): ByteArray {
         val notification = XmPushActionNotification().apply {
             setAppId(appId)
             setType(APP_DATA_CLEARED_TYPE)
