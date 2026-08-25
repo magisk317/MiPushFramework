@@ -39,11 +39,13 @@ import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeRecovery
 import io.github.magisk317.mipush.manager.client.DefaultManagerRuntimeCallScheduler
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeCallScheduler
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
+import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
@@ -74,9 +76,11 @@ val managerKoinModule = module {
         )
     }
     single {
+        val rootAccess = get<ManagerRootAccess>()
         ManagerRuntimeClient(
             context = androidContext(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            runtimeRecovery = ManagerRuntimeRecovery(rootAccess::recoverXmsfForUser),
         ).apply { connect() }
     }
     single { RuntimePreferenceGateway(get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ManagerRuntimeCallScheduler>()) }

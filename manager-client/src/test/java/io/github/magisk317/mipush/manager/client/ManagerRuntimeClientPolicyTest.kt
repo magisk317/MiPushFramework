@@ -70,6 +70,11 @@ class ManagerRuntimeClientPolicyTest {
         assertEquals(10_000L, ManagerRuntimeClientPolicy.reconnectDelayMillis(20))
     }
 
+    @Test
+    fun `reconnect attempts are limited to three before recovery`() {
+        assertEquals(3, ManagerRuntimeClientPolicy.DEFAULT_MAX_RECONNECT_ATTEMPTS)
+    }
+
     private fun handshake(
         protocolMajor: Int,
         protocolMinor: Int,

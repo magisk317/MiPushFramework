@@ -28,6 +28,61 @@ class ManagerRootAccess {
         return probeRootAccess(source = "request")
     }
 
+    fun forceStopXmsfForUser(userId: Int): Boolean {
+        if (userId < 0 || !refreshRootAccessIfGranted()) return false
+        val result = runCatching {
+            Shell.cmd(forceStopXmsfCommand(userId)).exec()
+        }.getOrNull()
+        val success = result?.isSuccess == true
+        this.logI {
+            "xmsf_recovery action=force_stop userId=$userId success=$success code=${result?.code}"
+        }
+        return success
+    }
+
+    /**
+     * Restarts XMSF for one Android user after a failed Binder recovery cycle.
+     *
+     * force-stop intentionally leaves the package stopped and does not replay BOOT_COMPLETED.
+     * Clear that state first, then use the exported XMSF BootReceiver as the normal startup
+     * entrypoint. Every command remains explicitly scoped to the requesting user.
+     */
+    fun recoverXmsfForUser(userId: Int): Boolean {
+        if (userId < 0 || !refreshRootAccessIfGranted()) return false
+
+        val forceStop = runCatching {
+            Shell.cmd(forceStopXmsfCommand(userId)).exec()
+        }.getOrNull()
+        if (forceStop?.isSuccess != true) {
+            this.logI {
+                "xmsf_recovery action=recover stage=force_stop userId=$userId " +
+                    "success=false code=${forceStop?.code}"
+            }
+            return false
+        }
+
+        val unstop = runCatching {
+            Shell.cmd(unstopXmsfCommand(userId)).exec()
+        }.getOrNull()
+        if (unstop?.isSuccess != true) {
+            this.logI {
+                "xmsf_recovery action=recover stage=unstop userId=$userId " +
+                    "success=false code=${unstop?.code}"
+            }
+            return false
+        }
+
+        val boot = runCatching {
+            Shell.cmd(bootCompletedXmsfCommand(userId)).exec()
+        }.getOrNull()
+        val success = boot?.isSuccess == true
+        this.logI {
+            "xmsf_recovery action=recover stage=boot_receiver userId=$userId " +
+                "success=$success code=${boot?.code}"
+        }
+        return success
+    }
+
     private fun probeRootAccess(source: String): Boolean {
         val result = runCatching { Shell.cmd("id -u").exec() }.getOrNull()
         val available = result?.isSuccess == true && result.out.firstOrNull()?.trim() == "0"
@@ -46,6 +101,22 @@ class ManagerRootAccess {
     }
 
     companion object {
+        internal fun forceStopXmsfCommand(userId: Int): String {
+            require(userId >= 0) { "userId must be non-negative" }
+            return "am force-stop --user $userId com.xiaomi.xmsf"
+        }
+
+        internal fun unstopXmsfCommand(userId: Int): String {
+            require(userId >= 0) { "userId must be non-negative" }
+            return "pm unstop --user $userId com.xiaomi.xmsf"
+        }
+
+        internal fun bootCompletedXmsfCommand(userId: Int): String {
+            require(userId >= 0) { "userId must be non-negative" }
+            return "am broadcast --user $userId -a android.intent.action.BOOT_COMPLETED " +
+                "-n com.xiaomi.xmsf/io.github.magisk317.mipush.receiver.BootReceiver"
+        }
+
         private const val PER_USER_RANGE = 100_000
         private const val MAX_LOGGED_STDERR_LENGTH = 160
         private const val UNKNOWN_UID = -1
