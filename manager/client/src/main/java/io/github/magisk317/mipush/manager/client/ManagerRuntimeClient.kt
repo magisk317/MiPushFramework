@@ -506,7 +506,7 @@ class ManagerRuntimeClient(
                     is ManagerRuntimeAvailability.Incompatible,
                     is ManagerRuntimeAvailability.Failed,
                     -> return@withTimeoutOrNull null
-                    else -> delay(25L)
+                    else -> delay(REMOTE_TARGET_POLL_DELAY_MS)
                 }
             }
             null
@@ -1028,6 +1028,7 @@ class ManagerRuntimeClient(
         private const val TAG = "ManagerRuntime"
         // Application list paging + concurrent overview/event loads need headroom on mid-range devices.
         const val DEFAULT_CALL_TIMEOUT_MS = 8_000L
+        private const val REMOTE_TARGET_POLL_DELAY_MS = 25L
         // Event projection includes payload decoding and notification/configuration metadata.
         // Keep its slow path feature-local instead of turning a delayed page into a session reset.
         // Observed live export ~137s with ~30MB runtime logs + root lsposed/logcat collection.

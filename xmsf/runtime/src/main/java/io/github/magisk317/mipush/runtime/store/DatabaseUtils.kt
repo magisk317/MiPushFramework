@@ -31,6 +31,7 @@ object DatabaseUtils {
         getDatabase(context)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     fun getDatabase(context: Context): RuntimeStoreDatabase {
         database?.let { return it }
         synchronized(this) {
@@ -50,7 +51,7 @@ object DatabaseUtils {
                     statusOk = true,
                 )
                 return db
-            } catch (error: Exception) {
+            } catch (error: RuntimeException) {
                 emitStoreEvent(
                     reason = "open_failed",
                     userId = runCatching { Utils.myUserId().coerceAtLeast(0) }.getOrDefault(-1),
