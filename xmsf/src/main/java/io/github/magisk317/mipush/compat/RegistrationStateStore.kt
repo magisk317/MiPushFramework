@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object RegistrationStateStore {

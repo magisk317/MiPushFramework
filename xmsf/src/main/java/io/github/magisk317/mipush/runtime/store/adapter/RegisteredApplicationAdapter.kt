@@ -18,30 +18,6 @@ import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplication
  * PackageManager, Parcelable) is collected here.
  */
 
-// ── Type constants ──────────────────────────────────────────────────────────
-
-/**
- * Mirrors the values formerly declared inside `RegisteredApplication.Type.Companion`.
- */
-object RegisteredAppType {
-    const val ASK = 0
-    const val ALLOW = 2
-    const val DENY = 3
-    const val ALLOW_ONCE = -1
-}
-
-// ── RegisteredType constants ────────────────────────────────────────────────
-
-/**
- * Mirrors the values formerly declared inside
- * `RegisteredApplication.RegisteredType.Companion`.
- */
-object RegisteredAppRegisteredType {
-    const val NotRegistered = 0
-    const val Registered = 1
-    const val Unregistered = 2
-}
-
 // ── Context-dependent helpers ───────────────────────────────────────────────
 
 /**

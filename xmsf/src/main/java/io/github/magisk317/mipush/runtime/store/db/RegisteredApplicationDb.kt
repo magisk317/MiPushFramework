@@ -14,8 +14,8 @@ import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppType
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import java.util.concurrent.ConcurrentHashMap
 
 /**

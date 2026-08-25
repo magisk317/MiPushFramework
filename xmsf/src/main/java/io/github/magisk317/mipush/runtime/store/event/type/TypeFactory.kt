@@ -6,7 +6,7 @@ import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.EventType
 
 /**

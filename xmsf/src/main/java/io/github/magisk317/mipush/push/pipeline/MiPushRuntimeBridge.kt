@@ -28,8 +28,8 @@ import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowResultType
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import kotlinx.coroutines.runBlocking

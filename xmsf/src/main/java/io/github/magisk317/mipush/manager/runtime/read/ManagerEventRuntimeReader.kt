@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.utils.RegSecUtils
 

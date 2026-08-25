@@ -13,7 +13,7 @@ import com.xiaomi.push.service.NotificationManagerPlatformSupport
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
 import kotlinx.coroutines.runBlocking

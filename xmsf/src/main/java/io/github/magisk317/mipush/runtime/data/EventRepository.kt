@@ -37,8 +37,8 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.DayCount
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints

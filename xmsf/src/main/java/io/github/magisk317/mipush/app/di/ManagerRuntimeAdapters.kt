@@ -62,10 +62,10 @@ import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowResultType
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppType
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory

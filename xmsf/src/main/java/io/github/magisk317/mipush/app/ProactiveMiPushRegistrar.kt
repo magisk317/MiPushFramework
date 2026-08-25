@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

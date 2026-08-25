@@ -10,8 +10,8 @@ import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.eventDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowType
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
 import io.github.magisk317.mipush.runtime.store.event.EventType
 import io.github.magisk317.mipush.runtime.store.kmp.DayCount

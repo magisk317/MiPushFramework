@@ -9,7 +9,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
-import io.github.magisk317.mipush.runtime.store.adapter.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

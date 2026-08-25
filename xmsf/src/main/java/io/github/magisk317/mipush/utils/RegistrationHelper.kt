@@ -30,7 +30,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.adapter.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
