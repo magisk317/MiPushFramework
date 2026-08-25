@@ -31,7 +31,7 @@ Activity, launcher trampoline, or widget.
 Key source:
 
 - `app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
 
 ### 1b. Manager package (`io.github.magisk317.mipush`)
 
@@ -92,9 +92,9 @@ Key source:
 
 Key source:
 
-- `xmsf/src/main/java/com/xiaomi/xmsf/push/service/MiPushFacadeService.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/push/service/XMPushService.kt`
-- `xmsf/src/main/java/com/xiaomi/push/service/XMPushService.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/push/service/MiPushFacadeService.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/push/service/XMPushService.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/push/service/XMPushService.kt`
 
 Stock XMSF 7.4.67-C declares only those two public service names. The old product manifest also
 declared the facade base and an unused `CompatXMPushService` as private components. Mock replay was
@@ -122,7 +122,7 @@ before changing the exported route.
 
 ## 3. Runtime Spine
 
-- Entry point: `xmsf` `PushRuntime` facade (package `io.github.magisk317.mipush.runtime`)
+- Entry point: `:xmsf:runtime` `PushRuntime` facade (package `io.github.magisk317.mipush.runtime`)
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state
@@ -134,8 +134,8 @@ before changing the exported route.
 
 Key source:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/PushRuntime.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/android/AndroidPushRuntime.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/PushRuntime.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/android/AndroidPushRuntime.kt`
 
 ### Package data-clear lifecycle
 
@@ -163,9 +163,9 @@ Key source:
 
 Key source:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/receiver/PkgUninstallReceiver.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/push/pipeline/PackageDataClearedCoordinator.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntimePendingPacketStore.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/receiver/PkgUninstallReceiver.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/push/pipeline/PackageDataClearedCoordinator.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntimePendingPacketStore.kt`
 
 ## 4. Execution Host
 
@@ -180,7 +180,7 @@ Key source:
 
 Key source:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
 
 ## 5. Vendored Long Connection
 
@@ -204,7 +204,7 @@ Key source:
 
 Key source:
 
-- `xmsf/src/main/java/com/xiaomi/push/sdk/PushMessageProcessor.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/push/sdk/PushMessageProcessor.kt`
 
 ## 7. Notification Publish
 
@@ -373,11 +373,11 @@ Stored-event replay contract:
 
 Key sources:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/ExtensionNotificationCoordinator.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/bridge/MiPushRuntimeObserverBridge.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/provider/IslandPreferenceProvider.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/ExtensionNotificationCoordinator.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/bridge/MiPushRuntimeObserverBridge.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/provider/IslandPreferenceProvider.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/island/IslandPreferences.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/systemui/MiPushIslandHook.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/xmsf/UnlockFocusAuthHook.kt`
@@ -451,16 +451,16 @@ Important live consumers:
 
 Key source:
 
-- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockSurfaceSupport.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockProfileIdStore.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockPushSupport.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockChannelSupport.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockNotificationMetadataBridge.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveEnvironment.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/ProcessObserverCompat.kt`
-- `xmsf/src/main/java/io/github/magisk317/mipush/telemetry/TelemetryDisabler.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockSurfaceSupport.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockProfileIdStore.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockPushSupport.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockChannelSupport.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockNotificationMetadataBridge.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveEnvironment.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/ProcessObserverCompat.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/telemetry/TelemetryDisabler.kt`
 - `vendor/src/main/java/com/xiaomi/smack/util/TrafficUtils.kt`
 
 Evidence rules:
@@ -489,9 +489,9 @@ Evidence rules:
 
 Key source:
 
-- `xmsf/src/main/java/com/xiaomi/xmsf/push/service/receivers/AccountChangedReceiver.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
-- `xmsf/src/main/java/com/xiaomi/xmsf/sync/BindMiCloudPushService.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/push/service/receivers/AccountChangedReceiver.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/xmsf/sync/BindMiCloudPushService.kt`
 
 ## Porting Rule
 
@@ -511,8 +511,8 @@ Only bypass `PushRuntime` when the stock feature is strictly self-contained and 
 
 ## Adapter Boundary
 
-`xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
-`xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed product-owned adapters
+`xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime` and
+`xmsf/shell/src/main/java/io/github/magisk317/mipush/bridge` are the allowed product-owned adapters
 that may touch vendor/runtime and protocol types directly. UI, settings, and feature code should
 go through these adapters or through `core` facades instead of importing deep `com.xiaomi.*`
 transport/protocol classes.

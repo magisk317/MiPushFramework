@@ -23,7 +23,8 @@ close the device gates below:
 
 - `app/.../MiPushHostApp.kt` starts manager dependencies only after the XMSF runtime host is ready
   and only in the main process; `mipush/.../App.kt` owns the remote-host mode.
-- `xmsf` remains the installable runtime library surface only; `:app:assembleNormalDebug` produces
+- `:xmsf:shell` remains the installable runtime library surface; `:xmsf:runtime` is an internal
+  runtime-core library only; `:app:assembleNormalDebug` produces
   the installable `com.xiaomi.xmsf` APK. The `mipush` APK is a separate manager/client artifact.
 - `EVENT` and `REGISTERED_APPLICATION` carry `user_id`, and registered applications use the
   `(user_id, pkg)` identity. This is source/database evidence, not proof of complete XSpace support.
@@ -110,10 +111,10 @@ Run only after all implementation commits are complete:
 ```bash
 cd /home/lzc/wqk/push/MiPushFramework
 ./gradlew \
-  :xmsf:testNormalDebugUnitTest \
-  :xmsf:compileNormalDebugKotlin \
-  :xmsf:detekt \
-  :xmsf:detektNormalDebugUnitTest
+  :xmsf:shell:testNormalDebugUnitTest \
+  :xmsf:shell:compileNormalDebugKotlin \
+  :xmsf:shell:detekt \
+  :xmsf:shell:detektNormalDebugUnitTest
 ./gradlew :app:assembleNormalDebug
 ```
 

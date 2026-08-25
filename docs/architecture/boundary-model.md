@@ -53,23 +53,22 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
    - `magisk-ui-kit` holds reusable Compose UI building blocks.
    - The manager main-screen scroll chrome state is shared across several routes, but that shared
      state belongs to manager-level navigation behavior rather than ui-kit. Keep route-reset policy
-     in `manager/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
+     in `manager/ui/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
 
 6. **app / manager / mipush**
    - `app` is the thin application shell that produces the device-installable `com.xiaomi.xmsf`
-     runtime APK. It deliberately depends on `:manager`: after `MiPushFrameworkApp` starts runtime
+     runtime APK. It deliberately depends on `:manager:ui`: after `MiPushFrameworkApp` starts runtime
      Koin, `MiPushHostApp.onAppDependenciesStarted()` loads manager definitions in the main process.
    - `mipush` is the standalone manager host package. Its `Application` owns manager UI process
      startup via `ManagerDependencies.startAsRemoteHost(...)`.
-     Manager reaches XMSF only through signature-authenticated Binder (`manager-api` /
-     `ManagerRuntimeClient`).
-   - `manager` is a UI/library surface available to both hosts. Real manager Activities remain
+     Manager reaches XMSF only through signature-authenticated Binder (`:manager:contract` / `ManagerRuntimeClient`).
+   - :manager:ui is a UI/library surface available to both hosts. Real manager Activities remain
      declared by `:mipush`; `:app` keeps only legacy redirects. Activity/launcher/widget entrypoints
      never own bootstrap.
    - Do not move manager bindings into `xmsf` Koin modules. `xmsf` exposes runtime gateways and the
      post-dependency hook; the app shell chooses what to load through that hook.
-   - `xmsf` remains an Android library module. Prefer `:app:assembleNormalDebug` when validating the
-     installable runtime; `:xmsf:assembleNormalDebug` only packages the library surface.
+   - :xmsf:shell remains the installable Android runtime library module. Prefer `:app:assembleNormalDebug` when validating the
+     installable runtime; `:xmsf:shell:assembleNormalDebug` only packages the library surface.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
 graph.
@@ -98,8 +97,8 @@ graph.
 
 - Product UI/settings code should depend on `core`, `common`, and explicit xmsf adapters, not deep
   vendor/pinned packages.
-- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
-  `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime` and
+  `xmsf/shell/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
   vendor/pinned interaction.
 - `vendor` is frozen compatibility/runtime source. Existing product-owned imports under
   `vendor/src/main` are retained as migration debt and must not be expanded with new product
@@ -154,7 +153,7 @@ graph.
 
 - **`RootAccessFacade`**: Query cached state, request authorization explicitly, refresh only when
   already authorized, execute root shell commands. Located at
-  `xmsf/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
+  `xmsf/shell/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
 - **`BoundedShellRunner`**: Execute ordinary or root shell with unified timeout and result structure.
 - **`RuntimeSettingsAdapter`**: Route UI/settings operations for XMPP host, forced registration,
   service foregrounding, manager environment snapshots, and similar runtime actions through an
@@ -236,7 +235,7 @@ graph.
   an unowned coroutine scope.
 - Real manager Activities are package-hosted by `:mipush`. XMSF still owns runtime gateways and
   Binder service implementations inside the `com.xiaomi.xmsf` process; the standalone manager data
-  plane consumes them through `manager-api` / `ManagerRuntimeClient`. Runtime environment diagnostics flow through
+  plane consumes them through :manager:contract / `ManagerRuntimeClient`. Runtime environment diagnostics flow through
   `ManagerRuntimeEnvironmentSnapshot` instead of reflective `com.xiaomi.*` lookups.
 - Bootstrap has exactly two Application-owned modes. `MiPushHostApp` calls
   `startFromAppShell()` after XMSF Koin exists; standalone `:mipush` `App` calls

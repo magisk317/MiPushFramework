@@ -1,7 +1,8 @@
 # XMSF Package Boundaries
 
-`xmsf` is intentionally still one Android library because its manifest and stock-compatible
-entrypoints are packaged by `app`. That does not mean every product concern may depend on every
+`:xmsf:shell` remains the installable Android library surface, while `:xmsf:runtime` owns
+the independently compilable runtime core. The shell still packages the manifest and stock-compatible
+entrypoints for `app`. That does not mean every product concern may depend on every
 other concern inside the library.
 
 ## Current layers
@@ -52,10 +53,10 @@ the two Android users have been validated on a phone.
 to combine installed-package checks with channel state. `scripts/verify_module_boundaries.sh`
 rejects a direct `runtime/data -> notification` import.
 
-This is deliberately the first small extraction rather than a speculative Gradle split. The next
-extractions should follow the same pattern: identify a stable contract, move the implementation to
-an adapter, add a forbidden-edge check, then consider a module boundary only after the dependency
-graph is acyclic and the manifest aggregation remains unchanged.
+The notification boundary was the first small extraction; the runtime-core boundary is now the first
+large-block extraction. Future splits should follow the same rule: move a cohesive domain, keep the
+dependency graph acyclic, add a forbidden-edge check, and verify that manifest aggregation remains
+unchanged.
 
 ## Rejected direction
 

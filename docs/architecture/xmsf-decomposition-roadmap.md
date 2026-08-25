@@ -1,17 +1,17 @@
 # XMSF Module Decomposition Roadmap
 
 > Created: 2026-08-23
-> Status: planning document; no code changes authorized by this file alone.
+> Status: runtime core extraction implemented; push and stock large-block extractions remain.
 > Source evidence: package tree analysis + cross-package import audit at current HEAD.
 
 ## Current State
 
-`:xmsf` contains 239 Kotlin files across two namespace families:
+`:xmsf:shell` currently contains 195 Kotlin main files after the initial runtime-core extraction:
 
 | Namespace | Files | Role |
 |-----------|-------|------|
-| `com.xiaomi.*` | 55 | Stock XMSF compatibility surface (frozen ABI) |
-| `io.github.magisk317.mipush.*` | 184 | Product code |
+| `com.xiaomi.*` | 54 | Stock XMSF compatibility surface (frozen ABI) |
+| `io.github.magisk317.mipush.*` | 141 | Product code remaining in shell |
 
 ### Cross-Package Coupling Audit
 
@@ -38,27 +38,27 @@ largest coupling factor preventing clean module separation.
 ## Proposed Target Architecture
 
 ```text
-:platform          ← shared contracts, logging, DTOs, support utilities
+:xmsf:platform     ← shared contracts, logging, DTOs, support utilities
     ↑
 :core              ← existing (already extracted)
     ↑
-:xmsf-stock        ← com.xiaomi.* frozen ABI surface (~55 files)
+:xmsf:stock        ← com.xiaomi.* frozen ABI surface (~55 files)
     ↑
-:xmsf-notification ← notification policy, adapters, construction
+:xmsf:notification ← notification policy, adapters, construction
     ↑
-:xmsf-runtime      ← runtime state, stores, data access
+:xmsf:runtime      ← runtime state, stores, data access
     ↑
-:xmsf-push         ← push pipeline, connection management, hooks
+:xmsf:push         ← push pipeline, connection management, hooks
     ↑
-:xmsf              ← manifest entrypoints, services, receivers, DI composition
+:xmsf:shell              ← manifest entrypoints, services, receivers, DI composition
 ```
 
 ## Phased Migration Plan
 
-### Phase 0: Extract `:xmsf-platform`
+### Phase 0: Extract `:xmsf:platform`
 
 Move `io.github.magisk317.mipush.platform.support` and `io.github.magisk317.mipush.utils`
-into a new `:xmsf-platform` Android library.
+into a new `:xmsf:platform` Android library.
 
 - **Why first:** 44 + 26 = 70 files depend on these packages. Extracting them removes
   the largest source of transitive coupling.
@@ -72,7 +72,7 @@ into a new `:xmsf-platform` Android library.
 - **Validation:** `verifyModuleBoundaries` passes; all modules compile.
 - **Estimated effort:** Medium (24 file moves + ~70 import updates + build config).
 
-### Phase 1: Extract `:xmsf-notification`
+### Phase 1: Extract `:xmsf:notification`
 
 Move `io.github.magisk317.mipush.notification` into a new library module.
 
@@ -84,20 +84,24 @@ Move `io.github.magisk317.mipush.notification` into a new library module.
   notification publish path.
 - **Estimated effort:** Medium.
 
-### Phase 2: Extract `:xmsf-runtime`
+### Phase 2: Extract `:xmsf:runtime` — core completed
 
-Move `io.github.magisk317.mipush.runtime.*` (state, stores, data access) into a new
-library. This includes Room entities, DAOs, and the runtime store facade.
+`:xmsf:runtime` now owns the independently compilable runtime core: runtime facade/android
+state, pending queues, duplicate stores, connection/runtime helpers, selected lifecycle helpers,
+KMP store database facade, and the keep-alive Binder bridge. `:xmsf:runtime:store` remains the
+KMP child module. Source packages and external ABI remain unchanged.
 
-- **Why third:** 26 external consumers, but they are primarily service and push-pipeline
-  code that will eventually move into `:xmsf-push`. Extracting runtime first creates
-  a stable storage API for both.
-- **Risk:** High. Runtime state is the most sensitive area; schema migrations and
-  user-scoped identity must be preserved exactly.
-- **Prerequisite:** KMP production database migration plan validated on device.
-- **Estimated effort:** Large.
+The remaining shell-side runtime adapters intentionally stay in `:xmsf:shell`: notification
+construction, Manager Binder read/write adapters, `AppDependencies`/Koin composition,
+`PushRuntimeExecutionBridge`, and adapters that require the shell lifecycle bridge. This avoids
+a `:xmsf:runtime` → `:xmsf:shell` reverse dependency.
 
-### Phase 3: Extract `:xmsf-push`
+- **Validation:** `:xmsf:runtime:compileDebugKotlin`, `:xmsf:runtime:testDebugUnitTest`,
+  `:xmsf:runtime:store:compileAndroidMain`, and `:xmsf:shell:compileNormalDebugKotlin` pass.
+- **Next:** move the push pipeline as the next cohesive large block, then revisit the remaining
+  shell adapters that can follow it without introducing cycles.
+
+### Phase 3: Extract `:xmsf:push`
 
 Move `io.github.magisk317.mipush.push.*` (pipeline, connection management, hooks) into
 a new library.
@@ -109,28 +113,28 @@ a new library.
 - **Validation:** Long-connection stability test on device; push delivery E2E.
 - **Estimated effort:** Large.
 
-### Phase 4: Shrink `:xmsf` to shell
+### Phase 4: Shrink `:xmsf:shell` to shell
 
-After Phases 0–3, remaining `:xmsf` content should be limited to:
+After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
 - Manifest entrypoints (services, receivers, providers)
 - DI composition root (`app/`)
 - Stock ABI surface (`com/xiaomi/xmsf/`) that cannot move due to external component names
 - Bridge/compat glue
 
-Target: ≤60 files in `:xmsf` (down from 239).
+Target: ≤60 files in `:xmsf:shell` (down from 195 after runtime-core extraction).
 
 ## Non-Goals
 
 - Do NOT extract `com.xiaomi.*` vendor protocol classes into a separate module.
   They are deeply intertwined with xmsf's stock-compatible component names.
   The `:vendor` module already isolates them at the Gradle level.
-- Do NOT split `:manager` further. It already has clean boundaries via
-  `manager-api` / `manager-client`.
+- Do NOT split `:manager:ui` further. Its public boundaries are already explicit via
+  `:manager:contract` and `:manager:client`.
 
 ## Success Metrics
 
 | Metric | Before | After Phase 4 |
 |--------|--------|---------------|
-| xmsf file count | 239 | ≤60 |
-| xmsf direct project deps | 10 | ≤5 (platform, stock, app, bridge, compat) |
+| xmsf shell Kotlin main count | 195 after runtime-core extraction | ≤60 |
+| xmsf shell direct project deps | reduced by runtime-core extraction | ≤5 (platform, stock, app, bridge, compat) |
 | Incremental compile time (touch 1 file in runtime) | ~45s | ~15s |

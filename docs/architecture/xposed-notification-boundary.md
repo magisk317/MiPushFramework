@@ -108,7 +108,7 @@ Useful checks for this boundary:
 ```bash
 ./gradlew :xposed:compileDebugKotlin
 ./gradlew :xposed:testDebugUnitTest
-./gradlew :xmsf:testNormalDebugUnitTest
+./gradlew :xmsf:shell:testNormalDebugUnitTest
 ./gradlew :app:assembleNormalDebug
 ```
 

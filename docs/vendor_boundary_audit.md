@@ -28,7 +28,7 @@
 
 **Stock 来源**：原始代码使用 `com.xiaomi.channel.commonutils.logger.MyLog`（vendor 自带日志）。
 **影响说明**：替换为 `MagiskOtel.event()` 结构化事件，支持 JSONL、Sink、Xposed 传输，不改变业务逻辑。
-**验证状态**：`:xmsf:testNormalDebugUnitTest` 中 runtime JSONL 输出验证 + `PushPacketRuntimeTest` reason code 验证。
+**验证状态**：`:xmsf:shell:testNormalDebugUnitTest` 中 runtime JSONL 输出验证 + `PushPacketRuntimeTest` reason code 验证。
 
 ### 类别 2：LoggerExtensions 结构化日志（5 条）
 
@@ -67,24 +67,24 @@
 ## 运行验证
 
 ```bash
-./gradlew verifyModuleBoundaries :xmsf:detekt :settings:detekt
-./gradlew :xmsf:testNormalDebugUnitTest
+./gradlew verifyModuleBoundaries :xmsf:shell:detekt :settings:detekt
+./gradlew :xmsf:shell:testNormalDebugUnitTest
 ```
 
 ---
 
-## 附录：runtime-store-kmp 生产数据库
+## 附录：`:xmsf:runtime:store` 生产数据库
 
 > 新增日期：2026-08-22
 > 对应文档：modernization_and_architecture_recommendations_refined.md § runtime storage
 
 ### 模块概述
 
-`runtime-store-kmp/` 是生产运行时存储的 Kotlin Multiplatform 模块。它维护 v9 schema，并使用 KMP `room.generateKotlin = true` 生成类型安全的 Kotlin 查询；xmsf 通过 Bundled SQLite driver 打开既有的 `db` 文件。
+`xmsf/runtime/store/` 是生产运行时存储的 Kotlin Multiplatform 模块。它维护 v9 schema，并使用 KMP `room.generateKotlin = true` 生成类型安全的 Kotlin 查询；xmsf 通过 Bundled SQLite driver 打开既有的 `db` 文件。
 
 ### 与 vendor 边界的关系
 
-runtime-store-kmp **不引入新的 vendor 边界穿透**。它的数据来源于 xmsf 的运行时存储业务路径（通过 Koin 注入的 KMP DAO）。
+`:xmsf:runtime:store` **不引入新的 vendor 边界穿透**。它的数据来源于 xmsf 的运行时存储业务路径（通过 Koin 注入的 KMP DAO）。
 
 所有 stock SDK ingress 仍通过 vendor → xmsf 路径处理。KMP 模块只负责存储实现，不改变现有 vendor 边界契约。
 
@@ -100,12 +100,14 @@ runtime-store-kmp **不引入新的 vendor 边界穿透**。它的数据来源�
 
 ### 验证状态
 
-- `:runtime-store-kmp:compileAndroidMain` — 已通过
-- `:xmsf:compileNormalDebugKotlin` — 已通过
+- `:xmsf:runtime:store:compileAndroidMain` — 已通过
+- `:xmsf:runtime:compileDebugKotlin` — 已通过
+- `:xmsf:runtime:testDebugUnitTest` — 已通过
+- `:xmsf:shell:compileNormalDebugKotlin` — 已通过
 - `RuntimeStoreMigrationContractTest` — 已通过
 
 ### 退出条件
 
-1. KMP 模块通过 `:runtime-store-kmp:compileAndroidMain` 编译
+1. KMP 模块通过 `:xmsf:runtime:store:compileAndroidMain` 编译
 2. 生产 builder 使用 `db` 与 v9 migration registry
 3. xmsf 业务路径只消费 KMP DAO，不再保留 Android Room 数据库壳

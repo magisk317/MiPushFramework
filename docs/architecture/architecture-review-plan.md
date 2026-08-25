@@ -268,7 +268,7 @@ For source changes, run the narrow module test first, then the affected boundary
 
 ```text
 :common:testDebugUnitTest
-:xmsf:testNormalDebugUnitTest
+:xmsf:shell:testNormalDebugUnitTest
 :xposed:compileDebugKotlin
 :app:assembleNormalDebug
 :mipush:assembleDebug
