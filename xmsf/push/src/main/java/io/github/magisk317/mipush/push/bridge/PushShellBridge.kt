@@ -9,6 +9,11 @@ import org.apache.thrift.TBase
 /** Shell-owned integrations required by the reusable push pipeline. */
 interface PushShellBridge {
     fun receiveFromApplication(intent: Intent)
+    fun markHook(point: String)
+    fun isPushDebugEnabled(): Boolean
+    fun formatContainerForDebug(container: XmPushActionContainer?): String
+    fun formatIntentForDebug(intent: Intent?): String
+
     fun recordRegisterRequest(context: Context, intent: Intent)
     fun transferToServer(intent: Intent)
     fun receiveFromServer(container: XmPushActionContainer)

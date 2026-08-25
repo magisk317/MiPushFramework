@@ -17,6 +17,19 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import org.apache.thrift.TBase
 
 object DefaultPushShellBridge : PushShellBridge {
+    override fun markHook(point: String) {
+        io.github.magisk317.mipush.hook.Hooked.mark(point)
+    }
+
+    override fun isPushDebugEnabled(): Boolean =
+        kotlinx.coroutines.runBlocking { Global.configCenter().isDebugModeAsync() }
+
+    override fun formatContainerForDebug(container: XmPushActionContainer?): String =
+        io.github.magisk317.mipush.utils.ConvertUtils.toJson(container).toString()
+
+    override fun formatIntentForDebug(intent: Intent?): String =
+        io.github.magisk317.mipush.utils.ConvertUtils.toJson(intent).toString()
+
     override fun receiveFromApplication(intent: Intent) {
         Global.miPushEventListener().receiveFromApplication(intent)
     }

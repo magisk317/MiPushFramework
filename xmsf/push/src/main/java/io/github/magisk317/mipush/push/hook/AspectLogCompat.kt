@@ -4,8 +4,7 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
-import io.github.magisk317.mipush.common.utils.logW
-
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import android.content.Intent
 import android.os.SystemClock
 import com.xiaomi.network.Fallback
@@ -14,11 +13,7 @@ import com.xiaomi.smack.packet.Packet
 import com.xiaomi.slim.Blob
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.utils.ConvertUtils
-import io.github.magisk317.mipush.platform.support.Global
-import kotlinx.coroutines.runBlocking
-
-internal object AspectLogCompat {
+object AspectLogCompat {
     private val indentLevel = ThreadLocal.withInitial { 0 }
     @Volatile
     private var cachedEnabled = false
@@ -28,7 +23,7 @@ internal object AspectLogCompat {
     private fun enabled(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (now - lastRefreshAt < 3000) return cachedEnabled
-        cachedEnabled = runCatching { runBlocking { Global.configCenter().isDebugModeAsync() } }
+        cachedEnabled = runCatching { PushShellBridgeHolder.require().isPushDebugEnabled() }
             .getOrDefault(false)
         lastRefreshAt = now
         return cachedEnabled
@@ -50,19 +45,19 @@ internal object AspectLogCompat {
 
     fun logBuildContainer(payloadSize: Int, container: XmPushActionContainer?) {
         trace("MIPushEventProcessor.buildContainer(payloadSize=$payloadSize)") {
-            logD("container=${ConvertUtils.toJson(container)}")
+            logD("container=${PushShellBridgeHolder.require().formatContainerForDebug(container)}")
         }
     }
 
     fun logBuildIntent(intent: Intent?, source: String) {
         trace("MIPushEventProcessor.buildIntent(source=$source)") {
-            logD("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
         }
     }
 
     fun logIntentAvailability(intent: Intent?, available: Boolean, source: String) {
         trace("MIPushEventProcessor.isIntentAvailable(source=$source, available=$available)") {
-            logD("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
         }
     }
 
@@ -85,7 +80,7 @@ internal object AspectLogCompat {
         newMessageIntent: Intent
     ) {
         trace("MIPushEventProcessor.postProcessMIPushMessage(pkg=$pkgName, payloadSize=$payloadSize)") {
-            logD("newMessageIntent=${ConvertUtils.toJson(newMessageIntent)}")
+            logD("newMessageIntent=${PushShellBridgeHolder.require().formatIntentForDebug(newMessageIntent)}")
         }
     }
 
@@ -109,7 +104,7 @@ internal object AspectLogCompat {
 
     fun logProcessIntent(intent: Intent) {
         trace("PushMessageProcessor.processIntent") {
-            logD("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
         }
     }
 
@@ -119,7 +114,7 @@ internal object AspectLogCompat {
                 logD(details)
             }
             if (intent != null) {
-                logD("intent=${ConvertUtils.toJson(intent)}")
+                logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
             }
         }
     }
@@ -144,7 +139,7 @@ internal object AspectLogCompat {
 
     fun logNotifyPushMessage(container: XmPushActionContainer, payloadSize: Int) {
         trace("MIPushNotificationHelper.notifyPushMessage(payloadSize=$payloadSize)") {
-            logD("container=${ConvertUtils.toJson(container)}")
+            logD("container=${PushShellBridgeHolder.require().formatContainerForDebug(container)}")
         }
     }
 }
