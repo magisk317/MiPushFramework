@@ -125,6 +125,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onConnectionStatusChanged(status)
         },
     )
+    private val registrationExecutionAdapter = MiPushRuntimeRegistrationExecutionAdapter(
+        appContext = appContext,
+        observationSink = runtimeRegistrationChannelObservationSink,
+        isTrackedPackage = ::isTrackedPackage,
+    )
     init {
         XMPushServiceCore.observer = this
     }
@@ -259,16 +264,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return MIPushAccountUtilsRuntime.resolveAccountUrl(region, oneBoxBuild, oneBoxHost, sandBoxBuild)
     }
 
-    override fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String) {
-        if (!isTrackedPackage(packageName)) return
-        runtimeRegistrationChannelObservationSink.observeRegistrationState(
-            packageName = packageName,
-            state = state,
-            source = reason,
-            reason = message,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    override fun onRegistrationStateChanged(
+        packageName: String,
+        state: PushRegistrationState,
+        reason: String,
+        message: String,
+    ) = registrationExecutionAdapter.onRegistrationStateChanged(packageName, state, reason, message)
 
     override fun onApplicationIntentReceived(intent: Intent) {
         MiPushRuntimeBridge.onApplicationIntentReceived(appContext, intent)
@@ -278,63 +279,39 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         PackageDataClearedCoordinator.handle(appContext, packageName)
     }
 
-    override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
-        if (!isTrackedPackage(packageName)) return
-        runtimeRegistrationChannelObservationSink.observeRegistrationResult(
-            packageName = packageName,
-            success = success,
-            source = source,
-            reason = reason,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) =
+        registrationExecutionAdapter.onRegistrationResult(packageName, success, source, reason)
 
-    override fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? {
-        return RegistrationPayloadRepair.repair(context, packageName)
-    }
+    override fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? =
+        registrationExecutionAdapter.repairRegistrationPayload(context, packageName)
 
-    override fun rememberPendingRegistration(packageName: String, appId: String?) {
-        if (!isTrackedPackage(packageName)) return
-        MIPushAppAbsentManager.rememberPendingRegistration(appContext, packageName, appId)
-    }
+    override fun rememberPendingRegistration(packageName: String, appId: String?) =
+        registrationExecutionAdapter.rememberPendingRegistration(packageName, appId)
 
-    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
-        if (!isTrackedPackage(packageName)) return
-        PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, payload)
-    }
+    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) =
+        registrationExecutionAdapter.cacheRegistrationRequest(packageName, payload)
 
     override fun clearAccount(context: Context, packageName: String) {
         MIPushAccountUtils.clearAccount(context)
         PushRuntime.observeAccountEvent("account_cleared", "MiPushRuntimeObserverBridge.clearAccount:$packageName")
     }
 
-    override fun observeUnregistration(packageName: String, state: PushRegistrationState) {
-        if (!isTrackedPackage(packageName)) return
-        runtimeRegistrationChannelObservationSink.observeUnregistration(
-            packageName = packageName,
-            source = "MiPushRuntimeObserverBridge.observeUnregistration",
-            reason = state.name,
-            nowMs = System.currentTimeMillis(),
-        )
-    }
+    override fun observeUnregistration(packageName: String, state: PushRegistrationState) =
+        registrationExecutionAdapter.observeUnregistration(packageName, state)
 
-    override fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {
-        if (!isTrackedPackage(packageName)) return
-        PushRuntimeRegistrationTaskStore.cache(packageName, intent, source, reason, timestampMs)
-    }
+    override fun cacheRegistrationTask(
+        packageName: String,
+        intent: Intent,
+        source: String,
+        reason: String,
+        timestampMs: Long,
+    ) = registrationExecutionAdapter.cacheRegistrationTask(packageName, intent, source, reason, timestampMs)
 
-    override fun dispatchRegistrationTasks(source: String, dispatcher: Any?) {
-        PushRuntimeRegistrationTaskStore.dispatchAll(source) { _, intent ->
-            runCatching {
-                appContext.startService(Intent(intent))
-                true
-            }.getOrDefault(false)
-        }
-    }
+    override fun dispatchRegistrationTasks(source: String, dispatcher: Any?) =
+        registrationExecutionAdapter.dispatchRegistrationTasks(source, dispatcher)
 
-    override fun clearRegistrationTasks(packageName: String) {
-        PushRuntimeRegistrationTaskStore.clear(packageName)
-    }
+    override fun clearRegistrationTasks(packageName: String) =
+        registrationExecutionAdapter.clearRegistrationTasks(packageName)
 
     override fun onAccountEvent(packageName: String, event: String) {
         PushRuntime.observeAccountEvent(event, "MiPushRuntimeObserverBridge.onAccountEvent:$packageName")
@@ -390,18 +367,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         PushRuntimeChannelTracker.syncNow(reason)
     }
 
-    override fun notifyRegisterError(errorCode: Int, errorMessage: String, notifier: IPendingPacketErrorNotifier) {
-        // Stock XMSF 7.4.67-C h0.c sends one payload-bearing error to each package in the pending
-        // registration map. The old fallback also targeted context.packageName (com.xiaomi.xmsf),
-        // creating one unrelated self-broadcast after the package-specific errors.
-        PushRuntimePendingPacketStore.notifyRegisterError(
-            errorCode = errorCode,
-            errorMessage = errorMessage,
-            notifier = { packageName, payload, code, message ->
-                com.xiaomi.push.service.MIPushClientManager.notifyError(appContext, packageName, payload, code, message)
-            }
-        )
-    }
+    override fun notifyRegisterError(
+        errorCode: Int,
+        errorMessage: String,
+        notifier: IPendingPacketErrorNotifier,
+    ) = registrationExecutionAdapter.notifyRegisterError(errorCode, errorMessage, notifier)
 
     override fun cachePendingMessage(packageName: String, payload: ByteArray) {
         PushRuntimePendingPacketStore.addPendingMessage(packageName, payload)
@@ -498,12 +468,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         }
     }
 
-    override fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) {
-        val pushAction = XMPushServiceProxy.get() ?: return
-        PushRuntimePendingPacketStore.processPendingRegistrationRequests(source) { packageName, payload ->
-            MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
-        }
-    }
+    override fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) =
+        registrationExecutionAdapter.processPendingRegistrationRequests(source, sender)
 
     override fun removeCachedMsgId(msgId: String) {
         // Managed dynamically via Dispatcher
@@ -655,21 +621,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         payload: ByteArray?,
         envChanged: Boolean,
         envType: Int,
-        servicePackageName: String
-    ): PushServiceRegisterAppPlan {
-        if (packageName != null && io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb.isBlocked(packageName)) {
-            return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
-        }
-        // Throttle registration requests when channel is not bound to prevent registration storms
-        if (packageName != null) {
-            val allClients = PushClientsManager.getInstance().getAllClients()
-            val channelBound = allClients.any { it.status == PushClientsManager.ClientStatus.binded }
-            if (RegistrationThrottle.shouldThrottle(packageName, channelBound)) {
-                return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
-            }
-        }
-        return PushServiceIntentRuntime.resolveRegisterAppPlan(packageName, payload, envChanged, envType, servicePackageName)
-    }
+        servicePackageName: String,
+    ): PushServiceRegisterAppPlan = registrationExecutionAdapter.resolveRegisterAppPlan(
+        packageName,
+        payload,
+        envChanged,
+        envType,
+        servicePackageName,
+    )
 
     override fun resolveMiPushAppPlan(
         action: String?,
