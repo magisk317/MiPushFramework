@@ -1,9 +1,11 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionCoordinator
 import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionPolicy
-import java.util.concurrent.atomic.AtomicBoolean
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionStart
+import io.github.magisk317.mipush.runtime.store.kmp.EventRetentionState
+import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -26,10 +28,7 @@ object EventRetentionManager {
     @Volatile
     private var retentionDaysProvider: (() -> Int)? = null
 
-    @Volatile
-    private var lastPruneAtMs: Long = 0L
-
-    private val pruneInProgress = AtomicBoolean(false)
+    private val retentionState = AtomicReference(EventRetentionState())
 
     /** 注入保留天数来源(通常由 app 层从 [PreferenceRepository] 缓存回传)。 */
     fun install(provider: () -> Int) {
@@ -42,83 +41,113 @@ object EventRetentionManager {
 
     /** 立即清理(启动时调用一次)。 */
     suspend fun pruneNow() {
-        val startedAt = System.nanoTime()
         val days = retentionDays()
-        runCatching {
-            lastPruneAtMs = System.currentTimeMillis()
-            EventDb.deleteHistoryAsync(days)
-            MagiskOtel.event(
-                name = "push.control",
-                attributes = mapOf(
-                    "result" to "ok",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "event_retention",
-                    "reason" to "prune_now",
-                    "found_count" to days.toString(),
-                ),
-                statusOk = true,
+        val start = tryBegin { state ->
+            EventRetentionCoordinator.beginNow(
+                state = state,
+                nowMillis = System.currentTimeMillis(),
+                retentionDays = days,
             )
-        }.onFailure {
-            logE("EventRetentionManager.pruneNow failed", it)
-            MagiskOtel.event(
-                name = "push.control",
-                attributes = mapOf(
-                    "result" to "error",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "event_retention",
-                    "reason" to "prune_now_failed",
-                    "error_class" to it.javaClass.simpleName,
-                    "found_count" to days.toString(),
-                ),
-                statusOk = false,
-            )
+        } ?: return
+        val startedAt = System.nanoTime()
+        try {
+            runCatching {
+                EventDb.deleteHistoryAsync(start.retentionDays)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "xmsf",
+                        "stage" to "event_retention",
+                        "reason" to "prune_now",
+                        "found_count" to start.retentionDays.toString(),
+                    ),
+                    statusOk = true,
+                )
+            }.onFailure {
+                logE("EventRetentionManager.pruneNow failed", it)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "error",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "xmsf",
+                        "stage" to "event_retention",
+                        "reason" to "prune_now_failed",
+                        "error_class" to it.javaClass.simpleName,
+                        "found_count" to start.retentionDays.toString(),
+                    ),
+                    statusOk = false,
+                )
+            }
+        } finally {
+            finishPrune()
         }
     }
 
     /** 节流清理(入库后调用);距上次清理不足间隔或已有清理在跑时直接跳过。 */
     suspend fun maybePruneAfterInsert() {
-        val now = System.currentTimeMillis()
-        if (!EventRetentionPolicy.shouldPrune(now, lastPruneAtMs, pruneInProgress.get())) {
-            return
-        }
-        if (!pruneInProgress.compareAndSet(false, true)) {
-            return
-        }
-        val startedAt = System.nanoTime()
         val days = retentionDays()
-        runCatching {
-            lastPruneAtMs = now
-            EventDb.deleteHistoryAsync(days)
-            MagiskOtel.event(
-                name = "push.control",
-                attributes = mapOf(
-                    "result" to "ok",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "event_retention",
-                    "reason" to "prune_after_insert",
-                    "found_count" to days.toString(),
-                ),
-                statusOk = true,
+        val start = tryBegin { state ->
+            EventRetentionCoordinator.beginMaybe(
+                state = state,
+                nowMillis = System.currentTimeMillis(),
+                retentionDays = days,
             )
-        }.onFailure { error ->
-            logE("EventRetentionManager.maybePrune failed", error)
-            MagiskOtel.event(
-                name = "push.control",
-                attributes = mapOf(
-                    "result" to "error",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "event_retention",
-                    "reason" to "prune_after_insert_failed",
-                    "error_class" to error.javaClass.simpleName,
-                    "found_count" to days.toString(),
-                ),
-                statusOk = false,
-            )
+        } ?: return
+        val startedAt = System.nanoTime()
+        try {
+            runCatching {
+                EventDb.deleteHistoryAsync(start.retentionDays)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "xmsf",
+                        "stage" to "event_retention",
+                        "reason" to "prune_after_insert",
+                        "found_count" to start.retentionDays.toString(),
+                    ),
+                    statusOk = true,
+                )
+            }.onFailure { error ->
+                logE("EventRetentionManager.maybePrune failed", error)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "error",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "xmsf",
+                        "stage" to "event_retention",
+                        "reason" to "prune_after_insert_failed",
+                        "error_class" to error.javaClass.simpleName,
+                        "found_count" to start.retentionDays.toString(),
+                    ),
+                    statusOk = false,
+                )
+            }
+        } finally {
+            finishPrune()
         }
-        pruneInProgress.set(false)
+    }
+
+    private inline fun tryBegin(
+        decide: (EventRetentionState) -> EventRetentionStart?,
+    ): EventRetentionStart? {
+        while (true) {
+            val current = retentionState.get()
+            val next = decide(current) ?: return null
+            if (retentionState.compareAndSet(current, next.state)) return next
+        }
+    }
+
+    private fun finishPrune() {
+        while (true) {
+            val current = retentionState.get()
+            val next = EventRetentionCoordinator.finish(current)
+            if (retentionState.compareAndSet(current, next)) return
+        }
     }
 }

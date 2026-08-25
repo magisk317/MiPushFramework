@@ -1,8 +1,6 @@
 package io.github.magisk317.mipush.runtime.store.kmp
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class EventRetentionPolicyTest {
@@ -14,10 +12,38 @@ class EventRetentionPolicyTest {
     }
 
     @Test
-    fun `pruning remains throttled while an existing prune is active`() {
-        val now = EventRetentionPolicy.PRUNE_INTERVAL_MS
+    fun `coordinator marks immediate prune as in progress and releases it`() {
+        val start = EventRetentionCoordinator.beginNow(
+            state = EventRetentionState(),
+            nowMillis = 123L,
+            retentionDays = 9,
+        )
 
-        assertTrue(EventRetentionPolicy.shouldPrune(now, 0L, pruneInProgress = false))
-        assertFalse(EventRetentionPolicy.shouldPrune(now, 0L, pruneInProgress = true))
+        assertEquals(9, start?.retentionDays)
+        assertEquals(123L, start?.state?.lastPruneAtMillis)
+        assertEquals(true, start?.state?.pruneInProgress)
+        assertEquals(null, EventRetentionCoordinator.beginMaybe(start!!.state, 123L + EventRetentionPolicy.PRUNE_INTERVAL_MS, 9))
+        assertEquals(false, EventRetentionCoordinator.finish(start.state).pruneInProgress)
+    }
+
+    @Test
+    fun `coordinator starts throttled prune only after the interval`() {
+        val state = EventRetentionState(lastPruneAtMillis = 1_000L)
+
+        assertEquals(
+            null,
+            EventRetentionCoordinator.beginMaybe(
+                state = state,
+                nowMillis = 1_000L + EventRetentionPolicy.PRUNE_INTERVAL_MS - 1L,
+                retentionDays = 7,
+            ),
+        )
+        val start = EventRetentionCoordinator.beginMaybe(
+            state = state,
+            nowMillis = 1_000L + EventRetentionPolicy.PRUNE_INTERVAL_MS,
+            retentionDays = 7,
+        )
+        assertEquals(7, start?.retentionDays)
+        assertEquals(true, start?.state?.pruneInProgress)
     }
 }
