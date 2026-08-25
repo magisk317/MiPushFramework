@@ -496,7 +496,7 @@ class ManagerRuntimeClient(
 
     private suspend fun awaitRemoteTarget(): RemoteTarget? {
         currentRemoteTarget()?.let { return it }
-        val waitMillis = callTimeoutMillis ?: DEFAULT_CALL_TIMEOUT_MS
+        val waitMillis = callTimeoutMillis
         return withTimeoutOrNull(waitMillis) {
             while (currentCoroutineContext().isActive) {
                 currentRemoteTarget()?.let { return@withTimeoutOrNull it }
