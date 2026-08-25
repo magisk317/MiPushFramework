@@ -28,9 +28,7 @@ internal data class MiPushRuntimeServiceBinding(
 )
 
 internal class MiPushRuntimeObserverState {
-    @Volatile
     private var serviceRuntimeBinding: MiPushRuntimeServiceBinding? = null
-    @Volatile
     private var activeConnection: Connection? = null
 
     fun replaceService(service: XMPushServiceCore) {
@@ -52,12 +50,14 @@ internal class MiPushRuntimeObserverState {
         }
     }
 
-    fun currentServiceLifecycleRuntime(service: XMPushServiceCore?): XMPushServiceLifecycleRuntime? {
-        val binding = serviceRuntimeBinding ?: return null
-        return binding.runtime.takeIf { service === binding.service }
+    fun currentServiceLifecycleRuntime(service: XMPushServiceCore?): XMPushServiceLifecycleRuntime? = synchronized(this) {
+        val binding = serviceRuntimeBinding ?: return@synchronized null
+        binding.runtime.takeIf { service === binding.service }
     }
 
-    fun service(): XMPushServiceCore? = serviceRuntimeBinding?.service
+    fun service(): XMPushServiceCore? = synchronized(this) {
+        serviceRuntimeBinding?.service
+    }
 
     fun setActiveConnection(connection: Connection) {
         synchronized(this) {
