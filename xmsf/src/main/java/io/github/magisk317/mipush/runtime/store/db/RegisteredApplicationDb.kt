@@ -13,6 +13,7 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeIslandSettings
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
@@ -25,12 +26,7 @@ object RegisteredApplicationDb {
     private val TAG = "RegisteredApplicationDb"
     private data class IslandSettingsKey(val userId: Int, val packageName: String)
 
-    internal data class IslandSettings(
-        val enabled: Boolean,
-        val focusNotification: Boolean,
-    )
-
-    private val islandSettingsCache = ConcurrentHashMap<IslandSettingsKey, IslandSettings>()
+    private val islandSettingsCache = ConcurrentHashMap<IslandSettingsKey, RuntimeIslandSettings>()
 
 
     @JvmStatic
@@ -136,7 +132,7 @@ object RegisteredApplicationDb {
     }.getOrNull()
 
     @JvmStatic
-    internal fun getIslandSettings(pkg: String, requestedUserId: Int? = null): IslandSettings? {
+    internal fun getIslandSettings(pkg: String, requestedUserId: Int? = null): RuntimeIslandSettings? {
         val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
         val key = IslandSettingsKey(userId, pkg)
         return islandSettingsCache[key] ?: runBlocking {
@@ -201,7 +197,7 @@ object RegisteredApplicationDb {
 
     private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
-    private fun RuntimeRegisteredApplicationRow.toIslandSettings(): IslandSettings = IslandSettings(
+    private fun RuntimeRegisteredApplicationRow.toIslandSettings(): RuntimeIslandSettings = RuntimeIslandSettings(
         enabled = islandEnabled,
         focusNotification = islandFocusNotification,
     )

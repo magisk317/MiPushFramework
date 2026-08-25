@@ -38,3 +38,9 @@ object RegisteredAppRegisteredType {
     const val Registered = 1
     const val Unregistered = 2
 }
+
+/** Per-application island settings read from the runtime store. */
+data class RuntimeIslandSettings(
+    val enabled: Boolean,
+    val focusNotification: Boolean,
+)

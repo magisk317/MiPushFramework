@@ -23,4 +23,13 @@ class RuntimeStoreValueTypesTest {
         assertEquals(1, RegisteredAppRegisteredType.Registered)
         assertEquals(2, RegisteredAppRegisteredType.Unregistered)
     }
+
+    @Test
+    fun `runtime island settings preserve both persisted flags`() {
+        val settings = RuntimeIslandSettings(enabled = true, focusNotification = false)
+
+        assertEquals(true, settings.enabled)
+        assertEquals(false, settings.focusNotification)
+        assertEquals(settings, settings.copy())
+    }
 }
