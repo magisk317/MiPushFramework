@@ -12,7 +12,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.hook.Configurations
 import io.github.magisk317.mipush.hook.Dependencies
-import io.github.magisk317.mipush.hook.HookedMethodHandler
+import io.github.magisk317.mipush.push.hook.HookedMethodHandler
 import io.github.magisk317.mipush.hook.OuterDependencies
 import io.github.magisk317.mipush.service.XMPushServiceAbility
 import io.github.magisk317.mipush.service.XMPushServiceListener

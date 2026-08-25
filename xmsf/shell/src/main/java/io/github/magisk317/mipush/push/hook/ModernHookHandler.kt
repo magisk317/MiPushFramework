@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
-import io.github.magisk317.mipush.hook.HookedMethodHandler
+import io.github.magisk317.mipush.push.hook.HookedMethodHandler
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus

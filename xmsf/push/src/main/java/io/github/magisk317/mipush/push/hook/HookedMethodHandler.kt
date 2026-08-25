@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.hook
+package io.github.magisk317.mipush.push.hook
 
 import android.content.Context
 import android.content.Intent
