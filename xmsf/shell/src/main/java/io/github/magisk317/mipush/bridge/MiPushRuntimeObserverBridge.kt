@@ -79,8 +79,10 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeObservationAdapter
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeRegistrationChannelObservationAdapter
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeNotificationObservationAdapter
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
+import io.github.magisk317.mipush.runtime.core.PushRuntimeNotificationObservationSink
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
@@ -119,6 +121,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val runtimeObservationSink: PushRuntimeObservationSink = AndroidPushRuntimeObservationAdapter
     private val runtimeRegistrationChannelObservationSink: PushRuntimeRegistrationChannelObservationSink =
         AndroidPushRuntimeRegistrationChannelObservationAdapter
+    private val runtimeNotificationObservationSink: PushRuntimeNotificationObservationSink =
+        AndroidPushRuntimeNotificationObservationAdapter
 
     init {
         XMPushServiceCore.observer = this
@@ -781,7 +785,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onNotificationEvent(packageName: String?, event: String, source: String) {
-        PushRuntime.observeNotificationEvent(packageName, event, source)
+        runtimeNotificationObservationSink.observeNotificationEvent(packageName, event, source)
     }
 
     override fun rebuildRestoredNotification(context: Context, notification: Notification): Notification? {
