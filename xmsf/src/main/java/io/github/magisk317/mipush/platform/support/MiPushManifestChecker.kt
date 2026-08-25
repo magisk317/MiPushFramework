@@ -43,6 +43,11 @@ class MiPushManifestChecker private constructor(
     }
 
     fun checkReceivers(packageName: String): Boolean {
+        if (TextUtils.equals(packageName, PushConstants.PUSH_SERVICE_PACKAGE_NAME)) {
+            // XMSF is the push service host, not a regular MiPush client. It intentionally
+            // exposes its stock-compatible message receiver instead of PushServiceReceiver.
+            return true
+        }
         return try {
             val appCtx = XMPushUtils.getPackageContext(
                 context,
