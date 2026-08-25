@@ -27,10 +27,18 @@ kotlin {
 
 dependencies {
     add("kspAndroid", libs.androidx.room.compiler)
+    add("androidHostTestImplementation", libs.junit.jupiter)
+    add("androidHostTestImplementation", "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}")
+    add("androidHostTestRuntimeOnly", libs.junit.platform.launcher)
 }
 
 ksp {
     arg("room.schemaLocation", layout.projectDirectory.dir("schemas").asFile.absolutePath)
     arg("room.incremental", "true")
     arg("room.generateKotlin", "true")
+}
+
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
