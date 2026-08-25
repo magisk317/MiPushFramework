@@ -89,7 +89,6 @@ import io.github.magisk317.mipush.service.runtime.MIPushAccountUtilsRuntime
 import io.github.magisk317.mipush.service.runtime.XMPushServiceLifecycleRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
-import io.github.magisk317.mipush.service.runtime.PushClientsStateSupport
 import io.github.magisk317.mipush.service.runtime.PushHostRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
@@ -745,8 +744,6 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
     }
 
-    override fun resetAllClients(clients: Any, reason: Int) {
-        @Suppress("UNCHECKED_CAST")
-        PushClientsStateSupport.resetAllClients(clients as Iterable<HashMap<String?, PushClientsManager.ClientLoginInfo>>, reason)
-    }
+    override fun resetAllClients(clients: Any, reason: Int) =
+        connectionLifecycleAdapter.resetAllClients(clients, reason)
 }

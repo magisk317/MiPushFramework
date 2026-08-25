@@ -299,6 +299,14 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         )
     }
 
+    fun resetAllClients(clients: Any, reason: Int) {
+        @Suppress("UNCHECKED_CAST")
+        PushClientsStateSupport.resetAllClients(
+            clients as Iterable<HashMap<String?, PushClientsManager.ClientLoginInfo>>,
+            reason,
+        )
+    }
+
     fun startForegroundService() {
         (context as? Service)?.let { ForegroundHelper(it).startForeground() }
     }
