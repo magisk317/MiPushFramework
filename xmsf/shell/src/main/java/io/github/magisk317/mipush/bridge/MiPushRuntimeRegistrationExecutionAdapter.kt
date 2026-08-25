@@ -12,6 +12,7 @@ import com.xiaomi.push.service.PushRegistrationState
 import com.xiaomi.push.service.PushServiceRegisterAppAction
 import com.xiaomi.push.service.PushServiceRegisterAppPlan
 import com.xiaomi.push.service.XMPushServiceProxy
+import io.github.magisk317.mipush.push.pipeline.PackageDataClearedCoordinator
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
@@ -38,6 +39,10 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
             reason = message,
             nowMs = System.currentTimeMillis(),
         )
+    }
+
+    fun onPackageDataCleared(packageName: String) {
+        PackageDataClearedCoordinator.handle(appContext, packageName)
     }
 
     fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {

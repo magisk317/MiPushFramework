@@ -72,7 +72,6 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
-import io.github.magisk317.mipush.push.pipeline.PackageDataClearedCoordinator
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -265,7 +264,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         messageNotificationExecutionAdapter.onApplicationIntentReceived(intent)
 
     override fun onPackageDataCleared(packageName: String) {
-        PackageDataClearedCoordinator.handle(appContext, packageName)
+        registrationExecutionAdapter.onPackageDataCleared(packageName)
     }
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) =
