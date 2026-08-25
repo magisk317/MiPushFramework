@@ -1,40 +1,30 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import io.github.magisk317.mipush.common.utils.logD
-import io.github.magisk317.mipush.common.utils.logE
-import io.github.magisk317.mipush.common.utils.logI
-import io.github.magisk317.mipush.common.utils.logV
-import io.github.magisk317.mipush.common.utils.logW
-
-import android.text.TextUtils
-import io.github.magisk317.mipush.platform.support.Global
-import kotlinx.coroutines.runBlocking
-import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeIslandSettings
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRepository
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
-import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
-import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
-import java.util.concurrent.ConcurrentHashMap
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationStore
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeUnregistrationResult
+import io.github.magisk317.xposed.logging.MagiskOtel
+import kotlinx.coroutines.runBlocking
 
 /**
- * Created by Trumeet on 2017/12/23.
+ * Android facade for the commonMain REGISTERED_APPLICATION aggregate repository.
+ *
+ * Room, Android user lookup, package-name resolution, and telemetry remain here;
+ * registration state transitions and user-scoped persistence semantics live in KMP.
  */
 object RegisteredApplicationDb {
-    private val TAG = "RegisteredApplicationDb"
-    private data class IslandSettingsKey(val userId: Int, val packageName: String)
-
-    private val islandSettingsCache = ConcurrentHashMap<IslandSettingsKey, RuntimeIslandSettings>()
-
-
     @JvmStatic
     fun registerApplication(pkg: String): RuntimeRegisteredApplicationRow {
         val startedAt = System.nanoTime()
         logD("registerApplication() called for: $pkg")
-        val registeredApplication = getRegisteredApplication(pkg)
-        val app = registeredApplication ?: create(pkg)
+        val outcome = runBlocking { repository().registerApplicationOutcome(pkg) }
         MagiskOtel.event(
             name = "push.register",
             attributes = mapOf(
@@ -42,83 +32,41 @@ object RegisteredApplicationDb {
                 "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
                 "process" to "push",
                 "stage" to "app_db_register",
-                "reason" to if (registeredApplication != null) "existing" else "created",
+                "reason" to if (outcome.created) "created" else "existing",
                 "target_package" to pkg,
             ),
             statusOk = true,
         )
-        return app
+        return outcome.application
     }
 
     @JvmStatic
     fun getRegisteredApplication(pkg: String): RuntimeRegisteredApplicationRow? {
-        val list = getList(pkg)
+        val application = runBlocking { repository().getRegisteredApplication(pkg) }
         if (DEBUG) {
-            logD("register -> existing list = $list")
+            logD("register -> existing application = $application")
         }
-        return list.firstOrNull()
-    }
-
-    @JvmStatic
-    private fun create(pkg: String): RuntimeRegisteredApplicationRow {
-        val registeredApplication = RuntimeRegisteredApplicationRow(
-            id = null,
-            packageName = pkg,
-            type = RegisteredAppType.ASK,
-            notificationOnRegister = true,
-            registeredType = RegisteredAppRegisteredType.NotRegistered,
-            appName = Global.applicationNameCache()
-                .getAppName(requireNotNull(Utils.getApplication()), pkg)
-                .toString()
-        )
-        return registeredApplication.copy(id = insert(registeredApplication))
+        return application
     }
 
     @JvmStatic
     fun getList(pkg: String?): List<RuntimeRegisteredApplicationRow> = runBlocking {
-        if (TextUtils.isEmpty(pkg)) {
-            registeredApplicationDao.getAll(currentUserId())
-        } else {
-            val item = registeredApplicationDao.getByPackageName(pkg!!, currentUserId())
-            if (item == null) {
-                emptyList()
-            } else {
-                listOf(item)
-            }
-        }
+        repository().getList(pkg)
     }
 
     @JvmStatic
     fun update(application: RuntimeRegisteredApplicationRow): Long = runBlocking {
-        val userId = currentUserId()
-        // Never let a stale object id turn REPLACE into a cross-user delete.
-        val existingId = registeredApplicationDao
-            .getByPackageName(application.packageName, userId)
-            ?.id
-        val withId = application.copy(id = existingId, userId = userId)
-        val id = registeredApplicationDao.insertOrReplace(withId)
-        val finalId = if (withId.id == null || withId.id == 0L) id else (withId.id ?: id)
-        islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = withId.toIslandSettings()
-        finalId
-    }
-
-    @JvmStatic
-    private fun insert(application: RuntimeRegisteredApplicationRow): Long = runBlocking {
-        val userId = currentUserId()
-        val scoped = application.copy(userId = userId)
-        registeredApplicationDao.insert(scoped).also {
-            islandSettingsCache[IslandSettingsKey(userId, application.packageName)] = scoped.toIslandSettings()
-        }
+        repository().update(application)
     }
 
     @JvmStatic
     fun updateBlocked(id: Long, blocked: Boolean): Int = runBlocking {
-        registeredApplicationDao.updateBlocked(id, blocked, currentUserId())
+        repository().updateBlocked(id, blocked)
     }
 
     @JvmStatic
     fun isBlocked(pkg: String): Boolean = runBlocking {
-        registeredApplicationDao.isBlocked(pkg, currentUserId()) ?: false
+        repository().isBlocked(pkg)
     }
 
     @JvmStatic
@@ -134,71 +82,76 @@ object RegisteredApplicationDb {
     @JvmStatic
     internal fun getIslandSettings(pkg: String, requestedUserId: Int? = null): RuntimeIslandSettings? {
         val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
-        val key = IslandSettingsKey(userId, pkg)
-        return islandSettingsCache[key] ?: runBlocking {
-            registeredApplicationDao.getByPackageName(pkg, userId)?.toIslandSettings()
-        }?.also { islandSettingsCache[key] = it }
+        return runBlocking {
+            repository(userId).getIslandSettings(pkg)
+        }
     }
 
     @JvmStatic
-    fun markUnregistered(pkg: String, requestedUserId: Int? = null): Boolean = runBlocking {
+    fun markUnregistered(pkg: String, requestedUserId: Int? = null): Boolean {
         val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
         val startedAt = System.nanoTime()
-        val application = registeredApplicationDao.getByPackageName(pkg, userId)
-        if (application == null) {
-            MagiskOtel.event(
-                name = "push.register",
-                attributes = mapOf(
-                    "result" to "skip",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "push",
-                    "stage" to "app_db_unregister",
-                    "reason" to "missing",
-                    "target_package" to pkg,
-                ),
-                statusOk = true,
-            )
-            return@runBlocking false
-        }
-        if (application.registeredType == RegisteredAppRegisteredType.Unregistered) {
-            MagiskOtel.event(
-                name = "push.register",
-                attributes = mapOf(
-                    "result" to "skip",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "push",
-                    "stage" to "app_db_unregister",
-                    "reason" to "already_unregistered",
-                    "target_package" to pkg,
-                ),
-                statusOk = true,
-            )
-            return@runBlocking false
-        }
-        val updated = application.copy(
-            registeredType = RegisteredAppRegisteredType.Unregistered,
-            userId = userId,
-        )
-        val ok = registeredApplicationDao.update(updated) > 0
+        val result = runBlocking { repository(userId).markUnregistered(pkg) }
+        val updated = result == RuntimeUnregistrationResult.Updated
         MagiskOtel.event(
             name = "push.register",
             attributes = mapOf(
-                "result" to if (ok) "ok" else "error",
+                "result" to if (updated) "ok" else "skip",
                 "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
                 "process" to "push",
                 "stage" to "app_db_unregister",
-                "reason" to if (ok) "updated" else "update_failed",
+                "reason" to result.telemetryReason,
                 "target_package" to pkg,
             ),
-            statusOk = ok,
+            statusOk = result != RuntimeUnregistrationResult.UpdateFailed,
         )
-        ok
+        return updated
     }
+
+    private fun repository(userId: Int = currentUserId()): RuntimeRegisteredApplicationRepository =
+        RuntimeRegisteredApplicationRepository(
+            store = DatabaseRegisteredApplicationStore,
+            userId = userId,
+            appNameForPackage = { pkg ->
+                Global.applicationNameCache()
+                    .getAppName(requireNotNull(Utils.getApplication()), pkg)
+                    .toString()
+            },
+        )
 
     private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
-    private fun RuntimeRegisteredApplicationRow.toIslandSettings(): RuntimeIslandSettings = RuntimeIslandSettings(
-        enabled = islandEnabled,
-        focusNotification = islandFocusNotification,
-    )
+    private object DatabaseRegisteredApplicationStore : RuntimeRegisteredApplicationStore {
+        override suspend fun getByPackageName(
+            packageName: String,
+            userId: Int,
+        ): RuntimeRegisteredApplicationRow? =
+            DatabaseUtils.registeredApplicationDao.getByPackageName(packageName, userId)
+
+        override suspend fun getAll(userId: Int): List<RuntimeRegisteredApplicationRow> =
+            DatabaseUtils.registeredApplicationDao.getAll(userId)
+
+        override suspend fun insert(application: RuntimeRegisteredApplicationRow): Long =
+            DatabaseUtils.registeredApplicationDao.insert(application)
+
+        override suspend fun insertOrReplace(application: RuntimeRegisteredApplicationRow): Long =
+            DatabaseUtils.registeredApplicationDao.insertOrReplace(application)
+
+        override suspend fun update(application: RuntimeRegisteredApplicationRow): Int =
+            DatabaseUtils.registeredApplicationDao.update(application)
+
+        override suspend fun updateBlocked(id: Long, blocked: Boolean, userId: Int): Int =
+            DatabaseUtils.registeredApplicationDao.updateBlocked(id, blocked, userId)
+
+        override suspend fun isBlocked(packageName: String, userId: Int): Boolean? =
+            DatabaseUtils.registeredApplicationDao.isBlocked(packageName, userId)
+    }
 }
+
+private val RuntimeUnregistrationResult.telemetryReason: String
+    get() = when (this) {
+        RuntimeUnregistrationResult.Missing -> "missing"
+        RuntimeUnregistrationResult.AlreadyUnregistered -> "already_unregistered"
+        RuntimeUnregistrationResult.Updated -> "updated"
+        RuntimeUnregistrationResult.UpdateFailed -> "update_failed"
+    }

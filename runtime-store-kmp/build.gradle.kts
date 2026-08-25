@@ -28,6 +28,7 @@ kotlin {
 dependencies {
     add("kspAndroid", libs.androidx.room.compiler)
     add("androidHostTestImplementation", libs.junit.jupiter)
+    add("androidHostTestImplementation", libs.kotlinx.coroutines.core)
     add("androidHostTestImplementation", "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}")
     add("androidHostTestRuntimeOnly", libs.junit.platform.launcher)
 }
