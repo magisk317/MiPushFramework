@@ -141,6 +141,7 @@ open class MiPushFrameworkApp : Application() {
         NotificationAvailabilityShellBridge.install(
             findExistingChannelId = NotificationController::findExistingChannelId,
             notificationChannelEnabled = NotificationChannelManager::isNotificationChannelEnabled,
+            resolveChannelId = NotificationController::getExistsChannelId,
         )
         IslandOptionsSnapshotReader.initialize(applicationContext, applicationScope)
         // Stock XMSF 7.4.67-C installs a process-lifetime screen receiver for style-5 reminder

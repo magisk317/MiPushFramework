@@ -107,7 +107,7 @@ object VoipNotificationHelper {
         val extras = metaInfo.extra ?: return null
         val voipType = voipType(extras)
 
-        val channelId = NotificationController.getExistsChannelId(context, metaInfo, targetPackage)
+        val channelId = NotificationAvailabilityShellBridge.resolveChannelId(context, metaInfo, targetPackage)
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .setContentTitle(metaInfo.title ?: "Incoming Call")
