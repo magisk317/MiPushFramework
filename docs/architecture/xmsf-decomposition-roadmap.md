@@ -7,7 +7,7 @@
 
 ## Current State
 
-`:xmsf:shell` currently contains 166 Kotlin main files after runtime-core,
+`:xmsf:shell` currently contains 162 Kotlin main files after runtime-core,
 notification, and push extractions:
 
 | Namespace | Files | Role |
@@ -16,7 +16,7 @@ notification, and push extractions:
 | `io.github.magisk317.mipush.*` | 112 | Product code remaining in shell |
 
 Extracted modules: `:xmsf:notification` (21 main), `:xmsf:push` (13 main),
-`:xmsf:platform` (6 main), `:xmsf:runtime` (70 main including KMP store).
+`:xmsf:platform` (6 main), `:xmsf:runtime` (74 main including KMP store).
 
 ### Cross-Package Coupling Audit
 
@@ -93,11 +93,12 @@ Move `io.github.magisk317.mipush.notification` into a new library module.
 
 `:xmsf:runtime` now owns the independently compilable runtime core: runtime facade/android
 state, pending queues, duplicate stores, connection/runtime helpers, selected lifecycle helpers,
-KMP store database facade, and the keep-alive Binder bridge. `:xmsf:runtime:store` remains the
-KMP child module. Source packages and external ABI remain unchanged.
+Manager application read models/policy/pagination, KMP store database facade, and the keep-alive
+Binder bridge. `:xmsf:runtime:store` remains the KMP child module. Source packages and external ABI
+remain unchanged.
 
 The remaining shell-side runtime adapters intentionally stay in `:xmsf:shell`: notification
-construction, Manager Binder read/write adapters, `AppDependencies`/Koin composition,
+construction, Android-backed Manager Binder sources/writers, `AppDependencies`/Koin composition,
 `PushRuntimeExecutionBridge`, and adapters that require the shell lifecycle bridge. This avoids
 a `:xmsf:runtime` → `:xmsf:shell` reverse dependency.
 
@@ -126,7 +127,7 @@ After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
 - Stock ABI surface (`com/xiaomi/xmsf/`) that cannot move due to external component names
 - Bridge/compat glue
 
-Target: ≤60 files in `:xmsf:shell` (down from 166 at current HEAD).
+Target: ≤60 files in `:xmsf:shell` (down from 162 at current HEAD).
 
 ## Non-Goals
 
@@ -140,6 +141,6 @@ Target: ≤60 files in `:xmsf:shell` (down from 166 at current HEAD).
 
 | Metric | Before | After Phase 4 |
 |--------|--------|---------------|
-| xmsf shell Kotlin main count | 166 at current HEAD | ≤60 |
+| xmsf shell Kotlin main count | 162 at current HEAD | ≤60 |
 | xmsf shell direct project deps | reduced by runtime-core extraction | ≤5 (platform, stock, app, bridge, compat) |
 | Incremental compile time (touch 1 file in runtime) | ~45s | ~15s |

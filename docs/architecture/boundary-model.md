@@ -225,9 +225,12 @@ graph.
 
 - The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
   `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that
-  previously sat under `common/.../configurations` were removed. `common/.../configurations` now
-  keeps only the genuinely shared primitives consumed across modules (`ConfigJson*`, `Lisp`,
-  `RegSecUtils`, `XMPushUtils`); do not reintroduce a second copy of the runtime config stack there.
+  previously sat under `common/.../configurations` were removed. The shared `ConfigJson*`
+  abstraction now lives in `:core` `commonMain` under its original package; Android/JVM consumers
+  keep source compatibility through `common`'s public `:core` dependency. `Lisp` remains in
+  `:common` because URI/Base64 decoding and `Callable` are still JVM-specific. Island renderer,
+  visual, options, and preference wire contracts follow the same `:core` ownership model. Do not
+  reintroduce a second copy of either parser or wire policy in Android modules.
   Runtime behavior must be covered by contract tests that load JSON through the active xmsf parser
   and then apply it to an `XmPushActionContainer`.
 - Configuration activation is a suspend gateway operation for UI callers; runtime-owned code uses
