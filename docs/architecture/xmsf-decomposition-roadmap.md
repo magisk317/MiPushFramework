@@ -119,6 +119,20 @@ service entrypoints, and adapters whose dependencies would otherwise create a re
   `:xmsf:shell:compileNormalDebugKotlin`; add long-connection and push-delivery device checks for
   behavior changes.
 
+### Cross-cutting KMP policy extraction sequence
+
+Reusable policies still hosted by Android/JVM modules are extracted in small compatibility-preserving slices:
+
+1. **Push runtime plans:** move vendor-neutral connection, socket, SLIM, and host decisions into `:core` `commonMain`; retain stock/vendor constants and execution in Android adapters.
+2. **Configuration DSL:** move Lisp evaluation and neutral match/replace decisions after introducing codec and field-accessor boundaries; keep Thrift reflection and configuration loading on JVM/Android.
+3. **Manager contract core:** isolate handshake, validation, size estimation, availability, and reconnect policy from Parcelable/AIDL DTOs.
+4. **Focus semantics:** isolate JSON parsing, inference, labels, and planning from Android notification capability mapping.
+5. **Manager state policies:** extract page activation, snapshot validation/generation, and neutral read sorting/filtering.
+6. **Logging core:** extract JSON-line encoding, redaction, and limiter state while injecting clock and synchronization.
+7. **Optional platform-specific policies:** Xposed process/keepalive rules and vendor fallback weighting follow only after higher-value slices are stable.
+
+Every slice must keep the existing Android/JVM facade or source-compatible aliases, preserve machine-readable action strings and stock/wire behavior, add direct tests for the shared implementation, and pass both the shared tests and the affected Android-module regression suite before the next slice starts. Core policy code must not import vendor, Android, Java I/O, reflection, Parcelable, or Thrift types.
+
 ### Phase 4: Shrink `:xmsf:shell` to shell
 
 After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
