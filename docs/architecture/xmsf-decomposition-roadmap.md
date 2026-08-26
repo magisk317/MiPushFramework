@@ -7,16 +7,16 @@
 
 ## Current State
 
-`:xmsf:shell` currently contains 167 Kotlin main files after runtime-core,
+`:xmsf:shell` currently contains 166 Kotlin main files after runtime-core,
 notification, and push extractions:
 
 | Namespace | Files | Role |
 |-----------|-------|------|
 | `com.xiaomi.*` | 54 | Stock XMSF compatibility surface (frozen ABI) |
-| `io.github.magisk317.mipush.*` | 113 | Product code remaining in shell |
+| `io.github.magisk317.mipush.*` | 112 | Product code remaining in shell |
 
-Extracted modules: `:xmsf:notification` (20 main), `:xmsf:push` (13 main),
-`:xmsf:platform` (6 main), `:xmsf:runtime` (63 main including KMP store).
+Extracted modules: `:xmsf:notification` (21 main), `:xmsf:push` (13 main),
+`:xmsf:platform` (6 main), `:xmsf:runtime` (70 main including KMP store).
 
 ### Cross-Package Coupling Audit
 
@@ -103,20 +103,20 @@ a `:xmsf:runtime` → `:xmsf:shell` reverse dependency.
 
 - **Validation:** `:xmsf:runtime:compileDebugKotlin`, `:xmsf:runtime:testDebugUnitTest`,
   `:xmsf:runtime:store:compileAndroidMain`, and `:xmsf:shell:compileNormalDebugKotlin` pass.
-- **Next:** move the push pipeline as the next cohesive large block, then revisit the remaining
-  shell adapters that can follow it without introducing cycles.
+- **Next:** continue shrinking shell-side adapters that can move without reverse dependencies,
+  and keep extracting reusable pure policies into KMP `commonMain` with compatibility facades.
 
-### Phase 3: Extract `:xmsf:push`
+### Phase 3: Extract `:xmsf:push` — core completed
 
-Move `io.github.magisk317.mipush.push.*` (pipeline, connection management, hooks) into
-a new library.
+`:xmsf:push` now owns the independently compilable push pipeline, connection management,
+and hook-facing bridges that do not require shell lifecycle state. Shell retains DI composition,
+service entrypoints, and adapters whose dependencies would otherwise create a reverse edge.
 
-- **Why last among product splits:** Push pipeline depends on notification (Phase 1)
-  and runtime (Phase 2). It must come after both.
-- **Risk:** High. Connection lifecycle, reconnect logic, and packet handling are
+- **Risk:** High for further moves. Connection lifecycle, reconnect logic, and packet handling are
   behavior-critical.
-- **Validation:** Long-connection stability test on device; push delivery E2E.
-- **Estimated effort:** Large.
+- **Validation:** `:xmsf:push:compileDebugKotlin`, `:xmsf:shell:testNormalDebugUnitTest`, and
+  `:xmsf:shell:compileNormalDebugKotlin`; add long-connection and push-delivery device checks for
+  behavior changes.
 
 ### Phase 4: Shrink `:xmsf:shell` to shell
 
@@ -126,7 +126,7 @@ After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
 - Stock ABI surface (`com/xiaomi/xmsf/`) that cannot move due to external component names
 - Bridge/compat glue
 
-Target: ≤60 files in `:xmsf:shell` (down from 167 at current HEAD).
+Target: ≤60 files in `:xmsf:shell` (down from 166 at current HEAD).
 
 ## Non-Goals
 
@@ -140,6 +140,6 @@ Target: ≤60 files in `:xmsf:shell` (down from 167 at current HEAD).
 
 | Metric | Before | After Phase 4 |
 |--------|--------|---------------|
-| xmsf shell Kotlin main count | 167 at current HEAD | ≤60 |
+| xmsf shell Kotlin main count | 166 at current HEAD | ≤60 |
 | xmsf shell direct project deps | reduced by runtime-core extraction | ≤5 (platform, stock, app, bridge, compat) |
 | Incremental compile time (touch 1 file in runtime) | ~45s | ~15s |

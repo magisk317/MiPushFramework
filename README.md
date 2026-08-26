@@ -147,7 +147,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 常用验证命令直接通过 Gradle wrapper 运行：
 
 ```bash
-./gradlew :core:testDebugUnitTest
+./gradlew :core:testAndroidHostTest
 ./gradlew :xmsf:shell:testNormalDebugUnitTest
 ./gradlew :xposed:compileDebugKotlin
 ./gradlew :app:assembleNormalDebug
