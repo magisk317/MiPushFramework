@@ -65,37 +65,10 @@ data class PushConnectionStatusPlan(
     val warningMessage: String? = null
 )
 
-data class PushReconnectState(
-    val attempts: Int = 0,
-    val shortLiveConnCount: Int = 0,
-    val curDelay: Int = 500,
-    val lastConnectTime: Long = 0L
-)
-
-data class PushReconnectDelayPlan(
-    val delayMs: Long,
-    val nextState: PushReconnectState,
-    val eventAction: String = ""
-)
-
-enum class PushReconnectAction {
-    SkipNoReconnect,
-    SkipExistingJob,
-    Immediate,
-    Schedule,
-    Skip,
-    Delayed
-}
-
-data class PushReconnectAttemptPlan(
-    val shouldAttempt: Boolean = true,
-    val action: PushReconnectAction = PushReconnectAction.Skip,
-    val nextState: PushReconnectState = PushReconnectState(),
-    val eventAction: String,
-    val delayMs: Long = 0,
-    val shouldDumpNativeNetInfo: Boolean = false,
-    val shouldRunConnectivityTest: Boolean = false
-)
+typealias PushReconnectState = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectState
+typealias PushReconnectDelayPlan = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectDelayPlan
+typealias PushReconnectAction = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectAction
+typealias PushReconnectAttemptPlan = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectAttemptPlan
 
 enum class PushCheckAliveAction {
     Ignore,
