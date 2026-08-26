@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.platform.support
 
-internal object DeviceIdleWhitelistPolicy {
+object DeviceIdleWhitelistPolicy {
     fun areAllWhitelisted(
         packages: Collection<String>,
         isWhitelisted: (String) -> Boolean,

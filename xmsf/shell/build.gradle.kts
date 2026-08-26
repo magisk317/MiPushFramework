@@ -182,6 +182,7 @@ tasks.configureEach {
 }
 
 dependencies {
+    implementation(project(":xmsf:platform"))
     implementation(project(":manager:contract"))
     implementation(project(":magisk-xposed-kit:diagnostics"))
     implementation(project(":diagnostics"))
