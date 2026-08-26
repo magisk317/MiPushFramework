@@ -108,12 +108,12 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
     }
 
     fun reconnectionSuccessful(connection: Connection) {
-        runtimeObservationSink.observeReconnectConnected(System.currentTimeMillis())
         val service = state.activeServiceFor(connection)
         if (service == null) {
             logW("ignore reconnect success from stale connection")
             return
         }
+        runtimeObservationSink.observeReconnectConnected(System.currentTimeMillis())
         val wasFalldown = service.shouldFalldown()
         val successPlan = PushServiceConnectionRuntime.planReconnectionSuccess(
             alarmAlive = Alarm.isAlive(),

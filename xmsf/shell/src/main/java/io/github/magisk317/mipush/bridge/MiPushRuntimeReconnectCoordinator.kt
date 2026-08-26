@@ -7,8 +7,6 @@ import com.xiaomi.push.service.PushReconnectAttemptPlan
 import com.xiaomi.push.service.PushReconnectState
 import com.xiaomi.push.service.PushShouldReconnectPlan
 import com.xiaomi.push.service.ReconnectDebugLog
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
-
 internal class MiPushRuntimeReconnectCoordinator(
     private val appContext: android.content.Context,
     private val observerState: MiPushRuntimeObserverState,
@@ -64,7 +62,7 @@ internal class MiPushRuntimeReconnectCoordinator(
         )
 
         if (hasAccount && activeClientCount == 0) {
-            val service = observerState.service() ?: XMPushServiceLifecycleBridge.peekService()
+            val service = observerState.service()
             if (service != null) {
                 accountClientCoordinator.attachAccount(account, service, PushClientsManager.getInstance())
             }

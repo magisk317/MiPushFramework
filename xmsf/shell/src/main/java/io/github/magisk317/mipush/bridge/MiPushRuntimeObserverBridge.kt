@@ -110,10 +110,20 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val compatibilityAdapter = MiPushRuntimeCompatibilityAdapter(appContext)
 
     init {
+        activeBridge = this
         XMPushServiceCore.observer = this
     }
 
     companion object {
+        @Volatile
+        private var activeBridge: MiPushRuntimeObserverBridge? = null
+
+        fun currentService(): XMPushServiceCore? {
+            val bridge = activeBridge ?: return null
+            if (XMPushServiceCore.observer !== bridge) return null
+            return bridge.observerState.service()
+        }
+
         fun ensureInstalled(context: Context): Boolean {
             return synchronized(XMPushServiceCore::class.java) {
                 if (XMPushServiceCore.observer != null) return@synchronized false

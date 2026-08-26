@@ -11,7 +11,6 @@ import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceJob
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.runtime.PushRuntime
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 
 internal class MiPushRuntimeAccountRecoveryCoordinator(
     private val appContext: Context,
@@ -21,8 +20,7 @@ internal class MiPushRuntimeAccountRecoveryCoordinator(
 ) {
     fun scheduleInvalidSignatureRefresh() {
         logW("SMACK: channel bind failed due to invalid-sig, scheduling account refresh and reconnect")
-        val service = observerState.service() ?: XMPushServiceLifecycleBridge.peekService()
-        if (service == null || !Network.hasNetwork(appContext)) return
+        val service = observerState.service() ?: return
 
         service.executeJob(
             object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_PREPARE_MIPUSH_ACCOUNT) {

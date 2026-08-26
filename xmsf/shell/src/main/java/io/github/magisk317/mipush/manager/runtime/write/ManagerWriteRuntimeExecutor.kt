@@ -47,7 +47,6 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.service.ForegroundHelper
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
@@ -570,7 +569,7 @@ class ManagerWriteRuntimeExecutor(
         if (enabled) {
             runtimeActions.startMiPushServiceAsForegroundService(context)
         } else {
-            XMPushServiceLifecycleBridge.peekService()?.let { service ->
+            io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.currentService()?.let { service ->
                 ForegroundHelper(service).stopForegroundNotification()
             }
         }

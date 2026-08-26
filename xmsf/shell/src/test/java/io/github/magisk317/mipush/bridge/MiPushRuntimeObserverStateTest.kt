@@ -22,6 +22,7 @@ class MiPushRuntimeObserverStateTest {
         state.replaceService(secondService)
 
         assertSame(secondService, state.service())
+        assertNull(state.currentServiceLifecycleRuntime(firstService))
         assertNull(state.activeServiceFor(connection))
     }
 

@@ -71,7 +71,7 @@ open class MiPushFacadeService : Service() {
                             message,
                             ExternalPushIngress.resolveRegion(
                                 this@MiPushFacadeService,
-                                XMPushServiceLifecycleBridge.peekService()?.regionName,
+                                io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.currentService()?.regionName,
                             ),
                         )
                         return

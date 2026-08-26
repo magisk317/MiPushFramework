@@ -40,14 +40,39 @@ class MiPushRuntimeObserverBridgeContractTest {
         assertTrue(recovery.contains("MIPushAccountUtils.register("))
         assertTrue(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planShouldReconnect("))
         assertTrue(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planReconnect("))
+        assertFalse(reconnect.contains("XMPushServiceLifecycleBridge.peekService()"))
+        assertFalse(recovery.contains("XMPushServiceLifecycleBridge.peekService()"))
+    }
+
+    @Test
+    fun `service readers use observer-owned current service`() {
+        val observerBridge = readSource("MiPushRuntimeObserverBridge.kt")
+        assertTrue(observerBridge.contains("fun currentService(): XMPushServiceCore?"))
+        assertTrue(observerBridge.contains("return bridge.observerState.service()"))
+
+        listOf(
+            "io/github/magisk317/mipush/runtime/data/EventRepository.kt",
+            "io/github/magisk317/mipush/bridge/MiPushRuntimeMessageNotificationExecutionAdapter.kt",
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
+            "io/github/magisk317/mipush/service/runtime/RuntimeSettingsAdapter.kt",
+            "com/xiaomi/xmsf/push/service/MiPushFacadeService.kt",
+        ).forEach { relativePath ->
+            val source = readShellSource(relativePath)
+            assertFalse(source.contains("XMPushServiceLifecycleBridge.peekService()"), relativePath)
+            assertTrue(source.contains("MiPushRuntimeObserverBridge.currentService()"), relativePath)
+        }
     }
 
     private fun readSource(fileName: String): String {
+        return readShellSource("io/github/magisk317/mipush/bridge/$fileName")
+    }
+
+    private fun readShellSource(relativePath: String): String {
         val candidates = listOf(
-            File("src/main/java/io/github/magisk317/mipush/bridge/$fileName"),
-            File("../shell/src/main/java/io/github/magisk317/mipush/bridge/$fileName"),
+            File("src/main/java/$relativePath"),
+            File("../shell/src/main/java/$relativePath"),
         )
         return candidates.firstOrNull(File::isFile)?.readText()
-            ?: error("Source not found: $fileName from ${File(".").absolutePath}")
+            ?: error("Source not found: $relativePath from ${File(".").absolutePath}")
     }
 }

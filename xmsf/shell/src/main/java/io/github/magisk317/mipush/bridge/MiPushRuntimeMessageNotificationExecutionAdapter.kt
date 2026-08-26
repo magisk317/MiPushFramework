@@ -83,7 +83,7 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
         container: Any,
         metaInfo: Any?,
     ): Boolean {
-        val pushService = io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
+        val pushService = MiPushRuntimeObserverBridge.currentService()
             ?: return true
         val xmContainer = container as? XmPushActionContainer ?: return true
         val xmMetaInfo = metaInfo as? com.xiaomi.xmpush.thrift.PushMetaInfo ?: return true
@@ -91,7 +91,7 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
     }
 
     fun isDuplicate(packageName: String, msgId: String): Boolean {
-        val pushService = io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
+        val pushService = MiPushRuntimeObserverBridge.currentService()
             ?: return false
         return ExplicitHookBridge.isDuplicateMessage(pushService, packageName, msgId)
     }

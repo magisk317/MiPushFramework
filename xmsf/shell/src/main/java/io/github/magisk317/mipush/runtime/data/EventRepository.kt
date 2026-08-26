@@ -11,7 +11,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import io.github.magisk317.mipush.platform.support.XMPushUtils
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.utils.MockMIPushMessage
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
@@ -166,7 +165,7 @@ class EventRepository constructor(
     }
 
     suspend fun mockMessage(containerWithRegSec: XmPushActionContainer): MockReplayOutcome {
-        var pushService: SdkXMPushService? = XMPushServiceLifecycleBridge.peekService()
+        var pushService: SdkXMPushService? = MiPushRuntimeObserverBridge.currentService()
         PushRuntime.observeNotificationEvent(
             containerWithRegSec.packageName,
             "mock_replay_request",
@@ -336,7 +335,7 @@ class EventRepository constructor(
         while (waited < MOCK_REPLAY_MAX_WAIT_MS) {
             delay(MOCK_REPLAY_POLL_MS)
             waited += MOCK_REPLAY_POLL_MS
-            val service = XMPushServiceLifecycleBridge.peekService()
+            val service = MiPushRuntimeObserverBridge.currentService()
             if (service != null) {
                 return service to waited
             }

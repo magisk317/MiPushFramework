@@ -24,7 +24,6 @@ import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
-import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import kotlinx.coroutines.runBlocking
 
@@ -76,7 +75,7 @@ class RuntimeSettingsAdapter constructor(
             snapshot.lastDisconnectedAtMs
         }
         val resolvedIp = snapshot.resolvedIp ?: runCatching {
-            val service = XMPushServiceLifecycleBridge.peekService()
+            val service = io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.currentService()
             val connection = service?.currentConnection
             (connection as? SocketConnection)?.resolvedIp
         }.getOrNull()
