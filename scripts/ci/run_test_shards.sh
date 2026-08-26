@@ -28,7 +28,11 @@ run_test() {
 run_shard() {
   case "$1" in
     app-compile) run_test :app:compileNormalDebugKotlin ;;
-    mipush-compile) run_test :mipush:compileDebugKotlin ;;
+    mipush-compile)
+      run_test \
+        :mipush:compileGithubDebugKotlin \
+        :mipush:compilePlayDebugKotlin
+      ;;
     android-pure-modules)
       run_test :build-logic:test
       run_test \

@@ -15,9 +15,14 @@ chmod +x "$tmp_dir/toolkit/gradle/run_gradle_with_retry.sh"
 export SHARD_LOG="$tmp_dir/gradle.log"
 MAGISK_CI_TOOLKIT_DIR="$tmp_dir/toolkit" bash "$runner" "${ANDROID_TEST_SHARDS[@]}"
 grep -F ':app:compileNormalDebugKotlin' "$SHARD_LOG" >/dev/null
-grep -F ':mipush:compileDebugKotlin' "$SHARD_LOG" >/dev/null
+grep -F ':mipush:compileGithubDebugKotlin' "$SHARD_LOG" >/dev/null
+grep -F ':mipush:compilePlayDebugKotlin' "$SHARD_LOG" >/dev/null
 grep -F ':core:testAndroidHostTest' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:runtime:store:testAndroidHostTest' "$SHARD_LOG" >/dev/null
+if grep -F ':mipush:compileDebugKotlin' "$SHARD_LOG" >/dev/null; then
+  echo 'runner still invokes ambiguous mipush Debug compile task' >&2
+  exit 1
+fi
 if grep -F ':core:testDebugUnitTest' "$SHARD_LOG" >/dev/null; then
   echo 'runner still invokes nonexistent core JVM test task' >&2
   exit 1
