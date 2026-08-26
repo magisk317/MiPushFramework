@@ -1,17 +1,22 @@
 # XMSF Module Decomposition Roadmap
 
 > Created: 2026-08-23
-> Status: runtime core extraction implemented; push and stock large-block extractions remain.
+> Updated: 2026-08-26
+> Status: runtime core, notification Phase 1, and push Phase 3 partially implemented; platform expansion and stock extraction remain.
 > Source evidence: package tree analysis + cross-package import audit at current HEAD.
 
 ## Current State
 
-`:xmsf:shell` currently contains 195 Kotlin main files after the initial runtime-core extraction:
+`:xmsf:shell` currently contains 167 Kotlin main files after runtime-core,
+notification, and push extractions:
 
 | Namespace | Files | Role |
 |-----------|-------|------|
 | `com.xiaomi.*` | 54 | Stock XMSF compatibility surface (frozen ABI) |
-| `io.github.magisk317.mipush.*` | 141 | Product code remaining in shell |
+| `io.github.magisk317.mipush.*` | 113 | Product code remaining in shell |
+
+Extracted modules: `:xmsf:notification` (20 main), `:xmsf:push` (13 main),
+`:xmsf:platform` (6 main), `:xmsf:runtime` (63 main including KMP store).
 
 ### Cross-Package Coupling Audit
 
@@ -121,7 +126,7 @@ After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
 - Stock ABI surface (`com/xiaomi/xmsf/`) that cannot move due to external component names
 - Bridge/compat glue
 
-Target: ≤60 files in `:xmsf:shell` (down from 195 after runtime-core extraction).
+Target: ≤60 files in `:xmsf:shell` (down from 167 at current HEAD).
 
 ## Non-Goals
 
@@ -135,6 +140,6 @@ Target: ≤60 files in `:xmsf:shell` (down from 195 after runtime-core extractio
 
 | Metric | Before | After Phase 4 |
 |--------|--------|---------------|
-| xmsf shell Kotlin main count | 195 after runtime-core extraction | ≤60 |
+| xmsf shell Kotlin main count | 167 at current HEAD | ≤60 |
 | xmsf shell direct project deps | reduced by runtime-core extraction | ≤5 (platform, stock, app, bridge, compat) |
 | Incremental compile time (touch 1 file in runtime) | ~45s | ~15s |
