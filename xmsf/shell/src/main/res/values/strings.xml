@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="mock_media_now_playing">Now Playing - %1$s</string>
+    <string name="mock_media_prev">Prev</string>
+    <string name="mock_media_pause">Pause</string>
+    <string name="mock_media_next">Next</string>
 
     <string name="common_err">%1$s</string>
     <string name="start">start</string>
@@ -489,10 +493,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_messaging_user">Test User</string>
     <string name="mock_messaging_conversation">Test Conversation</string>
     <string name="mock_messaging_reply">Reply message</string>
-    <string name="mock_media_now_playing">Now Playing - %1$s</string>
-    <string name="mock_media_prev">Prev</string>
-    <string name="mock_media_pause">Pause</string>
-    <string name="mock_media_next">Next</string>
     <string name="mock_progress_downloading">Downloading…</string>
     <string name="mock_voip_title">Incoming Call</string>
     <string name="mock_voip_accept">Accept</string>

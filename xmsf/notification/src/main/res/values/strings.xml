@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mock_media_now_playing">Now Playing - %1$s</string>
+    <string name="mock_media_prev">Prev</string>
+    <string name="mock_media_pause">Pause</string>
+    <string name="mock_media_next">Next</string>
+</resources>

@@ -11,14 +11,14 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.xmsf.notification.R
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.Utils
 import java.util.LinkedHashMap
 
-internal object NativeNotificationFeatureBuilder {
+object NativeNotificationFeatureBuilder {
     private const val TAG = "NativeNotificationFeatureBuilder"
     private const val EXTRA_NATIVE_FEATURE = "xmsf.native_feature"
     private const val EXTRA_NATIVE_STYLE = "xmsf.native_feature.style"
