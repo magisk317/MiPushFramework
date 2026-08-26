@@ -152,7 +152,7 @@ fun InstalledApplicationSnapshot.toTransientManagerApplication(
     )
 }
 
-internal fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplicationSnapshot =
+fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplicationSnapshot =
     StoredApplicationSnapshot(
         id = id,
         userId = userId,

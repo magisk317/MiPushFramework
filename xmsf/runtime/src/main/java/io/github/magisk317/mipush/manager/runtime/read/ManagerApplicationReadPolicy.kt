@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.runtime.read
 
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 
-internal object ManagerApplicationReadPolicy {
+object ManagerApplicationReadPolicy {
     val comparator = Comparator<ManagerApplication> { first, second ->
         val priority = displayPriority(first).compareTo(displayPriority(second))
         if (priority != 0) return@Comparator priority
