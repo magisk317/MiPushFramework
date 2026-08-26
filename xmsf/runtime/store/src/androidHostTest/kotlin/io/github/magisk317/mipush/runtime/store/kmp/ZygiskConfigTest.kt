@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.common.fakedevice
+package io.github.magisk317.mipush.runtime.store.kmp
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
