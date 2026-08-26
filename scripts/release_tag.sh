@@ -104,10 +104,10 @@ run_pre_push_checks() {
     cd "$ROOT_DIR"
     TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
     bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" "${gradle_args[@]}"
+    bash "$ROOT_DIR/scripts/ci/tests/test_select_android_test_tasks.sh"
+    bash "$ROOT_DIR/scripts/ci/tests/test_run_test_shards.sh"
     MAGISK_CI_TOOLKIT_DIR="$TOOLKIT_DIR" bash "$ROOT_DIR/scripts/ci/run_test_shards.sh" \
-      common-notification common-utils common-other core xposed-systemui xposed-island xposed-other \
-      xmsf-stock xmsf-notification xmsf-service xmsf-manager xmsf-runtime xmsf-other \
-      manager-events manager-main manager-connection manager-other
+      android-pure-modules
   )
   echo "Pre-push checks passed."
 }

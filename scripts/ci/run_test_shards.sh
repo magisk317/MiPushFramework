@@ -2,6 +2,8 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=android_test_shards.sh
+source "$root_dir/scripts/ci/android_test_shards.sh"
 toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-$root_dir/.magisk-ci-toolkit}"
 gradle_runner="$toolkit_dir/gradle/run_gradle_with_retry.sh"
 
@@ -35,14 +37,22 @@ run_shard() {
         :magisk-xposed-kit:testDebugUnitTest \
         :magisk-xposed-kit:diagnostics:testDebugUnitTest \
         :magisk-xposed-kit:logging:testDebugUnitTest \
+        :diagnostics:testDebugUnitTest \
         :mipush:testGithubDebugUnitTest \
-        :core:testDebugUnitTest \
+        :core:testAndroidHostTest \
+        :xmsf:runtime:store:testAndroidHostTest \
         :manager:ui:testDebugUnitTest
       run_test :configuration:testDebugUnitTest
       run_test :manager:contract:testDebugUnitTest
       run_test :manager:client:testDebugUnitTest
       run_test :common:testDebugUnitTest
+      run_test :settings:testDebugUnitTest
+      run_test :vendor:testDebugUnitTest
+      run_test :pinned:testDebugUnitTest
       run_test :xposed:testDebugUnitTest
+      run_test :xmsf:platform:testDebugUnitTest
+      run_test :xmsf:notification:testDebugUnitTest
+      run_test :xmsf:push:testDebugUnitTest
       run_test :xmsf:runtime:testDebugUnitTest
       run_test :xmsf:shell:testNormalDebugUnitTest
       ;;

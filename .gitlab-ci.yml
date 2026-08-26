@@ -370,6 +370,8 @@ android:test:pure-modules:
       set -euo pipefail
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      bash scripts/ci/tests/test_select_android_test_tasks.sh
+      bash scripts/ci/tests/test_run_test_shards.sh
       bash scripts/ci/run_test_shards.sh $MAGISK_ANDROID_TEST_SHARDS
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"

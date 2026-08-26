@@ -54,6 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash scripts/ci/tests/test_select_android_test_tasks.sh
+          bash scripts/ci/tests/test_run_test_shards.sh
           mapfile -t selected_shards < <(bash scripts/ci/select_android_test_tasks.sh "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}")
           if ((${#selected_shards[@]} == 0)); then
             echo "No Android test tasks selected for this change."

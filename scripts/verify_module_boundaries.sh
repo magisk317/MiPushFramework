@@ -224,7 +224,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|app/build.gradle.kts|mipush/build.gradle.kts|README.md|scripts/checks/verify_shared_submodule_compat.sh|scripts/ci/run_test_shards.sh|scripts/ci/select_android_test_tasks.sh|scripts/release_tag.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|xmsf/runtime/store/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
+    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|app/build.gradle.kts|mipush/build.gradle.kts|README.md|.github/workflows/ci.yml|.gitlab-ci.yml|scripts/checks/verify_shared_submodule_compat.sh|scripts/ci/*|scripts/release_tag.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|xmsf/runtime/store/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
