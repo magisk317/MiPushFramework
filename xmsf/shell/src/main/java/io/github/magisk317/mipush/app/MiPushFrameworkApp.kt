@@ -31,13 +31,20 @@ import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
+import io.github.magisk317.mipush.notification.NotificationAvailabilityShellBridge
+import io.github.magisk317.mipush.notification.NotificationPostOwner
+import io.github.magisk317.mipush.notification.NotificationPostResult
+import io.github.magisk317.mipush.notification.NotificationShellBridge
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.notification.LegacyNotificationIdentityMigration
 import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
+import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
@@ -108,6 +115,33 @@ open class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        NotificationShellBridge.installStatusBarRefresh(NotificationManagerEx::triggerStatusBarRefresh)
+        NotificationShellBridge.installNotificationOperations(
+            getNotificationTag = MyMIPushNotificationHelper::getNotificationTag,
+            getActiveNotifications = NotificationManagerEx::getActiveNotifications,
+            cancel = NotificationManagerEx::cancel,
+        )
+        NotificationShellBridge.installPublishOperations(
+            postDetailed = { packageName, tag, id, notification, userId ->
+                val result = NotificationManagerEx.notifyDetailed(packageName, tag, id, notification, userId)
+                NotificationPostResult(
+                    posted = result.posted,
+                    owner = when (result.owner) {
+                        NotificationManagerEx.NotifyOwner.TARGET -> NotificationPostOwner.TARGET
+                        NotificationManagerEx.NotifyOwner.LOCAL_XMSF -> NotificationPostOwner.LOCAL_XMSF
+                        NotificationManagerEx.NotifyOwner.NONE -> NotificationPostOwner.NONE
+                    },
+                    reason = result.reason,
+                )
+            },
+            notify = { packageName, tag, id, notification, userId ->
+                NotificationManagerEx.notify(packageName, tag, id, notification, userId)
+            },
+        )
+        NotificationAvailabilityShellBridge.install(
+            findExistingChannelId = NotificationController::findExistingChannelId,
+            notificationChannelEnabled = NotificationChannelManager::isNotificationChannelEnabled,
+        )
         IslandOptionsSnapshotReader.initialize(applicationContext, applicationScope)
         // Stock XMSF 7.4.67-C installs a process-lifetime screen receiver for style-5 reminder
         // cleanup. The older 3.7.9 runtime has no equivalent, so initialize the product coordinator

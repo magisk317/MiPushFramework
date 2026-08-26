@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Restores stock XMSF 7.4.67-C's bounded top-notification lifecycle on the product publish path. */
 @Suppress("DEPRECATION")
-internal object TopNotificationCoordinator {
+object TopNotificationCoordinator {
     private const val TAG = "TopNotificationCoordinator"
     internal const val EXTRA_REPEAT = "notification_top_repeat"
     internal const val EXTRA_PERIOD = "notification_top_period"
@@ -110,7 +110,7 @@ internal object TopNotificationCoordinator {
         messageId: String?,
         notification: Notification,
         userId: Int = Utils.myUserId(),
-    ): NotificationManagerEx.NotifyResult {
+    ): NotificationPostResult {
         val slot = NotificationSlot(packageName, tag, notificationId, userId)
         val postedMessageId = resolveLifecycleMessageId(
             extras = notification.extras,
@@ -129,7 +129,13 @@ internal object TopNotificationCoordinator {
             // job could therefore overwrite a newer notification with the same slot. Serialize
             // the stock-derived reposts and the initial post, then transfer ownership only after
             // NotificationManager accepted the replacement.
-            val accepted = NotificationManagerEx.notifyDetailed(packageName, tag, notificationId, notification, userId)
+            val accepted = NotificationShellBridge.postDetailed(
+                packageName,
+                tag,
+                notificationId,
+                notification,
+                userId,
+            )
             if (accepted.posted) {
                 removeSlotLocked(slot)?.let(replacedJobs::add)
                 if (topJobId != null) {
@@ -473,7 +479,7 @@ internal object TopNotificationCoordinator {
         messageId: String,
     ): Notification? {
         return runCatching {
-            NotificationManagerEx.getActiveNotifications(slot.packageName)
+            NotificationShellBridge.getActiveNotifications(slot.packageName)
                 ?.asSequence()
                 ?.filterNotNull()
                 ?.firstOrNull { active ->
@@ -535,7 +541,7 @@ internal object TopNotificationCoordinator {
             if (!isCurrentLocked(jobId, slot, generation)) {
                 null
             } else {
-                NotificationManagerEx.notify(
+                NotificationShellBridge.notify(
                     slot.packageName,
                     slot.tag,
                     slot.notificationId,

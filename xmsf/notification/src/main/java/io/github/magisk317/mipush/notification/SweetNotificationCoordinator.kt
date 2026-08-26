@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
  * lifecycle without moving newer behavior into the pinned 3.7.9 compatibility sources.
  */
 @Suppress("DEPRECATION")
-internal object SweetNotificationCoordinator {
+object SweetNotificationCoordinator {
     private const val TAG = "SweetNotification"
 
     internal const val EXTRA_STYLE_TYPE = "notification_style_type"
@@ -59,7 +59,7 @@ internal object SweetNotificationCoordinator {
     private val jobLock = Any()
     private val activeJobs = mutableMapOf<String, ActiveReminder>()
 
-    internal data class CardContent(
+    data class CardContent(
         val title: String?,
         val text: String?,
         val backgroundUri: String?,
@@ -220,7 +220,7 @@ internal object SweetNotificationCoordinator {
             )
         ) {
             findActiveNotification(packageName, notificationId, userId)?.let { active ->
-                NotificationManagerEx.cancel(packageName, active.tag, active.id, userId)
+                NotificationShellBridge.cancelNotification(packageName, active.tag, active.id, userId)
             }
         }
         if (!notification.extras?.getString(EXTRA_REMIND_STATUS).isNullOrEmpty()) {
@@ -366,7 +366,7 @@ internal object SweetNotificationCoordinator {
         }
     }
 
-    internal fun resolveCardContent(extras: Map<String, String>?): CardContent? {
+    fun resolveCardContent(extras: Map<String, String>?): CardContent? {
         val source = extras ?: return null
         if (source[EXTRA_STYLE_TYPE] != STYLE_TYPE_SWEET) return null
         val title = source["notify_style_5_alert"]?.takeIf(String::isNotEmpty)
@@ -537,7 +537,7 @@ internal object SweetNotificationCoordinator {
         } ?: return
         val active = findActiveNotification(current.packageName, current.notificationId, current.userId)
         if (active != null && matches(active, current)) {
-            NotificationManagerEx.cancel(current.packageName, null, current.notificationId, current.userId)
+            NotificationShellBridge.cancelNotification(current.packageName, null, current.notificationId, current.userId)
         }
         val removed = synchronized(jobLock) {
             if (activeJobs[id]?.generation == current.generation) {
@@ -576,7 +576,7 @@ internal object SweetNotificationCoordinator {
         val trackedByPackage = liveMileposts.keys.mapNotNull(::parseStateKey).groupBy { it.packageName }
         trackedByPackage.forEach { (packageName, trackedNotifications) ->
             runCatching {
-                NotificationManagerEx.getActiveNotifications(packageName)
+                NotificationShellBridge.getActiveNotifications(packageName)
                     ?.filterNotNull()
                     ?.forEach { active ->
                         if (trackedNotifications.any {
@@ -626,7 +626,7 @@ internal object SweetNotificationCoordinator {
         }.onFailure {
             Logger.withTag(TAG).w(it) { "failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}" }
         }.getOrNull() ?: return
-        NotificationManagerEx.notify(packageName, active.tag, active.id, restored, active.userId)
+        NotificationShellBridge.notify(packageName, active.tag, active.id, restored, active.userId)
     }
 
     private fun hasActiveReminder(packageName: String, notificationId: Int, userId: Int): Boolean {
@@ -643,7 +643,7 @@ internal object SweetNotificationCoordinator {
         userId: Int,
     ): StatusBarNotification? {
         return runCatching {
-            NotificationManagerEx.getActiveNotifications(packageName)
+            NotificationShellBridge.getActiveNotifications(packageName)
                 ?.filterNotNull()
                 ?.firstOrNull { it.userId == userId && it.id == notificationId }
         }.getOrNull()

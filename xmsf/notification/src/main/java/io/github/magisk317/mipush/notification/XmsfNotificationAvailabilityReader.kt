@@ -51,8 +51,11 @@ class XmsfNotificationAvailabilityReader(
         if (!Utils.isAppInstalled(packageName)) return true
         // Event/status reads must not provision notification groups or channels. A missing
         // channel is treated as unknown/available here; the publish path owns provisioning.
-        val channelId = NotificationController.findExistingChannelId(context, metaInfo, packageName)
-            ?: return false
+        val channelId = NotificationAvailabilityShellBridge.findExistingChannelId(
+                context,
+                metaInfo,
+                packageName,
+            ) ?: return false
         val key = NotificationAvailabilityCache.Key(
             userId = Utils.myUserId().coerceAtLeast(0),
             packageName = packageName,
@@ -62,7 +65,7 @@ class XmsfNotificationAvailabilityReader(
             key = key,
             nowMs = android.os.SystemClock.elapsedRealtime(),
         ) {
-            !NotificationChannelManager.isNotificationChannelEnabled(packageName, channelId)
+            !NotificationAvailabilityShellBridge.isNotificationChannelEnabled(packageName, channelId)
         }
     }
 }

@@ -71,19 +71,20 @@ internal object NativeNotificationFeatureBuilder {
             return Result(Feature.CATEGORY, style, preventsAutoCancel = preventsAutoCancel)
         }
 
-        if (focusPlan.useNativeProgress && focusPlan.nativeDetection != null) {
+        val nativeDetection = focusPlan.nativeDetection
+        if (focusPlan.useNativeProgress && nativeDetection != null) {
             Logger.withTag(TAG).d {
                 "Applying native progress feature pkg=$packageName " +
-                    "source=${focusPlan.semantic?.source} category=${focusPlan.nativeDetection.category} " +
-                    "progress=${focusPlan.nativeDetection.progressPercent} reason=${focusPlan.reason}"
+                    "source=${focusPlan.semantic?.source} category=${nativeDetection.category} " +
+                    "progress=${nativeDetection.progressPercent} reason=${focusPlan.reason}"
             }
             ProgressStyleBuilder.applyProgressStyle(
                 context = context,
                 builder = builder,
                 metaInfo = metaInfo,
-                detectionResult = focusPlan.nativeDetection,
+                detectionResult = nativeDetection,
                 semanticStyle = focusPlan.semantic?.semanticStyle
-                    ?: FocusSemanticTranslator.semanticStyleForCategory(focusPlan.nativeDetection.category),
+                    ?: FocusSemanticTranslator.semanticStyleForCategory(nativeDetection.category),
             )
             markNativeFeature(builder, Feature.PROGRESS, style ?: NotificationStyle.PROGRESS)
             return Result(

@@ -23,7 +23,6 @@ import io.github.magisk317.mipush.common.island.IslandRendererPolicy
 import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import com.xiaomi.xmsf.R
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +30,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-internal object MiPushIslandPayloadBuilder {
+object MiPushIslandPayloadBuilder {
     private const val TAG = "MiPushIslandPayloadBuilder"
     private const val FOCUS_PARAM = "miui.focus.param"
     private const val FOCUS_PICS = "miui.focus.pics"

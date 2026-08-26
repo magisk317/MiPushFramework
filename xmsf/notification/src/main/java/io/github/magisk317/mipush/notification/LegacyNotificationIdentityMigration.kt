@@ -25,7 +25,7 @@ object LegacyNotificationIdentityMigration {
         var removed = 0
         var allPackagesInspected = true
         for (packageName in packages) {
-            val active = NotificationManagerEx.getActiveNotifications(packageName)
+            val active = NotificationShellBridge.getActiveNotifications(packageName)
             if (active == null) {
                 allPackagesInspected = false
                 continue
@@ -34,7 +34,12 @@ object LegacyNotificationIdentityMigration {
                 val notification = sbn ?: continue
                 if (!belongsToUser(notification.userId, currentUserId)) continue
                 if (!isLegacyIdentity(notification.tag)) continue
-                NotificationManagerEx.cancel(packageName, notification.tag, notification.id, notification.userId)
+                NotificationShellBridge.cancelNotification(
+                    packageName,
+                    notification.tag,
+                    notification.id,
+                    notification.userId,
+                )
                 removed++
             }
         }

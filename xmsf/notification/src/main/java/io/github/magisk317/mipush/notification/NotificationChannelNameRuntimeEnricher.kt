@@ -155,7 +155,7 @@ internal class NotificationManagerChannelNameProber(
             val notificationId = PROBE_ID_BASE + index
             val notification = buildProbeNotification(context, channelId) ?: return@forEachIndexed
             val ok = runCatching {
-                NotificationManagerEx.notify(packageName, PROBE_TAG, notificationId, notification, userId)
+                NotificationShellBridge.notify(packageName, PROBE_TAG, notificationId, notification, userId)
             }.getOrDefault(false)
             if (ok) {
                 posted += PROBE_TAG to notificationId
@@ -169,7 +169,7 @@ internal class NotificationManagerChannelNameProber(
         logD("channel name probe posted=${posted.size}/${targets.size} pkg=$packageName")
         sleeper(holdMillis)
         posted.forEach { (tag, id) ->
-            runCatching { NotificationManagerEx.cancel(packageName, tag, id, userId) }
+            runCatching { NotificationShellBridge.cancelNotification(packageName, tag, id, userId) }
         }
         return true
     }
@@ -227,7 +227,7 @@ internal class NotificationManagerChannelNameProber(
     }
 }
 
-internal object RuntimeNotificationChannelNameEnricher {
+object RuntimeNotificationChannelNameEnricher {
     private const val DUMP_TIMEOUT_MILLIS = 12_000L
 
     private val delegate = NotificationChannelNameRuntimeEnricher.create(

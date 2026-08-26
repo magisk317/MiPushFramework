@@ -3,9 +3,9 @@ package io.github.magisk317.mipush.notification
 import android.content.Context
 import io.github.magisk317.mipush.common.island.IslandOptions
 
-internal typealias MiPushIslandOptions = IslandOptions
+typealias MiPushIslandOptions = IslandOptions
 
-internal object MiPushIslandPreferences {
+object MiPushIslandPreferences {
     fun read(
         context: Context,
         packageName: String? = null,

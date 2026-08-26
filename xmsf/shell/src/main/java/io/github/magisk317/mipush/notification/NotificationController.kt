@@ -453,7 +453,7 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return null
         }
-        if (postResult.owner == NotificationManagerEx.NotifyOwner.LOCAL_XMSF) {
+        if (postResult.owner == NotificationPostOwner.LOCAL_XMSF) {
             Logger.withTag(TAG).w {
                 "publish used local XMSF fallback pkg=$packageName id=$notificationId tag=$tag " +
                     "channel=${notificationToPost.channelId} reason=${postResult.reason}"

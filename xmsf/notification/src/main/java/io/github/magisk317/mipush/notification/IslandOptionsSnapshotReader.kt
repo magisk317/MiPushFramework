@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-internal data class IslandOptionsSnapshot(
+data class IslandOptionsSnapshot(
     val options: IslandOptions,
     val logSanitizationEnabled: Boolean,
 )
@@ -25,7 +25,7 @@ internal data class IslandOptionsSnapshot(
  * IslandSettingsSnapshot. This replaces the previous ACTION_PREF_CHANGED broadcast
  * refresh path: the cache now updates automatically on every DataStore write.
  */
-internal object IslandOptionsSnapshotReader {
+object IslandOptionsSnapshotReader {
     private val cachedGlobalSettings = AtomicReference<IslandSettingsSnapshot?>(null)
     private val initialized = AtomicBoolean(false)
 
@@ -40,8 +40,8 @@ internal object IslandOptionsSnapshotReader {
                 val repo = PreferenceRepository(appContext.dataStore)
                 val snapshot = repo.toSnapshot(preferences)
                 cachedGlobalSettings.set(snapshot)
-                // Force SystemUI to re-render notification icons after preference change.
-                NotificationManagerEx.triggerStatusBarRefresh()
+                // The shell owns the concrete SystemUI refresh operation.
+                NotificationShellBridge.triggerStatusBarRefresh()
             }
         }
     }
