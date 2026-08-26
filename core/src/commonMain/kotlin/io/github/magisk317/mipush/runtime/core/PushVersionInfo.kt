@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.runtime.core
 
-import java.util.LinkedHashMap
-
 object PushVersionInfo {
     const val STOCK_XMSF_APP_VERSION_NAME = "7.4.67-C"
     const val STOCK_XMSF_APP_VERSION_CODE = 70004067

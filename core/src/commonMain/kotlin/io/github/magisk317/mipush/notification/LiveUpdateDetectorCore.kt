@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.notification
 
-import java.util.regex.Pattern
-
 /**
  * Pure-logic core of Live Update detection.
  *
@@ -66,8 +64,8 @@ object LiveUpdateDetectorCore {
     }
 
     // Regex patterns for progress extraction
-    internal val PERCENT_PATTERN: Pattern = Pattern.compile("(\\d{1,3})%")
-    internal val FRACTION_PATTERN: Pattern = Pattern.compile("(\\d+)\\s*/\\s*(\\d+)")
+    internal val PERCENT_PATTERN = Regex("(\\d{1,3})%")
+    internal val FRACTION_PATTERN = Regex("(\\d+)\\s*/\\s*(\\d+)")
 
     // Category detection keywords (title + description combined)
     internal val CATEGORY_KEYWORDS: Map<ProgressCategory, List<String>> = mapOf(
@@ -202,8 +200,8 @@ object LiveUpdateDetectorCore {
         val lower = text.lowercase()
 
         // Has explicit progress percentage
-        if (PERCENT_PATTERN.matcher(text).find()) return true
-        if (FRACTION_PATTERN.matcher(text).find()) return true
+        if (PERCENT_PATTERN.containsMatchIn(text)) return true
+        if (FRACTION_PATTERN.containsMatchIn(text)) return true
 
         // Has active progress keywords
         for (keyword in ACTIVE_PROGRESS_KEYWORDS) {
@@ -230,15 +228,15 @@ object LiveUpdateDetectorCore {
      * @return Progress percentage (0-100) or null if not found
      */
     internal fun extractProgressPercent(text: String): Int? {
-        val percentMatcher = PERCENT_PATTERN.matcher(text)
-        if (percentMatcher.find()) {
-            return percentMatcher.group(1)?.toIntOrNull()?.coerceIn(0, 100)
+        val percentMatch = PERCENT_PATTERN.find(text)
+        if (percentMatch != null) {
+            return percentMatch.groupValues[1].toIntOrNull()?.coerceIn(0, 100)
         }
 
-        val fractionMatcher = FRACTION_PATTERN.matcher(text)
-        if (fractionMatcher.find()) {
-            val current = fractionMatcher.group(1)?.toIntOrNull() ?: return null
-            val total = fractionMatcher.group(2)?.toIntOrNull() ?: return null
+        val fractionMatch = FRACTION_PATTERN.find(text)
+        if (fractionMatch != null) {
+            val current = fractionMatch.groupValues[1].toIntOrNull() ?: return null
+            val total = fractionMatch.groupValues[2].toIntOrNull() ?: return null
             if (total > 0) {
                 return ((current * 100) / total).coerceIn(0, 100)
             }
