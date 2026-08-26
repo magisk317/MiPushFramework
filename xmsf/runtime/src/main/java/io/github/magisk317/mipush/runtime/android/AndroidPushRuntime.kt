@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.content.Intent
-import io.github.magisk317.mipush.runtime.core.BuildConfig
+import io.github.magisk317.mipush.runtime.core.PUSH_RUNTIME_API_VERSION
 import io.github.magisk317.mipush.runtime.core.PushChannelRecord
 import io.github.magisk317.mipush.runtime.core.PushChannelState
 import io.github.magisk317.mipush.runtime.core.PushConnectionRecord
@@ -826,7 +826,7 @@ object AndroidPushRuntime {
     @JvmStatic
     fun capabilities(): PushRuntimeCapabilities {
         return PushRuntimeCapabilities(
-            runtimeApiVersion = BuildConfig.RUNTIME_API_VERSION,
+            runtimeApiVersion = PUSH_RUNTIME_API_VERSION,
             capabilities = listOf(
                 PushRuntimeCapability.BRIDGE_RUNTIME_SPINE,
                 PushRuntimeCapability.LEGACY_MAIN_SERVICE_COMPONENT,

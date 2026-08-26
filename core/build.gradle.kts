@@ -1,29 +1,31 @@
 plugins {
-    id("magisk.android.library")
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
 }
 
-android {
-    namespace = "io.github.magisk317.mipush.runtime.core"
-
-    defaultConfig {
-        buildConfigField("int", "RUNTIME_API_VERSION", "3")
-    }
-
-    buildTypes {
-        release {
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+kotlin {
+    android {
+        namespace = "io.github.magisk317.mipush.runtime.core"
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
+        withHostTest {
         }
     }
 
-    buildFeatures {
-        buildConfig = true
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":xmsf:runtime:store"))
+            implementation(libs.kermit)
+        }
     }
 }
 
 dependencies {
-    implementation(project(":xmsf:runtime:store"))
-    implementation(libs.kermit)
-    testImplementation(libs.junit.jupiter)
-    testImplementation(libs.mockk)
-    testRuntimeOnly(libs.junit.platform.launcher)
+    add("androidHostTestImplementation", libs.junit.jupiter)
+    add("androidHostTestImplementation", libs.mockk)
+    add("androidHostTestRuntimeOnly", libs.junit.platform.launcher)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }

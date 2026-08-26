@@ -59,6 +59,7 @@ class CoreModuleImportConstraintPropertyTest {
             "io.github.magisk317.mipush.notification",
             // Libraries declared in core/build.gradle.kts
             "co.touchlab.kermit",
+            "io.github.magisk317.mipush.runtime.store.kmp",
         )
 
         private val IMPORT_REGEX = Regex("""^\s*import\s+(.+)\s*$""")
@@ -148,11 +149,11 @@ class CoreModuleImportConstraintPropertyTest {
         // Try to locate core/src/main/ relative to the project root
         // The test runs from the project root or module root
         val candidates = listOf(
-            File("core/src/main/java"),
-            File("../core/src/main/java"),
-            File(System.getProperty("user.dir"), "core/src/main/java"),
+            File("core/src/commonMain/kotlin"),
+            File("../core/src/commonMain/kotlin"),
+            File(System.getProperty("user.dir"), "core/src/commonMain/kotlin"),
             // Absolute fallback for this project
-            File("/home/lzc/wqk/MiPushFramework/core/src/main/java"),
+            File("/home/lzc/wqk/push/MiPushFramework/core/src/commonMain/kotlin"),
         )
 
         val dir = candidates.firstOrNull { it.isDirectory }
