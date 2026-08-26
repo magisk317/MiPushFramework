@@ -34,7 +34,7 @@ object BroadcastDecision {
     private fun decoratedContainer(realTargetPackage: String, container: XmPushActionContainer): XmPushActionContainer {
         val decorated = container.deepCopy()
         runCatching {
-            PushShellBridgeHolder.require().applyConfigurations(realTargetPackage, decorated)
+            PushShellBridgeHolder.policy().applyConfigurations(realTargetPackage, decorated)
         }
         return decorated
     }

@@ -37,7 +37,7 @@ object PackageDataClearedCoordinator {
     const val APP_DATA_CLEARED_TYPE = "app_data_cleared"
 
     private val runtimeDispatcher = AppDataClearedPacketDispatcher { packageName, payload ->
-        PushShellBridgeHolder.require().dispatchAppDataCleared(packageName, payload)
+        PushShellBridgeHolder.packageState().dispatchAppDataCleared(packageName, payload)
     }
 
     fun handle(
@@ -86,7 +86,7 @@ object PackageDataClearedCoordinator {
             )
         }
         cleanup("shell_state") {
-            cleanupFailureCount += PushShellBridgeHolder.require()
+            cleanupFailureCount += PushShellBridgeHolder.packageState()
                 .clearPackageDataShellState(appContext, packageName, userId)
         }
         cleanup("notification_dispatch_allowance") {

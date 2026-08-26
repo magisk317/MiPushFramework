@@ -54,8 +54,8 @@ object MiPushRuntimeBridge {
     fun onApplicationIntentReceived(context: Context, intent: Intent?) {
         if (intent == null) return
         runCatching {
-            PushShellBridgeHolder.require().receiveFromApplication(intent)
-            PushShellBridgeHolder.require().recordRegisterRequest(context, intent)
+            PushShellBridgeHolder.events().receiveFromApplication(intent)
+            PushShellBridgeHolder.events().recordRegisterRequest(context, intent)
             intent.getStringExtra(io.github.magisk317.mipush.common.Constants.EXTRA_MI_PUSH_PACKAGE)
                 ?.takeIf { it.isNotBlank() }
                 ?.takeIf { Utils.isUserApplication(context.applicationContext, it) }
@@ -81,7 +81,7 @@ object MiPushRuntimeBridge {
     fun onIntentForwardedToServer(intent: Intent?) {
         if (intent == null) return
         runCatching {
-            PushShellBridgeHolder.require().transferToServer(intent)
+            PushShellBridgeHolder.events().transferToServer(intent)
         }.onFailure {
             logE("onIntentForwardedToServer failed", it)
         }
@@ -105,26 +105,26 @@ object MiPushRuntimeBridge {
             return allowed
         }
 
-        val resolvedContainer = container ?: payload?.let { PushShellBridgeHolder.require().packToContainer(it) }
+        val resolvedContainer = container ?: payload?.let { PushShellBridgeHolder.payload().packToContainer(it) }
         val actionName = resolvedContainer?.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(resolvedContainer)
         val isMockReplay = MockMessageRegistry.isMarked(resolvedContainer)
         val userId = Utils.myUserId().coerceAtLeast(0)
         if (resolvedContainer != null &&
-            PushShellBridgeHolder.require().shouldDropNotification(
+            PushShellBridgeHolder.policy().shouldDropNotification(
                 context,
                 resolvedContainer,
                 "MiPushRuntimeBridge.onNotificationDispatch"
             )
         ) {
             logI(
-                "drop notification dispatch for absent package pkg=${PushShellBridgeHolder.require().resolveTargetPackage(resolvedContainer)} " +
+                "drop notification dispatch for absent package pkg=${PushShellBridgeHolder.payload().resolveTargetPackage(resolvedContainer)} " +
                     "action=$actionName messageId=$messageId"
             )
             return finish(
                 allowed = false,
                 reason = "stale_package",
-                targetPackage = PushShellBridgeHolder.require().resolveTargetPackage(resolvedContainer).orEmpty(),
+                targetPackage = PushShellBridgeHolder.payload().resolveTargetPackage(resolvedContainer).orEmpty(),
             )
         }
         if (payload != null && resolvedContainer != null && !isMockReplay) {
@@ -173,9 +173,9 @@ object MiPushRuntimeBridge {
         packetBytesLen: Long,
         source: String
     ): Boolean {
-        val container = PushShellBridgeHolder.require().packToContainer(payload) ?: return false
+        val container = PushShellBridgeHolder.payload().packToContainer(payload) ?: return false
         if (MIPushEventProcessor.shouldCheckProfile(container) &&
-            !PushShellBridgeHolder.require().isProfileAllowed(context, container)
+            !PushShellBridgeHolder.payload().isProfileAllowed(context, container)
         ) {
             // Storage/allowance fence only. The decrypted MIPushEventProcessor gate owns the one
             // stock profileId_missing ACK and mismatch event; do not duplicate feedback here.
@@ -185,7 +185,7 @@ object MiPushRuntimeBridge {
             )
             return false
         }
-        if (PushShellBridgeHolder.require().shouldDropInbound(context, container, source)) {
+        if (PushShellBridgeHolder.policy().shouldDropInbound(context, container, source)) {
             handleRegistrationResultForAbsentPackage(context, container)
             logD(
                 "drop payload for absent package source=$source pkg=${container.packageName} " +
@@ -223,7 +223,7 @@ object MiPushRuntimeBridge {
             )
         }
         runCatching {
-            PushShellBridgeHolder.require().receiveFromServer(container)
+            PushShellBridgeHolder.events().receiveFromServer(container)
         }.onFailure {
             logE("receiveFromServer callback failed source=$source", it)
         }
@@ -231,7 +231,7 @@ object MiPushRuntimeBridge {
             if (isMockReplay) {
                 logD("skip event record for mock replay source=$source pkg=${container.packageName}")
             } else {
-                PushShellBridgeHolder.require().recordEvent(context, container)
+                PushShellBridgeHolder.events().recordEvent(context, container)
             }
         }.onFailure {
             logE("recordEvent failed source=$source packetBytesLen=$packetBytesLen", it)
@@ -241,7 +241,7 @@ object MiPushRuntimeBridge {
 
     @JvmStatic
     fun onTransferToApplication(payload: ByteArray?) {
-        val container = PushShellBridgeHolder.require().packToContainer(payload) ?: return
+        val container = PushShellBridgeHolder.payload().packToContainer(payload) ?: return
         onTransferToApplication(container)
     }
 
@@ -261,7 +261,7 @@ object MiPushRuntimeBridge {
             source = "MiPushRuntimeBridge.onTransferToApplication"
         )
         runCatching {
-            PushShellBridgeHolder.require().transferToApplication(container)
+            PushShellBridgeHolder.events().transferToApplication(container)
         }.onFailure {
             logE("transferToApplication callback failed", it)
         }
@@ -395,7 +395,7 @@ object MiPushRuntimeBridge {
     ) {
         val registrationOutcome = resolveRegistrationResultOutcome(container)
         if (registrationOutcome != null) {
-            PushShellBridgeHolder.require().forgetPendingRegistration(context, application.packageName)
+            PushShellBridgeHolder.registration().forgetPendingRegistration(context, application.packageName)
             if (!registrationOutcome.success) {
                 PushRuntime.observeRegistrationResult(
                     packageName = application.packageName,
@@ -408,7 +408,7 @@ object MiPushRuntimeBridge {
         }
         val transition = resolveConfirmedRegistrationTransition(container) ?: return
         val nextType = transition.registeredType
-        PushShellBridgeHolder.require().updateRegistrationState(application, nextType)
+        PushShellBridgeHolder.registration().updateRegistrationState(application, nextType)
         when (nextType) {
             RegisteredAppRegisteredType.Registered -> {
                 MIPushAppInfo.getInstance(context).removeUnRegisteredPkg(application.packageName)
@@ -515,10 +515,10 @@ object MiPushRuntimeBridge {
     ) {
         val packageName = container.packageName?.takeIf { it.isNotBlank() } ?: return
         val outcome = resolveRegistrationResultOutcome(container) ?: return
-        PushShellBridgeHolder.require().forgetPendingRegistration(context, packageName)
+        PushShellBridgeHolder.registration().forgetPendingRegistration(context, packageName)
         if (outcome.success && outcome.appId != null) {
-            PushShellBridgeHolder.require().queuePendingAppAbsent(context, packageName, outcome.appId)
-            PushShellBridgeHolder.require().forgetRegisteredPackage(context, packageName)
+            PushShellBridgeHolder.registration().queuePendingAppAbsent(context, packageName, outcome.appId)
+            PushShellBridgeHolder.registration().forgetRegisteredPackage(context, packageName)
         }
     }
 
@@ -534,11 +534,11 @@ object MiPushRuntimeBridge {
                 // Stock XMSF 7.4.67-C i0 accepts registration only when errorCode is zero and
                 // regSecret is non-empty, then persists appId and secret as one confirmed result.
                 // The old split recorder could confirm appId without a usable decryption secret.
-                PushShellBridgeHolder.require().rememberRegisteredPackage(context, packageName, appId)
-                PushShellBridgeHolder.require().setRegSec(context, packageName, regSecret)
+                PushShellBridgeHolder.registration().rememberRegisteredPackage(context, packageName, appId)
+                PushShellBridgeHolder.registration().setRegSec(context, packageName, regSecret)
             }
             RegisteredAppRegisteredType.Unregistered ->
-                PushShellBridgeHolder.require().forgetRegisteredPackage(context, packageName)
+                PushShellBridgeHolder.registration().forgetRegisteredPackage(context, packageName)
         }
     }
 
@@ -566,7 +566,7 @@ object MiPushRuntimeBridge {
             putExtra("mipush_payload", ByteArray(0))
             addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         }
-        PushShellBridgeHolder.require().dispatchToApplication(context, packageName, ByteArray(0))
+        PushShellBridgeHolder.payload().dispatchToApplication(context, packageName, ByteArray(0))
         
         // 2. Mock connectivity change (connectivity change often triggers re-reg)
         val connIntent = Intent("android.net.conn.CONNECTIVITY_CHANGE").apply {

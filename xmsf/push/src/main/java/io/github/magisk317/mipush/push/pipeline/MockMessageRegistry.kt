@@ -112,7 +112,7 @@ object MockMessageRegistry {
         if (container == null) return null
         MessageIdentity.fromContainer(container)?.let { return it }
         return runCatching {
-            "payload:${sha256(PushShellBridgeHolder.require().packToBytes(container))}"
+            "payload:${sha256(PushShellBridgeHolder.payload().packToBytes(container))}"
         }.getOrElse {
             "container:${container.packageName}|${container.action?.name}|${container.isRequest}|" +
                 "${container.isEncryptAction}|${container.metaInfo?.id.orEmpty()}|" +

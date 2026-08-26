@@ -31,9 +31,9 @@ object MessageIdentity {
 
     private fun messageIdFromPushAction(container: XmPushActionContainer): String? {
         return runCatching {
-            val pushAction = PushShellBridgeHolder.require().decodeMessageBody(
+            val pushAction = PushShellBridgeHolder.payload().decodeMessageBody(
                 container,
-                PushShellBridgeHolder.require().getRegSec(container),
+                PushShellBridgeHolder.payload().getRegSec(container),
             )
             JavaCalls.getField(pushAction!!, "id") as? String
         }.getOrNull()

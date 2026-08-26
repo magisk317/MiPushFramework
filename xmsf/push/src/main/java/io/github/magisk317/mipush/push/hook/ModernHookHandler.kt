@@ -32,7 +32,7 @@ class ModernHookHandler : HookedMethodHandler {
         newMessageIntent: Intent
     ) {
         HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
-        PushShellBridgeHolder.require().ensurePushServiceCreated(pushService)
+        PushShellBridgeHolder.lifecycle().ensurePushServiceCreated(pushService)
         Logger.withTag("ModernHookHandler").d { "postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}" }
         newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
             ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
@@ -58,7 +58,7 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun onCreate(joinPoint: Any?, pushService: XMPushServiceCore) {
         HookTraceCompat.onServiceCreate(pushService)
-        PushShellBridgeHolder.require().ensurePushServiceCreated(pushService)
+        PushShellBridgeHolder.lifecycle().ensurePushServiceCreated(pushService)
     }
 
     override fun onStartCommand(joinPoint: Any?) {
@@ -75,15 +75,15 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun onDestroy(joinPoint: Any?) {
         HookTraceCompat.onDestroy()
-        PushShellBridgeHolder.require().onPushServiceDestroy(null)
+        PushShellBridgeHolder.lifecycle().onPushServiceDestroy(null)
     }
 
     override fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception) {
         HookTraceCompat.onConnectionStatusChanged(newStatus, reason, e)
-        PushShellBridgeHolder.require().onPushConnectionStatusChanged(
+        PushShellBridgeHolder.lifecycle().onPushConnectionStatusChanged(
             ConnectionStatus.of(newStatus.coerceIn(0, 2))
         )
-        PushShellBridgeHolder.require().observePushConnectionState(
+        PushShellBridgeHolder.lifecycle().observePushConnectionState(
             newStatus = newStatus,
             reason = reason,
             source = "ModernHookHandler.setConnectionStatus"

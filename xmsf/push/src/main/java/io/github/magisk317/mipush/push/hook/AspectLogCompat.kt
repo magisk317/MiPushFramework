@@ -23,7 +23,7 @@ object AspectLogCompat {
     private fun enabled(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (now - lastRefreshAt < 3000) return cachedEnabled
-        cachedEnabled = runCatching { PushShellBridgeHolder.require().isPushDebugEnabled() }
+        cachedEnabled = runCatching { PushShellBridgeHolder.hooks().isPushDebugEnabled() }
             .getOrDefault(false)
         lastRefreshAt = now
         return cachedEnabled
@@ -45,19 +45,19 @@ object AspectLogCompat {
 
     fun logBuildContainer(payloadSize: Int, container: XmPushActionContainer?) {
         trace("MIPushEventProcessor.buildContainer(payloadSize=$payloadSize)") {
-            logD("container=${PushShellBridgeHolder.require().formatContainerForDebug(container)}")
+            logD("container=${PushShellBridgeHolder.hooks().formatContainerForDebug(container)}")
         }
     }
 
     fun logBuildIntent(intent: Intent?, source: String) {
         trace("MIPushEventProcessor.buildIntent(source=$source)") {
-            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
+            logD("intent=${PushShellBridgeHolder.hooks().formatIntentForDebug(intent)}")
         }
     }
 
     fun logIntentAvailability(intent: Intent?, available: Boolean, source: String) {
         trace("MIPushEventProcessor.isIntentAvailable(source=$source, available=$available)") {
-            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
+            logD("intent=${PushShellBridgeHolder.hooks().formatIntentForDebug(intent)}")
         }
     }
 
@@ -80,7 +80,7 @@ object AspectLogCompat {
         newMessageIntent: Intent
     ) {
         trace("MIPushEventProcessor.postProcessMIPushMessage(pkg=$pkgName, payloadSize=$payloadSize)") {
-            logD("newMessageIntent=${PushShellBridgeHolder.require().formatIntentForDebug(newMessageIntent)}")
+            logD("newMessageIntent=${PushShellBridgeHolder.hooks().formatIntentForDebug(newMessageIntent)}")
         }
     }
 
@@ -104,7 +104,7 @@ object AspectLogCompat {
 
     fun logProcessIntent(intent: Intent) {
         trace("PushMessageProcessor.processIntent") {
-            logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
+            logD("intent=${PushShellBridgeHolder.hooks().formatIntentForDebug(intent)}")
         }
     }
 
@@ -114,7 +114,7 @@ object AspectLogCompat {
                 logD(details)
             }
             if (intent != null) {
-                logD("intent=${PushShellBridgeHolder.require().formatIntentForDebug(intent)}")
+                logD("intent=${PushShellBridgeHolder.hooks().formatIntentForDebug(intent)}")
             }
         }
     }
@@ -139,7 +139,7 @@ object AspectLogCompat {
 
     fun logNotifyPushMessage(container: XmPushActionContainer, payloadSize: Int) {
         trace("MIPushNotificationHelper.notifyPushMessage(payloadSize=$payloadSize)") {
-            logD("container=${PushShellBridgeHolder.require().formatContainerForDebug(container)}")
+            logD("container=${PushShellBridgeHolder.hooks().formatContainerForDebug(container)}")
         }
     }
 }

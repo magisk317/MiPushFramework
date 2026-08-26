@@ -113,7 +113,7 @@ object StalePackagePushGuard {
             RegisteredApplicationDb.markUnregistered(packageName, normalizedUserId)
         }
         cleanup("shell_state") {
-            PushShellBridgeHolder.require()
+            PushShellBridgeHolder.packageState()
                 .clearPackageAbsentShellState(context, packageName, normalizedUserId)
         }
         cleanup("notification_dispatch_allowance") {

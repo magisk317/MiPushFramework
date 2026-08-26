@@ -14,7 +14,7 @@ object HookTrace {
 
     @JvmStatic
     fun mark(point: String) {
-        PushShellBridgeHolder.require().markHook(point)
+        PushShellBridgeHolder.hooks().markHook(point)
         if (enabled) {
             logD("hook=$point")
         }
