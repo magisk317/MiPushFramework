@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: bbaf83ad978b9d046a2cd8bc1cf60278c72f0d0f
+    ref: 23a41efea206eef4e98c01fccd23db227e82aae9
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: bbaf83ad978b9d046a2cd8bc1cf60278c72f0d0f
+    ref: 23a41efea206eef4e98c01fccd23db227e82aae9
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: bbaf83ad978b9d046a2cd8bc1cf60278c72f0d0f
+    ref: 23a41efea206eef4e98c01fccd23db227e82aae9
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: bbaf83ad978b9d046a2cd8bc1cf60278c72f0d0f
+    ref: 23a41efea206eef4e98c01fccd23db227e82aae9
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -39,7 +39,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "bbaf83ad978b9d046a2cd8bc1cf60278c72f0d0f"
+  MAGISK_CI_TOOLKIT_REF: "23a41efea206eef4e98c01fccd23db227e82aae9"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
