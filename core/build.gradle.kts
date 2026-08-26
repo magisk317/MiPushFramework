@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -16,6 +17,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":xmsf:runtime:store"))
             implementation(libs.kermit)
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }
