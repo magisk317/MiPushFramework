@@ -12,7 +12,7 @@ versionName = "1.0.1"
 pushVersionCode = "1003003000"
 
 activity-compose = "1.13.0"
-agp = "9.3.1"
+agp = "9.3.2"
 annotation = "1.10.0"
 coil3 = "3.5.0"
 conscrypt = "2.6.3"
