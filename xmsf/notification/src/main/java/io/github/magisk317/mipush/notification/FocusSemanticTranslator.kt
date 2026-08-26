@@ -114,7 +114,7 @@ object FocusSemanticTranslator {
         capabilities = capabilities,
     )
 
-    internal fun plan(
+    fun plan(
         detected: LiveUpdateDetector.DetectionResult?,
         metaInfo: PushMetaInfo,
         packageName: String,
