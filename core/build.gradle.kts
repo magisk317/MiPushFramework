@@ -21,6 +21,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":xmsf:runtime:store"))
     implementation(libs.kermit)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)

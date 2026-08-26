@@ -107,6 +107,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":xmsf:runtime:store"))
     implementation(project(":diagnostics"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)

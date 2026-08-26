@@ -1,10 +1,13 @@
 package io.github.magisk317.mipush.diagnostics
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.mipush.runtime.store.kmp.RateLimitedWarnLoggerPolicy
 
+/**
+ * Android-side adapter delegating to the platform-neutral [RateLimitedWarnLoggerPolicy].
+ * Kept for source compatibility with existing callers.
+ */
 object RateLimitedWarnLogger {
-    @Volatile
-    private var gate = RateLimitGate()
+    private val policy = RateLimitedWarnLoggerPolicy { System.currentTimeMillis() }
 
     fun warn(
         logTag: String,
@@ -12,39 +15,18 @@ object RateLimitedWarnLogger {
         message: String,
         throwable: Throwable? = null,
         windowMs: Long = 30_000L
-    ) {
-        if (!gate.shouldLog("$logTag:$key", windowMs)) return
-        val msg = "[$key] $message"
-        val logger = Logger.withTag(logTag)
-        if (throwable == null) {
-            logger.w { msg }
-        } else {
-            logger.e(throwable) { msg }
-        }
-    }
+    ) = policy.warn(logTag, key, message, throwable, windowMs)
 
     internal fun resetForTest(nowProvider: () -> Long = { System.currentTimeMillis() }) {
-        gate = RateLimitGate(nowProvider)
+        policy.reset()
     }
 
     internal class RateLimitGate(
         private val nowProvider: () -> Long = { System.currentTimeMillis() }
     ) {
-        private val lock = Any()
-        private val lastLogAt = HashMap<String, Long>()
+        private val delegate = RateLimitedWarnLoggerPolicy.RateLimitGate(nowProvider)
 
-        fun shouldLog(key: String, windowMs: Long): Boolean {
-            if (windowMs <= 0L) return true
-            val now = nowProvider()
-            return synchronized(lock) {
-                val previous = lastLogAt[key]
-                if (previous == null || now - previous >= windowMs) {
-                    lastLogAt[key] = now
-                    true
-                } else {
-                    false
-                }
-            }
-        }
+        fun shouldLog(key: String, windowMs: Long): Boolean =
+            delegate.shouldLog(key, windowMs)
     }
 }

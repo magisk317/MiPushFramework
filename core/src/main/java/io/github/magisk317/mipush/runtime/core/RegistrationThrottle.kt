@@ -1,75 +1,29 @@
 package io.github.magisk317.mipush.runtime.core
 
+import io.github.magisk317.mipush.runtime.store.kmp.RegistrationThrottlePolicy
+
 /**
- * Throttles registration requests per package when the channel is not bound.
- *
- * When the channel is in unbind or binding state, apps may repeatedly call
- * tryForceRegister, creating a registration storm. This utility limits
- * same-package registration requests to at most once per [THROTTLE_INTERVAL_MS]
- * when the channel is not yet bound.
+ * Android-side adapter delegating to the platform-neutral [RegistrationThrottlePolicy].
+ * Kept for source compatibility with existing callers.
  */
 object RegistrationThrottle {
-    /** Minimum interval between registration attempts per package (30 seconds). */
-    const val THROTTLE_INTERVAL_MS = 30_000L
+    const val THROTTLE_INTERVAL_MS = RegistrationThrottlePolicy.THROTTLE_INTERVAL_MS
     internal const val MAX_TRACKED_PACKAGES = 512
 
-    private val lock = Any()
-    private val lastRegistrationTimeMs = LinkedHashMap<String, Long>(16, 0.75f, true)
+    private val policy = RegistrationThrottlePolicy(MAX_TRACKED_PACKAGES)
 
-    /**
-     * Checks whether a registration request for [packageName] should be throttled.
-     *
-     * @param packageName the package requesting registration
-     * @param channelBound true if the channel is currently in `binded` state
-     * @param nowMs current time in milliseconds (injectable for testing)
-     * @return true if the request should be throttled (dropped), false if it should proceed
-     */
     @JvmStatic
     fun shouldThrottle(
         packageName: String,
         channelBound: Boolean,
         nowMs: Long = System.currentTimeMillis()
-    ): Boolean {
-        // Never throttle when channel is bound — normal registration flow
-        if (channelBound) return false
+    ): Boolean = policy.shouldThrottle(packageName, channelBound, nowMs)
 
-        synchronized(lock) {
-            val iterator = lastRegistrationTimeMs.entries.iterator()
-            while (iterator.hasNext()) {
-                if (nowMs - iterator.next().value >= THROTTLE_INTERVAL_MS) {
-                    iterator.remove()
-                }
-            }
-            val lastTime = lastRegistrationTimeMs[packageName]
-            if (lastTime != null && (nowMs - lastTime) < THROTTLE_INTERVAL_MS) {
-                return true
-            }
-            while (lastRegistrationTimeMs.size >= MAX_TRACKED_PACKAGES) {
-                val eldest = lastRegistrationTimeMs.entries.iterator()
-                if (!eldest.hasNext()) break
-                eldest.next()
-                eldest.remove()
-            }
-            lastRegistrationTimeMs[packageName] = nowMs
-            return false
-        }
-    }
-
-    /**
-     * Resets throttle state. Useful when the channel successfully binds.
-     */
     @JvmStatic
-    fun reset() {
-        synchronized(lock) { lastRegistrationTimeMs.clear() }
-    }
+    fun reset() = policy.reset()
 
-    /**
-     * Resets throttle state for a specific package.
-     */
     @JvmStatic
-    fun reset(packageName: String) {
-        synchronized(lock) { lastRegistrationTimeMs.remove(packageName) }
-    }
+    fun reset(packageName: String) = policy.reset(packageName)
 
-    internal fun trackedPackageCount(): Int = synchronized(lock) { lastRegistrationTimeMs.size }
+    internal fun trackedPackageCount(): Int = policy.trackedPackageCount()
 }
