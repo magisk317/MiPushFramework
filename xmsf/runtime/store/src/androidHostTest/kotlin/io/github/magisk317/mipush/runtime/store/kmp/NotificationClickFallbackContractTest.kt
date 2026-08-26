@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.common.notification
+package io.github.magisk317.mipush.runtime.store.kmp
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
