@@ -13,7 +13,7 @@ notification, and push extractions:
 | Namespace | Files | Role |
 |-----------|-------|------|
 | `com.xiaomi.*` | 54 | Stock XMSF compatibility surface (frozen ABI) |
-| `io.github.magisk317.mipush.*` | 112 | Product code remaining in shell |
+| `io.github.magisk317.mipush.*` | 108 | Product code remaining in shell |
 
 Extracted modules: `:xmsf:notification` (21 main), `:xmsf:push` (13 main),
 `:xmsf:platform` (6 main), `:xmsf:runtime` (74 main including KMP store).
