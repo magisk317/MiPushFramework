@@ -628,10 +628,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_registered_apps_format">%1$d / %2$d registered</string>
     <string name="overview_project_github_title">GitHub project</string>
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
-    <string name="overview_project_update_summary">Open the releases page for the latest builds.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
-    <string name="action_update">Check for update</string>
-    <string name="update_toast">You can download the latest version of the APK file from the Releases page for installation.</string>
     <string name="event_detail_developer_info">Developer info</string>
     <string name="event_detail_soft_wrap_cd">Toggle line wrap</string>
     <string name="event_detail_soft_wrap_off">No wrap</string>

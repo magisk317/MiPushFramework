@@ -275,8 +275,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="recent_activity_delete_failed">Failed to delete event</string>
 
     <!-- Update -->
-    <string name="action_update">Check for update</string>
-    <string name="update_toast">You can downloads the latest APKs from the Releases page.</string>
 
     <!-- Manage applications, individual application info screen title. For example, if they click on "Browser" in "Manage applications", the title of the next screen will be this -->
     <string name="application_info_label">App info</string>
@@ -412,7 +410,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_registered_apps_format">%1$d / %2$d registered</string>
     <string name="overview_project_github_title">GitHub project</string>
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
-    <string name="overview_project_update_summary">Open the releases page for the latest builds.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
     <string name="pref_donate_by_alipay_title">Donation appreciation</string>
     <string name="alipay_install_prompt">Please install Alipay</string>

@@ -615,10 +615,7 @@
     <string name="overview_registered_apps_format">%1$d / %2$d 已注册</string>
     <string name="overview_project_github_title">GitHub 项目</string>
     <string name="overview_project_github_summary">查看源码、发布页和后续迭代进展。</string>
-    <string name="overview_project_update_summary">直接前往 Releases 查看最新构建。</string>
     <string name="overview_project_about_summary">查看当前版本、构建类型和基本信息。</string>
-    <string name="action_update">检查更新</string>
-    <string name="update_toast">您可以从 Releases 页面下载最新版本的 APK 文件用以安装。</string>
     <string name="event_detail_developer_info">调试信息</string>
     <string name="event_detail_soft_wrap_cd">切换是否自动换行</string>
     <string name="event_detail_soft_wrap_off">不换行</string>

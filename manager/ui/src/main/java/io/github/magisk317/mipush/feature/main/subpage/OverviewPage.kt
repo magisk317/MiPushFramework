@@ -193,7 +193,6 @@ private fun OverviewScreen(
             io.github.magisk317.uikit.surface.OverviewDeviceInfoCard()
 
             io.github.magisk317.uikit.surface.OverviewLinksCard(
-                onCheckUpdate = { mainActivityOperation.gotoGitHubReleasePage() },
                 onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
                 onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
                 onDonate = { showDonateDialog = true },

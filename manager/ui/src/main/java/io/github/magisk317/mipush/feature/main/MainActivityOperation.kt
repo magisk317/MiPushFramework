@@ -43,10 +43,6 @@ class MainActivityOperation(private val context: Context) {
         onShow(versionInfo)
     }
 
-    fun gotoGitHubReleasePage() {
-        openUrl("https://github.com/magisk317/MiPushFramework/releases")
-    }
-
     fun gotoTelegramGroup() {
         openUrl("https://t.me/+NR2QaQ4dlEgxYmNl")
     }

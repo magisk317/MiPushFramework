@@ -1079,13 +1079,6 @@ private fun AboutBlock(onShowAboutDialog: (String) -> Unit) {
     val mainActivityOperation = MainActivityOperation(context)
 
     SettingsItem(
-        title = stringResource(R.string.action_update),
-    ) {
-        mainActivityOperation.gotoGitHubReleasePage()
-        Toast.makeText(context, R.string.update_toast, Toast.LENGTH_LONG).show()
-    }
-
-    SettingsItem(
         title = stringResource(R.string.action_about),
     ) {
         mainActivityOperation.showAboutDialog(onShowAboutDialog)
