@@ -132,8 +132,7 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onManifestCheckServices(pkgInfo: PackageInfo) {
-        HookTrace.mark("ManifestChecker.checkServices")
-        AspectLogCompat.logManifestCheck(pkgInfo.packageName)
+        HookTrace.mark("ManifestChecker.checkServices", logEvent = false)
     }
 
     @JvmStatic

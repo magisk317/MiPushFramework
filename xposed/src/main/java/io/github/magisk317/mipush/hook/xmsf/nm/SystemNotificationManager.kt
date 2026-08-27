@@ -412,7 +412,6 @@ object SystemNotificationManager {
         packageName: String,
         channelId: String?
     ): NotificationChannel? {
-        XLog.d(TAG, "getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
         val uid = resolveUid(packageName, "getNotificationChannel")
         if (uid == null) {
             return RootNotificationHelper.getNotificationChannel(packageName, channelId)

@@ -199,7 +199,6 @@ object Utils {
             val sec = preferences?.getString(regSecPreferenceKey(packageName, normalizedUserId), null)
             if (!sec.isNullOrEmpty()) {
                 secrets += sec
-                Logger.withTag("Utils").d { "getRegSecs: found regSec in pref=$prefName pkg=$packageName" }
             } else if (normalizedUserId == 0 && preferences?.contains(packageName) == true) {
                 // Migrate the historical primary-user key without exposing it to other users.
                 preferences.getString(packageName, null)?.takeIf { it.isNotEmpty() }?.let { legacySec ->

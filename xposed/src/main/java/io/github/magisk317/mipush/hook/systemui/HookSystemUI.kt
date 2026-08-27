@@ -407,10 +407,6 @@ class HookSystemUI : BaseHook() {
                                 null
                             } ?: return@runCatching
                             setHookObjectField(descriptor, "icon", icon)
-                            XLog.d(
-                                TAG,
-                                "injected status bar descriptor icon managed=$isMiPushManaged owner=$owner force=${options.colorStatusBarIconGlobal}",
-                            )
                         }.onFailure {
                             XLog.e(TAG, "failed to restore Android 17 status bar smallIcon", it)
                         }

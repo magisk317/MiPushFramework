@@ -24,10 +24,8 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 class RegisterRecorder(private val context: Context) {
 
     fun recordRegisterRequest(intent: Intent?) {
-        logD("recordRegisterRequest() called with intent: $intent")
         try {
             if (!isRegisterAppRequest(intent)) {
-                logD("Not a register app request")
                 emitRegister(result = "skip", reason = "not_register_request")
                 return
             }

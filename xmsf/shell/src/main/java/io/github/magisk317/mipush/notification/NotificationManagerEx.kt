@@ -627,7 +627,6 @@ object NotificationManagerEx {
         packageName: String,
         channelId: String?
     ): NotificationChannel? {
-        logD("getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
         val directChannel = getDirectPackageNotificationChannel(packageName, channelId)
         if (directChannel != null) {
             return directChannel

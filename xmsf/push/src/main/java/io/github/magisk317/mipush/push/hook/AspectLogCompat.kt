@@ -119,12 +119,6 @@ object AspectLogCompat {
         }
     }
 
-    fun logManifestCheck(packageName: String) {
-        trace("ManifestChecker.checkServices(package=$packageName)") {
-            logD("manifest check requested")
-        }
-    }
-
     fun logProcessMIPushMessage(packetBytesLen: Long, source: String) {
         trace("MIPushEventProcessor.processMIPushMessage(source=$source)") {
             logD("packetBytesLen=$packetBytesLen")

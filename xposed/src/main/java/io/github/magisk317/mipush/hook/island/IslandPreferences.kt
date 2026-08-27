@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicLong
 object IslandPreferences {
     private const val TAG = "IslandPreferences"
     private const val PREF_REFRESH_INTERVAL_MS = 60_000L
+    private const val FAILURE_LOG_INTERVAL_MS = 10L * 60L * 1000L
     private val PREF_KEYS = arrayOf(
         ISLAND_PREF_ENABLED,
         ISLAND_PREF_TIMEOUT,
@@ -71,6 +72,15 @@ object IslandPreferences {
 
     @Volatile
     private var refreshLoopStarted = false
+
+    @Volatile
+    private var lastLoggedOptions: IslandOptions? = null
+
+    @Volatile
+    private var lastRefreshFailure: String? = null
+
+    @Volatile
+    private var lastRefreshFailureAtMs: Long = 0L
     internal data class PackageKey(val userId: Int, val packageName: String)
 
     private val packageOptions = ConcurrentHashMap<PackageKey, IslandOptions>()
@@ -159,16 +169,27 @@ object IslandPreferences {
         readOptions(packageName = null).onSuccess {
             if (refreshGeneration.get() != generation) return@onSuccess
             options = it
-            XLog.i(
-                TAG,
-                "refreshed options: showNotification=${it.showNotification} " +
-                    "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
-                    "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon} " +
-                    "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal} " +
-                    "dualAppEnabled=${it.dualAppEnabled}",
-            )
+            if (lastLoggedOptions != it) {
+                lastLoggedOptions = it
+                XLog.i(
+                    TAG,
+                    "refreshed options: showNotification=${it.showNotification} " +
+                        "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
+                        "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon} " +
+                        "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal} " +
+                        "dualAppEnabled=${it.dualAppEnabled}",
+                )
+            }
+            lastRefreshFailure = null
+            lastRefreshFailureAtMs = 0L
         }.onFailure {
-            XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
+            val message = it.message ?: it.javaClass.simpleName
+            val nowMs = System.currentTimeMillis()
+            if (message != lastRefreshFailure || nowMs - lastRefreshFailureAtMs >= FAILURE_LOG_INTERVAL_MS) {
+                lastRefreshFailure = message
+                lastRefreshFailureAtMs = nowMs
+                XLog.w(TAG, "failed to refresh island prefs: $message")
+            }
         }
     }
 
@@ -310,6 +331,9 @@ object IslandPreferences {
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {
         stopRefreshLoop()
         this.options = options
+        lastLoggedOptions = null
+        lastRefreshFailure = null
+        lastRefreshFailureAtMs = 0L
         packageOptions.clear()
         packageRefreshes.clear()
     }
