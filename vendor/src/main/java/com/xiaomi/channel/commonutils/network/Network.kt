@@ -780,6 +780,26 @@ object Network {
         return context?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
     }
 
+
+    /** Stable, compact active-network identity for transport diagnostics. */
+    @JvmStatic
+    fun getActiveNetworkSnapshot(context: Context?): String {
+        return try {
+            val connectivityManager = getConnectivityManager(context) ?: return "handle=none transports=none"
+            val activeNetwork = connectivityManager.activeNetwork ?: return "handle=none transports=none"
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            val transports = buildList {
+                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) add("WIFI")
+                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true) add("CELLULAR")
+                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) add("VPN")
+                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true) add("ETHERNET")
+                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) == true) add("BLUETOOTH")
+            }.ifEmpty { listOf("OTHER") }.joinToString("+")
+            "handle=${activeNetwork.networkHandle} transports=$transports"
+        } catch (_: Exception) {
+            "handle=unknown transports=unknown"
+        }
+    }
     private fun getActiveNetworkCapabilities(context: Context?): NetworkCapabilities? {
         val connectivityManager = getConnectivityManager(context) ?: return null
         val activeNetwork = connectivityManager.activeNetwork ?: return null

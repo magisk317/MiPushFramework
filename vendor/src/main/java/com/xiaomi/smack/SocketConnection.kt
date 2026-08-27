@@ -26,6 +26,9 @@ abstract class SocketConnection(
     connectionConfiguration: ConnectionConfiguration,
 ) : Connection(pushAction, context, connectionConfiguration) {
     protected var socket: Socket? = null
+    @Volatile
+    var socketGeneration: Int = 0
+        private set
     private var connectedHost: String? = null
     protected var failedException: Exception? = null
     protected var lastConnectedTime: Long = 0L
@@ -59,13 +62,22 @@ abstract class SocketConnection(
         for (candidateHost in candidateHosts) {
             val startedAt = System.currentTimeMillis()
             connTimes += 1
+            val networkBeforeConnect = Network.getActiveNetworkSnapshot(mContext)
             try {
-                Logger.w { "begin to connect to $candidateHost" }
+                Logger.w {
+                    "begin to connect connectionInstanceId=$connectionInstanceId " +
+                        "nextSocketGeneration=${socketGeneration + 1} host=$candidateHost network=$networkBeforeConnect"
+                }
                 socket = createSocket().also { createdSocket ->
                     createdSocket.connect(Host.from(candidateHost, config.port), CONNECTION_TIMEOUT_MS)
                     createdSocket.tcpNoDelay = true
                 }
-                Logger.w { "tcp connected" }
+                socketGeneration += 1
+                Logger.w {
+                    "tcp connected connectionInstanceId=$connectionInstanceId " +
+                        "socketGeneration=$socketGeneration host=$candidateHost " +
+                        "network=${Network.getActiveNetworkSnapshot(mContext)}"
+                }
                 connectedHost = candidateHost
                 initConnection()
                 connectTime = System.currentTimeMillis() - startedAt
@@ -155,6 +167,10 @@ abstract class SocketConnection(
                     // stable strategy can learn a short interval after enough failures.
                     runCatching { HeartbeatStrategyManager.getInstance(mContext).onPingTimeout() }
                     runCatching { mPushAction.runtimeObserver.onPingTimeout(System.currentTimeMillis()) }
+                    Logger.w {
+                        "ping timeout connectionInstanceId=$connectionInstanceId " +
+                            "socketGeneration=$socketGeneration network=${Network.getActiveNetworkSnapshot(mContext)}"
+                    }
                     mPushAction.disconnect(PING_TIMEOUT_REASON, null)
                 }
             },

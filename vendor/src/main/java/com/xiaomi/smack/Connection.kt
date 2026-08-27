@@ -29,7 +29,9 @@ abstract class Connection(
     protected val mContext: android.content.Context,
     open var config: ConnectionConfiguration,
 ) {
-    var connectionCounterValue: Int = connectionCounter.getAndIncrement()
+    val connectionInstanceId: Int = connectionCounter.getAndIncrement()
+    val connectionCounterValue: Int
+        get() = connectionInstanceId
     protected val connectionListeners = CopyOnWriteArraySet<ConnectionListener>()
     protected val recvListeners = ConcurrentHashMap<PacketListener, ListenerWrapper>()
     protected val sendListeners = ConcurrentHashMap<PacketListener, ListenerWrapper>()
@@ -219,8 +221,8 @@ abstract class Connection(
         val previousStatus = connectStatus
         if (status != previousStatus) {
             Logger.w {
-                "update the connection status. ${statusDescription(previousStatus)} -> " +
-                    "${statusDescription(status)} : $reason"
+                "update the connection status connectionInstanceId=$connectionInstanceId " +
+                    "${statusDescription(previousStatus)} -> ${statusDescription(status)} : $reason"
             }
         }
 

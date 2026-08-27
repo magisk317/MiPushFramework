@@ -19,7 +19,10 @@ class XMPushServiceConnectionDelegate(
                 if (currentConnection == null) {
                     "null"
                 } else {
-                    "${currentConnection.hashCode()} connected=${currentConnection.isConnected} connecting=${currentConnection.isConnecting} host=${currentConnection.host}"
+                    "connectionInstanceId=${currentConnection.connectionInstanceId} " +
+                        "instance=${currentConnection.hashCode()} connected=${currentConnection.isConnected} " +
+                        "connecting=${currentConnection.isConnecting} host=${currentConnection.host} " +
+                        "network=${Network.getActiveNetworkSnapshot(service)}"
                 }
         )
         val plan = service.runtimeObserver.resolveConnectionAttemptPlan(
@@ -167,7 +170,12 @@ class XMPushServiceConnectionDelegate(
             // reuse it across reconnects. Recreating it here discarded stock's short-connection
             // count and cached failure history before either could influence host selection.
             val slimConnection = service.slimConnection
-            MyLog.w("connectBySlim using=${slimConnection.hashCode()} current=${service.currentConnection?.hashCode()}")
+            MyLog.w(
+                "connectBySlim connectionInstanceId=${slimConnection.connectionInstanceId} " +
+                    "socketGeneration=${slimConnection.socketGeneration} instance=${slimConnection.hashCode()} " +
+                    "current=${service.currentConnection?.hashCode()} " +
+                    "network=${Network.getActiveNetworkSnapshot(service)}",
+            )
             slimConnection.addPacketListener(
                 service.servicePacketListener,
                 PacketFilter { true },
@@ -176,7 +184,12 @@ class XMPushServiceConnectionDelegate(
             service.currentConnection = slimConnection
             // TCP/reader 初始化完成后，仍可能等待服务端 challenge；避免握手卡死时永久阻塞重连。
             service.setConnectingTimeout()
-            MyLog.w("connectBySlim connected current=${service.currentConnection?.hashCode()} host=${service.currentConnection?.host}")
+            MyLog.w(
+                "connectBySlim connected connectionInstanceId=${slimConnection.connectionInstanceId} " +
+                    "socketGeneration=${slimConnection.socketGeneration} " +
+                    "current=${service.currentConnection?.hashCode()} host=${service.currentConnection?.host} " +
+                    "network=${Network.getActiveNetworkSnapshot(service)}",
+            )
         } catch (e: XMPPException) {
             MyLog.e("fail to create Slim connection", e)
             service.slimConnection.disconnect(3, e)

@@ -52,7 +52,7 @@ class SlimConnection(
             val sock = socket ?: throw XMPPException("Socket is null")
             mReader = BlobReader(sock.getInputStream(), this)
             mWriter = BlobWriter(sock.getOutputStream(), this)
-            val threadName = "Blob Reader (${connectionCounterValue})"
+            val threadName = "Blob Reader (connectionInstanceId=$connectionInstanceId,socketGeneration=$socketGeneration)"
             val thread = Thread(object : Runnable {
                 override fun run() {
                     try {
@@ -126,8 +126,10 @@ class SlimConnection(
             // guard here so a previously closed connection can send bind/register blobs again.
             isShuttingDown = false
             Logger.w {
-                "[Slim] initConnection instance=${hashCode()} " +
-                    "reusedAfterShutdown=$wasShuttingDown socket=${socket?.hashCode()} host=$host"
+                "[Slim] initConnection connectionInstanceId=$connectionInstanceId " +
+                    "socketGeneration=$socketGeneration instance=${hashCode()} " +
+                    "reusedAfterShutdown=$wasShuttingDown socket=${socket?.hashCode()} host=$host " +
+                    "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
             }
             initReaderAndWriter()
             mWriter?.openStream()
@@ -240,7 +242,11 @@ class SlimConnection(
     override fun sendPingInternal(isServerPing: Boolean) {
         val ping = getPing(isServerPing)
         val pingPlan = mPushAction.runtimeObserver.resolveSlimSendPingPlan()
-        Logger.w { "[Slim] SND ping id=${ping.packetID}" }
+        Logger.w {
+            "[Slim] SND ping id=${ping.packetID} connectionInstanceId=$connectionInstanceId " +
+                "socketGeneration=$socketGeneration " +
+                "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
+        }
         mPushAction.runtimeObserver.onChannelEvent(null, pingPlan.eventAction, "SlimConnection.sendPing")
         send(ping)
     }
@@ -252,8 +258,10 @@ class SlimConnection(
         synchronized(this) {
             if (isShuttingDown) return
             Logger.w {
-                "[Slim] shutdown instance=${hashCode()} reason=$reason " +
-                    "error=${error?.javaClass?.simpleName}:${error?.message}"
+                "[Slim] shutdown connectionInstanceId=$connectionInstanceId " +
+                    "socketGeneration=$socketGeneration instance=${hashCode()} reason=$reason " +
+                    "error=${error?.javaClass?.simpleName}:${error?.message} " +
+                    "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
             }
             isShuttingDown = true
             mReader?.let {

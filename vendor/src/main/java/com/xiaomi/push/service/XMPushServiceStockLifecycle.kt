@@ -73,9 +73,12 @@ class XMPushServiceStockLifecycle(
     fun networkChanged() {
         val activeNetworkName = dependencies.activeNetworkName(service)
         if (!activeNetworkName.isNullOrEmpty() && activeNetworkName != "null") {
-            MyLog.w("network changed,[type: $activeNetworkName]")
+            MyLog.w(
+                "network changed,[type: $activeNetworkName] " +
+                    Network.getActiveNetworkSnapshot(service),
+            )
         } else {
-            MyLog.w("network changed, no active network")
+            MyLog.w("network changed, no active network ${Network.getActiveNetworkSnapshot(service)}")
         }
 
         // SDK 3.7.9 returns before cache, reconnect, upload, and alarm work while NetworkInfo is

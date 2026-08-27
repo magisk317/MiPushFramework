@@ -11,6 +11,7 @@ import com.xiaomi.push.service.PushConnectionState
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.timers.Alarm
 import com.xiaomi.smack.Connection
+import com.xiaomi.smack.SocketConnection
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
@@ -83,7 +84,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         ReconnectDebugLog.w(
             "reconnect_failed host=${connection.host} errorType=${error.javaClass.name} " +
                 "message=${error.message} falldown=$wasFalldown " +
-                "schedule=${failPlan.shouldScheduleReconnect}"
+                "schedule=${failPlan.shouldScheduleReconnect} ${connectionDiagnostic(connection)}"
         )
         state.releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
@@ -121,7 +122,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         )
         ReconnectDebugLog.w(
             "reconnect_established host=${connection.host} falldown=$wasFalldown " +
-                "alarmAlive=${Alarm.isAlive()}"
+                "alarmAlive=${Alarm.isAlive()} ${connectionDiagnostic(connection)}"
         )
         state.setActiveConnection(connection)
         publishConnectionStatus(ConnectionStatus.connected)
@@ -167,7 +168,8 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         ReconnectDebugLog.w(
             "connection_closed reason=$reason host=${connection.host} " +
                 "errorType=${error?.javaClass?.name} message=${error?.message} " +
-                "falldown=$wasFalldown schedule=${closePlan.shouldScheduleReconnect}"
+                "falldown=$wasFalldown schedule=${closePlan.shouldScheduleReconnect} " +
+                connectionDiagnostic(connection)
         )
         runtimeObservationSink.observeDisconnectReason(reason)
         state.releaseConnection(connection)
@@ -198,7 +200,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         runtimeObservationSink.observeReconnectStarted(System.currentTimeMillis())
         publishConnectionStatus(ConnectionStatus.connecting)
         ReconnectDebugLog.w(
-            "connection_started host=${connection.host}"
+            "connection_started host=${connection.host} ${connectionDiagnostic(connection)}"
         )
         channelObservationSink.observeChannelEvent(
             null,
@@ -253,6 +255,13 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
             allowStats = true,
             testHostsCount = testHostsCount,
         )
+    }
+
+    private fun connectionDiagnostic(connection: Connection): String {
+        val socketGeneration = (connection as? SocketConnection)?.socketGeneration ?: 0
+        val network = com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(appContext)
+        return "connectionInstanceId=${connection.connectionInstanceId} " +
+            "socketGeneration=$socketGeneration network=$network"
     }
 
     fun createHostManager(context: Context, hostFilter: Any?, httpGet: Any?, userId: String): Any? {
