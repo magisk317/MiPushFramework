@@ -25,8 +25,3 @@ dependencies {
     testImplementation(libs.jqwik)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
-
-tasks.withType<Test>().configureEach {
-    useJUnitPlatform()
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
-}

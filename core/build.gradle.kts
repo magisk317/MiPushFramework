@@ -27,7 +27,3 @@ dependencies {
     add("androidHostTestImplementation", libs.mockk)
     add("androidHostTestRuntimeOnly", libs.junit.platform.launcher)
 }
-
-tasks.withType<Test>().configureEach {
-    useJUnitPlatform()
-}
