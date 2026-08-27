@@ -7,6 +7,7 @@ import android.os.Binder
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.xposed.logging.BaseXposedLogProvider
+import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
 import io.github.magisk317.xposed.logging.FixedWindowIngressLimiter
 import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.xposed.logging.XposedLogEvent
@@ -28,7 +29,6 @@ class ModuleLogProvider : BaseXposedLogProvider() {
         val callingUid = Binder.getCallingUid()
         if (!ingressLimiter.tryAcquire(callingUid, System.currentTimeMillis())) return null
         return synchronized(writeLock) {
-            if (!ModuleLogIngressPolicy.ensurePersistentQuota(LogBundleExporter.getLogDir(context))) return null
             super.insert(uri, values)
         }
     }
@@ -36,9 +36,20 @@ class ModuleLogProvider : BaseXposedLogProvider() {
     override fun appendLog(event: XposedLogEvent) {
         val ctx = context?.applicationContext ?: return
         synchronized(writeLock) {
+            val route = ModuleLogIngressPolicy.resolveRoute(event.source)
+            val estimatedBytes = event.message.toByteArray(Charsets.UTF_8).size.toLong() +
+                event.throwable.toByteArray(Charsets.UTF_8).size.toLong() + 1024L
+            if (!ModuleLogIngressPolicy.ensurePersistentQuota(
+                    logDir = LogBundleExporter.getLogDir(ctx),
+                    route = route,
+                    incomingBytes = estimatedBytes,
+                )
+            ) {
+                return
+            }
             LogUtils.appendModuleLog(
                 context = ctx,
-                source = event.source,
+                source = route,
                 level = event.level.ifBlank { "I" },
                 tag = event.tag,
                 packageName = event.packageName,
@@ -62,11 +73,10 @@ class ModuleLogProvider : BaseXposedLogProvider() {
 }
 
 internal object ModuleLogIngressPolicy {
-    const val MAX_PERSISTED_LOG_BYTES = 32L * 1024L * 1024L
+    const val MAX_PERSISTED_LOG_BYTES = DailyRouteLogQuota.DEFAULT_MAX_BYTES
     internal const val MAX_EVENT_BYTES = 192L * 1024L
+    private const val MODULE_ROUTE = "MiPush"
 
-    private const val PERSISTED_LOG_HEADROOM_BYTES = 64L * 1024L
-    private const val MAX_EVENT_FILE_COPIES = 2
     private val trustedHookPackages = setOf(
         "com.android.systemui",
         "com.miui.securitycore",
@@ -76,24 +86,20 @@ internal object ModuleLogIngressPolicy {
 
     fun isCallerAllowed(context: Context): Boolean = callerGuard.isCallerAllowed(context)
 
-    fun ensurePersistentQuota(logDir: File?): Boolean {
-        val runtimeLogs = logDir
-            ?.listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.name.startsWith("runtime") && it.extension == "jsonl" }
-            .sortedWith(compareBy(File::lastModified, File::getName))
-        var totalBytes = runtimeLogs.sumOf(File::length)
-        val targetBytes = MAX_PERSISTED_LOG_BYTES -
-            PERSISTED_LOG_HEADROOM_BYTES -
-            MAX_EVENT_FILE_COPIES * MAX_EVENT_BYTES
-        if (totalBytes <= targetBytes) return true
-        for (file in runtimeLogs) {
-            val fileBytes = file.length()
-            if (file.delete()) totalBytes -= fileBytes
-            if (totalBytes <= targetBytes) return true
-        }
-        return totalBytes <= targetBytes
-    }
+    internal fun resolveRoute(@Suppress("UNUSED_PARAMETER") source: String): String = MODULE_ROUTE
+
+    fun ensurePersistentQuota(
+        logDir: File?,
+        route: String = "MiPush",
+        incomingBytes: Long = MAX_EVENT_BYTES,
+        currentDay: String = java.time.LocalDate.now().toString(),
+    ): Boolean = DailyRouteLogQuota.ensureCapacity(
+        logDir = logDir,
+        route = route,
+        currentDay = currentDay,
+        incomingBytes = incomingBytes.coerceAtMost(MAX_EVENT_BYTES),
+        maxBytes = MAX_PERSISTED_LOG_BYTES,
+    )
 
     internal fun isTrustedSystemPackage(packageName: String, flags: Int): Boolean =
         callerGuard.isPackageAllowed(packageName, flags)

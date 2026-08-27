@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.manager.logging
 import android.content.Context
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
 import io.github.magisk317.xposed.logging.JsonLineEncoder
 import io.github.magisk317.xposed.logging.JsonLineField
 import io.github.magisk317.xposed.logging.LogSink
@@ -148,7 +149,15 @@ object ManagerRuntimeFileLog {
                 }
                 val day = Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault())
                     .format(dailyDateFormatter)
-                File(logDir, "runtime.$ROUTE.$day.jsonl").appendText(line)
+                if (DailyRouteLogQuota.ensureCapacity(
+                        logDir = logDir,
+                        route = ROUTE,
+                        currentDay = day,
+                        incomingBytes = line.toByteArray(Charsets.UTF_8).size.toLong(),
+                    )
+                ) {
+                    File(logDir, "runtime.$ROUTE.$day.jsonl").appendText(line)
+                }
             }
         }
     }

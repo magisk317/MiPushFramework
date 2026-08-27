@@ -7,6 +7,7 @@ import com.xiaomi.xmsf.R
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
 import io.github.magisk317.xposed.logging.JsonLineEncoder
 import io.github.magisk317.xposed.logging.JsonLineField
 import io.github.magisk317.xposed.logging.LogSink
@@ -217,10 +218,14 @@ object LogUtils {
             runCatching {
                 if (!logDir.exists()) logDir.mkdirs()
                 pruneAllLogArtifacts(context, now, force = false)
-                writeLineToFile(File(logDir, "runtime.${currentDateString(now)}.jsonl"), line)
                 val routeName = sanitizeSegment(route)
-                if (routeName != DEFAULT_ROUTE) {
-                    writeLineToFile(File(logDir, "runtime.$routeName.${currentDateString(now)}.jsonl"), line)
+                val day = currentDateString(now)
+                val incomingBytes = line.toByteArray(Charsets.UTF_8).size.toLong()
+                if (DailyRouteLogQuota.ensureCapacity(logDir, routeName, day, incomingBytes)) {
+                    writeLineToFile(
+                        File(logDir, DailyRouteLogQuota.runtimeFileName(routeName, day)),
+                        line,
+                    )
                 }
             }
         }
