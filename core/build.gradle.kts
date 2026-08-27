@@ -15,7 +15,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":xmsf:runtime:store"))
             implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)
         }

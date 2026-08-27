@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.store.kmp
+package io.github.magisk317.mipush.diagnostics
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

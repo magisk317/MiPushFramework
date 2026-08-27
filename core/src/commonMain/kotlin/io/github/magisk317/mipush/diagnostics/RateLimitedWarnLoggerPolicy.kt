@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.store.kmp
+package io.github.magisk317.mipush.diagnostics
 
 import co.touchlab.kermit.Logger
 

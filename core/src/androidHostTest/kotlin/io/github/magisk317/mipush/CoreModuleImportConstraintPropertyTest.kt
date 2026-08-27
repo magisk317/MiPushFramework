@@ -38,6 +38,8 @@ class CoreModuleImportConstraintPropertyTest {
             "com.xiaomi.channel",
             // Xposed API
             "de.robv.android.xposed",
+            // Runtime storage is a downstream adapter and must not leak into core.
+            "io.github.magisk317.mipush.runtime.store.",
             // Room database (should not be in core)
             "androidx.room",
         )
@@ -59,7 +61,6 @@ class CoreModuleImportConstraintPropertyTest {
             "io.github.magisk317.mipush.notification",
             // Libraries declared in core/build.gradle.kts
             "co.touchlab.kermit",
-            "io.github.magisk317.mipush.runtime.store.kmp",
         )
 
         private val IMPORT_REGEX = Regex("""^\s*import\s+(.+)\s*$""")

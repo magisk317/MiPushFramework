@@ -1,9 +1,7 @@
 package io.github.magisk317.mipush.runtime.core
 
-import io.github.magisk317.mipush.runtime.store.kmp.RegistrationThrottlePolicy
-
 /**
- * Android-side adapter delegating to the platform-neutral [RegistrationThrottlePolicy].
+ * Compatibility facade delegating to the platform-neutral [RegistrationThrottlePolicy].
  * Kept for source compatibility with existing callers.
  */
 object RegistrationThrottle {

@@ -1,9 +1,7 @@
 package io.github.magisk317.mipush.diagnostics
 
-import io.github.magisk317.mipush.runtime.store.kmp.RateLimitedWarnLoggerPolicy
-
 /**
- * Android-side adapter delegating to the platform-neutral [RateLimitedWarnLoggerPolicy].
+ * Compatibility facade delegating to the platform-neutral [RateLimitedWarnLoggerPolicy].
  * Kept for source compatibility with existing callers.
  */
 object RateLimitedWarnLogger {
