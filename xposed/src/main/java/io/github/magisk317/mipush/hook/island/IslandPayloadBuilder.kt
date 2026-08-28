@@ -12,12 +12,12 @@ import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoLeft
 import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoRight
 import io.github.d4viddf.hyperisland_kit.models.PicInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
-import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
 import io.github.magisk317.mipush.common.island.IslandOptions
 import io.github.magisk317.mipush.common.island.IslandRendererPolicy
 import io.github.magisk317.mipush.common.island.IslandVisualContract
-import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
+import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

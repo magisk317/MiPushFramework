@@ -8,7 +8,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Process
 import android.os.UserHandle
-import io.github.magisk317.mipush.common.NotificationClassifier
+import io.github.magisk317.mipush.notification.policy.NotificationClassifier
 import io.github.magisk317.mipush.hook.XLog
 import java.util.concurrent.TimeUnit
 import io.github.magisk317.xposed.logging.MagiskOtel

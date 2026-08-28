@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
-import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
+import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
 
 object ModuleCompatRegistry {
     private val autoAggressivePipelines = listOf(

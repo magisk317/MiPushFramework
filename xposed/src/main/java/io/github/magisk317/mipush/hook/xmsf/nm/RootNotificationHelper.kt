@@ -6,8 +6,8 @@ import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.net.Uri
 import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
-import io.github.magisk317.mipush.common.notification.NotificationAppSettingsBlockSelector
-import io.github.magisk317.mipush.common.notification.NotificationDumpCommandContract
+import io.github.magisk317.mipush.notification.policy.NotificationAppSettingsBlockSelector
+import io.github.magisk317.mipush.notification.policy.NotificationDumpCommandContract
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.util.BoundedRootRunner
 

@@ -6,7 +6,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.utils.Utils
 
 data class IslandRequest(

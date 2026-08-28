@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.hook.island.template
 
 import android.app.Notification
 import android.content.Context
-import io.github.magisk317.mipush.common.NotificationClassifier
+import io.github.magisk317.mipush.notification.policy.NotificationClassifier
 import io.github.magisk317.mipush.hook.island.IslandPayloadBuilder
 import io.github.magisk317.mipush.hook.island.IslandOptions
 

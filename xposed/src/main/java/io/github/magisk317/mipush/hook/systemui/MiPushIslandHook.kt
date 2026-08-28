@@ -13,7 +13,7 @@ import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
-import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
+import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
