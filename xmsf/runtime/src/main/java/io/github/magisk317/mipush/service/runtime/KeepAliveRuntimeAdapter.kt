@@ -14,15 +14,8 @@ import co.touchlab.kermit.Logger
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmsf.services.IMainProcBridge
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.core.KeepAliveTimingPolicy
 import io.github.magisk317.xposed.logging.MagiskOtel
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Stock-compatible keep-alive binding runtime with a polling process source.
@@ -42,8 +35,6 @@ object KeepAliveRuntimeAdapter {
     private const val STRATEGY_PREFIX = "strategy:"
     private const val RECONCILE_INTERVAL_MS = 60_000L
     internal const val BIND_RETRY_INTERVAL_MS = 5_000L
-    internal const val STOCK_DEFAULT_CALM_DOWN_MS = 5_000L
-    internal const val STOCK_MIN_CALM_DOWN_MS = 2_000L
     internal const val MAX_BIND_RETRY_COUNT = 3
     // Stock 7.4.67-C za.f: OnetrackSwitch=140 and KASwitch=142. These now come
     // from the updated pinned wire enum instead of duplicating raw IDs here.
@@ -292,7 +283,7 @@ object KeepAliveRuntimeAdapter {
         handler.removeCallbacks(reconcileRunnable)
         val shouldSchedule = synchronized(lock) {
             pollScheduled = false
-            shouldReconcile(
+            KeepAliveTimingPolicy.shouldReconcile(
                 onlineConfigKnown = onlineConfigKnown,
                 active = active,
                 enabled = enabled,
@@ -550,12 +541,13 @@ object KeepAliveRuntimeAdapter {
         synchronized(lock) {
             pendingBinds[targetPackage] = PendingAction(triggerProcess, runnable)
         }
-        handler.postDelayed(runnable, effectiveCalmDownMs(strategy.calmDownPeriodMs))
+        handler.postDelayed(runnable, KeepAliveTimingPolicy.effectiveCalmDownMs(strategy.calmDownPeriodMs))
     }
 
     private fun scheduleUnbind(context: Context, strategy: Strategy, triggerProcess: String) {
         val targetPackage = strategy.targetPackage
-        cancelTargetCallbacks(targetPackage)
+        // A non-owner leaving the foreground must not cancel another trigger's queued bind/retry.
+        cancelTargetCallbacks(targetPackage, ownerProcess = triggerProcess)
         val binding = synchronized(lock) { bindings[targetPackage] } ?: return
         if (binding.ownerProcess != triggerProcess) return
         if (!binding.connected) {
@@ -574,7 +566,7 @@ object KeepAliveRuntimeAdapter {
         synchronized(lock) {
             pendingUnbinds[targetPackage] = PendingAction(triggerProcess, runnable)
         }
-        handler.postDelayed(runnable, effectiveCalmDownMs(strategy.calmDownPeriodMs))
+        handler.postDelayed(runnable, KeepAliveTimingPolicy.effectiveCalmDownMs(strategy.calmDownPeriodMs))
     }
 
     private fun attemptBind(
@@ -721,16 +713,22 @@ object KeepAliveRuntimeAdapter {
         handler.postDelayed(runnable, BIND_RETRY_INTERVAL_MS)
     }
 
-    private fun cancelTargetCallbacks(targetPackage: String) {
+    private fun cancelTargetCallbacks(targetPackage: String, ownerProcess: String? = null) {
         val callbacks = synchronized(lock) {
-            listOfNotNull(
-                pendingBinds.remove(targetPackage)?.runnable,
-                pendingUnbinds.remove(targetPackage)?.runnable,
-                pendingRetries.remove(targetPackage)?.runnable,
-            )
+            listOf(pendingBinds, pendingUnbinds, pendingRetries).mapNotNull { pending ->
+                pending[targetPackage]
+                    ?.takeIf { shouldCancelPendingAction(it.ownerProcess, ownerProcess) }
+                    ?.also { pending.remove(targetPackage) }
+                    ?.runnable
+            }
         }
         callbacks.forEach(handler::removeCallbacks)
     }
+
+    internal fun shouldCancelPendingAction(
+        actionOwnerProcess: String,
+        requestedOwnerProcess: String?,
+    ): Boolean = requestedOwnerProcess == null || actionOwnerProcess == requestedOwnerProcess
 
     private fun cancelPendingRetry(targetPackage: String) {
         val runnable = synchronized(lock) { pendingRetries.remove(targetPackage)?.runnable }
@@ -792,55 +790,28 @@ object KeepAliveRuntimeAdapter {
         val observerRegistered: Boolean,
     )
 
-    internal fun parseStrategy(configJson: String?): Strategy? {
-        if (configJson.isNullOrBlank()) return null
-        return runCatching {
-            val root = Json.parseToJsonElement(configJson).jsonObject
-            val targetPackage = root["package"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-            val targetClass = root["class"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-            val targetAction = root["action"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-            if (!PACKAGE_PATTERN.matches(targetPackage) || (targetClass.isBlank() && targetAction.isBlank())) {
-                return null
-            }
-            val triggers = buildSet {
-                val array = root["app_list"]?.jsonArray
-                if (array != null) {
-                    for (element in array) {
-                        element.jsonPrimitive.contentOrNull?.trim()?.takeIf(String::isNotBlank)?.let(::add)
-                    }
-                }
-            }
-            val blockedDevices = buildSet {
-                val array = root["dev_black_list"]?.jsonArray
-                if (array != null) {
-                    for (element in array) {
-                        element.jsonPrimitive.contentOrNull?.trim()?.takeIf(String::isNotBlank)?.let { add(it.lowercase()) }
-                    }
-                }
-            }
-            Strategy(
-                targetPackage = targetPackage,
-                targetClass = targetClass,
-                targetProcess = root["process"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty(),
-                targetAction = targetAction,
-                triggerProcesses = triggers,
-                bindEvenAlive = root["bind_even_alive"]?.jsonPrimitive?.booleanOrNull ?: false,
-                memoryStandardMb = root["men_std"]?.jsonPrimitive?.intOrNull ?: 0,
-                memoryUsageRate = root["mem_usage_rate"]?.jsonPrimitive?.intOrNull ?: 0,
-                batteryLowRate = root["battery_low_rate"]?.jsonPrimitive?.intOrNull ?: 0,
-                maxTemperatureCelsius = (root["max_temperature"]?.jsonPrimitive?.doubleOrNull ?: 0.0).toFloat(),
-                deviceBlackList = blockedDevices,
-                // Stock 7.4.67-C uses need_stat only for keep-alive statistics. Preserve the
-                // wire value for contract parity without re-enabling OneTrack uploads.
-                needStat = root["need_stat"]?.jsonPrimitive?.booleanOrNull ?: true,
-                ignoreMiuiLite = root["ignore_miui_lite"]?.jsonPrimitive?.booleanOrNull ?: false,
-                calmDownPeriodMs = root["calm_down_period"]?.jsonPrimitive?.intOrNull ?: 0,
-                supportedOnDevice = Build.DEVICE.lowercase() !in blockedDevices,
-            )
-        }.onFailure {
+    internal fun parseStrategy(configJson: String?): Strategy? =
+        KeepAliveStrategyParsingSupport.parse(configJson, Build.DEVICE) {
             Logger.withTag(TAG).w { "Rejected malformed keep-alive strategy" }
-        }.getOrNull()
-    }
+        }?.let { parsed ->
+            Strategy(
+                targetPackage = parsed.targetPackage,
+                targetClass = parsed.targetClass,
+                targetProcess = parsed.targetProcess,
+                targetAction = parsed.targetAction,
+                triggerProcesses = parsed.triggerProcesses,
+                bindEvenAlive = parsed.bindEvenAlive,
+                memoryStandardMb = parsed.memoryStandardMb,
+                memoryUsageRate = parsed.memoryUsageRate,
+                batteryLowRate = parsed.batteryLowRate,
+                maxTemperatureCelsius = parsed.maxTemperatureCelsius,
+                deviceBlackList = parsed.deviceBlackList,
+                needStat = parsed.needStat,
+                ignoreMiuiLite = parsed.ignoreMiuiLite,
+                calmDownPeriodMs = parsed.calmDownPeriodMs,
+                supportedOnDevice = parsed.supportedOnDevice,
+            )
+        }
 
     internal fun bindingTrigger(
         strategy: Strategy,
@@ -855,13 +826,6 @@ object KeepAliveRuntimeAdapter {
         return trigger.takeIf { strategy.bindEvenAlive || targetProcess !in snapshot.allProcessNames }
     }
 
-    internal fun shouldReconcile(
-        onlineConfigKnown: Boolean,
-        active: Boolean,
-        enabled: Boolean,
-        strategyCount: Int,
-    ): Boolean = onlineConfigKnown && active && enabled && strategyCount > 0
-
     internal fun buildBindIntent(strategy: Strategy, triggerProcess: String): Intent {
         // Stock 7.4.67-C bc.b selects the explicit action whenever it is non-empty, even when the
         // strategy also carries a class. This matters for targets whose action is resolved to a
@@ -873,17 +837,6 @@ object KeepAliveRuntimeAdapter {
         }.setPackage(strategy.targetPackage)
             .putExtra("trigger_pkg", triggerProcess)
             .putExtra("WakeUpSource", STOCK_WAKE_UP_SOURCE)
-    }
-
-    internal fun effectiveCalmDownMs(configuredMs: Int): Long {
-        // Stock 7.4.67-C bc.b uses 0x1388 (5000 ms) when calm_down_period is below
-        // 2000 ms. JADX renders the constant as Level.TRACE_INT, so keep the DEX-confirmed
-        // numeric behavior explicit here.
-        return if (configuredMs < STOCK_MIN_CALM_DOWN_MS) {
-            STOCK_DEFAULT_CALM_DOWN_MS
-        } else {
-            configuredMs.toLong()
-        }
     }
 
     private fun Strategy.withDeviceSupport(context: Context): Strategy {
@@ -917,5 +870,4 @@ object KeepAliveRuntimeAdapter {
     )
 
     private const val STOCK_WAKE_UP_SOURCE = "com.xiaomi.xmsf"
-    private val PACKAGE_PATTERN = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
 }

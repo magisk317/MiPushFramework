@@ -5,7 +5,7 @@ import android.app.NotificationChannel
 import android.content.Context
 import android.os.Build
 import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
-import io.github.magisk317.mipush.common.notification.NotificationDumpCommandContract
+import io.github.magisk317.mipush.notification.policy.NotificationDumpCommandContract
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW

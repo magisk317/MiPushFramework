@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Build
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement

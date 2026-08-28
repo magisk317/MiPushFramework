@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.notification
 
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.magisk317.mipush.common.NotificationClassifier as CommonClassifier
-import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.notification.policy.NotificationClassifier as CommonClassifier
+import io.github.magisk317.mipush.notification.policy.NotificationStyle
 
 /**
  * xmsf 模块的通知分类器 - 适配 PushMetaInfo，委托给 common 模块的统一分类器

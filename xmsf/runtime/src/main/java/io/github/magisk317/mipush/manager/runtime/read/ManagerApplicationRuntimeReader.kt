@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 
 /** Read-only application list/detail projection used by the runtime Binder endpoint. */
 class ManagerApplicationRuntimeReader(

@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull

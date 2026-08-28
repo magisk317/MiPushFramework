@@ -40,6 +40,9 @@ class PushRuntimeObservationAdapterTest {
         assertEquals(22, snapshot.lastDisconnectReason)
         assertEquals(40L, snapshot.lastReconnectStartedAtMs)
         assertEquals(60L, snapshot.lastReconnectConnectedAtMs)
+        assertEquals(10L, snapshot.lastDisconnectToReconnectLatencyMs)
+        assertEquals(20L, snapshot.lastReconnectLatencyMs)
+        assertEquals(20L, snapshot.lastReconnectToConnectedLatencyMs)
         assertEquals("push.example.test", snapshot.serverHost)
     }
 }

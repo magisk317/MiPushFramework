@@ -177,6 +177,119 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `duplicate connected notifications do not create or restart a session`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "connected-first",
+            nowMs = 100L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "connected-duplicate",
+            nowMs = 200L,
+        )
+
+        val snapshot = AndroidPushRuntime.connectionSnapshot()
+        assertEquals(1L, snapshot.connectionSessionCount)
+        assertEquals(100L, snapshot.connectedAtMs)
+    }
+
+    @Test
+    fun `short disconnect and reconnect stays in the same session`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "connected",
+            nowMs = 100L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Disconnected,
+            source = "disconnected",
+            nowMs = 200L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connecting,
+            source = "connecting",
+            nowMs = 250L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "reconnected",
+            nowMs = 300L,
+        )
+
+        val snapshot = AndroidPushRuntime.connectionSnapshot()
+        assertEquals(1L, snapshot.connectionSessionCount)
+        assertEquals(100L, snapshot.connectedAtMs)
+        assertEquals(200L, snapshot.lastDisconnectedAtMs)
+    }
+
+    @Test
+    fun `reconnect at the session merge boundary starts a new session`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "connected",
+            nowMs = 100L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Disconnected,
+            source = "disconnected",
+            nowMs = 200L,
+        )
+        val reconnectAtBoundary =
+            200L + io.github.magisk317.mipush.runtime.core.PushReconnectPolicy
+                .CONNECTION_SESSION_MERGE_WINDOW_MS
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "reconnected-at-boundary",
+            nowMs = reconnectAtBoundary,
+        )
+
+        val snapshot = AndroidPushRuntime.connectionSnapshot()
+        assertEquals(2L, snapshot.connectionSessionCount)
+        assertEquals(reconnectAtBoundary, snapshot.connectedAtMs)
+    }
+
+    @Test
+    fun `duplicate disconnected notifications do not extend the merge window`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "connected",
+            nowMs = 100L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Disconnected,
+            source = "disconnected-first",
+            nowMs = 200L,
+        )
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Disconnected,
+            source = "disconnected-duplicate",
+            nowMs = 300L,
+        )
+        val reconnectAtBoundary =
+            200L + io.github.magisk317.mipush.runtime.core.PushReconnectPolicy
+                .CONNECTION_SESSION_MERGE_WINDOW_MS
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "reconnected-after-long-outage",
+            nowMs = reconnectAtBoundary,
+        )
+
+        val snapshot = AndroidPushRuntime.connectionSnapshot()
+        assertEquals(2L, snapshot.connectionSessionCount)
+        assertEquals(reconnectAtBoundary, snapshot.connectedAtMs)
+        assertEquals(200L, snapshot.lastDisconnectedAtMs)
+    }
+
+    @Test
     fun `registration state transitions are tracked in snapshot`() {
         AndroidPushRuntime.clearStateForTests()
 
@@ -242,6 +355,24 @@ class PushRuntimeTest {
         } finally {
             AndroidPushRuntime.detachBridgeHost(host)
         }
+    }
+
+    @Test
+    fun `stale execution host detach cannot clear a newer host`() {
+        AndroidPushRuntime.clearStateForTests()
+        val first = TestExecutionHost()
+        val replacement = TestExecutionHost()
+
+        AndroidPushRuntime.attachExecutionHost(first)
+        AndroidPushRuntime.attachExecutionHost(replacement)
+        AndroidPushRuntime.detachExecutionHost(first)
+
+        assertTrue(AndroidPushRuntime.snapshot().executionReady)
+        assertTrue(AndroidPushRuntime.requestConnection("test", "replacement_still_attached"))
+        assertEquals(listOf("test:replacement_still_attached"), replacement.connectionEnsureReasons)
+
+        AndroidPushRuntime.detachExecutionHost(replacement)
+        assertFalse(AndroidPushRuntime.snapshot().executionReady)
     }
 
     @Test

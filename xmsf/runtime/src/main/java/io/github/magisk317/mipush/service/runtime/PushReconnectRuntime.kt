@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.service.runtime
 
-import io.github.magisk317.mipush.runtime.store.kmp.PushReconnectPolicy
-import io.github.magisk317.mipush.runtime.store.kmp.PushReconnectState
+import io.github.magisk317.mipush.runtime.core.PushReconnectPolicy
+import io.github.magisk317.mipush.runtime.core.PushReconnectState
 
 /**
  * Android-side adapter delegating to the platform-neutral [PushReconnectPolicy].

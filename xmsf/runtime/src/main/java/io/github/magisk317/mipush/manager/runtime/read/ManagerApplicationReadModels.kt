@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 
 /** A persisted row copied into a read-only value object. */

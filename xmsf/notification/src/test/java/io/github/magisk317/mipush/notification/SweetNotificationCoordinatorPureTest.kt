@@ -187,4 +187,20 @@ class SweetNotificationCoordinatorPureTest {
             ),
         )
     }
+
+    @Test
+    fun `foreground detection searches every running process for the target package`() {
+        assertTrue(
+            SweetNotificationCoordinator.hasForegroundTargetProcess(
+                processNames = listOf("com.android.systemui", "com.example.target", null),
+                packageName = "com.example.target",
+            ),
+        )
+        assertFalse(
+            SweetNotificationCoordinator.hasForegroundTargetProcess(
+                processNames = listOf("com.android.systemui", "com.example.other"),
+                packageName = "com.example.target",
+            ),
+        )
+    }
 }

@@ -354,15 +354,15 @@ object SweetNotificationCoordinator {
         val userPrefix = if (userId == 0) "" else "$userId|"
         val statePrefix = "$userPrefix$packageName-"
         synchronized(stateLock) {
-            listOf(PREF_CLICKED_STATUS, PREF_SEQUENCE, PREF_MILEPOST_STATUS).forEach { name ->
-                val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
-                val keys = preferences.all.keys.filter { it.startsWith(statePrefix) }
-                if (keys.isNotEmpty()) {
-                    preferences.edit().apply {
-                        keys.forEach(::remove)
-                    }.apply()
+            val keys = buildSet {
+                listOf(PREF_CLICKED_STATUS, PREF_SEQUENCE, PREF_MILEPOST_STATUS).forEach { name ->
+                    addAll(context.getSharedPreferences(name, Context.MODE_PRIVATE).all.keys)
                 }
-            }
+                addAll(memoryMileposts.keys)
+                addAll(memoryClicked.keys)
+                addAll(memorySequence.keys)
+            }.filterTo(mutableSetOf()) { it.startsWith(statePrefix) }
+            keys.forEach { key -> clearStateLocked(context, key) }
         }
     }
 
@@ -697,18 +697,7 @@ object SweetNotificationCoordinator {
         }
 
         if (expired.isNotEmpty()) {
-            val spMilepost = context.getSharedPreferences(PREF_MILEPOST_STATUS, Context.MODE_PRIVATE)
-            val spClicked = context.getSharedPreferences(PREF_CLICKED_STATUS, Context.MODE_PRIVATE)
-            val milepostEditor = spMilepost.edit()
-            val clickedEditor = spClicked.edit()
-            expired.forEach { key ->
-                memoryMileposts.remove(key)
-                memoryClicked.remove(key)
-                milepostEditor.remove(key)
-                clickedEditor.remove(key)
-            }
-            milepostEditor.apply()
-            clickedEditor.apply()
+            expired.forEach { key -> clearStateLocked(context, key) }
         }
         return retained
     }
@@ -805,12 +794,18 @@ object SweetNotificationCoordinator {
         return MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context)
     }
 
+    internal fun hasForegroundTargetProcess(processNames: Iterable<String?>, packageName: String): Boolean {
+        return processNames.any { it == packageName }
+    }
+
     private fun isTargetForeground(context: Context, packageName: String): Boolean {
         return runCatching {
-            context.getSystemService(ActivityManager::class.java)
+            val processNames = context.getSystemService(ActivityManager::class.java)
                 ?.runningAppProcesses
-                ?.firstOrNull()
-                ?.processName == packageName
+                .orEmpty()
+                .asSequence()
+                .map { it.processName }
+            hasForegroundTargetProcess(processNames.asIterable(), packageName)
         }.getOrDefault(false)
     }
 
