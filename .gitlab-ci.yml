@@ -12,6 +12,10 @@ include:
     ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
     file: /.gitlab/ci/renovate.yml
 
+  - project: magisk3171/shared/magisk-ci-toolkit
+    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    file: /.gitlab/ci/cancel-mr-pipelines.yml
+
 workflow:
   auto_cancel:
     on_new_commit: interruptible
@@ -40,6 +44,7 @@ stages:
 
 variables:
   MAGISK_CI_TOOLKIT_REF: "e4c4a9105025ee4d3ba6d97733850134dc5dac37"
+  MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -97,6 +102,9 @@ variables:
       allow_failure: true
     - if: '$CI_COMMIT_BRANCH'
     - when: never
+
+cancel:older:mr:pipelines:
+  extends: .magisk_cancel_older_mr_pipelines
 
 android:build:
   extends:
@@ -730,7 +738,7 @@ telegram:release:
 
 renovate:gitlab:
   extends: .magisk_renovate_gitlab
-  interruptible: false
+  interruptible: true
   stage: maintenance
   tags:
     - magisk-arm64-linux

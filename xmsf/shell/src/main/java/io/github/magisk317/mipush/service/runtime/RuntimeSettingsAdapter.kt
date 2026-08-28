@@ -65,15 +65,6 @@ class RuntimeSettingsAdapter constructor(
     fun getConnectionSnapshot(): ManagerConnectionSnapshot {
         PushRuntimeChannelTracker.syncIfChanged("RuntimeSettingsAdapter.getConnectionSnapshot")
         val snapshot = PushRuntime.connectionSnapshot()
-        val sanitizedLastDisconnected = if (
-            snapshot.connectionState == "Connected" &&
-            snapshot.lastDisconnectedAtMs > snapshot.connectedAtMs &&
-            snapshot.connectedAtMs > 0L
-        ) {
-            0L
-        } else {
-            snapshot.lastDisconnectedAtMs
-        }
         val resolvedIp = snapshot.resolvedIp ?: runCatching {
             val service = io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.currentService()
             val connection = service?.currentConnection
@@ -86,7 +77,7 @@ class RuntimeSettingsAdapter constructor(
         return ManagerConnectionSnapshot(
             connectionState = snapshot.connectionState,
             connectedAtMs = snapshot.connectedAtMs,
-            lastDisconnectedAtMs = sanitizedLastDisconnected,
+            lastDisconnectedAtMs = snapshot.lastDisconnectedAtMs,
             connectionSessionCount = snapshot.connectionSessionCount,
             serverHost = snapshot.serverHost ?: ConnectionConfiguration.getXmppServerHost(),
             serverIp = resolvedIp,
