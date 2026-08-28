@@ -2,14 +2,14 @@ package io.github.magisk317.mipush.manager.di
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
-import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.configuration.ConfigCatalogService

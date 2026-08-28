@@ -77,87 +77,106 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-/**
- * Binder-backed gateways used when the manager UI runs in the standalone `:mipush` process.
- * Supported reads/writes go through [ManagerRuntimeClient]; unsupported capabilities stay local
- * no-ops so individual screens degrade without blocking the rest of the host.
- */
-internal fun emitManager(
-    stage: String,
-    result: String,
-    reason: String,
-    statusOk: Boolean = true,
-    targetPackage: String? = null,
-) {
-    val attrs = mutableMapOf(
-        "result" to result,
-        "duration_ms" to "0",
-        "process" to "manager",
-        "stage" to stage,
-        "reason" to reason,
-    )
-    if (!targetPackage.isNullOrBlank()) {
-        attrs["target_package"] = targetPackage
-    }
-    MagiskOtel.event(
-        name = "app.monitor",
-        attributes = attrs,
-        statusOk = statusOk,
-    )
-}
+class RemoteManagerApplicationGateway(
+    private val client: ManagerRuntimeClient,
+) : ManagerApplicationGateway {
+    private val listSource = RemoteApplicationListSource(client)
+    private val detailSource = RemoteApplicationDetailSource(client)
 
-
-internal object RemoteRuntimeLog {
-    // Startup/bind races are expected after force-stop or dual-APK process churn.
-    fun unavailable(operation: String, status: Enum<*>) {
-        when (status.name) {
-            "BINDING",
-            "DISCONNECTED",
-            "TEMPORARILY_DISCONNECTED",
-            -> logD("$operation unavailable status=$status")
-            else -> logW("$operation unavailable status=$status")
+    override suspend fun loadApplications(
+        context: Context,
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean,
+    ): ManagerApplications {
+        return when (
+            val result = listSource.load(
+                ApplicationListRequest(
+                    query = query,
+                    filterMode = filterMode,
+                    includeSystemApps = includeSystemApps,
+                ),
+            )
+        ) {
+            is ApplicationReadResult.Available -> result.value.applications
+            is ApplicationReadResult.Unavailable -> {
+                RemoteRuntimeLog.unavailable("loadApplications", result.status)
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "loadApplications",
+                )
+            }
         }
     }
-}
 
-internal class ParcelFileDescriptorAutoClose(
-    private val descriptor: android.os.ParcelFileDescriptor,
-) : java.io.Closeable {
-    private val input = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)
-
-    fun copyTo(output: FileOutputStream) {
-        input.copyTo(output)
+    override suspend fun getApplication(
+        context: Context,
+        packageName: String,
+        ignoreNotRegistered: Boolean,
+    ): ManagerApplication? {
+        return when (val result = detailSource.load(packageName, ignoreNotRegistered)) {
+            is ApplicationReadResult.Available -> result.value
+            is ApplicationReadResult.Unavailable -> {
+                RemoteRuntimeLog.unavailable("getApplication", result.status)
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getApplication",
+                )
+            }
+        }
     }
 
-    fun inputStream(): InputStream = input
-
-    override fun close() {
-        input.close()
-    }
-}
-
-internal class CountingOutputStream(
-    private val delegate: OutputStream,
-) : OutputStream() {
-    var bytesWritten: Long = 0L
-        private set
-
-    override fun write(byteValue: Int) {
-        delegate.write(byteValue)
-        bytesWritten += 1L
-    }
-
-    override fun write(buffer: ByteArray) {
-        delegate.write(buffer)
-        bytesWritten += buffer.size.toLong()
+    override suspend fun updateApplication(application: ManagerApplication) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
+                packageName = application.packageName,
+                argument = listOf(
+                    application.type,
+                    application.blocked,
+                    application.islandEnabled,
+                    application.islandFocusNotification,
+                    application.notificationOnRegister,
+                ).joinToString(","),
+            ),
+            operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
+        )
     }
 
-    override fun write(buffer: ByteArray, offset: Int, length: Int) {
-        delegate.write(buffer, offset, length)
-        bytesWritten += length.toLong()
+    override suspend fun getDiagnostics(
+        packageName: String,
+        registeredType: Int,
+    ): ManagerApplicationDiagnostics {
+        return when (val result = detailSource.loadDiagnostics(packageName, registeredType)) {
+            is ApplicationReadResult.Available -> result.value
+            is ApplicationReadResult.Unavailable -> {
+                RemoteRuntimeLog.unavailable("getDiagnostics", result.status)
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getDiagnostics",
+                )
+            }
+        }
     }
 
-    override fun flush() = delegate.flush()
-
-    override fun close() = delegate.close()
+    override suspend fun launchTargetAppAndForceRegister(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER,
+            packageName = packageName,
+            intArgument = registeredType,
+        )
+        if (result == null) {
+            throw IllegalStateException("${ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER}:null_response")
+        }
+        return ManagerForceRegisterResult(
+            succeeded = RemoteWriteSupport.isSuccess(result),
+            message = result.details.ifBlank { "force_register_completed" },
+        )
+    }
 }

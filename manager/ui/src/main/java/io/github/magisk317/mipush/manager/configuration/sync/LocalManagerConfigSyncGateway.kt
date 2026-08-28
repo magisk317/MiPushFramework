@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigEditorSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConfigListSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.configuration.ConfigEditorSnapshot
 import io.github.magisk317.mipush.configuration.ConfigSyncRepository
 import io.github.magisk317.mipush.configuration.LocalConfigRepository
@@ -17,7 +17,7 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
-import io.github.magisk317.mipush.utils.LocalConfigSummary
+import io.github.magisk317.mipush.core.configuration.LocalConfigSummary
 import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -144,15 +144,15 @@ class LocalManagerConfigSyncGateway(
             )
             when (val result = client.uploadConfiguration(request)) {
                 is ManagerRuntimeResult.Success -> result.value.success
-                else -> {
-                    runCatching { readSide.close() }
-                    false
-                }
+                else -> false
             }
         } catch (_: Exception) {
+            false
+        } finally {
+            // Binder duplicates the descriptor for the runtime process; this original manager-side
+            // read end remains caller-owned and must be closed after every synchronous call result.
             runCatching { readSide.close() }
             runCatching { writeSide.close() }
-            false
         }
     }
 

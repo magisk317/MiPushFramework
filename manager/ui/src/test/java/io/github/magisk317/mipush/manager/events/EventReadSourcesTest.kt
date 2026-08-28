@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.manager.events
 
-import io.github.magisk317.mipush.common.manager.ManagerDayCount
-import io.github.magisk317.mipush.common.manager.ManagerEvent
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.ManagerDayCount
+import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
 import io.github.magisk317.mipush.manager.api.ManagerEventSummaryDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult

@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.manager.logs
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
-import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerLogExportResult
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
@@ -43,9 +43,9 @@ class GatewayLogExportSource(
     suspend fun snapshot(context: Context): LogExportSnapshot {
         val result = export(context)
         return LogExportSnapshot(
-            success = result.file != null,
+            success = result.archivePath != null,
             details = result.details,
-            hasDescriptor = result.file != null,
+            hasDescriptor = result.archivePath != null,
         )
     }
 }

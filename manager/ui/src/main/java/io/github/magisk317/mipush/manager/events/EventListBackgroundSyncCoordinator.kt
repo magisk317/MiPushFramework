@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.events
 
-import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import io.github.magisk317.mipush.common.utils.logI

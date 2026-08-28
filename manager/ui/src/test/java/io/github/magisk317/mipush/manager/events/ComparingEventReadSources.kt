@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.events
 
-import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEvent
 
 sealed interface EventListComparison {
     data object Matched : EventListComparison

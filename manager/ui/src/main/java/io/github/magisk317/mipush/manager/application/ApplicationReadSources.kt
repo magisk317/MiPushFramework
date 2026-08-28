@@ -1,10 +1,10 @@
 package io.github.magisk317.mipush.manager.application
 
 import android.content.Context
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerApplications
+import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerApplications
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto

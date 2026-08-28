@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.manager.events
 
-import io.github.magisk317.mipush.common.manager.ManagerEvent
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
 import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto

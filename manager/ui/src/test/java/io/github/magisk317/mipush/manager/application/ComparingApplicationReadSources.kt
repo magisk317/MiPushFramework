@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.manager.application
 
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
+import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 
 class ComparingApplicationListSource internal constructor(
     private val primaryLoader: suspend (ApplicationListRequest) -> ApplicationListSnapshot,

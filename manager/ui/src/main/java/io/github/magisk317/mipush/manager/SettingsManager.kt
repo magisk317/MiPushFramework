@@ -1,24 +1,24 @@
 package io.github.magisk317.mipush.manager
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
-import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
-import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
-import io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult
-import io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult
+import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
+import io.github.magisk317.mipush.manager.application.ManagerLogClearResult
+import io.github.magisk317.mipush.manager.application.ManagerLogExportResult
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
+import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
+import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
+import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
 
 import java.io.File
+import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -29,8 +29,12 @@ import kotlinx.coroutines.withContext
 class SettingsManager constructor(
     private val runtimeActions: ManagerRuntimeActions,
     private val logGateway: ManagerLogGateway,
-    private val zygiskConfigGateway: io.github.magisk317.mipush.common.manager.ZygiskConfigGateway,
+    private val zygiskConfigGateway: io.github.magisk317.mipush.manager.application.ZygiskConfigGateway,
 ) {
+    private companion object {
+        const val DEFAULT_LOG_COPY_BUFFER_SIZE = 64 * 1024
+    }
+
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
 
     fun clearHistory(context: Context, scope: CoroutineScope) {
@@ -71,12 +75,31 @@ class SettingsManager constructor(
         runtimeActions.applyEventRetentionDays(days)
     }
 
-    suspend fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
+    private suspend fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
         return logGateway.buildLogBundle(context)
     }
 
-    fun buildRuntimeLogShareIntent(context: Context, file: File): Intent {
-        return logGateway.buildShareIntent(context, file)
+    suspend fun saveRuntimeLogBundle(
+        context: Context,
+        destination: OutputStream,
+    ): ManagerLogBundleWriteResult {
+        (logGateway as? ManagerLogBundleWriter)?.let { writer ->
+            return writer.writeLogBundle(context, destination)
+        }
+        val result = buildRuntimeLogBundle(context)
+        val archivePath = result.archivePath
+            ?: return ManagerLogBundleWriteResult(success = false, details = result.details)
+        return runCatching {
+            File(archivePath).inputStream().use { input ->
+                input.copyTo(destination, bufferSize = DEFAULT_LOG_COPY_BUFFER_SIZE)
+            }
+            ManagerLogBundleWriteResult(success = true, details = result.details)
+        }.getOrElse { error ->
+            ManagerLogBundleWriteResult(
+                success = false,
+                details = "log_export_save_failed:${error.message ?: error.javaClass.simpleName}",
+            )
+        }
     }
 
     suspend fun clearRuntimeLogFolders(context: Context): ManagerLogClearResult {
@@ -96,14 +119,6 @@ class SettingsManager constructor(
 
     suspend fun resetTopActivityCache() {
         runtimeActions.resetTopActivityCache()
-    }
-
-    fun shareLogs(context: Context) {
-        context.startActivity(
-            Intent().setComponent(
-                ComponentName(Constants.SERVICE_APP_NAME, Constants.SHARE_LOG_COMPONENT_NAME)
-            )
-        )
     }
 
     suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult = zygiskConfigGateway.isZygiskModuleEnabled()

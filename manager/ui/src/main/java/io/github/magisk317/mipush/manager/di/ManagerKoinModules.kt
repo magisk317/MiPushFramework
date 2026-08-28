@@ -7,14 +7,14 @@ import android.app.Application
 import android.content.Context
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_NAME
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
@@ -72,7 +72,7 @@ val managerKoinModule = module {
         SettingsManager(
             get<ManagerRuntimeActions>(),
             get<ManagerLogGateway>(),
-            get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>(),
+            get<io.github.magisk317.mipush.manager.application.ZygiskConfigGateway>(),
         )
     }
     single {

@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.manager.logging
 
+import android.annotation.SuppressLint
 import android.content.Context
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
@@ -33,6 +34,8 @@ object ManagerRuntimeFileLog {
     private val logTimestampFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val writeLock = Any()
+    // init() stores only applicationContext for this process-wide file logger.
+    @SuppressLint("StaticFieldLeak")
     private val appContext = AtomicReference<Context?>(null)
 
     @Volatile
@@ -194,10 +197,6 @@ object ManagerRuntimeFileLog {
     }
 
     private fun currentProcessName(): String = runCatching {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            android.app.Application.getProcessName()
-        } else {
-            ""
-        }
+        android.app.Application.getProcessName()
     }.getOrDefault("")
 }

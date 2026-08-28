@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.manager
 
-import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
+import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
+import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

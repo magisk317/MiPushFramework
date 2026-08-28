@@ -77,87 +77,60 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-/**
- * Binder-backed gateways used when the manager UI runs in the standalone `:mipush` process.
- * Supported reads/writes go through [ManagerRuntimeClient]; unsupported capabilities stay local
- * no-ops so individual screens degrade without blocking the rest of the host.
- */
-internal fun emitManager(
-    stage: String,
-    result: String,
-    reason: String,
-    statusOk: Boolean = true,
-    targetPackage: String? = null,
-) {
-    val attrs = mutableMapOf(
-        "result" to result,
-        "duration_ms" to "0",
-        "process" to "manager",
-        "stage" to stage,
-        "reason" to reason,
-    )
-    if (!targetPackage.isNullOrBlank()) {
-        attrs["target_package"] = targetPackage
+class RemoteZygiskConfigGateway(
+    private val client: ManagerRuntimeClient,
+) : ZygiskConfigGateway {
+    override suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED,
+        ) ?: return ZygiskModuleReadResult.Unavailable("runtime_unavailable")
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            return ZygiskModuleReadResult.Unavailable(result.details.ifBlank { "zygisk_status_unavailable" })
+        }
+        return ZygiskModuleReadResult.Available(result.resultLong == 1L)
     }
-    MagiskOtel.event(
-        name = "app.monitor",
-        attributes = attrs,
-        statusOk = statusOk,
-    )
-}
 
+    override fun getZygiskConfigPath(): String = "/data/adb/mipush_zygisk/app.conf"
 
-internal object RemoteRuntimeLog {
-    // Startup/bind races are expected after force-stop or dual-APK process churn.
-    fun unavailable(operation: String, status: Enum<*>) {
-        when (status.name) {
-            "BINDING",
-            "DISCONNECTED",
-            "TEMPORARILY_DISCONNECTED",
-            -> logD("$operation unavailable status=$status")
-            else -> logW("$operation unavailable status=$status")
+    override suspend fun getZygiskConfig(): ZygiskConfigReadResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG,
+        ) ?: return ZygiskConfigReadResult.Unavailable("runtime_unavailable")
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            return ZygiskConfigReadResult.Unavailable(result.details.ifBlank { "zygisk_config_unavailable" })
+        }
+        return ZygiskConfigReadResult.Available(ZygiskConfig.parse(result.details))
+    }
+
+    override suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean {
+        val content = config.toFileContent()
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG,
+            argument = content,
+        ) ?: return false
+        return RemoteWriteSupport.isSuccess(result)
+    }
+
+    override suspend fun forceStopApp(packageName: String): Boolean {
+        return RemoteWriteSupport.isSuccess(RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
+            packageName = packageName,
+        ))
+    }
+
+    override suspend fun scanZygiskPackages(): ZygiskPackageScanResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_SCAN,
+        ) ?: return ZygiskPackageScanResult.Unavailable("runtime_unavailable")
+        return if (RemoteWriteSupport.isSuccess(result)) {
+            ZygiskPackageScanResult.Available(result.details)
+        } else {
+            ZygiskPackageScanResult.Unavailable(result.details.ifBlank { "zygisk_scan_unavailable" })
         }
     }
-}
-
-internal class ParcelFileDescriptorAutoClose(
-    private val descriptor: android.os.ParcelFileDescriptor,
-) : java.io.Closeable {
-    private val input = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)
-
-    fun copyTo(output: FileOutputStream) {
-        input.copyTo(output)
-    }
-
-    fun inputStream(): InputStream = input
-
-    override fun close() {
-        input.close()
-    }
-}
-
-internal class CountingOutputStream(
-    private val delegate: OutputStream,
-) : OutputStream() {
-    var bytesWritten: Long = 0L
-        private set
-
-    override fun write(byteValue: Int) {
-        delegate.write(byteValue)
-        bytesWritten += 1L
-    }
-
-    override fun write(buffer: ByteArray) {
-        delegate.write(buffer)
-        bytesWritten += buffer.size.toLong()
-    }
-
-    override fun write(buffer: ByteArray, offset: Int, length: Int) {
-        delegate.write(buffer, offset, length)
-        bytesWritten += length.toLong()
-    }
-
-    override fun flush() = delegate.flush()
-
-    override fun close() = delegate.close()
 }

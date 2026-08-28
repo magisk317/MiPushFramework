@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.manager.launcher
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.ActivityOptions
@@ -14,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
+import androidx.core.content.edit
 import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 
@@ -169,41 +171,46 @@ object LauncherIconController {
         }, KILL_DELAY_MS)
     }
 
+    // Clear synchronously before returning the one-shot route so a crash cannot replay it.
+    @SuppressLint("ApplySharedPref")
     fun consumePendingResumeRoute(context: Context): String? {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val until = prefs.getLong(KEY_PENDING_RESUME_UNTIL, 0L)
         val route = prefs.getString(KEY_PENDING_RESUME_ROUTE, null)?.takeIf { it.isNotBlank() }
         if (route == null) return null
         if (until > 0L && System.currentTimeMillis() > until) {
-            prefs.edit()
-                .remove(KEY_PENDING_RESUME_ROUTE)
-                .remove(KEY_PENDING_RESUME_TAB)
-                .remove(KEY_PENDING_RESUME_UNTIL)
-                .commit()
+            prefs.edit(commit = true) {
+                remove(KEY_PENDING_RESUME_ROUTE)
+                remove(KEY_PENDING_RESUME_TAB)
+                remove(KEY_PENDING_RESUME_UNTIL)
+            }
             return null
         }
-        prefs.edit()
-            .remove(KEY_PENDING_RESUME_ROUTE)
-            .remove(KEY_PENDING_RESUME_TAB)
-            .remove(KEY_PENDING_RESUME_UNTIL)
-            .commit()
+        prefs.edit(commit = true) {
+            remove(KEY_PENDING_RESUME_ROUTE)
+            remove(KEY_PENDING_RESUME_TAB)
+            remove(KEY_PENDING_RESUME_UNTIL)
+        }
         return route
     }
 
+    // The process is killed shortly after relaunch scheduling, so apply() could lose this state.
+    @SuppressLint("ApplySharedPref")
     private fun persistPendingResume(appContext: Context, resumeRoute: String) {
         val tab = if (isSettingsFamilyRoute(resumeRoute)) {
             MainActivity.START_TAB_SETTINGS
         } else {
             null
         }
-        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_PENDING_RESUME_ROUTE, resumeRoute)
-            .putString(KEY_PENDING_RESUME_TAB, tab)
-            .putLong(KEY_PENDING_RESUME_UNTIL, System.currentTimeMillis() + PENDING_RESUME_TTL_MS)
-            .commit()
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit(commit = true) {
+            putString(KEY_PENDING_RESUME_ROUTE, resumeRoute)
+            putString(KEY_PENDING_RESUME_TAB, tab)
+            putLong(KEY_PENDING_RESUME_UNTIL, System.currentTimeMillis() + PENDING_RESUME_TTL_MS)
+        }
     }
 
+    // A user-selected icon switch needs this one-shot 800ms relaunch fallback after process exit.
+    @SuppressLint("BatteryLife")
     private fun scheduleRelaunchAlarm(appContext: Context, launchIntent: Intent): Boolean {
         val alarmManager = appContext.getSystemService(AlarmManager::class.java) ?: return false
         val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or
@@ -228,28 +235,23 @@ object LauncherIconController {
         }
         val triggerAt = SystemClock.elapsedRealtime() + RELAUNCH_ALARM_DELAY_MS
         return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    runCatching { alarmManager.canScheduleExactAlarms() }.getOrDefault(false)
-                } else {
-                    true
-                }
-                if (canExact) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                        triggerAt,
-                        pendingIntent,
-                    )
-                } else {
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                        triggerAt,
-                        pendingIntent,
-                    )
-                }
+            val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                runCatching { alarmManager.canScheduleExactAlarms() }.getOrDefault(false)
             } else {
-                @Suppress("DEPRECATION")
-                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+                true
+            }
+            if (canExact) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAt,
+                    pendingIntent,
+                )
+            } else {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAt,
+                    pendingIntent,
+                )
             }
             true
         }.getOrDefault(false)

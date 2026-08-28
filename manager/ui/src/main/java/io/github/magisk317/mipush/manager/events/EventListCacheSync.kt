@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.manager.events
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
-import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEvent
 import kotlinx.serialization.json.Json
 
 /** Signed Binder handoff for the cache produced by the XMSF health cycle. */

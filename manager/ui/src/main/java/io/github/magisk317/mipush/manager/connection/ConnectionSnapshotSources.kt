@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.connection
 
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability

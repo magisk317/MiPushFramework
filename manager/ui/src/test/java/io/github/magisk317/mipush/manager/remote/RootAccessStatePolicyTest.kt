@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.remote
 
-import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -16,7 +16,7 @@ class ApplicationReadSourcesTest {
     @Test
     fun `list primary load does not invoke the remote source`() = runBlocking {
         val primary = ApplicationListSnapshot(
-            applications = io.github.magisk317.mipush.common.manager.ManagerApplications(
+            applications = io.github.magisk317.mipush.manager.application.ManagerApplications(
                 items = listOf(app("example.app")),
                 totalPkg = 1,
             ),
@@ -49,7 +49,7 @@ class ApplicationReadSourcesTest {
         val source = ComparingApplicationDetailSource(
             primaryLoader = { _, _ -> primary },
             primaryDiagnosticsLoader = { _, registeredType ->
-                io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics(
+                io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics(
                     registeredType = registeredType,
                     hasLocalRegistration = false,
                     regSecCount = 0,
@@ -128,7 +128,7 @@ class ApplicationReadSourcesTest {
         assertEquals(
             ApplicationReadResult.Available(
                 ApplicationListSnapshot(
-                    applications = io.github.magisk317.mipush.common.manager.ManagerApplications(
+                    applications = io.github.magisk317.mipush.manager.application.ManagerApplications(
                         items = listOf(
                             app("one"),
                             app("two", registered = true),
@@ -292,7 +292,7 @@ class ApplicationReadSourcesTest {
     )
 
     private fun app(packageName: String, registered: Boolean = false) =
-        io.github.magisk317.mipush.common.manager.ManagerApplication(
+        io.github.magisk317.mipush.manager.application.ManagerApplication(
             id = packageName.hashCode().toLong(),
             packageName = packageName,
             registeredType = if (registered) 1 else 0,

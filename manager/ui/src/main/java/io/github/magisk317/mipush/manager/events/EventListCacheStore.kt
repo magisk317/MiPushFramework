@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.events
 
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import android.annotation.SuppressLint
 import android.content.Context
 import io.github.magisk317.mipush.common.utils.Utils
 
@@ -117,6 +118,8 @@ class EventListCacheStore(
 }
 
 object EventListCacheStoreRegistry {
+    // get() always constructs this process-wide cache with applicationContext, never an Activity.
+    @SuppressLint("StaticFieldLeak")
     @Volatile
     private var instance: EventListCacheStore? = null
 

@@ -5,8 +5,8 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogEntryDt
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
-import io.github.magisk317.mipush.utils.RemoteConfigCatalog
-import io.github.magisk317.mipush.utils.RemoteConfigFile
+import io.github.magisk317.mipush.core.configuration.RemoteConfigCatalog
+import io.github.magisk317.mipush.core.configuration.RemoteConfigFile
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import kotlinx.coroutines.CancellationException

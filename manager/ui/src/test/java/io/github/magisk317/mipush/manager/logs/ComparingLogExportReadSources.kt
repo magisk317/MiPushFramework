@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.manager.logs
 
 import android.content.Context
-import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
+import io.github.magisk317.mipush.manager.application.ManagerLogExportResult
 
 sealed interface LogExportComparison {
     data object Matched : LogExportComparison
