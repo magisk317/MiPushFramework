@@ -683,6 +683,7 @@ android:ci:play-alpha:
   tags:
     - magisk-arm64-linux
   rules:
+    - when: never
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
   needs:
