@@ -19,7 +19,7 @@ import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
-import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
+import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.push.service.ComponentHelper

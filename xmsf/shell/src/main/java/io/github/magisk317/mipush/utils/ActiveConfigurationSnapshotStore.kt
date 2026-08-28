@@ -2,11 +2,9 @@ package io.github.magisk317.mipush.utils
 
 import android.content.Context
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
+import io.github.magisk317.mipush.platform.support.ActiveConfigurationSnapshotFiles
 import io.github.magisk317.xposed.logging.MagiskOtel
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 /**
  * Persistent manager-uploaded configuration snapshots under the runtime private files directory.
@@ -16,23 +14,16 @@ object ActiveConfigurationSnapshotStore {
     const val ACTIVE_CONFIG_DIR = "manager_runtime_active_config"
 
     fun directory(context: Context): File =
-        File(context.applicationContext.filesDir, ACTIVE_CONFIG_DIR)
+        ActiveConfigurationSnapshotFiles.directory(context, ACTIVE_CONFIG_DIR)
 
     fun persist(context: Context, fileName: String, content: ByteArray): Boolean {
         val startedAt = System.nanoTime()
-        val snapshotDir = directory(context).apply { mkdirs() }
-        val target = File(snapshotDir, fileName)
-        val ok = try {
-            val temp = File.createTempFile(".active_config_", ".tmp", snapshotDir)
-            try {
-                temp.outputStream().use { it.write(content) }
-                replaceFile(temp, target)
-            } finally {
-                if (temp.exists()) temp.delete()
-            }
-        } catch (_: Exception) {
-            false
-        }
+        val ok = ActiveConfigurationSnapshotFiles.persist(
+            context = context,
+            directoryName = ACTIVE_CONFIG_DIR,
+            fileName = fileName,
+            content = content,
+        )
         emitConfigSnapshot(
             stage = "persist",
             result = if (ok) "ok" else "error",
@@ -43,19 +34,6 @@ object ActiveConfigurationSnapshotStore {
             statusOk = ok,
         )
         return ok
-    }
-
-    /** Publish a complete snapshot without deleting the previous valid target first. */
-    private fun replaceFile(temp: File, target: File): Boolean {
-        return try {
-            Files.move(temp.toPath(), target.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
-            true
-        } catch (_: Exception) {
-            runCatching {
-                Files.move(temp.toPath(), target.toPath(), REPLACE_EXISTING)
-                true
-            }.getOrDefault(false)
-        }
     }
 
     fun applyTo(

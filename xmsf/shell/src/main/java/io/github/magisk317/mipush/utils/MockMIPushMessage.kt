@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import io.github.magisk317.mipush.SdkNotificationCompat
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry

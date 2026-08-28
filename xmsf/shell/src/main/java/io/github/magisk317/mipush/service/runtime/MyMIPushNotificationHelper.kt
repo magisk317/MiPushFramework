@@ -51,8 +51,8 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
-import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
+import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.CoroutineScope
@@ -66,11 +66,6 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 
 
 class MyMIPushNotificationHelper {
-    private class NotificationInfo(
-        val notificationId: Int,
-        val notificationBuilder: NotificationCompat.Builder
-    )
-
     companion object {
         private const val TAG = "MyNotificationHelper"
 
@@ -398,16 +393,13 @@ class MyMIPushNotificationHelper {
         }
 
         internal fun shouldPublishNotification(container: XmPushActionContainer): Boolean {
-            return when (container.action) {
-                ActionType.SendMessage -> true
-                ActionType.Notification -> {
-                    val metaInfo = container.metaInfo
-                    metaInfo != null &&
-                        metaInfo.passThrough == 0 &&
-                        (!metaInfo.title.isNullOrBlank() || !metaInfo.description.isNullOrBlank())
-                }
-                else -> false
-            }
+            val metaInfo = container.metaInfo
+            return MyMIPushNotificationPolicy.shouldPublishNotification(
+                action = container.action,
+                passThrough = metaInfo?.passThrough,
+                title = metaInfo?.title,
+                description = metaInfo?.description,
+            )
         }
 
         internal fun shouldDispatchMessageArrived(
@@ -424,11 +416,11 @@ class MyMIPushNotificationHelper {
             extra: Map<String, String>?,
             isMiui: Boolean,
             isTargetForeground: Boolean,
-        ): Boolean {
-            return isMiui &&
-                !MIPushNotificationHelper.isNotifyForeground(extra) &&
-                isTargetForeground
-        }
+        ): Boolean = MyMIPushNotificationPolicy.shouldSuppressForegroundNotification(
+            isNotifyForeground = MIPushNotificationHelper.isNotifyForeground(extra),
+            isMiui = isMiui,
+            isTargetForeground = isTargetForeground,
+        )
 
         internal fun dispatchMessageArrivedIfNeeded(
             context: Context,
@@ -495,17 +487,11 @@ class MyMIPushNotificationHelper {
             }
         }
 
-        internal fun shouldDispatchNonDisplayPayload(container: XmPushActionContainer): Boolean {
-            if (container.isRequest) {
-                return false
-            }
-            return when (container.action) {
-                ActionType.Registration,
-                ActionType.UnRegistration,
-                ActionType.Command -> true
-                else -> false
-            }
-        }
+        internal fun shouldDispatchNonDisplayPayload(container: XmPushActionContainer): Boolean =
+            MyMIPushNotificationPolicy.shouldDispatchNonDisplayPayload(
+                isRequest = container.isRequest,
+                action = container.action,
+            )
 
         private fun dispatchNonDisplayPayloadToApplication(
             context: Context,
@@ -569,24 +555,17 @@ class MyMIPushNotificationHelper {
             }
         }
 
-        private const val REPLAY_WINDOW_MS = 6 * 60 * 60 * 1000L // 6 hours
-
         internal fun shouldDropReplayNotification(
             container: XmPushActionContainer,
-            sessionStartedAtMs: Long = notificationSessionStartedAtMs
+            sessionStartedAtMs: Long = notificationSessionStartedAtMs,
         ): Boolean {
-            if (container.action != ActionType.SendMessage) {
-                return false
-            }
-            val metaInfo = container.metaInfo ?: return false
-            if (!metaInfo.isSetMessageTs()) {
-                return false
-            }
-            val messageTs = metaInfo.messageTs
-            if (messageTs <= 0L || sessionStartedAtMs <= 0L) {
-                return false
-            }
-            return messageTs < sessionStartedAtMs - REPLAY_WINDOW_MS
+            val metaInfo = container.metaInfo
+            return MyMIPushNotificationPolicy.shouldDropReplayNotification(
+                action = container.action,
+                hasMessageTimestamp = metaInfo?.isSetMessageTs() == true,
+                messageTimestampMs = metaInfo?.messageTs ?: 0L,
+                sessionStartedAtMs = sessionStartedAtMs,
+            )
         }
 
         private fun loadConfigurations(context: Context, configurationDirectory: Uri?): Boolean {
@@ -774,7 +753,12 @@ class MyMIPushNotificationHelper {
             val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
             val messageId = MessageIdentity.fromContainer(container)
             val notificationId = getNotificationId(container)
-            val result = getNotificationFor(context, container, decryptedContent, notificationId)
+            val result = MyMIPushNotificationPresentationSupport.getNotificationFor(
+                context,
+                container,
+                decryptedContent,
+                notificationId,
+            )
             logD(
                 "doNotifyPushMessage publish start pkg=$targetPackage action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
@@ -789,112 +773,6 @@ class MyMIPushNotificationHelper {
             return if (posted) MockReplayOutcome.Posted else MockReplayOutcome.Failed
         }
 
-        @NonNull
-        private fun getNotificationFor(
-            context: Context,
-            container: XmPushActionContainer,
-            decryptedContent: ByteArray,
-            notificationId: Int
-        ): NotificationInfo {
-            val metaInfo = container.metaInfo
-            val packageName = MIPushNotificationHelper.getTargetPackage(container)
-
-            val pkgCtx = XMPushUtils.getPackageContext(context, packageName)
-            val message = MyMIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
-            val custom = XMPushUtils.getConfiguration(metaInfo)
-            val useMessagingStyle = message != null && custom.useMessagingStyle(false)
-
-            val sourceGroup = getSourceGroup(metaInfo)
-            // Stock 7.4.67-C t0 keeps delegated notifications under the target package's
-            // default group. Only a non-MIUI payload that explicitly disables that default
-            // retains its source group, so use the same identity before click/group handling.
-            val group = resolveStockGroup(
-                targetPackage = packageName,
-                sourceGroup = sourceGroup,
-                disableDefault = metaInfo.extra
-                    ?.get(NOTIFICATION_GROUP_DISABLE_DEFAULT)
-                    ?.toBoolean() == true,
-                isMiui = MIUIUtils.isMIUI(),
-            )
-            val intentExtra = Intent()
-            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId)
-            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, group)
-
-            val localPendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
-                context,
-                container,
-                decryptedContent,
-                notificationId,
-                intentExtra.extras
-            )
-
-            val voipBuilder = if (VoipNotificationHelper.isVoipNotification(metaInfo)) {
-                VoipNotificationHelper.buildVoipNotification(
-                    context, packageName, metaInfo, notificationId, localPendingIntent
-                )
-            } else null
-
-            val notificationBuilder = voipBuilder ?: if (useMessagingStyle) {
-                MyMIPushNotificationStyleSupport.messagingStyleNotificationBuilder(
-                    context,
-                    container,
-                    notificationId,
-                    message,
-                    pkgCtx
-                )
-            } else {
-                MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(pkgCtx, container.metaInfo, packageName)
-            }
-
-            if (MyMIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName)) {
-                notificationBuilder.extras.putBoolean(
-                    NotificationClickFallbackContract.USE_LAUNCHER_FALLBACK,
-                    true,
-                )
-            }
-
-            if (metaInfo.extra != null) {
-                MyMIPushNotificationIntentSupport.addStyleActions(
-                    notificationBuilder,
-                    context,
-                    packageName,
-                    notificationId,
-                    metaInfo.extra,
-                )
-            }
-
-            StockNotificationPresentationBridge.apply(metaInfo, notificationBuilder)
-
-            if (MIUIUtils.isMIUI()) {
-                // Stock 7.4.67-C t0 writes these fields into each MIUI notification so
-                // active-notification clear and reporting can identify delegated records.
-                // This custom builder bypasses t0, so it must restore that metadata here.
-                val stockExtras = Bundle().apply {
-                    buildStockMiuiIdentityExtras(container, packageName).forEach(::putString)
-                }
-                notificationBuilder.addExtras(stockExtras)
-            }
-            AndroidWGroupStrategy.applyIfEligible(context, sourceGroup, notificationBuilder.extras)
-            val effectiveGroup = group?.let {
-                NotificationGroupHelper.maskGroup(context, notificationBuilder.extras, it)
-            }
-
-            notificationBuilder.setGroup(effectiveGroup)
-            notificationBuilder.setGroupSummary(
-                metaInfo.extra?.get(NOTIFICATION_IS_SUMMARY)?.toBoolean() == true
-            )
-
-            if (localPendingIntent != null) {
-                notificationBuilder.setContentIntent(localPendingIntent)
-                MyMIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
-                    context,
-                    container,
-                    notificationId,
-                    notificationBuilder
-                )
-            }
-            return NotificationInfo(notificationId, notificationBuilder)
-        }
 
         @JvmStatic
         fun getNotificationId(container: XmPushActionContainer): Int {
@@ -929,10 +807,12 @@ class MyMIPushNotificationHelper {
             sourceGroup: String?,
             disableDefault: Boolean,
             isMiui: Boolean,
-        ): String? {
-            val group = sourceGroup?.takeIf { it.isNotBlank() } ?: return null
-            return if (!isMiui && disableDefault) group else targetPackage
-        }
+        ): String? = MyMIPushNotificationPolicy.resolveStockGroup(
+            targetPackage = targetPackage,
+            sourceGroup = sourceGroup,
+            disableDefault = disableDefault,
+            isMiui = isMiui,
+        )
 
         internal fun shouldSkipForceGroup(sourceGroup: String?, strategy: Int): Boolean {
             return AndroidWGroupStrategy.shouldSkipForceGroup(sourceGroup, strategy)
@@ -955,14 +835,11 @@ class MyMIPushNotificationHelper {
             targetPackage: String,
             messageId: String?,
             eventMessageType: Int,
-        ): Map<String, String> {
-            val extras = linkedMapOf(
-                MIPushNotificationHelper.NOTIFICATION_EXTRA_TARGET_PACKAGE_STRING to targetPackage,
-            )
-            messageId?.takeIf(String::isNotEmpty)?.let { extras[NOTIFICATION_MESSAGE_ID] = it }
-            extras[ReportConstants.EVENT_MESSAGE_TYPE] = eventMessageType.toString()
-            return extras
-        }
+        ): Map<String, String> = MyMIPushNotificationPolicy.buildStockMiuiIdentityExtras(
+            targetPackage = targetPackage,
+            messageId = messageId,
+            eventMessageType = eventMessageType,
+        )
 
         private fun getSourceGroup(metaInfo: PushMetaInfo): String? {
             return XMPushUtils.getConfiguration(metaInfo)

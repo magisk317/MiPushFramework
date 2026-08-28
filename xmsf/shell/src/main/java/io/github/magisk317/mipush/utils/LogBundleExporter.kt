@@ -5,7 +5,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
-import android.content.Intent
 import android.app.ActivityManager
 import android.os.Build
 import android.os.SystemClock
@@ -223,15 +222,6 @@ object LogBundleExporter {
         }
     }
 
-    fun buildShareIntent(context: Context, file: File): Intent =
-        DiagnosticArchive.buildShareIntent(
-            context = context,
-            file = file,
-            authority = Constants.AUTHORITY_FILE_PROVIDER,
-            onInfo = { logI(it) },
-            onWarning = { logW(it) },
-        )
-
     fun clearLogFolders(context: Context): ClearResult = synchronized(opLock) {
         val result = DiagnosticArchive.clearDirectories(
             targets = listOf(
@@ -289,7 +279,7 @@ object LogBundleExporter {
         pruneExportDir(getPrivateExportDir(context), cutoffMs)
         pruneTreeByMtime(getLegacyCacheLogDir(context), cutoffMs)
         getMiPushSdkLogDir(context)?.let { pruneTreeByMtime(it, cutoffMs) }
-        // Share/export temp zips written into cacheDir (manager host copies use similar names).
+        // Export products previously written into cache by legacy callers.
         pruneFilesInDir(
             dir = context.cacheDir,
             cutoffMs = cutoffMs,

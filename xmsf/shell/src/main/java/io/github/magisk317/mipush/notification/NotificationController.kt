@@ -44,13 +44,13 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
-import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.utils.ColorUtil
-import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
@@ -64,11 +64,7 @@ object NotificationController {
     private const val PIC_ICON = "miui.focus.pic_mipush_icon"
     private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
-    private const val ACTION_CANCEL_ISLAND = "io.github.magisk317.mipush.action.CANCEL_ISLAND"
     private const val EXTRA_ALLOW_ISLAND_PROXY = "mipush_island_allow_proxy"
-    private const val EXTRA_NOTIFICATION_ID = "notification_id"
-    private const val MOCK_REPLAY_RECEIPT_CHANNEL_ID = "mipush_mock_replay_receipt"
-    private const val MOCK_REPLAY_RECEIPT_TAG_PREFIX = "mipush_mock_replay_receipt:"
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
     private const val KIB = 1024
@@ -137,73 +133,27 @@ object NotificationController {
     }
 
     @JvmStatic
-    fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
-        findExistingChannelId(context, metaInfo, packageName)?.let { return it }
-
-        val stockChannelId = NotificationChannelManager.getChannelId(context, metaInfo, packageName)
-        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-        logD("getExistsChannelId() provisioned stock channel pkg=$packageName channel=$stockChannelId")
-        return stockChannelId
-    }
+    fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String =
+        NotificationChannelResolutionSupport.getExistsChannelId(context, metaInfo, packageName)
 
     /** Lookup-only channel resolution for read paths; never creates groups or channels. */
     internal fun findExistingChannelId(
         context: Context,
         metaInfo: PushMetaInfo,
         packageName: String,
-    ): String? {
-        val custom = XMPushUtils.getConfiguration(metaInfo)
-        val preferredBorrowed = custom.borrowChannelId(null)?.takeIf { it.isNotBlank() }
-        if (preferredBorrowed != null) {
-            val borrowedChannel = getNotificationManagerEx().findPreferredTargetChannel(packageName, preferredBorrowed)
-            if (borrowedChannel != null) {
-                logD("getExistsChannelId() explicit borrow channel pkg=$packageName channel=${borrowedChannel.id}")
-                return borrowedChannel.id
-            }
-            logD("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
-        }
-        val stockChannelId = NotificationChannelManager.getChannelId(context, metaInfo, packageName)
-        // Before the stock 7.4.67-C channel alignment this path created ch_* IDs. Probe
-        // both identities so existing channels retain user settings, while a missing
-        // channel is always provisioned with the stock-owned ID used by clear semantics.
-        val legacyChannelId = NotificationChannelManager.getLegacyChannelId(metaInfo, packageName)
-        val sourceChannelId = custom.channelId(null)?.takeIf(String::isNotBlank)
-        val stockManager = NotificationManagerHelper.from(context.applicationContext, packageName)
-        val stockChannelExists = stockManager.getNotificationChannel(stockChannelId) != null
-        val legacyChannelExists = getNotificationManagerEx()
-            .getNotificationChannel(packageName, legacyChannelId) != null
-        val selectedChannelId = selectManagedChannelId(
-            stockChannelId = stockChannelId,
-            stockChannelExists = stockChannelExists,
-            legacyChannelId = legacyChannelId,
-            legacyChannelExists = legacyChannelExists,
-        )
-        if (stockChannelExists || legacyChannelExists) {
-            // Reuse a pre-migration ch_* channel only when it already exists. This preserves
-            // user importance/sound choices while all newly provisioned channels move to the
-            // stock namespace used by notification ownership and clear semantics.
-            logD(
-                "getExistsChannelId() reuse managed channel pkg=$packageName " +
-                    "source=$sourceChannelId channel=$selectedChannelId legacy=${selectedChannelId == legacyChannelId}",
-            )
-            return selectedChannelId
-        }
-        return null
-    }
+    ): String? = NotificationChannelResolutionSupport.findExistingChannelId(context, metaInfo, packageName)
 
     internal fun selectManagedChannelId(
         stockChannelId: String,
         stockChannelExists: Boolean,
         legacyChannelId: String,
         legacyChannelExists: Boolean,
-    ): String = when {
-        // Prefer stock when both exist so future posts converge without deleting the legacy
-        // channel. Android channel settings are ID-scoped, so deleting or renaming it here
-        // would discard user choices and can cause an unexpected alerting behavior change.
-        stockChannelExists -> stockChannelId
-        legacyChannelExists -> legacyChannelId
-        else -> stockChannelId
-    }
+    ): String = NotificationChannelResolutionSupport.selectManagedChannelId(
+        stockChannelId,
+        stockChannelExists,
+        legacyChannelId,
+        legacyChannelExists,
+    )
 
     private fun notify(
         context: Context,
@@ -263,7 +213,7 @@ object NotificationController {
             generatedFocusCandidate = generatedFocusCandidate,
         )
         val configuredFocusBundle = if (preliminaryFocusPlan.attachMiuiFocusExtras) {
-            buildConfiguredFocusBundle(
+            NotificationFocusPayloadSupport.buildConfiguredFocusBundle(
                 context = context,
                 packageName = packageName,
                 largeIcon = largeIcon,
@@ -389,7 +339,7 @@ object NotificationController {
         }
         val notificationToPost = if (focusPlan.allowIslandProxy &&
             generatedFocusBundle != null &&
-            sendGeneratedIslandProxy(
+            NotificationIslandProxySupport.sendGeneratedProxy(
                 context = context,
                 metaInfo = metaInfo,
                 packageName = packageName,
@@ -397,12 +347,13 @@ object NotificationController {
                 tag = tag,
                 notification = notification,
                 options = islandOptions,
+                resolveUserId = ::resolveNotificationUserId,
             )
         ) {
             if (isMockReplay) {
                 logD("keep mock replay original notification alerting pkg=$packageName id=$notificationId")
             } else {
-                quietGeneratedIslandStatusBarNotification(notificationBuilder)
+                NotificationIslandProxySupport.quietGeneratedStatusBarNotification(notificationBuilder)
             }
             NativeNotificationFeatureBuilder.buildNotification(
                 context,
@@ -486,10 +437,8 @@ object NotificationController {
         return notificationToPost
     }
 
-    private fun PushMetaInfo.isMockReplay(): Boolean {
-        return extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY)
-            ?.equals("true", ignoreCase = true) == true
-    }
+    private fun PushMetaInfo.isMockReplay(): Boolean =
+        NotificationMockReplaySupport.isMockReplay(this)
 
     /** Keep normal and replay notifications on the same SystemUI owner-resolution path. */
     private fun addTargetPackageIdentity(extras: Bundle, packageName: String) {
@@ -501,43 +450,20 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         packageName: String,
         notificationId: Int,
-    ) {
-        val group = mockReplayGroup(packageName, notificationId)
-        notificationBuilder.setCategory(Notification.CATEGORY_ALARM)
-        notificationBuilder.priority = NotificationCompat.PRIORITY_MAX
-        notificationBuilder.setGroup(null)
-        notificationBuilder.setGroupSummary(false)
-        notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
-        notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
-        notificationBuilder.setOnlyAlertOnce(false)
-        notificationBuilder.setSilent(false)
-        logD(
-            "apply mock replay visibility pkg=$packageName category=alarm priority=max " +
-                "group=$group summary=false"
-        )
-    }
-
-    private fun mockReplayGroup(packageName: String, notificationId: Int): String {
-        return "$packageName#mipush_mock_replay#$notificationId"
-    }
+    ) = NotificationMockReplaySupport.applyVisibility(notificationBuilder, packageName, notificationId)
 
     internal fun shouldPostMockReplayVisibleReceipt(
         isMockReplay: Boolean,
         options: MiPushIslandOptions,
-    ): Boolean {
-        return isMockReplay && options.showOriginalNotification
-    }
+    ): Boolean = NotificationMockReplaySupport.shouldPostVisibleReceipt(isMockReplay, options)
 
     internal fun shouldAttachPayloadLargeIcon(
         isMockReplay: Boolean,
         colorStatusBarIcon: Boolean,
-    ): Boolean {
-        return !isMockReplay || colorStatusBarIcon
-    }
+    ): Boolean = NotificationMockReplaySupport.shouldAttachPayloadLargeIcon(isMockReplay, colorStatusBarIcon)
 
-    internal fun mockReplayReceiptNotificationId(packageName: String): Int {
-        return 0x4d520000 xor packageName.hashCode()
-    }
+    internal fun mockReplayReceiptNotificationId(packageName: String): Int =
+        NotificationMockReplaySupport.receiptNotificationId(packageName)
 
     internal fun postMockReplayVisibleReceipt(
         context: Context,
@@ -547,188 +473,17 @@ object NotificationController {
         source: Notification,
         replaceOriginal: Boolean = false,
         colorStatusBarIcon: Boolean? = null,
-    ): Boolean {
-        val userId = resolveNotificationUserId(context, packageName)
-        val effectiveColorStatusBarIcon = colorStatusBarIcon
-            ?: MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
-        if (!NotificationManagerEx.canNotifyForUser(userId, Utils.myUserId())) {
-            Logger.withTag(TAG).w {
-                "skip mock replay receipt for foreign user=$userId pkg=$packageName"
-            }
-            return false
-        }
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
-        ensureMockReplayReceiptChannel(context, manager, packageName)
-        val appName = Global.applicationNameCache().getAppName(context, packageName)
-        val title = NotificationContentSupport.firstText(
-            source.extras,
-            Notification.EXTRA_TITLE,
-            Notification.EXTRA_TITLE_BIG,
-        ) ?: source.tickerText?.toString()
-            ?: appName
-        val content = NotificationContentSupport.firstText(
-            source.extras,
-            Notification.EXTRA_TEXT,
-            Notification.EXTRA_BIG_TEXT,
-            Notification.EXTRA_SUB_TEXT,
-            Notification.EXTRA_INFO_TEXT,
-        ) ?: appName
-        // Use the real notification target-app icon path; the source icon is only a fallback.
-        val sourceSmallIcon = runCatching {
-            val field = Notification::class.java.getDeclaredField("mSmallIcon")
-            field.isAccessible = true
-            field.get(source) as? android.graphics.drawable.Icon
-        }.getOrNull()
-        val builder = NotificationCompat.Builder(context, MOCK_REPLAY_RECEIPT_CHANNEL_ID)
-            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
-            .setSubText(appName)
-            .setWhen(source.`when`.takeIf { it > 0L } ?: System.currentTimeMillis())
-            .setShowWhen(true)
-            .setAutoCancel(true)
-            .setLocalOnly(true)
-            .setCategory(Notification.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setDefaults(Notification.DEFAULT_ALL)
-            .addExtras(
-                Bundle().apply {
-                    addTargetPackageIdentity(this, packageName)
-                    putBoolean("mipush_mock_replay_receipt", true)
-                    putString("mipush_mock_replay_source_package", packageName)
-                }
-            )
-        source.contentIntent?.let { builder.setContentIntent(it) }
-        if (sourceSmallIcon != null) {
-            @SuppressLint("RestrictedApi")
-            runCatching {
-                val iconCompat = IconCompat.createFromIcon(sourceSmallIcon)
-                builder.setSmallIcon(iconCompat)
-            }
-        }
-        val color = applyStatusBarIcon(context, packageName, builder, effectiveColorStatusBarIcon)
-        val receipt = ProgressStyleBuilder.buildNotification(context, builder)
-        val receiptTag = if (replaceOriginal) originalTag else "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
-        val receiptId = if (replaceOriginal) notificationId else mockReplayReceiptNotificationId(packageName)
-        return runCatching {
-            val postedAsTarget = NotificationManagerEx.isHooked &&
-                getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt, userId)
-            if (!postedAsTarget) {
-                manager.notify(receiptTag, receiptId, receipt)
-            }
-            PushRuntime.observeNotificationEvent(
-                packageName,
-                "mock_replay_visible_receipt_posted",
-                "NotificationController.publish",
-            )
-            logD("posted mock replay visible receipt pkg=$packageName sourceId=$notificationId tag=$receiptTag targetIdentity=$postedAsTarget")
-            true
-        }.onFailure {
-            Logger.withTag(TAG).w(it) { "mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}" }
-        }.getOrDefault(false)
-    }
-
-    private fun ensureMockReplayReceiptChannel(
-        context: Context,
-        manager: NotificationManager,
-        packageName: String,
-    ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            MOCK_REPLAY_RECEIPT_CHANNEL_ID,
-            "MiPush replay",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            setShowBadge(false)
-            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        }
-        if (NotificationManagerEx.isHooked) {
-            getNotificationManagerEx().createNotificationChannels(packageName, listOf(channel))
-        }
-        if (manager.getNotificationChannel(MOCK_REPLAY_RECEIPT_CHANNEL_ID) == null) {
-            manager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun quietGeneratedIslandStatusBarNotification(notificationBuilder: NotificationCompat.Builder) {
-        notificationBuilder.setDefaults(0)
-        notificationBuilder.setOnlyAlertOnce(true)
-    }
-
-    private fun sendGeneratedIslandProxy(
-        context: Context,
-        metaInfo: PushMetaInfo,
-        packageName: String,
-        notificationId: Int,
-        tag: String?,
-        notification: Notification,
-        options: MiPushIslandOptions,
-    ): Boolean {
-        if (!NotificationManagerEx.isHooked) {
-            return false
-        }
-        val title = NotificationContentSupport.firstText(
-            notification.extras,
-            Notification.EXTRA_TITLE,
-            Notification.EXTRA_TITLE_BIG,
-        ) ?: notification.tickerText?.toString()
-            ?: metaInfo.title?.takeIf { it.isNotBlank() }
-            ?: metaInfo.description?.takeIf { it.isNotBlank() }
-            ?: return false
-        val content = NotificationContentSupport.firstText(
-            notification.extras,
-            Notification.EXTRA_TEXT,
-            Notification.EXTRA_BIG_TEXT,
-            Notification.EXTRA_SUB_TEXT,
-            Notification.EXTRA_INFO_TEXT,
-        ) ?: metaInfo.description?.takeIf { it.isNotBlank() }
-            ?: title
-        val appContext = context.applicationContext ?: context
-        val userId = resolveNotificationUserId(appContext, packageName)
-        val proxyId = IslandProxyNotificationId.fromPackage(packageName, notificationId, tag, userId)
-        return runCatching {
-            appContext.sendBroadcast(
-                Intent(ACTION_SHOW_ISLAND).apply {
-                    setPackage(SYSTEM_UI_PACKAGE)
-                    putExtra("title", title)
-                    putExtra("content", content)
-                    putExtra(
-                        "icon",
-                        MiPushIslandPayloadBuilder.resolveNotificationIcon(
-                            context = appContext,
-                            packageName = packageName,
-                            notificationIcon = notification.getLargeIconCompat(),
-                            largeIcon = null,
-                        ),
-                    )
-                    putExtra("notificationId", proxyId)
-                    putExtra("timeoutSecs", options.timeoutSecs)
-                    putExtra("firstFloat", options.firstFloat)
-                    putExtra("enableFloat", options.enableFloat)
-                    putExtra("showNotification", options.showNotification)
-                    putExtra("sourcePackage", packageName)
-                    putExtra("userId", userId)
-                    putExtra("sourceChannelId", notification.channelId)
-                    putExtra("contentIntent", notification.contentIntent)
-                    putExtra("isOngoing", notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
-                    putExtra("showIslandIcon", true)
-                    putExtra("clearBeforePost", true)
-                },
-            )
-        }.fold(
-            onSuccess = {
-                PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_posted", "NotificationController.publish")
-                Logger.withTag(TAG).d { "posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId" }
-                true
-            },
-            onFailure = {
-                PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_failed", "NotificationController.publish")
-                Logger.withTag(TAG).w(it) { "island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
-                false
-            },
-        )
-    }
+    ): Boolean = NotificationMockReplaySupport.postVisibleReceipt(
+        context = context,
+        packageName = packageName,
+        notificationId = notificationId,
+        originalTag = originalTag,
+        source = source,
+        replaceOriginal = replaceOriginal,
+        colorStatusBarIcon = colorStatusBarIcon,
+        resolveUserId = ::resolveNotificationUserId,
+        applyStatusBarIcon = ::applyStatusBarIcon,
+    )
 
     @JvmStatic
     internal fun shouldAutoCancelNotification(
@@ -742,101 +497,16 @@ object NotificationController {
     }
 
     @JvmStatic
-    fun getLargeIcon(context: Context, metaInfo: PushMetaInfo, iconUri: String?): Bitmap? {
-        var largeIcon = if (iconUri == null) null else getBitmapFromUri(context, iconUri, 200 * KIB)
-        if (largeIcon != null) {
-            largeIcon = roundLargeIconIfConfigured(metaInfo, largeIcon)
-        }
-        return largeIcon
-    }
+    fun getLargeIcon(context: Context, metaInfo: PushMetaInfo, iconUri: String?): Bitmap? =
+        NotificationLargeIconSupport.getLargeIcon(context, metaInfo, iconUri)
 
     @JvmStatic
-    fun roundLargeIconIfConfigured(metaInfo: PushMetaInfo, largeIcon: Bitmap): Bitmap {
-        var result = largeIcon
-        val custom = XMPushUtils.getConfiguration(metaInfo)
-        if (custom.roundLargeIcon(false)) {
-            result = ImgUtils.trimImgToCircle(result, Color.TRANSPARENT)
-        }
-        return result
-    }
+    fun roundLargeIconIfConfigured(metaInfo: PushMetaInfo, largeIcon: Bitmap): Bitmap =
+        NotificationLargeIconSupport.roundLargeIconIfConfigured(metaInfo, largeIcon)
 
     @JvmStatic
-    fun getBitmapFromUri(context: Context, iconUri: String?, maxDownloadBytes: Int): Bitmap? {
-        var bitmap: Bitmap? = null
-        if (iconUri != null) {
-            val safeUri = if (iconUri.startsWith("http://")) {
-                iconUri.replaceFirst("http://", "https://")
-            } else {
-                iconUri
-            }
-            if (safeUri.startsWith("http")) {
-                val result = MyNotificationIconHelper.getIconFromUrl(context, safeUri, maxDownloadBytes)
-                bitmap = result.bitmap
-            } else {
-                bitmap = MyNotificationIconHelper.getIconFromUri(context, safeUri)
-            }
-        }
-        return bitmap
-    }
-
-    internal fun collectFocusPicUris(configuration: CustomConfiguration): Map<String, String> {
-        return configuration.keys()
-            .filter { it.startsWith("miui.focus.pic_") }
-            .mapNotNull { key ->
-                val uri = configuration.get(key, null)
-                if (uri.isNullOrBlank()) null else key to uri
-            }
-            .toMap()
-    }
-
-    internal fun buildFocusBundle(
-        configuration: CustomConfiguration,
-        bitmapLoader: (String) -> Bitmap?
-    ): Bundle? {
-        val focusParam = configuration.focusParam(null) ?: return null
-        val focusBundle = Bundle()
-        focusBundle.putString(FOCUS_PARAM, focusParam)
-        val picsBundle = Bundle()
-        for ((key, url) in collectFocusPicUris(configuration)) {
-            focusBundle.putString(key, url)
-            val bitmap = bitmapLoader(url)
-            if (bitmap != null) {
-                picsBundle.putParcelable(key, Icon.createWithBitmap(bitmap))
-            }
-        }
-        if (!picsBundle.isEmpty) {
-            focusBundle.putBundle(FOCUS_PICS, picsBundle)
-        }
-        return focusBundle
-    }
-
-    internal fun buildConfiguredFocusBundle(
-        context: Context,
-        packageName: String,
-        largeIcon: Bitmap?,
-        notificationIcon: Icon?,
-        configuration: CustomConfiguration,
-        bitmapLoader: (String) -> Bitmap?,
-    ): Bundle? {
-        val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(
-            context,
-            packageName,
-            notificationIcon,
-            largeIcon,
-        )
-        val configured = buildFocusBundle(configuration, bitmapLoader)
-        if (configured != null) {
-            val pics = configured.getBundle(FOCUS_PICS) ?: Bundle().also {
-                configured.putBundle(FOCUS_PICS, it)
-            }
-            configured.putString(PIC_ICON, PIC_ICON)
-            if (!pics.containsKey(PIC_ICON)) {
-                pics.putParcelable(PIC_ICON, icon)
-            }
-            return configured
-        }
-        return null
-    }
+    fun getBitmapFromUri(context: Context, iconUri: String?, maxDownloadBytes: Int): Bitmap? =
+        NotificationLargeIconSupport.getBitmapFromUri(context, iconUri, maxDownloadBytes)
 
     private fun Notification.isGroupSummary(): Boolean {
         return flags and Notification.FLAG_GROUP_SUMMARY != 0
@@ -872,7 +542,13 @@ object NotificationController {
             notificationId = notificationId,
             userId = userId,
         )
-        cancelGeneratedIslandProxy(context, packageName, notificationId, tag)
+        NotificationIslandProxySupport.cancelGeneratedProxy(
+            context = context,
+            packageName = packageName,
+            notificationId = notificationId,
+            tag = tag,
+            resolveUserId = ::resolveNotificationUserId,
+        )
         FocusNotificationLifecycle.end(
             context = context,
             packageName = packageName,
@@ -1139,32 +815,6 @@ object NotificationController {
     }
 
 
-    private fun cancelGeneratedIslandProxy(
-        context: Context,
-        packageName: String,
-        notificationId: Int,
-        tag: String?,
-    ) {
-        if (!NotificationManagerEx.isHooked) {
-            return
-        }
-        val userId = resolveNotificationUserId(context, packageName)
-        runCatching {
-            (context.applicationContext ?: context).sendBroadcast(
-                Intent(ACTION_CANCEL_ISLAND).apply {
-                    setPackage(SYSTEM_UI_PACKAGE)
-                    putExtra(
-                        EXTRA_NOTIFICATION_ID,
-                        IslandProxyNotificationId.fromPackage(packageName, notificationId, tag, userId),
-                    )
-                    putExtra("userId", userId)
-                },
-            )
-        }.onFailure {
-            Logger.withTag(TAG).w(it) { "cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
-        }
-    }
-
     @JvmStatic
     fun buildExtraSubText(
         context: Context,
@@ -1194,448 +844,21 @@ object NotificationController {
 
     @JvmStatic
     fun test(context: Context, packageName: String, title: String, description: String) {
-        testMock(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, packageName)
+        testMock(context, io.github.magisk317.mipush.notification.mock.MockNotificationKind.BIG_TEXT, packageName)
     }
 
     @JvmStatic
     fun testMock(
         context: Context,
-        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
-        packageName: String
-    ) {
-        PushRuntime.observeNotificationEvent(packageName, "mock_test_build_start", "NotificationController.testMock")
-        val kindLabel = context.getString(kind.labelRes)
-        val title = context.getString(R.string.debug_test_title, kindLabel)
-        val description = context.getString(R.string.debug_test_content, kindLabel) + "\n" + java.util.Date()
-
-        val nm = context.getSystemService(android.app.NotificationManager::class.java)
-        val mockChannelId = "xmsf_mock_high"
-        val mockChannel = android.app.NotificationChannel(
-            mockChannelId,
-            context.getString(R.string.mock_channel_name),
-            android.app.NotificationManager.IMPORTANCE_HIGH,
-        )
-        nm.createNotificationChannel(mockChannel)
-
-        val id = (System.currentTimeMillis() / 1000L).toInt()
-        val builder = NotificationCompat.Builder(context, mockChannelId)
-        val userId = resolveNotificationUserId(context, packageName)
-        val colorStatusBarIcon = MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
-        val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
-        builder.setWhen(System.currentTimeMillis())
-        builder.setShowWhen(true)
-        builder.setAutoCancel(true)
-
-        val tag = "xmsf_mock_${kind.name}"
-        NativeNotificationFeatureBuilder.releaseMediaSessionsForTag(
-            packageName = packageName,
-            tag = tag,
-            userId = resolveNotificationUserId(context, packageName),
-        )
-        Logger.withTag(TAG).d { "mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag" }
-
-        val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
-            context = context,
-            startRoute = "events",
-        ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
-        val notifyPendingIntent = PendingIntent.getActivity(
-            context, 0, notifyIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        builder.setContentIntent(notifyPendingIntent)
-
-        val targetExtras = Bundle().apply {
-            putString("target_package", packageName)
-            putString("miui.targetPkg", packageName)
-            putString("xmsf_target_package", packageName)
-        }
-        builder.addExtras(targetExtras)
-
-        var nativeFeature = NativeNotificationFeatureBuilder.Result.NONE
-        when (kind) {
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PLAIN -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-                val style = NotificationCompat.BigTextStyle()
-                style.bigText("$description\n\nLine 2\nLine 3\nLine 4 (expand to view)")
-                style.setBigContentTitle(title)
-                style.setSummaryText(context.getString(R.string.mock_bigtext_summary))
-                builder.setStyle(style)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_PICTURE -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-                val pic = createDemoBitmap(800, 400, 0xFF2962FFu.toInt())
-                val style = NotificationCompat.BigPictureStyle()
-                style.bigPicture(pic)
-                style.setBigContentTitle(title)
-                style.setSummaryText(context.getString(R.string.mock_bigpicture_summary))
-                builder.setLargeIcon(pic)
-                builder.setStyle(style)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.INBOX -> {
-                builder.setContentTitle(title)
-                builder.setContentText("$description (3 lines)")
-                val style = NotificationCompat.InboxStyle()
-                style.setBigContentTitle(title)
-                style.addLine(context.getString(R.string.mock_inbox_line1, description))
-                style.addLine(context.getString(R.string.mock_inbox_line2))
-                style.addLine(context.getString(R.string.mock_inbox_line3))
-                style.setSummaryText(context.getString(R.string.mock_inbox_summary))
-                builder.setStyle(style)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MESSAGING -> {
-                val person = androidx.core.app.Person.Builder().setName(context.getString(R.string.mock_messaging_user)).build()
-                val style = NotificationCompat.MessagingStyle(person)
-                style.setConversationTitle(context.getString(R.string.mock_messaging_conversation))
-                style.addMessage(description, System.currentTimeMillis(), person)
-                style.addMessage(context.getString(R.string.mock_messaging_reply), System.currentTimeMillis() + 1000, person)
-                builder.setStyle(style)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MEDIA -> {
-                builder.setContentTitle(title)
-                builder.setContentText(context.getString(R.string.mock_media_now_playing, description))
-                builder.setOngoing(true)
-                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), notifyPendingIntent)
-                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), notifyPendingIntent)
-                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), notifyPendingIntent)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PROGRESS -> {
-                builder.setContentTitle(title)
-                builder.setContentText(context.getString(R.string.mock_progress_downloading))
-                builder.setProgress(100, 65, false)
-                builder.setOngoing(true)
-                builder.setAutoCancel(false)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.HEADS_UP -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-                builder.priority = NotificationCompat.PRIORITY_HIGH
-                builder.setCategory(Notification.CATEGORY_ALARM)
-                builder.setDefaults(NotificationCompat.DEFAULT_ALL)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.DYNAMIC_ISLAND -> {
-                val mockFocusResult = handleMockFocusSemantic(
-                    context = context,
-                    builder = builder,
-                    kind = kind,
-                    packageName = packageName,
-                    notificationId = id,
-                    notificationTag = tag,
-                    title = title,
-                    description = description,
-                    contentIntent = notifyPendingIntent,
-                    style = NotificationStyle.PROMO,
-                    islandOuterGlow = true,
-                )
-                if (mockFocusResult.handled) {
-                    return
-                }
-                nativeFeature = mockFocusResult.nativeFeature
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_MESSAGE,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BANNER,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_ALERT,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_PROMO,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_MEDIA,
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_PROGRESS -> {
-                val focusStyle = kind.focusTemplateStyle ?: NotificationStyle.GENERAL
-                val focusSpec = mockFocusSpec(kind, title, description)
-                val mockFocusResult = handleMockFocusSemantic(
-                    context = context,
-                    builder = builder,
-                    kind = kind,
-                    packageName = packageName,
-                    notificationId = id,
-                    notificationTag = tag,
-                    title = focusSpec.title,
-                    description = focusSpec.content,
-                    contentIntent = notifyPendingIntent,
-                    style = focusStyle,
-                    isOngoing = focusStyle == NotificationStyle.MEDIA || focusStyle == NotificationStyle.PROGRESS,
-                )
-                if (mockFocusResult.handled) {
-                    return
-                }
-                nativeFeature = mockFocusResult.nativeFeature
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
-                builder.setContentTitle(context.getString(R.string.mock_voip_title))
-                builder.setContentText(description)
-                builder.priority = NotificationCompat.PRIORITY_MAX
-                builder.setCategory(Notification.CATEGORY_CALL)
-                builder.setOngoing(true)
-                builder.setAutoCancel(false)
-                builder.setFullScreenIntent(notifyPendingIntent, true)
-                val voipExtras = Bundle()
-                voipExtras.putString("notification_style_type", "6")
-                voipExtras.putString("msg_busi_type", "voip")
-                voipExtras.putString("voip_type", "1")
-                builder.addExtras(voipExtras)
-                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_accept), notifyPendingIntent)
-                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_decline), notifyPendingIntent)
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.LIVE_UPDATE_DELIVERY -> {
-                val deliveryTitle = context.getString(R.string.mock_live_update_delivery_title)
-                val deliveryDesc = context.getString(R.string.mock_live_update_delivery_desc)
-                builder.setContentTitle(deliveryTitle)
-                builder.setContentText(deliveryDesc)
-                builder.priority = NotificationCompat.PRIORITY_HIGH
-                val detection = LiveUpdateDetector.DetectionResult(
-                    isProgress = true,
-                    category = LiveUpdateDetector.ProgressCategory.DELIVERY,
-                    progressPercent = 65,
-                    progressText = deliveryDesc,
-                    startLabel = "商家",
-                    endLabel = "目的地",
-                    trackerLabel = "配送中"
-                )
-                val metaInfo = PushMetaInfo()
-                metaInfo.setTitle(deliveryTitle)
-                metaInfo.setDescription(deliveryDesc)
-                ProgressStyleBuilder.applyProgressStyle(context, builder, metaInfo, detection)
-                // Simulate progress updates
-                Thread {
-                    val steps = listOf(65, 75, 85, 95, 100)
-                    val texts = listOf(
-                        "骑手已取餐，预计15分钟送达",
-                        "骑手距您约800米",
-                        "骑手距您约500米",
-                        "骑手距您约100米",
-                        "骑手已到达，请取餐"
-                    )
-                    for (i in steps.indices) {
-                        Thread.sleep(3000)
-                        val updateBuilder = NotificationCompat.Builder(context, mockChannelId).apply {
-                            applyStatusBarIcon(context, packageName, this, colorStatusBarIcon)
-                            setWhen(System.currentTimeMillis())
-                            setContentTitle(deliveryTitle)
-                            setContentText(texts[i])
-                            setOngoing(true)
-                            setProgress(100, steps[i], false)
-                            priority = NotificationCompat.PRIORITY_HIGH
-                        }
-                        val updateDetection = detection.copy(
-                            progressPercent = steps[i],
-                            progressText = texts[i]
-                        )
-                        val updateMetaInfo = PushMetaInfo()
-                        updateMetaInfo.setTitle(deliveryTitle)
-                        updateMetaInfo.setDescription(texts[i])
-                        ProgressStyleBuilder.applyProgressStyle(context, updateBuilder, updateMetaInfo, updateDetection)
-                        nm.notify(tag, id, ProgressStyleBuilder.buildNotification(context, updateBuilder))
-                    }
-                    // Auto-cancel when complete
-                    Thread.sleep(2000)
-                    nm.cancel(tag, id)
-                }.start()
-            }
-        }
-
-        val notification = NativeNotificationFeatureBuilder.buildNotification(context, builder, nativeFeature)
-        nm.notify(tag, id, notification)
-        Logger.withTag(TAG).d {
-            "mock test posted kind=${kind.name} pkg=$packageName id=$id tag=$tag " +
-                "focus=${notification.extras.containsKey(FOCUS_PARAM)} " +
-                "contentIntent=${notification.contentIntent != null} nativeFeature=${nativeFeature.feature}"
-        }
-        PushRuntime.observeNotificationEvent(packageName, "mock_test_notification_posted", "NotificationController.testMock")
-    }
-
-    private data class MockFocusSemanticResult(
-        val handled: Boolean = false,
-        val nativeFeature: NativeNotificationFeatureBuilder.Result = NativeNotificationFeatureBuilder.Result.NONE,
-    )
-
-    private fun handleMockFocusSemantic(
-        context: Context,
-        builder: NotificationCompat.Builder,
-        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
+        kind: io.github.magisk317.mipush.notification.mock.MockNotificationKind,
         packageName: String,
-        notificationId: Int,
-        notificationTag: String,
-        title: String,
-        description: String,
-        contentIntent: PendingIntent,
-        style: NotificationStyle,
-        isOngoing: Boolean = false,
-        islandOuterGlow: Boolean = false,
-    ): MockFocusSemanticResult {
-        builder.setContentTitle(title)
-        builder.setContentText(description)
-        if (isOngoing) {
-            builder.setOngoing(true)
-            builder.setAutoCancel(false)
-        }
-
-        val metaInfo = PushMetaInfo().apply {
-            setTitle(title)
-            setDescription(description)
-        }
-        val userId = resolveNotificationUserId(context, packageName)
-        val options = MiPushIslandPreferences.read(context, packageName, userId)
-        val generatedFocusParam = MiPushIslandPayloadBuilder.buildFocusParam(
-            context = context,
-            metaInfo = metaInfo,
-            packageName = packageName,
-            largeIcon = null,
-            options = options,
-            styleOverride = style,
-        )
-        val focusPlan = FocusSemanticTranslator.plan(
-            context = context,
-            metaInfo = metaInfo,
-            packageName = packageName,
-            configuredFocusParam = null,
-            generatedFocusParam = generatedFocusParam,
-            generatedFocusCandidate = generatedFocusParam != null,
-        )
-
-        if (focusPlan.allowIslandProxy && NotificationManagerEx.isHooked) {
-            Logger.withTag(TAG).d {
-                "mock test island broadcast kind=${kind.name} style=$style pkg=$packageName " +
-                    "id=$notificationId reason=${focusPlan.reason}"
-            }
-            PushRuntime.observeNotificationEvent(
-                packageName,
-                "mock_test_island_broadcast",
-                "NotificationController.testMock",
-            )
-            context.sendMockIslandBroadcast(
-                title = title,
-                description = description,
-                sourcePackage = packageName,
-                notificationId = notificationId,
-                contentIntent = contentIntent,
-                style = style,
-                smallOnly = false,
-                isOngoing = isOngoing,
-                islandOuterGlow = islandOuterGlow,
-            )
-            return MockFocusSemanticResult(handled = true)
-        }
-
-        if (focusPlan.allowIslandProxy) {
-            builder.addExtras(
-                Bundle().apply {
-                    putBoolean(EXTRA_ALLOW_ISLAND_PROXY, true)
-                },
-            )
-            return MockFocusSemanticResult()
-        }
-
-        val nativeFeature = NativeNotificationFeatureBuilder.apply(
-            context = context,
-            builder = builder,
-            metaInfo = metaInfo,
-            packageName = packageName,
-            focusPlan = focusPlan,
-            styleOverride = style,
-            contentIntent = contentIntent,
-            notificationKey = NativeNotificationFeatureBuilder.notificationKey(
-                packageName,
-                notificationId,
-                notificationTag,
-                resolveNotificationUserId(context, packageName),
-            ),
-        )
-
-        Logger.withTag(TAG).d {
-            "mock test focus semantic kind=${kind.name} style=$style pkg=$packageName " +
-                "id=$notificationId reason=${focusPlan.reason} nativeFeature=${nativeFeature.feature}"
-        }
-        return MockFocusSemanticResult(nativeFeature = nativeFeature)
-    }
-
-    private data class MockFocusSpec(
-        val title: String,
-        val content: String,
+    ) = NotificationMockTestSupport.testMock(
+        context = context,
+        kind = kind,
+        packageName = packageName,
+        resolveUserId = ::resolveNotificationUserId,
+        applyStatusBarIcon = ::applyStatusBarIcon,
     )
-
-    private fun mockFocusSpec(
-        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
-        fallbackTitle: String,
-        fallbackContent: String,
-    ): MockFocusSpec {
-        return when (kind.focusTemplateStyle) {
-            NotificationStyle.MESSAGE -> MockFocusSpec(
-                title = "Alice",
-                content = "focus chat message: $fallbackContent",
-            )
-            NotificationStyle.BANNER -> MockFocusSpec(
-                title = fallbackTitle,
-                content = "featured banner update: $fallbackContent",
-            )
-            NotificationStyle.ALERT -> MockFocusSpec(
-                title = "focus countdown reminder",
-                content = "countdown 15 minutes before the meeting",
-            )
-            NotificationStyle.PROMO -> MockFocusSpec(
-                title = "focus coupon sale",
-                content = "coupon discount 65% off for template testing",
-            )
-            NotificationStyle.MEDIA -> MockFocusSpec(
-                title = "focus now playing",
-                content = "media cover template: $fallbackContent",
-            )
-            NotificationStyle.PROGRESS -> MockFocusSpec(
-                title = "focus download progress",
-                content = "download progress 65%",
-            )
-            else -> MockFocusSpec(
-                title = fallbackTitle,
-                content = fallbackContent,
-            )
-        }
-    }
-
-    private fun Context.sendMockIslandBroadcast(
-        title: String,
-        description: String,
-        sourcePackage: String,
-        notificationId: Int,
-        contentIntent: PendingIntent,
-        style: NotificationStyle = NotificationStyle.GENERAL,
-        smallOnly: Boolean = false,
-        isOngoing: Boolean = false,
-        islandOuterGlow: Boolean = true,
-    ) {
-        val userId = resolveNotificationUserId(this, sourcePackage)
-        val options = MiPushIslandPreferences.read(this, sourcePackage, userId)
-        val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
-        Logger.withTag(TAG).d {
-            "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
-                "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}"
-        }
-        sendBroadcast(
-            Intent(ACTION_SHOW_ISLAND).apply {
-                setPackage(SYSTEM_UI_PACKAGE)
-                putExtra("title", title)
-                putExtra("content", description)
-                putExtra("icon", icon)
-                putExtra("notificationId", notificationId)
-                putExtra("timeoutSecs", options.timeoutSecs)
-                putExtra("firstFloat", options.firstFloat)
-                putExtra("enableFloat", options.enableFloat)
-                putExtra("showNotification", false)
-                putExtra("sourcePackage", sourcePackage)
-                putExtra("userId", userId)
-                putExtra("sourceChannelId", "mipush_mock_island")
-                putExtra("contentIntent", contentIntent)
-                putExtra("isOngoing", isOngoing)
-                putExtra("showIslandIcon", true)
-                putExtra("clearBeforePost", true)
-                putExtra("islandOuterGlow", islandOuterGlow)
-                putExtra("style", style.name)
-                putExtra("smallOnly", smallOnly)
-            },
-        )
-    }
 
     private fun resolveNotificationUid(context: Context, packageName: String): Int {
         return runCatching {
@@ -1669,18 +892,5 @@ object NotificationController {
         }
     }
 
-    private fun createDemoBitmap(width: Int, height: Int, color: Int): Bitmap {
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        canvas.drawColor(color)
-        val paint = android.graphics.Paint().apply {
-            this.color = Color.WHITE
-            textSize = (height / 4).toFloat()
-            isAntiAlias = true
-            textAlign = android.graphics.Paint.Align.CENTER
-        }
-        canvas.drawText("XMSF", (width / 2).toFloat(), height / 2 + paint.textSize / 3, paint)
-        return bitmap
-    }
 
 }

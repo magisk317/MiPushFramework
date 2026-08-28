@@ -30,19 +30,19 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerForceRegisterResult
-import io.github.magisk317.mipush.common.manager.ManagerEvent
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
-import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationChannelCommandGateway
-import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
-import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
+import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
+import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerNotificationChannelCommandGateway
+import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
+import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
@@ -521,164 +521,39 @@ class ManagerWriteRuntimeExecutor(
     }
 
 
-    private suspend fun setRuntimeBoolean(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val key = request.argument.trim()
-        if (key !in ALLOWED_RUNTIME_BOOLEAN_KEYS) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_UNKNOWN_KEY)
-        }
-        val enabled = request.booleanArgument
-        val repo = preferenceRepository
-        when (key) {
-            COLOR_STATUS_BAR_ICON_KEY -> repo.setColorStatusBarIcon(enabled)
-            COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
-            "debug_mode" -> repo.setDebugMode(enabled)
-            LOG_SANITIZATION_ENABLED_KEY -> repo.setLogSanitizationEnabled(enabled)
-            ENABLE_ANALYTICS_KEY -> repo.setAnalyticsEnabled(enabled)
-            "show_all_events" -> repo.setShowAllEvents(enabled)
-            "start_foreground" -> {
-                repo.setIsStartForeground(enabled)
-                applyForegroundServicePolicy(enabled)
-            }
-            "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
-            KEEPALIVE_PREF_OOM_ADJ -> repo.setKeepAliveOomAdj(enabled)
-            KEEPALIVE_PREF_ANTI_KILL -> repo.setKeepAliveAntiKill(enabled)
-            KEEPALIVE_PREF_STANDBY_BYPASS -> repo.setKeepAliveStandbyBypass(enabled)
-            KEEPALIVE_PREF_DOZE_BYPASS -> repo.setKeepAliveDozeBypass(enabled)
-            ISLAND_PREF_ENABLED -> repo.setIslandEnabled(enabled)
-            ISLAND_PREF_FIRST_FLOAT -> repo.setIslandFirstFloat(enabled)
-            ISLAND_PREF_ENABLE_FLOAT -> repo.setIslandEnableFloat(enabled)
-            ISLAND_PREF_SHOW_NOTIFICATION -> repo.setIslandShowNotification(enabled)
-            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION -> repo.setIslandShowOriginalNotification(enabled)
-            ISLAND_PREF_FOCUS_NOTIF -> repo.setIslandFocusNotification(enabled)
-            ISLAND_PREF_VISUAL_ENABLED -> repo.setIslandVisualEnabled(enabled)
-            ISLAND_PREF_DYNAMIC_COLOR -> repo.setIslandDynamicColor(enabled)
-            ISLAND_PREF_BLUR_ENABLED -> repo.setIslandBlurEnabled(enabled)
-            ISLAND_PREF_GLASS_ENABLED -> repo.setIslandGlassEnabled(enabled)
-            ISLAND_PREF_OUTER_GLOW_ENABLED -> repo.setIslandOuterGlowEnabled(enabled)
-            ISLAND_PREF_ANIMATION_ENABLED -> repo.setIslandAnimationEnabled(enabled)
-            else -> error("unreachable runtime boolean key=$key")
-        }
-        runCatching {
-            context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
-        }
-        logI("set_runtime_boolean key=$key value=$enabled")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK)
-    }
+    private suspend fun setRuntimeBoolean(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerRuntimePreferenceCommandSupport.setRuntimeBoolean(
+            request = request,
+            context = context,
+            preferenceRepository = preferenceRepository,
+            runtimeActions = runtimeActions,
+            logInfo = ::logI,
+        )
 
-    private suspend fun applyForegroundServicePolicy(enabled: Boolean) {
-        if (enabled) {
-            runtimeActions.startMiPushServiceAsForegroundService(context)
-        } else {
-            io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.currentService()?.let { service ->
-                ForegroundHelper(service).stopForegroundNotification()
-            }
-        }
-    }
+    private suspend fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerRuntimePreferenceCommandSupport.setRuntimeInt(
+            request = request,
+            context = context,
+            preferenceRepository = preferenceRepository,
+            logInfo = ::logI,
+        )
 
-    private suspend fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val key = request.argument.trim()
-        if (key !in ALLOWED_RUNTIME_INT_KEYS) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_UNKNOWN_KEY)
-        }
-        val value = request.intArgument
-        val repo = preferenceRepository
-        when (key) {
-            ISLAND_PREF_TIMEOUT -> repo.setIslandTimeout(value)
-            else -> error("unreachable runtime int key=$key")
-        }
-        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
-        logI("set_runtime_int key=$key value=$value")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_OK)
-    }
+    private suspend fun setRuntimeString(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerRuntimePreferenceCommandSupport.setRuntimeString(
+            request = request,
+            context = context,
+            preferenceRepository = preferenceRepository,
+            logInfo = ::logI,
+        )
 
-    private suspend fun setRuntimeString(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val encoded = request.argument.trim()
-        val separator = encoded.indexOf('=')
-        if (separator <= 0) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        val key = encoded.substring(0, separator).trim()
-        if (key !in ALLOWED_RUNTIME_STRING_KEYS) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        val value = encoded.substring(separator + 1).trim().lowercase()
-        if (value !in setOf("auto", "mipush", "hyperisland")) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        preferenceRepository.setIslandRendererMode(value)
-        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
-        logI("set_runtime_string key=$key value=$value")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_OK)
-    }
+    private fun relaunchManager(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerSystemActionCommandSupport.relaunchManager(request, ::logI)
 
+    private fun rebootDevice(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerSystemActionCommandSupport.rebootDevice(request, ::logI)
 
-
-    private fun relaunchManager(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val route = request.argument.trim().ifBlank { "settings" }
-        // Sanitize route for shell: only allow simple path-like tokens.
-        val safeRoute = route.filter { it.isLetterOrDigit() || it == '_' || it == '-' || it == '/' }
-            .ifBlank { "settings" }
-        val pkg = io.github.magisk317.mipush.platform.support.LegacyComponentNames.MANAGER_PACKAGE
-        val activity = io.github.magisk317.mipush.platform.support.LegacyComponentNames.MAIN_ACTIVITY
-        val tabFlag = if (
-            safeRoute == "settings" ||
-            safeRoute.startsWith("settings") ||
-            safeRoute == "status_bar_icon_settings" ||
-            safeRoute == "connection_status"
-        ) {
-            " --es extra_start_tab settings"
-        } else {
-            ""
-        }
-        // Root am start survives manager process death and bypasses BAL that blocked AlarmManager PI.
-        // Delay so manager can finishAndRemoveTask + kill first.
-        Handler(Looper.getMainLooper()).postDelayed({
-            val cmd = buildString {
-                append("am start -n ")
-                append(pkg)
-                append('/')
-                append(activity)
-                append(" -f 0x14208000")
-                append(" --es extra_start_route ")
-                append(safeRoute)
-                append(tabFlag)
-            }
-            val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-                .runRootCommand(cmd, timeoutMs = 5_000L)
-            logI("relaunch_manager cmd=$cmd ok=${result.isSuccess} out=${result.stdoutText.trim()}")
-        }, 650L)
-        logI("relaunch_manager scheduled route=$safeRoute")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RELAUNCH_MANAGER_OK)
-    }
-
-    private fun rebootDevice(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.requestRootAccess()) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING)
-        }
-        // Return success first so Binder can complete before the device reboots.
-        Handler(Looper.getMainLooper()).postDelayed({
-            // Prefer shell reboot; fall back to svc.
-            val ok = io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-                .runRootCommand("reboot", timeoutMs = 3_000L)
-                .isSuccess
-            if (!ok) {
-                io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-                    .runRootCommand("svc power reboot", timeoutMs = 3_000L)
-            }
-            logI("reboot_device shell issued ok=$ok")
-        }, 400L)
-        logI("reboot_device scheduled")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_REBOOT_DEVICE_OK)
-    }
-
-    private fun restartRuntime(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        // Return success first; kill after a short delay so Binder can complete.
-        Handler(Looper.getMainLooper()).postDelayed({
-            runCatching { Process.killProcess(Process.myPid()) }
-        }, 250L)
-        logI("restart_runtime scheduled")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RESTART_RUNTIME_OK)
-    }
+    private fun restartRuntime(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        ManagerSystemActionCommandSupport.restartRuntime(request, ::logI)
 
 
     private suspend fun countEventsByDay(request: ManagerWriteRequestDto): ManagerWriteResultDto {
@@ -724,19 +599,19 @@ class ManagerWriteRuntimeExecutor(
 
     private suspend fun zygiskIsEnabled(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         return when (val result = zygiskConfigGateway.isZygiskModuleEnabled()) {
-            is io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Available -> success(
+            is io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult.Available -> success(
                 requestId = request.requestId,
                 details = ManagerProtocol.WRITE_DETAIL_ZYGISK_OK,
                 resultLong = if (result.enabled) 1L else 0L,
             )
-            is io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Unavailable ->
+            is io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult.Unavailable ->
                 failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
         }
     }
 
     private suspend fun zygiskGetConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         return when (val result = zygiskConfigGateway.getZygiskConfig()) {
-            is io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Available -> {
+            is io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Available -> {
                 val content = result.config.toFileContent()
                 success(
                     requestId = request.requestId,
@@ -744,7 +619,7 @@ class ManagerWriteRuntimeExecutor(
                     resultLong = content.length.toLong(),
                 )
             }
-            is io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Unavailable ->
+            is io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Unavailable ->
                 failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
         }
     }
@@ -779,12 +654,12 @@ class ManagerWriteRuntimeExecutor(
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
         }
         return when (val result = zygiskConfigGateway.scanZygiskPackages()) {
-            is io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Available -> success(
+            is io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Available -> success(
                 request.requestId,
                 result.output.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
                 resultLong = result.output.length.toLong(),
             )
-            is io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Unavailable ->
+            is io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Unavailable ->
                 failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
         }
     }
@@ -859,41 +734,6 @@ class ManagerWriteRuntimeExecutor(
             details = json.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
             resultLong = json.length.toLong(),
         )
-    }
-
-    private companion object {
-        val ALLOWED_RUNTIME_BOOLEAN_KEYS = setOf(
-            COLOR_STATUS_BAR_ICON_KEY,
-            COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
-            "debug_mode",
-            LOG_SANITIZATION_ENABLED_KEY,
-            ENABLE_ANALYTICS_KEY,
-            "show_all_events",
-            "start_foreground",
-            "start_push_as_foreground_service",
-            KEEPALIVE_PREF_OOM_ADJ,
-            KEEPALIVE_PREF_ANTI_KILL,
-            KEEPALIVE_PREF_STANDBY_BYPASS,
-            KEEPALIVE_PREF_DOZE_BYPASS,
-            ISLAND_PREF_ENABLED,
-            ISLAND_PREF_FIRST_FLOAT,
-            ISLAND_PREF_ENABLE_FLOAT,
-            ISLAND_PREF_SHOW_NOTIFICATION,
-            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
-            ISLAND_PREF_FOCUS_NOTIF,
-            ISLAND_PREF_VISUAL_ENABLED,
-            ISLAND_PREF_DYNAMIC_COLOR,
-            ISLAND_PREF_BLUR_ENABLED,
-            ISLAND_PREF_GLASS_ENABLED,
-            ISLAND_PREF_OUTER_GLOW_ENABLED,
-            ISLAND_PREF_ANIMATION_ENABLED,
-        )
-
-        val ALLOWED_RUNTIME_INT_KEYS = setOf(
-            ISLAND_PREF_TIMEOUT,
-        )
-
-        val ALLOWED_RUNTIME_STRING_KEYS = setOf(ISLAND_PREF_RENDERER_MODE)
     }
 
     private fun success(

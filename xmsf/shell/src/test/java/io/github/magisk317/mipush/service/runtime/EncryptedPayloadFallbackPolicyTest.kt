@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.utils
 
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import com.xiaomi.xmsf.R
 import co.touchlab.kermit.Logger
@@ -61,11 +60,6 @@ object LogUtils {
 
     @Volatile
     private var minLogLevel: Severity = Severity.Verbose
-
-    data class ShareIntentResult(
-        val intent: Intent?,
-        val error: String? = null,
-    )
 
     data class RuntimeLogEntry(
         val timestamp: Long,
@@ -253,23 +247,6 @@ object LogUtils {
             return
         }
         Toast.makeText(context, context.getString(R.string.log_clear_done), Toast.LENGTH_SHORT).show()
-    }
-
-    @JvmStatic
-    fun prepareShareIntent(context: Context): ShareIntentResult {
-        return runCatching {
-            val export = LogBundleExporter.buildLogBundle(
-                context = context,
-                mode = DiagnosticExportModes.fromDebugLoggingSetting(context),
-            )
-            val file = export.file ?: return ShareIntentResult(null, export.details)
-            ShareIntentResult(
-                intent = LogBundleExporter.buildShareIntent(context, file),
-                error = export.details,
-            )
-        }.getOrElse {
-            ShareIntentResult(null, it.message ?: it.javaClass.simpleName)
-        }
     }
 
     fun summarizeFiles(context: Context): RuntimeLogFileSummary {

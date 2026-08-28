@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush
 
 import android.os.Build
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.XMPushServiceCore
