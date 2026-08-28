@@ -10,7 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException

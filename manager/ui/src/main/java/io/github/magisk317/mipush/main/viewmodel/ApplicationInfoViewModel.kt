@@ -3,11 +3,11 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
+import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.notification.NotificationChannelReadResult

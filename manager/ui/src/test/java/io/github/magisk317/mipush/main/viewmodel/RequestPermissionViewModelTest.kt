@@ -1,14 +1,14 @@
 package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
-import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
-import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
-import io.github.magisk317.mipush.common.manager.ManagerRootTarget
-import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
-import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
+import io.github.magisk317.mipush.manager.application.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.manager.application.ManagerRootTarget
+import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairResult
+import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionOperator
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionOperator

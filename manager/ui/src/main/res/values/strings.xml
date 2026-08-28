@@ -376,13 +376,15 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="connection_status_not_available">—</string>
 
     <string name="settings_debug">Debug</string>
-    <string name="settings_get_log">Share logs</string>
-    <string name="settings_get_log_summary">Build and share a log bundle for debugging.</string>
+    <string name="settings_get_log">Save logs</string>
+    <string name="settings_get_log_summary">Build and save a log bundle to local storage for debugging.</string>
     <string name="settings_runtime_log_retention_days">Runtime log retention</string>
     <string name="settings_runtime_log_retention_days_summary">Keep the last %1$d days of all log artifacts (runtime, crash, export zips, temp files)</string>
     <string name="settings_runtime_log_retention_days_hint">Days to keep all log products (jsonl, crash, export zips, staging, temp). Minimum 1. Default is 2.</string>
     <string name="settings_runtime_log_retention_days_error">Please enter an integer greater than or equal to 1.</string>
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
+    <string name="runtime_log_exporting">Exporting logs…</string>
+    <string name="runtime_log_saved">Logs saved locally</string>
     <string name="runtime_log_share_failed">Share failed: %1$s</string>
     <string name="runtime_log_cleared">Logs and crash files cleared</string>
     <string name="runtime_log_clear_partial_failed">Partially cleared: %1$s</string>

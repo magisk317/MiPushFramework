@@ -16,27 +16,6 @@ android {
         buildConfig = true
     }
 
-    // These are established Manager contracts or localization/style suggestions, not defects:
-    // application-scoped Koin contexts, synchronous launcher state commits, explicit alarm and
-    // battery permission flows, shared icons, and translations whose grammar is already curated.
-    // Keep the exception module-local; API, lifecycle, permission, and Compose resource errors
-    // remain enabled and are fixed in source.
-    lint {
-        disable += setOf(
-            "ApplySharedPref",
-            "AutoboxingStateCreation",
-            "BatteryLife",
-            "ConfigurationScreenWidthHeight",
-            "IconDuplicates",
-            "MissingPermission",
-            "ModifierParameter",
-            "ObsoleteSdkInt",
-            "PluralsCandidate",
-            "StaticFieldLeak",
-            "UnusedQuantity",
-            "UseKtx",
-        )
-    }
 }
 
 // Keep the navigation-performance verification gate in an allowed Manager module so
@@ -75,6 +54,7 @@ tasks.configureEach {
 dependencies {
     implementation(project(":common"))
     implementation(project(":configuration"))
+    implementation(project(":manager:application"))
     implementation(project(":manager:client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
@@ -82,6 +62,7 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.jqwik)
+    testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.kermit)

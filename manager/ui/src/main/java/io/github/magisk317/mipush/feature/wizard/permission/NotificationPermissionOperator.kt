@@ -7,7 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 
 class NotificationPermissionOperator(private val context: Context) : PermissionOperator {
     override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {

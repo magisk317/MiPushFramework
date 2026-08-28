@@ -6,13 +6,13 @@ import android.net.Uri
 import co.touchlab.kermit.Logger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.utils.ConfigDefaults
-import io.github.magisk317.mipush.utils.ConfigListItem
+import io.github.magisk317.mipush.core.configuration.ConfigListItem
 import io.github.magisk317.mipush.utils.ConfigRemoteSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

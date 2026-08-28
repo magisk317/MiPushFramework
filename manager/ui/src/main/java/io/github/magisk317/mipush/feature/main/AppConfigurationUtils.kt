@@ -8,7 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.notification.NotificationChannelGroupSummary
 import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot

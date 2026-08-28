@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <eat-comment />
 
-    <plurals name="date_minutes">
+    <plurals name="date_minutes" tools:ignore="UnusedQuantity">
         <item quantity="one">分钟</item>
         <item quantity="other">分钟</item>
     </plurals>
 
     <!-- Auth -->
-    <plurals name="date_hours">
+    <plurals name="date_hours" tools:ignore="UnusedQuantity">
         <item quantity="one">小时</item>
         <item quantity="other">小时</item>
     </plurals>
-    <plurals name="date_days">
+    <plurals name="date_days" tools:ignore="UnusedQuantity">
         <item quantity="one">天</item>
         <item quantity="other">天</item>
     </plurals>
@@ -337,13 +337,15 @@
     <string name="connection_status_bound_channels_summary">已绑定且可接收消息的活跃通道数</string>
     <string name="connection_status_not_available">—</string>
 
-    <string name="settings_get_log">分享日志</string>
-    <string name="settings_get_log_summary">构建并分享日志包用于调试。</string>
+    <string name="settings_get_log">保存日志</string>
+    <string name="settings_get_log_summary">构建日志包并保存到本地存储，用于调试。</string>
     <string name="settings_runtime_log_retention_days">日志保留天数</string>
     <string name="settings_runtime_log_retention_days_summary">保留最近 %1$d 天全部日志产物（运行日志、崩溃、导出 zip、临时文件）</string>
     <string name="settings_runtime_log_retention_days_hint">单位：天；覆盖 jsonl/崩溃/导出 zip/staging/临时文件，最小值 1，默认 2。</string>
     <string name="settings_runtime_log_retention_days_error">请输入大于等于 1 的整数。</string>
     <string name="runtime_log_export_failed">导出失败：%1$s</string>
+    <string name="runtime_log_exporting">日志导出中…</string>
+    <string name="runtime_log_saved">日志已保存到本地</string>
     <string name="runtime_log_share_failed">分享失败：%1$s</string>
     <string name="runtime_log_cleared">日志与崩溃文件已清空</string>
     <string name="runtime_log_clear_partial_failed">部分清空失败：%1$s</string>

@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.feature.main
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.net.Uri
 import java.util.Locale
 import io.github.magisk317.mipush.common.BuildConfig
@@ -22,14 +21,7 @@ class MainActivityOperation(private val context: Context) {
         }.getOrNull()
         val versionName = packageInfo?.versionName?.takeIf { it.isNotBlank() }
             ?: BuildConfig.VERSION_NAME
-        val versionCode = packageInfo?.let {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                it.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                it.versionCode.toLong()
-            }
-        } ?: VERSION_CODE.toLong()
+        val versionCode = packageInfo?.longVersionCode ?: VERSION_CODE.toLong()
         val versionInfo = String.format(
             Locale.US,
             "name: %s\ncode: %d\nbuildConfigName: %s\nbuildConfigCode: %d\ngitCommit: %s\ntype: %s",

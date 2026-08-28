@@ -9,9 +9,9 @@ class ZygiskConfigReadContractTest {
     @Test
     fun `remote gateway preserves unavailable config reads`() {
         val source = readSource(
-            "io/github/magisk317/mipush/manager/remote/RemoteManagerGateways.kt",
+            "io/github/magisk317/mipush/manager/remote/RemoteZygiskConfigGateway.kt",
         )
-        val section = source.section("class RemoteZygiskConfigGateway", "\n}\n\n\nprivate object RemoteRuntimeLog")
+        val section = source
 
         assertTrue(section.contains("ZygiskConfigReadResult.Unavailable(\"runtime_unavailable\")"))
         assertTrue(section.contains("ZygiskConfigReadResult.Unavailable(result.details"))
@@ -21,9 +21,9 @@ class ZygiskConfigReadContractTest {
     @Test
     fun `remote gateway preserves unavailable module and scan reads`() {
         val source = readSource(
-            "io/github/magisk317/mipush/manager/remote/RemoteManagerGateways.kt",
+            "io/github/magisk317/mipush/manager/remote/RemoteZygiskConfigGateway.kt",
         )
-        val section = source.section("class RemoteZygiskConfigGateway", "\n}\n\n\nprivate object RemoteRuntimeLog")
+        val section = source
         val module = section.section("override suspend fun isZygiskModuleEnabled", "override fun getZygiskConfigPath")
         val scan = section.substring(section.indexOf("override suspend fun scanZygiskPackages"))
 
@@ -90,12 +90,11 @@ class ZygiskConfigReadContractTest {
     }
 
     private fun readSource(relativePath: String): String {
-        val candidates = listOf(
-            File("src/main/java/$relativePath"),
-            File("manager/src/main/java/$relativePath"),
-        )
-        return candidates.firstOrNull(File::isFile)?.readText()
-            ?: error("Source not found: $relativePath from ${File(".").absolutePath}")
+        val source = File("src/main/java/$relativePath")
+        check(source.isFile) {
+            "Source not found: $relativePath at ${source.path}"
+        }
+        return source.readText()
     }
 
     private fun String.section(start: String, end: String): String {

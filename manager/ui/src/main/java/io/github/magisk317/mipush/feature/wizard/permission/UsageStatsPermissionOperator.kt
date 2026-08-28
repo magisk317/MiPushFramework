@@ -6,7 +6,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityImpl
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride

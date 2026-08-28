@@ -65,10 +65,10 @@ import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermission
 import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.ThemeMode
-import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
-import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
-import io.github.magisk317.mipush.common.manager.ManagerRootTarget
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
+import io.github.magisk317.mipush.manager.application.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.manager.application.ManagerRootTarget
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.uikit.theme.UiKitStyle

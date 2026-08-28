@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.R
 
 object RegistrationStateStyle {

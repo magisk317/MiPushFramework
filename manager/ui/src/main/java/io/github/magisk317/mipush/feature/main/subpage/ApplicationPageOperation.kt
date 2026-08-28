@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.ApplicationListSnapshot

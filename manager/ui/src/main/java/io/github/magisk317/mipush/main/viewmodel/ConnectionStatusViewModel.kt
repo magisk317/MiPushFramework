@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.api.ManagerProtocol

@@ -83,7 +83,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.billing.BillingProvider
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel

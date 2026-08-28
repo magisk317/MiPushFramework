@@ -18,6 +18,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,7 +54,7 @@ fun RefreshableLazyColumn(
     val currentDoRefresh by rememberUpdatedState(doRefresh)
 
     var isRefreshing by remember { mutableStateOf(false) }
-    var refreshStartedAt by remember { mutableStateOf(0L) }
+    var refreshStartedAt by remember { mutableLongStateOf(0L) }
     val onRefreshed = remember { { isRefreshing = false } }
     val scope = rememberCoroutineScope()
     val lazyListState = listState ?: rememberLazyListState()

@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.main.viewmodel
 
+import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
@@ -30,22 +32,27 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
 import io.github.magisk317.mipush.manager.SettingsManager
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
-import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
+import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
 import io.github.magisk317.uikit.theme.UiKitStyle
-import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
+
+private const val RUNTIME_LOG_EXPORT_TAG = "ManagerLogExport"
+private const val RUNTIME_LOG_EXPORT_SERVICE = "io.github.magisk317.mipush.app.RuntimeLogExportService"
+private val runtimeLogExportScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
@@ -457,20 +464,80 @@ class SettingsViewModel constructor(
         settingsManager.clearHistory(context, viewModelScope)
     }
 
-    suspend fun buildRuntimeLogBundle(context: android.content.Context): io.github.magisk317.mipush.common.manager.ManagerLogExportResult {
-        // Do not compareRemote here: a second full export can take minutes and contend on the runtime opLock.
-        return settingsManager.buildRuntimeLogBundle(context)
+    /**
+     * Starts the SAF export in an application-process scope rather than [viewModelScope].
+     *
+     * The system document picker can remove the Settings destination from the navigation stack
+     * while the chosen document already exists. A SettingsViewModel is then cleared before the
+     * Binder export starts, leaving that document at zero bytes. This scope outlives the screen;
+     * its supervisor job isolates this one export from other work in the Manager process.
+     */
+    fun saveRuntimeLogBundle(
+        context: android.content.Context,
+        destination: android.net.Uri,
+        onResult: (io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult) -> Unit,
+    ) {
+        val applicationContext = context.applicationContext
+        runCatching {
+            val foregroundIntent = Intent().setClassName(applicationContext, RUNTIME_LOG_EXPORT_SERVICE)
+            applicationContext.startForegroundService(foregroundIntent)
+        }.onFailure { error ->
+            Log.w(RUNTIME_LOG_EXPORT_TAG, "foreground_start_failed", error)
+        }
+        runtimeLogExportScope.launch {
+            Log.i(RUNTIME_LOG_EXPORT_TAG, "save_started")
+            val result = runCatching {
+                val writeResult = applicationContext.contentResolver
+                    .openOutputStream(destination, "wt")
+                    ?.use { output -> settingsManager.saveRuntimeLogBundle(applicationContext, output) }
+                    ?: return@runCatching io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult(
+                        success = false,
+                        details = "log_export_destination_open_failed",
+                    )
+                if (!writeResult.success) return@runCatching writeResult
+
+                // A DocumentProvider can create the target before the export begins. Verify it
+                // after the ZIP stream has been closed so an interrupted write is never shown
+                // as a successful local save. Unknown length is valid for some providers.
+                val destinationBytes = applicationContext.contentResolver
+                    .openAssetFileDescriptor(destination, "r")
+                    ?.use { descriptor -> descriptor.length }
+                    ?: -1L
+                if (destinationBytes == 0L) {
+                    io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult(
+                        success = false,
+                        details = "log_export_destination_empty",
+                    )
+                } else {
+                    writeResult
+                }
+            }.getOrElse { error ->
+                io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult(
+                    success = false,
+                    details = "log_export_save_failed:${error.message ?: error.javaClass.simpleName}",
+                )
+            }
+            Log.i(
+                RUNTIME_LOG_EXPORT_TAG,
+                "save_finished success=${result.success} details=${result.details}",
+            )
+            applicationContext.stopService(
+                Intent().setClassName(applicationContext, RUNTIME_LOG_EXPORT_SERVICE),
+            )
+            withContext(Dispatchers.Main.immediate) {
+                onResult(result)
+            }
+        }
     }
 
-    fun buildRuntimeLogShareIntent(context: android.content.Context, file: File) =
-        settingsManager.buildRuntimeLogShareIntent(context, file)
+    suspend fun saveRuntimeLogBundle(
+        context: android.content.Context,
+        destination: java.io.OutputStream,
+    ): io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult =
+        settingsManager.saveRuntimeLogBundle(context, destination)
 
     suspend fun clearRuntimeLogFolders(context: android.content.Context) =
         settingsManager.clearRuntimeLogFolders(context)
-
-    fun shareLogs(context: android.content.Context) {
-        settingsManager.shareLogs(context)
-    }
 
     // ── Section expand states ──────────────────────────────────────────
     // Hoisted from SettingsScreen so they survive pager ↔ detail navigation.

@@ -32,12 +32,11 @@ class PassiveRootRequestContractTest {
 
     private fun readSource(fileName: String): String {
         val relativePath = "io/github/magisk317/mipush/main/viewmodel/$fileName"
-        val candidates = listOf(
-            File("src/main/java/$relativePath"),
-            File("manager/src/main/java/$relativePath"),
-        )
-        return candidates.firstOrNull(File::isFile)?.readText()
-            ?: error("Source not found: $fileName from ${File(".").absolutePath}")
+        val source = File("src/main/java/$relativePath")
+        check(source.isFile) {
+            "Source not found: $fileName at ${source.path}"
+        }
+        return source.readText()
     }
 
     private fun String.section(start: String, end: String): String {

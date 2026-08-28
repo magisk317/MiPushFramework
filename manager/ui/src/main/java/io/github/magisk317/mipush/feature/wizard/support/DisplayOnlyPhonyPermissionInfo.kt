@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.feature.wizard.support
 
 import android.content.Context
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionOperator
 

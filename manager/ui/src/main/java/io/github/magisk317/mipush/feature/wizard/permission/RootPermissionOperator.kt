@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.feature.wizard.permission
 
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 
 class RootPermissionOperator : PermissionOperator {
     override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {

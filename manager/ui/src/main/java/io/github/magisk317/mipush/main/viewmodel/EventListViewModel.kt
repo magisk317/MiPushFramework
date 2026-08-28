@@ -12,9 +12,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.manager.ManagerEvent
-import io.github.magisk317.mipush.common.manager.ManagerDayCount
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerDayCount
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
@@ -23,7 +23,7 @@ import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.events.EventListRequest
 import io.github.magisk317.mipush.manager.events.EventReadResult
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import io.github.magisk317.mipush.feature.main.subpage.composeKey

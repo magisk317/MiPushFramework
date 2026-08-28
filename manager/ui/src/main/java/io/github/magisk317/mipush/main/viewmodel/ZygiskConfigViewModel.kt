@@ -2,13 +2,13 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
-import io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult
-import io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult
+import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
+import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
+import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
+import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
+import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
@@ -129,7 +129,7 @@ class ZygiskConfigViewModel(
                 if (!granted || current == null) return@withContext granted to false
                 val installedPackages = _state.value.installedApps.map { it.packageName }.toSet()
                 val preserved = current.entries.filterNot { it.packageName in installedPackages }
-                val packageEntries = _state.value.spoofPackages.map { io.github.magisk317.mipush.common.fakedevice.ZygiskConfigEntry(it) }
+                val packageEntries = _state.value.spoofPackages.map { io.github.magisk317.mipush.core.zygisk.ZygiskConfigEntry(it) }
                 val saved = granted && settingsManager.saveZygiskConfig(
                     current.copy(entries = preserved + packageEntries).copy(
                         profile = _state.value.profile,

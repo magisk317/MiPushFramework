@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.manager.R
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

@@ -65,8 +65,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.utils.Utils
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
