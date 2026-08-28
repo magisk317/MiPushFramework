@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
-import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay

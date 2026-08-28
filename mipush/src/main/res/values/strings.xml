@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">MiPush Manager</string>
+    <string name="runtime_log_export_notification_channel">Diagnostic log export</string>
+    <string name="runtime_log_export_notification_title">Exporting diagnostic logs</string>
+    <string name="runtime_log_export_notification_text">Saving the MiPush diagnostic archive…</string>
     <string name="manager_runtime_unavailable">MiPush runtime is not installed or its manager entry is unavailable.</string>
     <string name="xposedDescription">Runtime enhancement module for MiPushFramework: target-app notification identity and Xiaomi-device compatibility hooks.</string>
 

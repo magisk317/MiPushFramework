@@ -19,10 +19,10 @@ import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
 import io.github.magisk317.mipush.app.R
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerEvent
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.manager.ManagerEventType
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerEventType
 import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.manager.SettingsManager

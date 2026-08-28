@@ -56,6 +56,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":manager:application"))
     implementation(project(":manager:ui"))
     implementation(project(":manager:client"))
     implementation(project(":xposed"))
