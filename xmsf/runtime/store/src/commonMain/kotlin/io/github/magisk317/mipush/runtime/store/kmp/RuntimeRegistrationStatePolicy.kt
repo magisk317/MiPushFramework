@@ -1,17 +1,25 @@
 package io.github.magisk317.mipush.runtime.store.kmp
 
+import io.github.magisk317.mipush.runtime.core.registration.RegistrationResultPolicy
+
 /**
- * Pure persisted-state classification for registration-result events.
+ * Persistence compatibility facade for registration-result events.
  *
- * The Android adapter is responsible for decoding the optional Thrift result and passes only the
- * event type and error code here. Unknown, missing, and non-zero results remain unregistered.
+ * The platform-neutral result classification lives in [RegistrationResultPolicy]. This facade
+ * retains store-owned event constants and persisted enum mapping for existing callers.
  */
 object RuntimeRegistrationStatePolicy {
     fun resolveRegisteredType(
         eventType: Int,
         errorCode: Long?,
     ): Int =
-        if (eventType == EventRowType.RegistrationResult && errorCode == 0L) {
+        if (
+            RegistrationResultPolicy.isSuccessfulRegistrationResult(
+                eventType = eventType,
+                registrationResultEventType = EventRowType.RegistrationResult,
+                errorCode = errorCode,
+            )
+        ) {
             RegisteredAppRegisteredType.Registered
         } else {
             RegisteredAppRegisteredType.Unregistered

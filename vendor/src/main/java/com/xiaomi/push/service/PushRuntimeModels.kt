@@ -45,10 +45,10 @@ data class PushConnectionStatusPlan(
     val warningMessage: String? = null
 )
 
-typealias PushReconnectState = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectState
-typealias PushReconnectDelayPlan = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectDelayPlan
-typealias PushReconnectAction = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectAction
-typealias PushReconnectAttemptPlan = io.github.magisk317.mipush.runtime.store.kmp.PushReconnectAttemptPlan
+typealias PushReconnectState = io.github.magisk317.mipush.runtime.core.PushReconnectState
+typealias PushReconnectDelayPlan = io.github.magisk317.mipush.runtime.core.PushReconnectDelayPlan
+typealias PushReconnectAction = io.github.magisk317.mipush.runtime.core.PushReconnectAction
+typealias PushReconnectAttemptPlan = io.github.magisk317.mipush.runtime.core.PushReconnectAttemptPlan
 
 typealias PushCheckAliveAction = io.github.magisk317.mipush.runtime.core.PushCheckAliveAction
 typealias PushCheckAlivePlan = io.github.magisk317.mipush.runtime.core.PushCheckAlivePlan

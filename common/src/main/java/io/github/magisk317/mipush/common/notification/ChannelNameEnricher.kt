@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.common.notification
 
 import android.app.NotificationChannel
+import io.github.magisk317.mipush.notification.policy.NotificationAppSettingsBlockSelector
 
 /**
  * Resolves full notification-channel names from a notification service dump.

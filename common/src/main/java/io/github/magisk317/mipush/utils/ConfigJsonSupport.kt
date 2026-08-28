@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.core.configuration.JsonValidationResult
 import java.security.MessageDigest
 import java.util.regex.Pattern
 import kotlinx.serialization.SerializationException

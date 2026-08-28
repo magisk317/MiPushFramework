@@ -1,16 +1,31 @@
 plugins {
-    id("magisk.android.library")
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
 }
 
-android {
-    namespace = "io.github.magisk317.mipush.platform"
+kotlin {
+    jvm()
+
+    android {
+        namespace = "io.github.magisk317.mipush.platform"
+        compileSdk = libs.versions.compileSdk.get().toInt()
+        minSdk = libs.versions.minSdk.get().toInt()
+    }
+
+    sourceSets {
+        androidMain.dependencies {
+            implementation(project(":common"))
+            implementation(libs.libsu.core)
+            implementation(libs.palette)
+        }
+    }
 }
 
 dependencies {
-    implementation(project(":common"))
-    implementation(libs.libsu.core)
-    implementation(libs.palette)
+    add("jvmTestImplementation", libs.junit.jupiter)
+    add("jvmTestRuntimeOnly", libs.junit.platform.launcher)
+}
 
-    testImplementation(libs.junit.jupiter)
-    testRuntimeOnly(libs.junit.platform.launcher)
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    useJUnitPlatform()
 }

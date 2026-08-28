@@ -1,10 +1,12 @@
 package io.github.magisk317.mipush.runtime.store.kmp
 
+import io.github.magisk317.mipush.runtime.core.event.EventSearchTextPolicy as CoreEventSearchTextPolicy
+
 /**
- * Platform-neutral composition policy for the persisted event-search snapshot.
+ * Persistence compatibility facade for event-search text snapshots.
  *
- * Android adapters resolve localized names and event text; this policy owns only stable ordering,
- * blank filtering, and de-duplication before the result is persisted in EVENT.search_text.
+ * This facade retains the store package used by Android adapters while the platform-neutral text
+ * composition rule lives in [CoreEventSearchTextPolicy].
  */
 object EventSearchTextPolicy {
     fun compose(
@@ -12,14 +14,10 @@ object EventSearchTextPolicy {
         applicationName: String? = null,
         title: String? = null,
         summary: String? = null,
-    ): String = buildList {
-        add(packageName)
-        add(applicationName)
-        add(title)
-        add(summary)
-    }
-        .filterNotNull()
-        .filter { it.isNotBlank() }
-        .distinct()
-        .joinToString(separator = " ")
+    ): String = CoreEventSearchTextPolicy.compose(
+        packageName = packageName,
+        applicationName = applicationName,
+        title = title,
+        summary = summary,
+    )
 }

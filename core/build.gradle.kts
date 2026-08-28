@@ -5,6 +5,8 @@ plugins {
 }
 
 kotlin {
+    jvm()
+
     android {
         namespace = "io.github.magisk317.mipush.runtime.core"
         compileSdk = libs.versions.compileSdk.get().toInt()
@@ -22,7 +24,11 @@ kotlin {
 }
 
 dependencies {
-    add("androidHostTestImplementation", libs.junit.jupiter)
-    add("androidHostTestImplementation", libs.mockk)
-    add("androidHostTestRuntimeOnly", libs.junit.platform.launcher)
+    add("jvmTestImplementation", libs.junit.jupiter)
+    add("jvmTestImplementation", libs.mockk)
+    add("jvmTestRuntimeOnly", libs.junit.platform.launcher)
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    useJUnitPlatform()
 }
