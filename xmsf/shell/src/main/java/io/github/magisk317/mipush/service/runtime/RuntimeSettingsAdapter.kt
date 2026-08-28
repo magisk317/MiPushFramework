@@ -17,8 +17,8 @@ import com.xiaomi.smack.SmackConfiguration
 import com.xiaomi.smack.SocketConnection
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions

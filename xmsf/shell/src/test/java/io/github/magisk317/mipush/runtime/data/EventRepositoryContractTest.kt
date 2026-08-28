@@ -13,7 +13,7 @@ class EventRepositoryContractTest {
         val dao = readSource(
             "runtime/store/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt"
         )
-        val adapter = readSource("io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt")
+        val adapter = readSource("io/github/magisk317/mipush/app/di/ManagerEventLogAdapters.kt")
 
         assertTrue(repository.contains("EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId) ?: 0L"))
         assertTrue(repository.contains("EventDb.deleteByIdWithUndoSnapshotAsync(id, event.pkg, event.userId)"))

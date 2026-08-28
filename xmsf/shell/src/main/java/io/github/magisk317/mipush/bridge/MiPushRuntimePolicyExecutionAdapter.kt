@@ -7,9 +7,6 @@ import com.xiaomi.push.service.PushBindResultPlan
 import com.xiaomi.push.service.PushBucketFetchPlan
 import com.xiaomi.push.service.PushBucketReconnectPlan
 import com.xiaomi.push.service.PushChannelInfoUpdateResult
-import com.xiaomi.push.service.PushReconnectAttemptPlan
-import com.xiaomi.push.service.PushReconnectState
-import com.xiaomi.push.service.PushShouldReconnectPlan
 import com.xiaomi.push.service.PushChannelInfoUpdateTarget
 import com.xiaomi.push.service.PushChannelOpenPlan
 import com.xiaomi.push.service.PushCheckAlivePlan
@@ -102,38 +99,6 @@ internal object MiPushRuntimePolicyExecutionAdapter {
 
     fun resolveCheckAlivePlan(isConnected: Boolean, hasNetwork: Boolean): PushCheckAlivePlan =
         PushServiceConnectionRuntime.planCheckAlive(isConnected, hasNetwork)
-
-    fun planShouldReconnect(
-        hasNetwork: Boolean,
-        activeClientCount: Int,
-        pushDisabled: Boolean,
-        pushEnabled: Boolean,
-        superPowerMode: Boolean,
-        extremePowerMode: Boolean,
-    ): PushShouldReconnectPlan = PushServiceConnectionRuntime.planShouldReconnect(
-        hasNetwork,
-        activeClientCount,
-        pushDisabled,
-        pushEnabled,
-        superPowerMode,
-        extremePowerMode,
-    )
-
-    fun planReconnect(
-        state: PushReconnectState,
-        forceImmediate: Boolean,
-        currentlyConnected: Boolean,
-        allowedByPolicy: Boolean,
-        hasPendingConnectJob: Boolean,
-        nowMs: Long,
-    ): PushReconnectAttemptPlan = PushReconnectRuntime.planReconnect(
-        state,
-        forceImmediate,
-        currentlyConnected,
-        allowedByPolicy,
-        hasPendingConnectJob,
-        nowMs,
-    )
 
     fun resolveCandidateHosts(targetHost: String, fallbackHosts: List<String>): PushSocketHostSelectionPlan =
         PushSocketConnectionRuntime.resolveCandidateHosts(targetHost, fallbackHosts)

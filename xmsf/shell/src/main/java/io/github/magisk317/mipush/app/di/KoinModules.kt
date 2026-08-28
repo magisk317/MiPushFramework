@@ -3,14 +3,14 @@ package io.github.magisk317.mipush.app.di
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
-import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationChannelCommandGateway
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
+import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.application.ManagerEventGateway
+import io.github.magisk317.mipush.manager.application.ManagerLogGateway
+import io.github.magisk317.mipush.manager.application.ManagerNotificationChannelCommandGateway
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.configuration.ConfigCatalogService
 import io.github.magisk317.mipush.configuration.ConfigSyncObserver
 import io.github.magisk317.mipush.configuration.ConfigSyncRepository
@@ -55,7 +55,7 @@ val xmsfCoreKoinModule = module {
     single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
     single<ManagerLogGateway> { XmsfManagerLogGateway() }
     single<ManagerPermissionGateway> { XmsfManagerPermissionGateway() }
-    single<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway> { XmsfZygiskConfigGateway() }
+    single<io.github.magisk317.mipush.manager.application.ZygiskConfigGateway> { XmsfZygiskConfigGateway() }
     single { ConfigurationsLoader(get()) }
     single { Configurations(get()) }
     single { IconConfigurations(get()) }

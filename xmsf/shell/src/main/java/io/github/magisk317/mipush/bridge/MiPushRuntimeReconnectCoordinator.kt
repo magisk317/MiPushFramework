@@ -7,6 +7,9 @@ import com.xiaomi.push.service.PushReconnectAttemptPlan
 import com.xiaomi.push.service.PushReconnectState
 import com.xiaomi.push.service.PushShouldReconnectPlan
 import com.xiaomi.push.service.ReconnectDebugLog
+import io.github.magisk317.mipush.runtime.core.PushConnectionPlanFactory
+import io.github.magisk317.mipush.runtime.core.PushReconnectPolicy
+
 internal class MiPushRuntimeReconnectCoordinator(
     private val appContext: android.content.Context,
     private val observerState: MiPushRuntimeObserverState,
@@ -23,7 +26,7 @@ internal class MiPushRuntimeReconnectCoordinator(
         val account = MIPushAccountUtils.getMIPushAccount(appContext)
         val hasAccount = account != null
         val effectiveCount = if (hasAccount && activeClientCount == 0) 1 else activeClientCount
-        val plan = MiPushRuntimePolicyExecutionAdapter.planShouldReconnect(
+        val plan = PushConnectionPlanFactory.planShouldReconnect(
             hasNetwork,
             effectiveCount,
             pushDisabled,
@@ -68,7 +71,7 @@ internal class MiPushRuntimeReconnectCoordinator(
             }
         }
 
-        return MiPushRuntimePolicyExecutionAdapter.planReconnect(
+        return PushReconnectPolicy.planReconnect(
             state = state,
             forceImmediate = force,
             currentlyConnected = isConnected,

@@ -10,7 +10,7 @@ import android.os.Process
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
@@ -429,7 +429,7 @@ internal fun ManagerConnectionSnapshot.toWireDto(): ManagerConnectionSnapshotDto
         lastReconnectToConnectedLatencyMs = lastReconnectToConnectedLatencyMs,
     )
 
-private fun io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot.toWireDto():
+private fun io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot.toWireDto():
     ManagerRuntimeEnvironmentSnapshotDto = ManagerRuntimeEnvironmentSnapshotDto(
         isMiui = isMiui,
         imei = imei,
@@ -465,7 +465,7 @@ private fun ManagerApplicationReadStats.toWireDto(): ManagerApplicationStatsDto 
         notRegistered = notRegistered,
     )
 
-private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toSummaryDto(): ManagerApplicationSummaryDto =
+private fun io.github.magisk317.mipush.manager.application.ManagerApplication.toSummaryDto(): ManagerApplicationSummaryDto =
     ManagerApplicationSummaryDto(
         id = id,
         userId = userId,
@@ -482,7 +482,7 @@ private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toSumma
         lastReceiveTimeMs = lastReceiveTimeMs,
     )
 
-private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toDetailDto(): ManagerApplicationDetailDto =
+private fun io.github.magisk317.mipush.manager.application.ManagerApplication.toDetailDto(): ManagerApplicationDetailDto =
     ManagerApplicationDetailDto(
         id = id,
         userId = userId,

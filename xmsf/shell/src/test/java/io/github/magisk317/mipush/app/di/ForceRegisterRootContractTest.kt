@@ -11,7 +11,6 @@ class ForceRegisterRootContractTest {
         val source = resolveSource().readText()
         val operation = source.substring(
             startIndex = source.indexOf("override suspend fun launchTargetAppAndForceRegister"),
-            endIndex = source.indexOf("class XmsfManagerRuntimeActions"),
         )
         val feedback = operation.substring(
             startIndex = operation.indexOf("private fun forceRegisterWithFeedback"),
@@ -23,8 +22,8 @@ class ForceRegisterRootContractTest {
 
     private fun resolveSource(): File {
         val candidates = listOf(
-            File("src/main/java/io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt"),
-            File("../runtime/src/main/java/io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt"),
+            File("src/main/java/io/github/magisk317/mipush/app/di/ManagerApplicationAdapter.kt"),
+            File("../runtime/src/main/java/io/github/magisk317/mipush/app/di/ManagerApplicationAdapter.kt"),
         )
         return candidates.firstOrNull(File::isFile)
             ?: error("ManagerRuntimeAdapters.kt not found from ${File(".").absolutePath}")

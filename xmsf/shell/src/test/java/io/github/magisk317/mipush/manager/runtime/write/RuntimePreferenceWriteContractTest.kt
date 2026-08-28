@@ -45,25 +45,29 @@ class RuntimePreferenceWriteContractTest {
         )
         val app = readSource("io/github/magisk317/mipush/app/MiPushFrameworkApp.kt")
 
-        assertTrue(executor.contains("ENABLE_ANALYTICS_KEY -> repo.setAnalyticsEnabled(enabled)"))
-        assertTrue(executor.contains("ENABLE_ANALYTICS_KEY,"))
+        val support = readSource(
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerRuntimePreferenceCommandSupport.kt",
+        )
+        assertTrue(executor.contains("ManagerRuntimePreferenceCommandSupport.setRuntimeBoolean("))
+        assertTrue(support.contains("ENABLE_ANALYTICS_KEY -> preferenceRepository.setAnalyticsEnabled(enabled)"))
+        assertTrue(support.contains("ENABLE_ANALYTICS_KEY,"))
         assertTrue(app.contains("preferenceRepository.isAnalyticsEnabled.collect(::configureAnalytics)"))
     }
 
     @Test
     fun `foreground preference applies enabled and disabled runtime state`() {
-        val source = readSource(
+        val executor = readSource(
             "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
         )
-        val setBoolean = source.section(
-            "private suspend fun setRuntimeBoolean",
-            "private suspend fun setRuntimeInt",
+        val support = readSource(
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerRuntimePreferenceCommandSupport.kt",
         )
 
-        assertTrue(setBoolean.contains("repo.setIsStartForeground(enabled)"))
-        assertTrue(setBoolean.contains("applyForegroundServicePolicy(enabled)"))
-        assertTrue(setBoolean.contains("ForegroundHelper(service).stopForegroundNotification()"))
-        assertTrue(setBoolean.contains("runtimeActions.startMiPushServiceAsForegroundService(context)"))
+        assertTrue(executor.contains("ManagerRuntimePreferenceCommandSupport.setRuntimeBoolean("))
+        assertTrue(support.contains("preferenceRepository.setIsStartForeground(enabled)"))
+        assertTrue(support.contains("applyForegroundServicePolicy(enabled, context, runtimeActions)"))
+        assertTrue(support.contains("ForegroundHelper(service).stopForegroundNotification()"))
+        assertTrue(support.contains("runtimeActions.startMiPushServiceAsForegroundService(context)"))
     }
 
     @Test

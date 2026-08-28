@@ -6,7 +6,7 @@ import io.github.magisk317.mipush.configuration.ConfigSyncStateStore
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogEntryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
-import io.github.magisk317.mipush.utils.RemoteConfigCatalog
+import io.github.magisk317.mipush.core.configuration.RemoteConfigCatalog
 
 /**
  * Returns cached remote configuration catalog metadata only. Local SAF trees and document content

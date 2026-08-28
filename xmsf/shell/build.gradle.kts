@@ -109,9 +109,9 @@ android {
         disable += setOf(
             "AnnotateVersionCheck", "ApplySharedPref", "BatteryLife", "DiscouragedApi",
             "DiscouragedPrivateApi", "ExportedContentProvider", "ExportedService", "InlinedApi",
-            "KotlinNullnessAnnotation", "NewerVersionAvailable", "ObsoleteSdkInt", "PluralsCandidate",
+            "KotlinNullnessAnnotation", "ObsoleteSdkInt",
             "PrivateApi", "SdCardPath", "SignatureOrSystemPermissions", "TrimLambda",
-            "TypographyEllipsis", "UnusedAttribute", "UnusedQuantity", "UseKtx",
+            "UseKtx",
         )
     }
 
@@ -184,6 +184,7 @@ tasks.configureEach {
 dependencies {
     implementation(project(":xmsf:platform"))
     implementation(project(":manager:contract"))
+    implementation(project(":manager:application"))
     implementation(project(":magisk-xposed-kit:diagnostics"))
     implementation(project(":diagnostics"))
     implementation(project(":core"))

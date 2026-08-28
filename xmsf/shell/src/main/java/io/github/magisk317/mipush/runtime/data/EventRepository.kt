@@ -5,7 +5,7 @@ import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.mipush.common.notification.MockReplayOutcome
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -31,7 +31,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import org.apache.thrift.TBase
-import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow

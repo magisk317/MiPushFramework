@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.runtime
 
-import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

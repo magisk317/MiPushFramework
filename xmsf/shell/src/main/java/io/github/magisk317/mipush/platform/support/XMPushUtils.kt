@@ -11,7 +11,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import org.apache.thrift.TBase
-import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 

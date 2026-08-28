@@ -16,10 +16,11 @@ class RootPromptBoundaryContractTest {
 
     @Test
     fun `passive runtime probes never request root authorization`() {
-        val source = readSource("io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt")
-        val dualAppProbe = source.section("override suspend fun getDualAppInstallation", "override suspend fun launchAppOps")
-        val zygiskGateway = source.section("class XmsfZygiskConfigGateway", "\n}")
-        val zygiskProbe = source.section("override suspend fun isZygiskModuleEnabled", "override suspend fun saveZygiskConfig")
+        val permissionSource = readSource("io/github/magisk317/mipush/app/di/ManagerPermissionAdapter.kt")
+        val zygiskSource = readSource("io/github/magisk317/mipush/app/di/ManagerZygiskAdapter.kt")
+        val dualAppProbe = permissionSource.section("override suspend fun getDualAppInstallation", "override suspend fun launchAppOps")
+        val zygiskGateway = zygiskSource.section("class XmsfZygiskConfigGateway", "\n}")
+        val zygiskProbe = zygiskSource.section("override suspend fun isZygiskModuleEnabled", "override suspend fun saveZygiskConfig")
 
         assertFalse(dualAppProbe.contains("requestRootAccess"))
         assertFalse(zygiskProbe.contains("requestRootAccess"))

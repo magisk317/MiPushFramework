@@ -38,8 +38,12 @@ class MiPushRuntimeObserverBridgeContractTest {
         assertTrue(bridge.contains("observer = this"))
         assertTrue(recovery.contains("private val observer: IPushRuntimeObserver"))
         assertTrue(recovery.contains("MIPushAccountUtils.register("))
-        assertTrue(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planShouldReconnect("))
-        assertTrue(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planReconnect("))
+        assertTrue(reconnect.contains("import io.github.magisk317.mipush.runtime.core.PushConnectionPlanFactory"))
+        assertTrue(reconnect.contains("import io.github.magisk317.mipush.runtime.core.PushReconnectPolicy"))
+        assertTrue(reconnect.contains("PushConnectionPlanFactory.planShouldReconnect("))
+        assertTrue(reconnect.contains("PushReconnectPolicy.planReconnect("))
+        assertFalse(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planShouldReconnect("))
+        assertFalse(reconnect.contains("MiPushRuntimePolicyExecutionAdapter.planReconnect("))
         assertFalse(reconnect.contains("XMPushServiceLifecycleBridge.peekService()"))
         assertFalse(recovery.contains("XMPushServiceLifecycleBridge.peekService()"))
     }
@@ -53,7 +57,7 @@ class MiPushRuntimeObserverBridgeContractTest {
         listOf(
             "io/github/magisk317/mipush/runtime/data/EventRepository.kt",
             "io/github/magisk317/mipush/bridge/MiPushRuntimeMessageNotificationExecutionAdapter.kt",
-            "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerRuntimePreferenceCommandSupport.kt",
             "io/github/magisk317/mipush/service/runtime/RuntimeSettingsAdapter.kt",
             "com/xiaomi/xmsf/push/service/MiPushFacadeService.kt",
         ).forEach { relativePath ->
