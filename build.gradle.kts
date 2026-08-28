@@ -35,14 +35,6 @@ fun KoverProjectExtension.configureProjectKoverVerification() {
     }
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
 val versionNameOverride = providers.gradleProperty("versionName")
 val versionNameProvider = versionNameOverride
     .orElse(libs.versions.versionName)
@@ -143,6 +135,9 @@ subprojects {
     pluginManager.withPlugin("com.android.library") {
         configureDetekt()
     }
+    pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+        configureDetekt()
+    }
 }
 
 allprojects {
@@ -193,12 +188,42 @@ tasks.register<Exec>("verifyModuleBoundaries") {
     commandLine("bash", "scripts/verify_module_boundaries.sh")
 }
 
+tasks.register<Exec>("verifyCiToolkitRef") {
+    group = "verification"
+    description = "Verify all magisk-ci-toolkit references remain pinned to one full SHA."
+    commandLine("bash", "scripts/checks/verify_ci_toolkit_ref.sh")
+}
+
+tasks.register<Exec>("reportGodFiles") {
+    group = "verification"
+    description = "Report large production Kotlin files outside frozen compatibility and shared-submodule roots."
+    commandLine("bash", "scripts/checks/report_god_files.sh", "--report")
+}
+
+tasks.register<Exec>("verifyGodFileLimits") {
+    group = "verification"
+    description = "Fail when a production Kotlin god file is added, grows, or diverges from its reviewed limit."
+    commandLine("bash", "scripts/checks/report_god_files.sh", "--verify")
+}
+
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("qualityGateDetekt")
     if (enableKover) {
         dependsOn("qualityGateKoverVerify")
     }
     dependsOn("verifyModuleBoundaries")
+    dependsOn("verifyCiToolkitRef")
+    dependsOn("reportGodFiles")
+    dependsOn("verifyGodFileLimits")
+}
+
+subprojects {
+    tasks.matching { it.name == "check" }.configureEach {
+        dependsOn(rootProject.tasks.named("verifyModuleBoundaries"))
+        dependsOn(rootProject.tasks.named("verifyCiToolkitRef"))
+        dependsOn(rootProject.tasks.named("reportGodFiles"))
+        dependsOn(rootProject.tasks.named("verifyGodFileLimits"))
+    }
 }
 
 tasks.register("exportVersion") {

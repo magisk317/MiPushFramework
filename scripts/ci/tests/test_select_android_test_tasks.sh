@@ -16,20 +16,24 @@ assert_known_shards() {
     }
   done < "$1"
 }
+run_selector() {
+  env -u CI_COMMIT_TAG -u CI_COMMIT_BRANCH -u GITHUB_REF_TYPE -u GITHUB_REF_NAME \
+    bash "$selector" "$@"
+}
 printf 'impact\ncommon/Example.kt\n' > "$tmp_dir/common"
-bash "$selector" /dev/null "$tmp_dir/common" > "$tmp_dir/out"
+run_selector /dev/null "$tmp_dir/common" > "$tmp_dir/out"
 assert_contains 'android-pure-modules' "$tmp_dir/out"; assert_known_shards "$tmp_dir/out"
 printf 'impact\nxposed/Example.kt\n' > "$tmp_dir/xposed"
-bash "$selector" /dev/null "$tmp_dir/xposed" > "$tmp_dir/out"
+run_selector /dev/null "$tmp_dir/xposed" > "$tmp_dir/out"
 assert_contains 'android-pure-modules' "$tmp_dir/out"; assert_known_shards "$tmp_dir/out"
 printf 'impact\napp/Example.kt\nmipush/Example.kt\n' > "$tmp_dir/apps"
-bash "$selector" /dev/null "$tmp_dir/apps" > "$tmp_dir/out"
+run_selector /dev/null "$tmp_dir/apps" > "$tmp_dir/out"
 assert_contains 'app-compile' "$tmp_dir/out"; assert_contains 'mipush-compile' "$tmp_dir/out"
 assert_known_shards "$tmp_dir/out"
 printf 'impact\ndocs/ci.md\n' > "$tmp_dir/docs"
-bash "$selector" /dev/null "$tmp_dir/docs" > "$tmp_dir/out"; assert_empty "$tmp_dir/out"
+run_selector /dev/null "$tmp_dir/docs" > "$tmp_dir/out"; assert_empty "$tmp_dir/out"
 printf 'full\n' > "$tmp_dir/full"
-bash "$selector" /dev/null "$tmp_dir/full" > "$tmp_dir/out"
+run_selector /dev/null "$tmp_dir/full" > "$tmp_dir/out"
 for shard in "${ANDROID_TEST_SHARDS[@]}"; do assert_contains "$shard" "$tmp_dir/out"; done
 assert_known_shards "$tmp_dir/out"
 echo 'MiPush selector tests passed'

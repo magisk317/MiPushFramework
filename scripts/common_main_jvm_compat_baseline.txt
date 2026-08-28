@@ -1,0 +1,11 @@
+# Format: PATH|KIND|EXACT_OCCURRENCE_COUNT
+# Existing commonMain JVM compatibility debt. Changes require a deliberate architecture review:
+# - implicitJvmApi: direct System./Runtime./Thread. platform call in portable source.
+# - jvmStatic: Java-visible compatibility facade retained for stock/vendor callers.
+core/src/commonMain/kotlin/io/github/magisk317/mipush/diagnostics/RateLimitedWarnLogger.kt|implicitJvmApi|3
+core/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/core/RegistrationThrottle.kt|implicitJvmApi|1
+xmsf/runtime/store/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDaos.kt|implicitJvmApi|1
+core/src/commonMain/kotlin/io/github/magisk317/mipush/notification/policy/NotificationProgressTextSupport.kt|jvmStatic|5
+core/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/core/PushRuntimeContract.kt|jvmStatic|1
+core/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/core/PushVersionInfo.kt|jvmStatic|6
+core/src/commonMain/kotlin/io/github/magisk317/mipush/runtime/core/RegistrationThrottle.kt|jvmStatic|3

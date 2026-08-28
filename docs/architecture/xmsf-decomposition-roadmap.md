@@ -91,11 +91,14 @@ Move `io.github.magisk317.mipush.notification` into a new library module.
 
 ### Phase 2: Extract `:xmsf:runtime` — core completed
 
-`:xmsf:runtime` now owns the independently compilable runtime core: runtime facade/android
-state, pending queues, duplicate stores, connection/runtime helpers, selected lifecycle helpers,
-Manager application read models/policy/pagination, KMP store database facade, and the keep-alive
-Binder bridge. `:xmsf:runtime:store` remains the KMP child module. Source packages and external ABI
-remain unchanged.
+`:xmsf:runtime` now owns the independently compilable Android runtime facade/state, pending queues,
+connection/runtime helpers, selected lifecycle helpers, and the keep-alive Binder bridge.
+`:xmsf:runtime:store` is its KMP persistence child only: database schemas, DAOs, migrations, rows,
+and persistence repositories. Neutral duplicate-message and reconnect policies, notification policy/contracts,
+and the cross-host Zygisk configuration DSL moved to `:core`; non-Binder Manager ports/models and the
+mock-replay result moved to `:manager:application`. Its configuration DTO signatures are directly owned
+by `:core`, not re-exported through `:common`. AIDL/Binder/Parcelable wire ABI stays in
+`:manager:contract`. Source packages at the stock boundary and external ABI remain unchanged.
 
 The remaining shell-side runtime adapters intentionally stay in `:xmsf:shell`: notification
 construction, Android-backed Manager Binder sources/writers, `AppDependencies`/Koin composition,
@@ -119,9 +122,9 @@ service entrypoints, and adapters whose dependencies would otherwise create a re
   `:xmsf:shell:compileNormalDebugKotlin`; add long-connection and push-delivery device checks for
   behavior changes.
 
-### Cross-cutting KMP policy extraction sequence
+### Cross-cutting ownership-first policy extraction sequence
 
-Reusable policies still hosted by Android/JVM modules are extracted in small compatibility-preserving slices:
+KMP source sets and targets are build/test partitions, not architecture boundaries. Move code only when its responsibility and dependency direction justify a new owner; an Android-only adapter may be correctly layered without becoming KMP. Reusable policies still hosted by Android/JVM modules are extracted in small compatibility-preserving slices:
 
 1. **Push runtime plans:** move vendor-neutral connection, socket, SLIM, and host decisions into `:core` `commonMain`; retain stock/vendor constants and execution in Android adapters.
 2. **Configuration DSL:** move Lisp evaluation and neutral match/replace decisions after introducing codec and field-accessor boundaries; keep Thrift reflection and configuration loading on JVM/Android.
@@ -141,7 +144,16 @@ After Phases 0–3, remaining `:xmsf:shell` content should be limited to:
 - Stock ABI surface (`com/xiaomi/xmsf/`) that cannot move due to external component names
 - Bridge/compat glue
 
-Target: ≤60 files in `:xmsf:shell` (down from 162 at current HEAD).
+No file-count release gate applies to `:xmsf:shell`. File count is recorded only as a maintenance
+signal: move code only when its responsibility can leave shell without adding a reverse dependency
+or weakening stock/manifest/lifecycle compatibility.
+
+The current shell audit intentionally leaves `NetworkPolicyCompat`, `ConfigNavigationHelper`,
+`PushHealthSnapshotLogger`, `SdkNotificationCompat`, and `NotificationController` in shell: they
+respectively depend on vendor/hidden-API/global config, application UI routing, service lifecycle,
+stock service/Thrift, or stock resources and service internals. None is an independently extractable
+feature adapter. `MockNotificationKind`, which was only notification-feature state, moved to
+`:xmsf:notification`; no move is made merely to meet a file-count target.
 
 ## Non-Goals
 
@@ -153,8 +165,8 @@ Target: ≤60 files in `:xmsf:shell` (down from 162 at current HEAD).
 
 ## Success Metrics
 
-| Metric | Before | After Phase 4 |
-|--------|--------|---------------|
-| xmsf shell Kotlin main count | 162 at current HEAD | ≤60 |
-| xmsf shell direct project deps | reduced by runtime-core extraction | ≤5 (platform, stock, app, bridge, compat) |
-| Incremental compile time (touch 1 file in runtime) | ~45s | ~15s |
+| Metric | Baseline | Desired direction |
+|--------|----------|-------------------|
+| xmsf shell Kotlin main count | 162 at roadmap baseline | Observation only; reduce only after ownership/dependency proof |
+| xmsf shell direct project deps | reduced by runtime-core extraction | No reverse `runtime`/`notification`/`push` → `shell` edge |
+| Incremental compile time (touch 1 file in runtime) | ~45s | Measure after each independently justified extraction; no architecture gate |

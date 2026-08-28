@@ -43,7 +43,8 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `com.xiaomi.push.thrift.*`.
 
 5. **common / settings / diagnostics / mipush / xposed / magisk-ui-kit**
-   - `common` holds shared app/runtime utilities and persistence models.
+   - `common` is shrinking to shared Android infrastructure and cross-feature value types. It must not own Manager application ports, runtime-store facades, or feature policy. Persistence implementation belongs to `:xmsf:runtime:store`; neutral notification, reconnect, duplicate-message, and Zygisk configuration policies belong to `:core`.
+   - `:xmsf:runtime:store` is persistence-only: Room/SQLite schemas, DAOs, migrations, row/value types, and persistence repositories. It must not become a home for runtime policy.
    - `settings` holds DataStore preference extensions and shared preference repository surfaces.
    - `diagnostics` holds the shared diagnostic archive / LogBundle export pipeline used by app and
      runtime; keep product-specific collection in parent modules, reuse archive/sanitize here or via
@@ -62,7 +63,7 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
    - `mipush` is the standalone manager host package. Its `Application` owns manager UI process
      startup via `ManagerDependencies.startAsRemoteHost(...)`.
      Manager reaches XMSF only through signature-authenticated Binder (`:manager:contract` / `ManagerRuntimeClient`).
-   - :manager:ui is a UI/library surface available to both hosts. Real manager Activities remain
+   - `:manager:contract` is the frozen Binder/AIDL/Parcelable wire boundary. `:manager:application` owns non-Binder Manager application ports, shared models, mock-replay result, runtime actions, and JSON formatting; it directly exposes the neutral DTOs owned by `:core`, and must not depend on `common`, `vendor`, `pinned`, or `xmsf` implementations. Its ports are grouped by application/notification, configuration, events, diagnostics, permissions, and Zygisk domains. Diagnostics returns an archive path, while the Manager UI host validates that path and constructs the Android `FileProvider` share intent; `File` and `Intent` are not application-port API types. `:manager:ui` is a UI/library surface available to both hosts. Real manager Activities remain
      declared by `:mipush`; `:app` keeps only legacy redirects. Activity/launcher/widget entrypoints
      never own bootstrap.
    - Do not move manager bindings into `xmsf` Koin modules. `xmsf` exposes runtime gateways and the
@@ -143,11 +144,13 @@ graph.
 - Hook-process root execution stays independent and uses its own bounded runner in `xposed`; it must
   not depend on app-process singletons.
 - `xmsf/.../utils/LogBundleExporter` is the canonical app log exporter. It owns app-specific JSONL
-  selection, old text-log cleanup, redaction, optional root-only LSPosed collection, and share intent
-  creation.
+  selection, old text-log cleanup, redaction, and optional root-only LSPosed collection; it produces
+  an archive for a caller-owned destination.
 - The former `common/.../utils/LogBundleExporter` facade was removed. Reusable archive and
-  sanitization primitives live in the shared diagnostics/Xposed kits; app-specific file selection,
-  optional root-only LSPosed collection, and share-intent creation stay in the xmsf exporter.
+  sanitization primitives live in the shared diagnostics/Xposed kits; app-specific file selection
+  and optional root-only LSPosed collection stay in the xmsf exporter. The Manager UI host opens a
+  user-selected SAF destination and saves there directly; it does not construct a share intent or
+  materialize a remote archive in manager cache first.
 
 ## Public Interfaces
 

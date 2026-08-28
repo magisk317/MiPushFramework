@@ -1,0 +1,4 @@
+# Production Kotlin god-file review debt.
+# Format: PATH|EXACT_LINES|REVIEW_REASON
+# This is not a growth budget: verifyGodFileLimits requires exact counts and rejects new entries
+# unless the architecture review explicitly updates this file.

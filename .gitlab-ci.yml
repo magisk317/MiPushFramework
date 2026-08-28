@@ -138,7 +138,7 @@ android:check:
     - when: never
   variables:
     MAGISK_ANDROID_BUILD_TASKS: >-
-      :app:compileDebugKotlin
+      :app:compileNormalDebugKotlin
       :mipush:compileGithubDebugKotlin
       -Pkotlin.incremental=false
 

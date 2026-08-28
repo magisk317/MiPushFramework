@@ -43,10 +43,10 @@ run_shard() {
         :magisk-xposed-kit:logging:testDebugUnitTest \
         :diagnostics:testDebugUnitTest \
         :mipush:testGithubDebugUnitTest \
-        :core:testAndroidHostTest \
+        :core:jvmTest \
         :xmsf:runtime:store:testAndroidHostTest \
         :manager:ui:testDebugUnitTest
-      run_test :configuration:testDebugUnitTest
+      run_test :configuration:jvmTest
       run_test :manager:contract:testDebugUnitTest
       run_test :manager:client:testDebugUnitTest
       run_test :common:testDebugUnitTest
@@ -54,7 +54,7 @@ run_shard() {
       run_test :vendor:testDebugUnitTest
       run_test :pinned:testDebugUnitTest
       run_test :xposed:testDebugUnitTest
-      run_test :xmsf:platform:testDebugUnitTest
+      run_test :xmsf:platform:jvmTest
       run_test :xmsf:notification:testDebugUnitTest
       run_test :xmsf:push:testDebugUnitTest
       run_test :xmsf:runtime:testDebugUnitTest
