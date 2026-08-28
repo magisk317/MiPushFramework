@@ -3,10 +3,27 @@ package io.github.magisk317.mipush.manager.client
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 
+internal data class ManagerRuntimeCallPolicy(
+    val timeoutMillis: Long?,
+    val releaseSessionOnTimeout: Boolean,
+)
+
 internal object ManagerRuntimeClientPolicy {
     private const val INITIAL_RECONNECT_DELAY_MS = 500L
     private const val MAX_RECONNECT_DELAY_MS = 10_000L
     internal const val DEFAULT_MAX_RECONNECT_ATTEMPTS = 3
+
+    fun eventPageCallPolicy(timeoutMillis: Long?): ManagerRuntimeCallPolicy =
+        ManagerRuntimeCallPolicy(
+            timeoutMillis = timeoutMillis,
+            releaseSessionOnTimeout = false,
+        )
+
+    fun logExportCallPolicy(): ManagerRuntimeCallPolicy =
+        ManagerRuntimeCallPolicy(
+            timeoutMillis = ManagerRuntimeClient.LOG_EXPORT_CALL_TIMEOUT_MS,
+            releaseSessionOnTimeout = true,
+        )
 
     fun classifyHandshake(handshake: ManagerHandshake): ManagerRuntimeAvailability {
         val compatibility = ManagerProtocol.evaluateCompatibility(

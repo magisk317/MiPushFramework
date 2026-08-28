@@ -75,6 +75,17 @@ class ManagerRuntimeClientPolicyTest {
         assertEquals(3, ManagerRuntimeClientPolicy.DEFAULT_MAX_RECONNECT_ATTEMPTS)
     }
 
+    @Test
+    fun `event page timeout is feature local while log export uses the extended session timeout`() {
+        val eventPolicy = ManagerRuntimeClientPolicy.eventPageCallPolicy(timeoutMillis = 12_000L)
+        val logPolicy = ManagerRuntimeClientPolicy.logExportCallPolicy()
+
+        assertEquals(12_000L, eventPolicy.timeoutMillis)
+        assertTrue(!eventPolicy.releaseSessionOnTimeout)
+        assertEquals(180_000L, logPolicy.timeoutMillis)
+        assertTrue(logPolicy.releaseSessionOnTimeout)
+    }
+
     private fun handshake(
         protocolMajor: Int,
         protocolMinor: Int,

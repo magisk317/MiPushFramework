@@ -79,15 +79,35 @@ class ManagerRuntimeClient(
     private val clientScope = CoroutineScope(scope.coroutineContext + clientJob)
     private val remoteCallPermits = Semaphore(MAX_IN_FLIGHT_REMOTE_CALLS)
     private val logger = Logger.withTag(TAG)
-
+    private val operationFacade = ManagerRuntimeOperationFacade(
+        caller = object : ManagerRuntimeCapabilityCaller {
+            override suspend fun <T> callCapability(
+                capability: String,
+                requestValidator: (ManagerHandshake) -> String?,
+                callTimeoutMillis: Long?,
+                releaseSessionOnTimeout: Boolean,
+                validator: (T, ManagerHandshake) -> String?,
+                block: (IManagerRuntimeService) -> T,
+            ): ManagerRuntimeResult<T> = this@ManagerRuntimeClient.callCapability(
+                capability = capability,
+                requestValidator = requestValidator,
+                callTimeoutMillis = when (callTimeoutMillis) {
+                    USE_CLIENT_CALL_TIMEOUT_MILLIS -> this@ManagerRuntimeClient.callTimeoutMillis
+                    else -> callTimeoutMillis
+                },
+                releaseSessionOnTimeout = releaseSessionOnTimeout,
+                validator = validator,
+                block = block,
+            )
+        },
+        eventPageCallTimeoutMillis = eventPageCallTimeoutMillis,
+    )
     private fun logInfo(message: String) {
         logger.i { message }
     }
-
     private fun logWarn(message: String) {
         logger.w { message }
     }
-
     private val lock = Any()
     private val _availability = MutableStateFlow<ManagerRuntimeAvailability>(
         ManagerRuntimeAvailability.Disconnected,
@@ -99,7 +119,6 @@ class ManagerRuntimeClient(
     private var reconnectAttempt = 0
     private var reconnectJob: Job? = null
     private var recoveryIssued = false
-
     init {
         clientScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
@@ -109,61 +128,6 @@ class ManagerRuntimeClient(
             }
         }
     }
-
-    private inner class BindSession {
-        var bindReturned = false
-        var bindAccepted = false
-        var unbound = false
-        var released = false
-        var binder: IBinder? = null
-        var service: IManagerRuntimeService? = null
-        var deathRecipient: IBinder.DeathRecipient? = null
-        var handshakeJob: Job? = null
-        var bindTimeoutJob: Job? = null
-        val remoteCalls = mutableSetOf<Deferred<*>>()
-
-        val connection = object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName, service: IBinder) {
-                handleConnected(this@BindSession, service)
-            }
-
-            override fun onServiceDisconnected(name: ComponentName) {
-                handleTemporaryDisconnect(this@BindSession, DisconnectReason.SERVICE_DISCONNECTED)
-            }
-
-            override fun onBindingDied(name: ComponentName) {
-                handleTemporaryDisconnect(this@BindSession, DisconnectReason.BINDING_DIED)
-            }
-
-            override fun onNullBinding(name: ComponentName) {
-                handleTemporaryDisconnect(this@BindSession, DisconnectReason.NULL_BINDING)
-            }
-        }
-    }
-
-    private data class SessionCleanup(
-        val connection: ServiceConnection,
-        val binder: IBinder?,
-        val deathRecipient: IBinder.DeathRecipient?,
-        val handshakeJob: Job?,
-        val bindTimeoutJob: Job?,
-        val remoteCalls: List<Deferred<*>>,
-        val shouldUnbind: Boolean,
-    )
-
-    private data class RemoteTarget(
-        val session: BindSession,
-        val service: IManagerRuntimeService,
-        val handshake: ManagerHandshake,
-    )
-
-    private class RemoteCallTimeoutException(
-        val permitsExhausted: Boolean,
-    ) : RuntimeException()
-
-    private class RemoteCallValue<T>(
-        val value: T,
-    )
 
     @Suppress("TooGenericExceptionCaught")
     fun connect() {
@@ -178,7 +142,10 @@ class ManagerRuntimeClient(
             }
             reconnectJob?.cancel()
             reconnectJob = null
-            BindSession().also {
+            BindSession(
+                onConnected = ::handleConnected,
+                onTemporaryDisconnect = ::handleTemporaryDisconnect,
+            ).also {
                 activeSession = it
                 logInfo("availability ${_availability.value} -> Binding")
                 _availability.value = ManagerRuntimeAvailability.Binding
@@ -210,138 +177,27 @@ class ManagerRuntimeClient(
                 }
                 finishBind(session, bindResult.accepted, state)
             }
-
             is BindResult.Failure -> finishBind(session, false, bindResult.state)
         }
     }
-
-    suspend fun getConnectionSnapshot(): ManagerRuntimeResult<ManagerConnectionSnapshotDto> {
-        return callCapability(
-            capability = ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT,
-            validator = { snapshot, _ -> ManagerProtocol.validateConnectionSnapshot(snapshot) },
-        ) { it.connectionSnapshot }
-    }
-
-    suspend fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeResult<ManagerRuntimeEnvironmentSnapshotDto> =
-        callCapability(
-            capability = ManagerProtocol.CAPABILITY_RUNTIME_ENVIRONMENT,
-            validator = { snapshot, _ -> ManagerProtocol.validateRuntimeEnvironmentSnapshot(snapshot) },
-        ) { it.getRuntimeEnvironmentSnapshot() }
-
-    suspend fun getApplicationPage(
-        query: ManagerApplicationQueryDto,
-    ): ManagerRuntimeResult<ManagerApplicationPageDto> {
-        return callCapability(
-            capability = ManagerProtocol.CAPABILITY_APPLICATION_LIST,
-            requestValidator = { handshake ->
-                ManagerProtocol.validateApplicationQuery(query, handshake.maxPageSize)
-            },
-            validator = { page, handshake ->
-                ManagerProtocol.validateApplicationPage(
-                    page = page,
-                    negotiatedMaxPageSize = handshake.maxPageSize,
-                    negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
-                )
-            },
-        ) { it.getApplicationPage(query) }
-    }
-
-    suspend fun getApplicationDetail(
-        packageName: String,
-        ignoreNotRegistered: Boolean = false,
-    ): ManagerRuntimeResult<ManagerApplicationDetailDto?> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_APPLICATION_DETAIL,
-        requestValidator = { ManagerProtocol.validateApplicationPackageName(packageName) },
-        validator = { detail, _ -> detail?.let(ManagerProtocol::validateApplicationDetail) },
-    ) { it.getApplicationDetail(packageName, ignoreNotRegistered) }
-
-    suspend fun getApplicationDiagnostics(
-        packageName: String,
-        registeredType: Int,
-    ): ManagerRuntimeResult<ManagerApplicationDiagnosticsDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_APPLICATION_DIAGNOSTICS,
-        requestValidator = {
-            ManagerProtocol.validateApplicationDiagnosticsRequest(packageName, registeredType)
-        },
-        validator = { diagnostics, _ -> ManagerProtocol.validateApplicationDiagnostics(diagnostics) },
-    ) { it.getApplicationDiagnostics(packageName, registeredType) }
-
-    suspend fun getEventPage(
-        query: ManagerEventQueryDto,
-    ): ManagerRuntimeResult<ManagerEventPageDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_EVENT_LIST,
-        callTimeoutMillis = eventPageCallTimeoutMillis,
-        releaseSessionOnTimeout = false,
-        requestValidator = { handshake ->
-            ManagerProtocol.validateEventQuery(query, handshake.maxPageSize)
-        },
-        validator = { page, handshake ->
-            ManagerProtocol.validateEventPage(
-                page = page,
-                negotiatedMaxPageSize = handshake.maxPageSize,
-                negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
-            )
-        },
-    ) { it.getEventPage(query) }
-
-    suspend fun getNotificationChannelPage(
-        query: ManagerNotificationChannelQueryDto,
-    ): ManagerRuntimeResult<ManagerNotificationChannelPageDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_NOTIFICATION_CHANNELS,
-        requestValidator = { handshake ->
-            ManagerProtocol.validateNotificationChannelQuery(query, handshake.maxPageSize)
-        },
-        validator = { page, handshake ->
-            ManagerProtocol.validateNotificationChannelPage(
-                page = page,
-                negotiatedMaxPageSize = handshake.maxPageSize,
-                negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
-            )
-        },
-    ) { it.getNotificationChannelPage(query) }
-
-    suspend fun getConfigurationCatalog(): ManagerRuntimeResult<ManagerConfigurationCatalogDto> =
-        callCapability(
-            capability = ManagerProtocol.CAPABILITY_CONFIGURATION_CATALOG,
-            validator = { catalog, _ -> ManagerProtocol.validateConfigurationCatalog(catalog) },
-        ) { it.configurationCatalog }
-
-    suspend fun exportRuntimeLogs(): ManagerRuntimeResult<ManagerLogExportResultDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_LOG_EXPORT,
-        // Log zip can collect multi-10MB logs + root lsposed/logcat; 8s default is far too short.
-        callTimeoutMillis = LOG_EXPORT_CALL_TIMEOUT_MS,
-        validator = { result, _ -> ManagerProtocol.validateLogExportResult(result) },
-    ) { it.exportRuntimeLogs() }
-
-
-    suspend fun getRuntimePreferences(): ManagerRuntimeResult<ManagerRuntimePreferencesDto> =
-        callCapability(
-            capability = ManagerProtocol.CAPABILITY_RUNTIME_PREFERENCES,
-            validator = { snapshot, _ -> ManagerProtocol.validateRuntimePreferences(snapshot) },
-        ) { it.runtimePreferences }
-
-    suspend fun getManagerMigrationSnapshot(): ManagerRuntimeResult<ManagerMigrationSnapshotDto> =
-        callCapability(
-            capability = ManagerProtocol.CAPABILITY_MANAGER_MIGRATION_SNAPSHOT,
-            validator = { snapshot, _ -> ManagerProtocol.validateManagerMigrationSnapshot(snapshot) },
-        ) { it.managerMigrationSnapshot }
-
-    suspend fun uploadConfiguration(
-        request: ManagerConfigurationUploadRequestDto,
-    ): ManagerRuntimeResult<ManagerConfigurationUploadResultDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_CONFIGURATION_UPLOAD,
-        requestValidator = { ManagerProtocol.validateConfigurationUploadRequest(request) },
-        validator = { result, _ -> ManagerProtocol.validateConfigurationUploadResult(result) },
-    ) { it.uploadConfiguration(request) }
-
-    suspend fun executeWrite(
-        request: ManagerWriteRequestDto,
-    ): ManagerRuntimeResult<ManagerWriteResultDto> = callCapability(
-        capability = ManagerProtocol.CAPABILITY_WRITE_COMMANDS,
-        requestValidator = { ManagerProtocol.validateWriteRequest(request) },
-        validator = { result, _ -> ManagerProtocol.validateWriteResult(result) },
-    ) { it.executeWrite(request) }
-
+    suspend fun getConnectionSnapshot(): ManagerRuntimeResult<ManagerConnectionSnapshotDto> = operationFacade.getConnectionSnapshot()
+    suspend fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeResult<ManagerRuntimeEnvironmentSnapshotDto> = operationFacade.getRuntimeEnvironmentSnapshot()
+    suspend fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerRuntimeResult<ManagerApplicationPageDto> =
+        operationFacade.getApplicationPage(query)
+    suspend fun getApplicationDetail(packageName: String, ignoreNotRegistered: Boolean = false): ManagerRuntimeResult<ManagerApplicationDetailDto?> =
+        operationFacade.getApplicationDetail(packageName, ignoreNotRegistered)
+    suspend fun getApplicationDiagnostics(packageName: String, registeredType: Int): ManagerRuntimeResult<ManagerApplicationDiagnosticsDto> =
+        operationFacade.getApplicationDiagnostics(packageName, registeredType)
+    suspend fun getEventPage(query: ManagerEventQueryDto): ManagerRuntimeResult<ManagerEventPageDto> = operationFacade.getEventPage(query)
+    suspend fun getNotificationChannelPage(query: ManagerNotificationChannelQueryDto): ManagerRuntimeResult<ManagerNotificationChannelPageDto> =
+        operationFacade.getNotificationChannelPage(query)
+    suspend fun getConfigurationCatalog(): ManagerRuntimeResult<ManagerConfigurationCatalogDto> = operationFacade.getConfigurationCatalog()
+    suspend fun exportRuntimeLogs(): ManagerRuntimeResult<ManagerLogExportResultDto> = operationFacade.exportRuntimeLogs()
+    suspend fun getRuntimePreferences(): ManagerRuntimeResult<ManagerRuntimePreferencesDto> = operationFacade.getRuntimePreferences()
+    suspend fun getManagerMigrationSnapshot(): ManagerRuntimeResult<ManagerMigrationSnapshotDto> = operationFacade.getManagerMigrationSnapshot()
+    suspend fun uploadConfiguration(request: ManagerConfigurationUploadRequestDto): ManagerRuntimeResult<ManagerConfigurationUploadResultDto> =
+        operationFacade.uploadConfiguration(request)
+    suspend fun executeWrite(request: ManagerWriteRequestDto): ManagerRuntimeResult<ManagerWriteResultDto> = operationFacade.executeWrite(request)
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> callCapability(
         capability: String,
@@ -376,7 +232,7 @@ class ManagerRuntimeClient(
             )
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
-                discardOwnedWireResources(value)
+                ManagerWireResourceCloser.discardOwned(value)
                 logWarn("response validation failed capability=$capability reason=$validationReason")
                 emitClientCall(result = "error", reason = "validation_failed", capability = capability, statusOk = false)
                 ManagerRuntimeResult.Failed(validationReason)
@@ -384,7 +240,7 @@ class ManagerRuntimeClient(
                 emitClientCall(result = "ok", reason = "success", capability = capability)
                 ManagerRuntimeResult.Success(value)
             } else {
-                discardOwnedWireResources(value)
+                ManagerWireResourceCloser.discardOwned(value)
                 emitClientCall(result = "skip", reason = "stale_target", capability = capability)
                 ManagerRuntimeResult.Unavailable(availability.value)
             }
@@ -773,16 +629,25 @@ class ManagerRuntimeClient(
         var recoveryAction: ManagerRuntimeRecovery? = null
         synchronized(lock) {
             if (closed || activeSession != null || reconnectJob?.isActive == true) return
-            if (reconnectAttempt >= maxReconnectAttempts) {
-                if (!recoveryIssued && runtimeRecovery != null) {
+            when (
+                ManagerRuntimeRecoveryPolicy.reconnectAction(
+                    reconnectAttempt = reconnectAttempt,
+                    maxReconnectAttempts = maxReconnectAttempts,
+                    recoveryIssued = recoveryIssued,
+                    recoveryAvailable = runtimeRecovery != null,
+                )
+            ) {
+                ManagerRuntimeReconnectAction.ScheduleReconnect -> Unit
+                ManagerRuntimeReconnectAction.RecoverRuntime -> {
                     recoveryIssued = true
                     reconnectAttempt = 0
-                    recoveryAction = runtimeRecovery
+                    recoveryAction = checkNotNull(runtimeRecovery)
                     logInfo(
                         "reconnect attempts exhausted limit=$maxReconnectAttempts; " +
                             "requesting user-scoped XMSF recovery",
                     )
-                } else {
+                }
+                ManagerRuntimeReconnectAction.FailExhausted -> {
                     logWarn("reconnect attempts exhausted limit=$maxReconnectAttempts")
                     _availability.value = ManagerRuntimeAvailability.Failed("reconnect_exhausted")
                     emitClientCall(
@@ -798,7 +663,7 @@ class ManagerRuntimeClient(
 
         recoveryAction?.let { action ->
             clientScope.launch(ioDispatcher) {
-                val userId = currentUserId()
+                val userId = ManagerRuntimeRecoveryPolicy.androidUserId(Process.myUid())
                 val recovered = runCatching { action.recoverXmsf(userId) }.getOrDefault(false)
                 if (recovered) {
                     logInfo("XMSF recovery restart succeeded userId=$userId")
@@ -852,9 +717,6 @@ class ManagerRuntimeClient(
         }
         connect()
     }
-
-    private fun currentUserId(): Int =
-        (Process.myUid() / PER_USER_RANGE).coerceAtLeast(0)
 
     private fun createBindTimeoutLocked(session: BindSession): Job {
         lateinit var timeoutJob: Job
@@ -988,7 +850,7 @@ class ManagerRuntimeClient(
                 // If the remote finished after the client timed out, drop any transferred FDs.
                 deferred.invokeOnCompletion { error ->
                     if (error == null) {
-                        discardOwnedWireResources(runCatching { deferred.getCompleted() }.getOrNull())
+                        ManagerWireResourceCloser.discardOwned(runCatching { deferred.getCompleted() }.getOrNull())
                     }
                 }
                 throw RemoteCallTimeoutException(permitsExhausted = false)
@@ -1017,25 +879,14 @@ class ManagerRuntimeClient(
         data class Failure(val state: ManagerRuntimeAvailability) : BindResult
     }
 
-    private fun discardOwnedWireResources(value: Any?) {
-        when (value) {
-            is ManagerLogExportResultDto ->
-                runCatching { value.parcelFileDescriptor?.close() }
-        }
-    }
-
     internal companion object {
         private const val TAG = "ManagerRuntime"
         // Application list paging + concurrent overview/event loads need headroom on mid-range devices.
         const val DEFAULT_CALL_TIMEOUT_MS = 8_000L
         private const val REMOTE_TARGET_POLL_DELAY_MS = 25L
-        // Event projection includes payload decoding and notification/configuration metadata.
-        // Keep its slow path feature-local instead of turning a delayed page into a session reset.
-        // Observed live export ~137s with ~30MB runtime logs + root lsposed/logcat collection.
         const val LOG_EXPORT_CALL_TIMEOUT_MS = 180_000L
         const val MAX_IN_FLIGHT_REMOTE_CALLS = 6
         private const val RECOVERY_RECONNECT_DELAY_MS = 1_000L
-        private const val PER_USER_RANGE = 100_000
     }
 }
 

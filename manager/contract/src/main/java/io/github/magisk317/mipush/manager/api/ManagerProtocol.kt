@@ -194,43 +194,15 @@ object ManagerProtocol {
         clientMinor: Int,
         runtimeMajor: Int = MAJOR,
         runtimeMinor: Int = MINOR,
-    ): Compatibility {
-        if (clientMajor < 0 || clientMinor < 0 || runtimeMajor < 0 || runtimeMinor < 0) {
-            return Compatibility(
-                status = CompatibilityStatus.INVALID_VERSION,
-                negotiatedMinor = null,
-            )
-        }
-        if (clientMajor != runtimeMajor) {
-            return Compatibility(
-                status = CompatibilityStatus.MAJOR_MISMATCH,
-                negotiatedMinor = null,
-            )
-        }
-        return Compatibility(
-            status = CompatibilityStatus.COMPATIBLE,
-            negotiatedMinor = minOf(clientMinor, runtimeMinor),
-        )
-    }
+    ): Compatibility = ManagerProtocolNegotiationSupport.evaluateCompatibility(
+        clientMajor, clientMinor, runtimeMajor, runtimeMinor,
+    )
 
     fun recognizedCapabilities(runtimeCapabilities: Iterable<String>): Set<String> =
-        runtimeCapabilities.filterTo(linkedSetOf()) { it in KNOWN_CAPABILITIES }
+        ManagerProtocolNegotiationSupport.recognizedCapabilities(runtimeCapabilities)
 
-    fun validateHandshake(handshake: ManagerHandshake): String? = when {
-        handshake.protocolMajor < 0 || handshake.protocolMinor < 0 -> "invalid_protocol_version"
-        handshake.runtimeVersionCode < 0L -> "invalid_runtime_version_code"
-        handshake.runtimeVersionName.length > MAX_RUNTIME_VERSION_NAME_LENGTH -> "runtime_version_name_too_long"
-        handshake.compatibilityReason?.let { reason ->
-            reason.length > MAX_COMPATIBILITY_REASON_LENGTH ||
-                reason.any { !it.isLetterOrDigit() && it != '_' && it != '-' && it != '.' }
-        } == true -> "invalid_compatibility_reason"
-        handshake.supportedCapabilities.size > MAX_CAPABILITY_COUNT -> "too_many_capabilities"
-        handshake.supportedCapabilities.any { it.isBlank() || it.length > MAX_CAPABILITY_LENGTH } ->
-            "invalid_capability"
-        handshake.maxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE -> "invalid_max_page_size"
-        handshake.maxPayloadBytes !in 1..MAX_NEGOTIATED_PAYLOAD_BYTES -> "invalid_max_payload_bytes"
-        else -> null
-    }
+    fun validateHandshake(handshake: ManagerHandshake): String? =
+        ManagerProtocolNegotiationSupport.validateHandshake(handshake)
 
     fun validateConnectionSnapshot(snapshot: ManagerConnectionSnapshotDto): String? = when {
         snapshot.schemaVersion < 1 -> "invalid_connection_snapshot_schema"
@@ -248,116 +220,32 @@ object ManagerProtocol {
         else -> null
     }
 
-    fun validateApplicationQuery(
-        query: ManagerApplicationQueryDto,
-        negotiatedMaxPageSize: Int,
-    ): String? = when {
-        query.schemaVersion < 1 -> "invalid_application_query_schema"
-        negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE -> "invalid_negotiated_page_size"
-        query.query.length > MAX_APPLICATION_QUERY_LENGTH -> "application_query_too_long"
-        query.filterMode !in APPLICATION_FILTER_ALL..APPLICATION_FILTER_UNREGISTERED ->
-            "invalid_application_filter_mode"
-        query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_application_page_size"
-        query.userId < 0 -> "invalid_application_user_id"
-        query.pageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true -> "application_page_token_too_long"
-        else -> null
-    }
+    fun validateApplicationQuery(query: ManagerApplicationQueryDto, negotiatedMaxPageSize: Int): String? =
+        ManagerApplicationContractValidation.validateQuery(query, negotiatedMaxPageSize)
 
-    fun validateApplicationPage(
-        page: ManagerApplicationPageDto,
-        negotiatedMaxPageSize: Int,
-        negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
-    ): String? {
-        if (page.schemaVersion < 1) return "invalid_application_page_schema"
-        if (page.userId < 0) return "invalid_application_user_id"
-        if (page.items.any { it.userId != page.userId }) return "invalid_application_user_id"
-        if (negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE) return "invalid_negotiated_page_size"
-        if (negotiatedMaxPayloadBytes !in 1..MAX_NEGOTIATED_PAYLOAD_BYTES) {
-            return "invalid_negotiated_payload_bytes"
-        }
-        if (page.items.size > negotiatedMaxPageSize) return "too_many_application_page_items"
-        if (page.nextPageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true) {
-            return "application_next_page_token_too_long"
-        }
-        page.items.forEach { summary ->
-            validateApplicationSummary(summary)?.let { return it }
-        }
-        validateApplicationStats(page.stats)?.let { return it }
-        if (estimateApplicationPageWireBytes(page) > negotiatedMaxPayloadBytes.toLong()) {
-            return "application_page_payload_too_large"
-        }
-        return null
-    }
+    fun validateApplicationPage(page: ManagerApplicationPageDto, negotiatedMaxPageSize: Int, negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES): String? =
+        ManagerApplicationContractValidation.validatePage(page, negotiatedMaxPageSize, negotiatedMaxPayloadBytes)
 
-    /** Conservative size estimate for the framed page payload, excluding Binder envelopes. */
-    fun estimateApplicationPageWireBytes(page: ManagerApplicationPageDto): Long {
-        val items = page.items.sumOf { summary ->
-            val nullableIdBytes = if (summary.id == null) 0L else java.lang.Long.BYTES.toLong()
-            APPLICATION_SUMMARY_FRAME_BYTES +
-                nullableIdBytes +
-                wireStringBytes(summary.packageName) +
-                wireStringBytes(summary.appName) +
-                wireStringBytes(summary.appNamePinYin)
-        }
-        val stats = APPLICATION_STATS_FRAME_BYTES
-        return APPLICATION_PAGE_FIXED_BYTES + items + stats + wireStringBytes(page.nextPageToken)
-    }
+    fun estimateApplicationPageWireBytes(page: ManagerApplicationPageDto): Long =
+        ManagerApplicationContractValidation.estimatePageWireBytes(page)
 
     fun validateApplicationSummary(summary: ManagerApplicationSummaryDto): String? =
-        if (summary.userId < 0) {
-            "invalid_application_user_id"
-        } else validateApplicationFields(
-            schemaVersion = summary.schemaVersion,
-            packageName = summary.packageName,
-            appName = summary.appName,
-            appNamePinYin = summary.appNamePinYin,
-            schemaError = "invalid_application_summary_schema",
-        )
+        ManagerApplicationContractValidation.validateSummary(summary)
 
-    fun validateApplicationStats(stats: ManagerApplicationStatsDto): String? = when {
-        stats.schemaVersion < 1 -> "invalid_application_stats_schema"
-        stats.total < 0 || stats.usingMiPush < 0 || stats.notUsingMiPush < 0 ||
-            stats.registered < 0 || stats.notRegistered < 0 -> "invalid_application_stats_count"
-        stats.usingMiPush.toLong() + stats.notUsingMiPush.toLong() != stats.total.toLong() ->
-            "inconsistent_application_stats_total"
-        stats.registered.toLong() + stats.notRegistered.toLong() != stats.usingMiPush.toLong() ->
-            "inconsistent_application_stats_registration"
-        else -> null
-    }
+    fun validateApplicationStats(stats: ManagerApplicationStatsDto): String? =
+        ManagerApplicationContractValidation.validateStats(stats)
 
     fun validateApplicationDetail(detail: ManagerApplicationDetailDto): String? =
-        if (detail.userId < 0) {
-            "invalid_application_user_id"
-        } else validateApplicationFields(
-            schemaVersion = detail.schemaVersion,
-            packageName = detail.packageName,
-            appName = detail.appName,
-            appNamePinYin = detail.appNamePinYin,
-            schemaError = "invalid_application_detail_schema",
-        )
+        ManagerApplicationContractValidation.validateDetail(detail)
 
-    fun validateApplicationDiagnostics(diagnostics: ManagerApplicationDiagnosticsDto): String? = when {
-        diagnostics.schemaVersion < 1 -> "invalid_application_diagnostics_schema"
-        diagnostics.userId < 0 -> "invalid_application_user_id"
-        diagnostics.regSecCount < 0 -> "invalid_application_diagnostics_reg_sec_count"
-        diagnostics.inferenceReason.length > MAX_WIRE_STRING_LENGTH ->
-            "application_diagnostics_inference_reason_too_long"
-        else -> null
-    }
+    fun validateApplicationDiagnostics(diagnostics: ManagerApplicationDiagnosticsDto): String? =
+        ManagerApplicationContractValidation.validateDiagnostics(diagnostics)
 
-    fun validateApplicationPackageName(packageName: String): String? = when {
-        packageName.isBlank() || packageName.length > MAX_PACKAGE_NAME_LENGTH ->
-            "invalid_application_package_name"
-        packageName.any { !it.isLetterOrDigit() && it != '.' && it != '_' } ->
-            "invalid_application_package_name"
-        else -> null
-    }
+    fun validateApplicationPackageName(packageName: String): String? =
+        ManagerApplicationContractValidation.validatePackageName(packageName)
 
     fun validateApplicationDiagnosticsRequest(packageName: String, registeredType: Int): String? =
-        validateApplicationPackageName(packageName) ?: when {
-            registeredType !in 0..2 -> "invalid_application_registered_type"
-            else -> null
-        }
+        ManagerApplicationContractValidation.validateDiagnosticsRequest(packageName, registeredType)
 
 
     fun validateEventQuery(
@@ -538,119 +426,23 @@ object ManagerProtocol {
     }
 
 
-    fun validateRuntimePreferences(snapshot: ManagerRuntimePreferencesDto): String? {
-        if (snapshot.schemaVersion < 1) return "invalid_runtime_preferences_schema"
-        if (snapshot.entries.size > MAX_PREFERENCE_ENTRY_COUNT) return "too_many_runtime_preferences"
-        snapshot.entries.forEach { entry ->
-            validatePreferenceEntry(entry, requireRuntimeOwner = true)?.let { return it }
-        }
-        return null
-    }
+    fun validateRuntimePreferences(snapshot: ManagerRuntimePreferencesDto): String? =
+        ManagerConfigurationContractValidation.validateRuntimePreferences(snapshot)
 
-    fun validateManagerMigrationSnapshot(snapshot: ManagerMigrationSnapshotDto): String? {
-        if (snapshot.schemaVersion < 1) return "invalid_manager_migration_snapshot_schema"
-        if (snapshot.entries.size > MAX_PREFERENCE_ENTRY_COUNT) return "too_many_migration_preferences"
-        snapshot.entries.forEach { entry ->
-            validatePreferenceEntry(entry, requireRuntimeOwner = false)?.let { return it }
-        }
-        return null
-    }
+    fun validateManagerMigrationSnapshot(snapshot: ManagerMigrationSnapshotDto): String? =
+        ManagerConfigurationContractValidation.validateManagerMigrationSnapshot(snapshot)
 
-    fun validateConfigurationUploadRequest(request: ManagerConfigurationUploadRequestDto): String? = when {
-        request.schemaVersion < 1 -> "invalid_configuration_upload_request_schema"
-        request.path.isBlank() || request.path.length > MAX_CONFIGURATION_PATH_LENGTH ->
-            "invalid_configuration_upload_path"
-        request.path.contains("..") || request.path.startsWith("/") ->
-            "invalid_configuration_upload_path"
-        request.contentLength !in 0..MAX_CONFIGURATION_UPLOAD_BYTES ->
-            "invalid_configuration_upload_size"
-        request.parcelFileDescriptor == null -> "configuration_upload_missing_descriptor"
-        else -> null
-    }
+    fun validateConfigurationUploadRequest(request: ManagerConfigurationUploadRequestDto): String? =
+        ManagerConfigurationContractValidation.validateConfigurationUploadRequest(request)
 
-    fun validateConfigurationUploadResult(result: ManagerConfigurationUploadResultDto): String? = when {
-        result.schemaVersion < 1 -> "invalid_configuration_upload_result_schema"
-        result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "configuration_upload_details_too_long"
-        else -> null
-    }
+    fun validateConfigurationUploadResult(result: ManagerConfigurationUploadResultDto): String? =
+        ManagerConfigurationContractValidation.validateConfigurationUploadResult(result)
 
-    private fun validatePreferenceEntry(
-        entry: ManagerPreferenceEntryDto,
-        requireRuntimeOwner: Boolean,
-    ): String? = when {
-        entry.schemaVersion < 1 -> "invalid_preference_entry_schema"
-        entry.key.isBlank() || entry.key.length > MAX_PREFERENCE_KEY_LENGTH -> "invalid_preference_key"
-        entry.value.length > MAX_PREFERENCE_VALUE_LENGTH -> "preference_value_too_long"
-        entry.type !in setOf("string", "boolean", "int", "long", "float") -> "invalid_preference_type"
-        requireRuntimeOwner && entry.owner != "runtime" -> "preference_not_runtime_owned"
-        !requireRuntimeOwner && entry.owner != "manager" -> "preference_not_manager_owned"
-        else -> null
-    }
+    fun validateWriteRequest(request: ManagerWriteRequestDto): String? =
+        ManagerWriteContractValidation.validateWriteRequest(request)
 
-
-    fun validateWriteRequest(request: ManagerWriteRequestDto): String? = when {
-        request.schemaVersion < 1 -> "invalid_write_request_schema"
-        request.requestId.isBlank() || request.requestId.length > MAX_WRITE_REQUEST_ID_LENGTH ->
-            "invalid_write_request_id"
-        request.operation.isBlank() || request.operation.length > MAX_WRITE_OPERATION_LENGTH ->
-            "invalid_write_operation"
-        request.argument.length > MAX_WRITE_ARGUMENT_LENGTH -> "write_argument_too_long"
-        request.packageName.isNotEmpty() && validateApplicationPackageName(request.packageName) != null ->
-            "invalid_write_package_name"
-        request.operation in WRITE_OPERATIONS_REQUIRING_PACKAGE &&
-            validateApplicationPackageName(request.packageName) != null ->
-            "write_package_name_required"
-        request.operation in WRITE_OPERATIONS_REQUIRING_EVENT_ID &&
-            (request.eventId == null || request.eventId <= 0L) ->
-            "invalid_write_event_id"
-        request.operation in WRITE_OPERATIONS_REQUIRING_USER && request.userId < 0 ->
-            "invalid_write_user_id"
-        request.eventId != null && request.eventId < 0L -> "invalid_write_event_id"
-        else -> null
-    }
-
-    private val WRITE_OPERATIONS_REQUIRING_PACKAGE = setOf(
-        WRITE_OP_UPDATE_APPLICATION,
-        WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER,
-        WRITE_OP_DELETE_EVENT,
-        WRITE_OP_RESTORE_EVENT,
-        WRITE_OP_MOCK_MESSAGE,
-        WRITE_OP_QUERY_USAGE_STATS,
-        WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
-        WRITE_OP_ZYGISK_FORCE_STOP,
-        WRITE_OP_GET_EVENT_CONTENT,
-        WRITE_OP_GET_EVENT_JSON,
-    )
-
-    private val WRITE_OPERATIONS_REQUIRING_EVENT_ID = setOf(
-        WRITE_OP_DELETE_EVENT,
-        WRITE_OP_RESTORE_EVENT,
-        WRITE_OP_MOCK_MESSAGE,
-        WRITE_OP_GET_EVENT_CONTENT,
-        WRITE_OP_GET_EVENT_JSON,
-    )
-
-    private val WRITE_OPERATIONS_REQUIRING_USER = setOf(
-        WRITE_OP_DELETE_EVENT,
-        WRITE_OP_RESTORE_EVENT,
-        WRITE_OP_MOCK_MESSAGE,
-        WRITE_OP_GET_EVENT_CONTENT,
-        WRITE_OP_GET_EVENT_JSON,
-    )
-
-    fun validateWriteResult(result: ManagerWriteResultDto): String? = when {
-        result.schemaVersion < 1 -> "invalid_write_result_schema"
-        result.requestId.isBlank() || result.requestId.length > MAX_WRITE_REQUEST_ID_LENGTH ->
-            "invalid_write_result_request_id"
-        result.status !in setOf(
-            WRITE_STATUS_SUCCESS,
-            WRITE_STATUS_FAILED,
-            WRITE_STATUS_UNSUPPORTED,
-            WRITE_STATUS_DUPLICATE,
-        ) -> "invalid_write_status"
-        result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "write_details_too_long"
-        else -> null
-    }
+    fun validateWriteResult(result: ManagerWriteResultDto): String? =
+        ManagerWriteContractValidation.validateWriteResult(result)
 
     private fun validateApplicationFields(
         schemaVersion: Int,
