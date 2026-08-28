@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Intent
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.utils.DuplicateMessagePolicy
+import io.github.magisk317.mipush.runtime.core.DuplicateMessagePolicy
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -16,6 +16,8 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
  * forward into this bridge so behavior stays discoverable and testable.
  */
 object ExplicitHookBridge {
+    private val duplicateMessagePolicy = DuplicateMessagePolicy()
+
     @JvmStatic
     fun shouldSendBroadcast(
         pushService: XMPushServiceCore,
@@ -57,7 +59,11 @@ object ExplicitHookBridge {
             return false
         }
         val scope = "${Utils.myUserId()}:$packageName"
-        val duplicated = DuplicateMessagePolicy.checkAndMark(scope, messageId)
+        val duplicated = duplicateMessagePolicy.checkAndMark(
+            scope = scope,
+            messageId = messageId,
+            nowMs = System.currentTimeMillis(),
+        )
         AspectLogCompat.logDuplicateCheck(packageName, messageId, duplicated)
         return duplicated
     }

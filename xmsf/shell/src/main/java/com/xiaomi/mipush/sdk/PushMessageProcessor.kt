@@ -1,40 +1,25 @@
 package com.xiaomi.mipush.sdk
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.ResolveInfo
-import android.net.Uri
 import android.text.TextUtils
-import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.SharedPrefsCompat
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 import com.xiaomi.mipush.sdk.PushMessageHandler.PushMessageInterface
-import com.xiaomi.mipush.sdk.stat.PushStatClientManager
-import com.xiaomi.mipush.sdk.stat.upload.UploadDataHelper
 import com.xiaomi.push.clientreport.PerfMessageHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
-import com.xiaomi.push.service.OnlineConfig
-import com.xiaomi.push.service.OnlineConfigHelper
 import com.xiaomi.push.service.PushConstants
-import com.xiaomi.push.service.awake.AwakeUploadHelper
 import com.xiaomi.push.service.clientReport.PushClientReportHelper
 import com.xiaomi.push.service.clientReport.PushClientReportManager
 import com.xiaomi.push.service.clientReport.ReportConstants
-import com.xiaomi.push.service.xmpush.Command
 import com.xiaomi.xmpush.thrift.ActionType
-import com.xiaomi.xmpush.thrift.ConfigKey
-import com.xiaomi.xmpush.thrift.NotificationType
 import com.xiaomi.xmpush.thrift.PushMessage
 import com.xiaomi.xmpush.thrift.RegistrationReason
-import com.xiaomi.xmpush.thrift.XmPushActionAckMessage
 import com.xiaomi.xmpush.thrift.XmPushActionAckNotification
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmpush.thrift.XmPushActionCustomConfig
-import com.xiaomi.xmpush.thrift.XmPushActionNormalConfig
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
@@ -42,15 +27,9 @@ import com.xiaomi.xmpush.thrift.XmPushActionSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
-import io.github.magisk317.mipush.runtime.PushRuntime
-import java.net.MalformedURLException
-import java.net.URISyntaxException
-import java.net.URL
 import java.util.LinkedList
 import java.util.Queue
-import java.util.Locale
 import java.util.TimeZone
-import android.content.pm.PackageManager
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -65,55 +44,22 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  */
 class PushMessageProcessor private constructor(context: Context) {
     private var sAppContext: Context = context.applicationContext ?: context
-
-    private fun ackMessage(container: XmPushActionContainer) {
-        val metaInfo = container.metaInfo ?: return
-        val ackMessage = XmPushActionAckMessage().apply {
-            appId = container.appid
-            id = metaInfo.id
-            messageTs = metaInfo.messageTs
-            if (!TextUtils.isEmpty(metaInfo.topic)) {
-                topic = metaInfo.topic
-            }
-            deviceStatus = XmPushThriftSerializeUtils.getDeviceStatus(sAppContext, container)
+    private val ackSupport = PushMessageProcessorAckSupport(sAppContext)
+    private val processEventEmitter: PushMessageProcessorEventEmitter =
+        { name, result, stage, reason, statusOk, extra ->
+            emitProcessEvent(name, result, stage, reason, statusOk, extra)
         }
-        PushServiceClient.getInstance(sAppContext)
-            .sendMessage(ackMessage, ActionType.AckMessage, false, container.metaInfo)
-        PushRuntime.observeChannelEvent(
-            container.packageName,
-            "client_ack_sent",
-            "PushMessageProcessor.ackMessage"
-        )
-    }
+    private val actionResultSupport = PushMessageProcessorActionResultSupport(sAppContext, processEventEmitter)
+    private val notificationActionSupport =
+        PushMessageProcessorNotificationActionSupport(sAppContext, ackSupport, processEventEmitter)
 
-    private fun ackMessage(sendMessage: XmPushActionSendMessage, container: XmPushActionContainer) {
-        val metaInfo = container.metaInfo ?: return
-        val ackMessage = XmPushActionAckMessage().apply {
-            appId = sendMessage.appId
-            id = sendMessage.id
-            messageTs = sendMessage.message.createAt
-            if (!TextUtils.isEmpty(sendMessage.topic)) {
-                topic = sendMessage.topic
-            }
-            if (!TextUtils.isEmpty(sendMessage.aliasName)) {
-                aliasName = sendMessage.aliasName
-            }
-            deviceStatus = XmPushThriftSerializeUtils.getDeviceStatus(sAppContext, container)
-        }
-        PushServiceClient.getInstance(sAppContext).sendMessage(ackMessage, ActionType.AckMessage, metaInfo)
-        PushRuntime.observeChannelEvent(
-            container.packageName,
-            "client_ack_sent",
-            "PushMessageProcessor.ackMessageSendMessage"
-        )
-    }
+    private fun ackMessage(container: XmPushActionContainer) = ackSupport.ackMessage(container)
 
-    private fun isHybridMsg(container: XmPushActionContainer): Boolean {
-        val extra = container.metaInfo?.extra ?: return false
-        val action = extra[Constants.EXTRA_KEY_PUSH_SERVER_ACTION]
-        return TextUtils.equals(action, Constants.EXTRA_VALUE_HYBRID_MESSAGE) ||
-            TextUtils.equals(action, Constants.EXTRA_VALUE_PLATFORM_MESSAGE)
-    }
+    private fun ackMessage(sendMessage: XmPushActionSendMessage, container: XmPushActionContainer) =
+        ackSupport.ackMessage(sendMessage, container)
+
+    private fun isHybridMsg(container: XmPushActionContainer): Boolean =
+        PushMessageProcessorMessageClassification.isHybridMessage(container.metaInfo?.extra)
 
     private fun emitProcessEvent(
         name: String,
@@ -409,182 +355,16 @@ class PushMessageProcessor private constructor(context: Context) {
         result: XmPushActionRegistrationResult,
         messageId: String?,
         eventMessageType: Int
-    ): PushMessageInterface? {
-        val appInfoHolder = AppInfoHolder.getInstance(sAppContext)
-        val requestId = appInfoHolder.appRegRequestId
-        MyLog.w(
-            "registration result received errorCode=${result.errorCode} reason=${result.reason} " +
-                "requestIdPresent=${!TextUtils.isEmpty(requestId)} resultIdMatch=${TextUtils.equals(requestId, result.id)} " +
-                "resultAppIdPresent=${!TextUtils.isEmpty(result.appId)} resultAppIdMatch=${TextUtils.equals(appInfoHolder.appID, result.appId)} " +
-                "regIdPresent=${!TextUtils.isEmpty(result.regId)} regSecretPresent=${!TextUtils.isEmpty(result.regSecret)} " +
-                "regionPresent=${!TextUtils.isEmpty(result.region)} messageIdPresent=${!TextUtils.isEmpty(messageId)} " +
-                appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken)
-        )
-        if (TextUtils.isEmpty(requestId) || !TextUtils.equals(requestId, result.id)) {
-            MyLog.w("bad Registration result: " + appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken))
-            PushClientReportManager.getInstance(sAppContext).reportEvent4ERROR(
-                sAppContext.packageName,
-                PushClientReportHelper.getInterfaceIdByType(eventMessageType),
-                messageId ?: "",
-                ReportConstants.ERROR_BAD_REGISTRATION_RESULT
-            )
-            emitProcessEvent(
-                name = "push.register",
-                result = "error",
-                stage = "registration_result",
-                reason = "bad_request_id",
-                statusOk = false,
-                extra = mapOf("target_package" to sAppContext.packageName),
-            )
-            return null
-        }
-        appInfoHolder.appRegRequestId = null
-        if (result.errorCode == 0L) {
-            appInfoHolder.putRegIDAndSecret(result.regId, result.regSecret, result.region)
-            PushRuntime.observeRegistrationResult(
-                packageName = sAppContext.packageName,
-                success = true,
-                source = "PushMessageProcessor.processRegistrationResult",
-                reason = "server_result",
-            )
-            MyLog.w("registration result stored " + appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken))
-            PushClientReportManager.getInstance(sAppContext).reportEvent(
-                sAppContext.packageName,
-                PushClientReportHelper.getInterfaceIdByType(eventMessageType),
-                messageId ?: "",
-                ReportConstants.REGISTER_TYPE_APP_SUCCESS,
-                ReportConstants.REGISTER_SUCCESS
-            )
-            emitProcessEvent(
-                name = "push.register",
-                result = "ok",
-                stage = "registration_result",
-                reason = "success",
-                extra = mapOf(
-                    "target_package" to sAppContext.packageName,
-                    "region_present" to (!TextUtils.isEmpty(result.region)).toString(),
-                ),
-            )
-        } else {
-            PushRuntime.observeRegistrationResult(
-                packageName = sAppContext.packageName,
-                success = false,
-                source = "PushMessageProcessor.processRegistrationResult",
-                reason = "error_code:${result.errorCode}",
-            )
-            MyLog.w(
-                "registration result failed errorCode=${result.errorCode} reason=${result.reason} " +
-                    appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken)
-            )
-            PushClientReportManager.getInstance(sAppContext).reportEvent(
-                sAppContext.packageName,
-                PushClientReportHelper.getInterfaceIdByType(eventMessageType),
-                messageId ?: "",
-                ReportConstants.REGISTER_TYPE,
-                ReportConstants.REGISTER_FAIL
-            )
-            emitProcessEvent(
-                name = "push.register",
-                result = "error",
-                stage = "registration_result",
-                reason = "error_code",
-                statusOk = false,
-                extra = mapOf(
-                    "target_package" to sAppContext.packageName,
-                    "error_code" to result.errorCode.toString(),
-                ),
-            )
-        }
-        val args = if (!TextUtils.isEmpty(result.regId)) arrayListOf(result.regId) else null
-        val commandMessage = PushMessageHelper.generateCommandMessage(
-            Command.COMMAND_REGISTER.value,
-            args,
-            result.errorCode,
-            result.reason,
-            null
-        )
-        PushServiceClient.getInstance(sAppContext).processPendRequest()
-        return commandMessage
-    }
+    ): PushMessageInterface? = actionResultSupport.processRegistrationResult(result, messageId, eventMessageType)
 
-    private fun processSubscriptionResult(result: XmPushActionSubscriptionResult): PushMessageInterface {
-        if (result.errorCode == 0L) {
-            MiPushClient.addTopic(sAppContext, result.topic)
-        }
-        val args = if (!TextUtils.isEmpty(result.topic)) arrayListOf(result.topic) else null
-        MyLog.persist("resp-cmd:" + Command.COMMAND_SUBSCRIBE_TOPIC + ", " + result.id)
-        return PushMessageHelper.generateCommandMessage(
-            Command.COMMAND_SUBSCRIBE_TOPIC.value,
-            args,
-            result.errorCode,
-            result.reason,
-            result.category
-        )
-    }
+    private fun processSubscriptionResult(result: XmPushActionSubscriptionResult): PushMessageInterface =
+        actionResultSupport.processSubscriptionResult(result)
 
-    private fun processUnSubscriptionResult(result: XmPushActionUnSubscriptionResult): PushMessageInterface {
-        if (result.errorCode == 0L) {
-            MiPushClient.removeTopic(sAppContext, result.topic)
-        }
-        val args = if (!TextUtils.isEmpty(result.topic)) arrayListOf(result.topic) else null
-        MyLog.persist("resp-cmd:" + Command.COMMAND_UNSUBSCRIBE_TOPIC + ", " + result.id)
-        return PushMessageHelper.generateCommandMessage(
-            Command.COMMAND_UNSUBSCRIBE_TOPIC.value,
-            args,
-            result.errorCode,
-            result.reason,
-            result.category
-        )
-    }
+    private fun processUnSubscriptionResult(result: XmPushActionUnSubscriptionResult): PushMessageInterface =
+        actionResultSupport.processUnSubscriptionResult(result)
 
-    private fun processCommandResult(result: XmPushActionCommandResult, payload: ByteArray): PushMessageInterface? {
-        PerfMessageHelper.collectPerfData(sAppContext.packageName, sAppContext, result, ActionType.Command, payload.size)
-        val cmdName = result.cmdName
-        var cmdArgs = result.cmdArgs
-        if (result.errorCode == 0L) {
-            if (TextUtils.equals(cmdName, Command.COMMAND_SET_ACCEPT_TIME.value) && cmdArgs != null && cmdArgs.size > 1) {
-                MiPushClient.addAcceptTime(sAppContext, cmdArgs[0], cmdArgs[1])
-                AppInfoHolder.getInstance(sAppContext).setPaused("00:00" == cmdArgs[0] && "00:00" == cmdArgs[1])
-                cmdArgs = getTimeForTimeZone(TimeZone.getTimeZone("GMT+08"), TimeZone.getDefault(), cmdArgs)
-            } else if (TextUtils.equals(cmdName, Command.COMMAND_SET_ALIAS.value) && !cmdArgs.isNullOrEmpty()) {
-                MiPushClient.addAlias(sAppContext, cmdArgs[0])
-            } else if (TextUtils.equals(cmdName, Command.COMMAND_UNSET_ALIAS.value) && !cmdArgs.isNullOrEmpty()) {
-                MiPushClient.removeAlias(sAppContext, cmdArgs[0])
-            } else if (TextUtils.equals(cmdName, Command.COMMAND_SET_ACCOUNT.value) && !cmdArgs.isNullOrEmpty()) {
-                MiPushClient.addAccount(sAppContext, cmdArgs[0])
-            } else if (TextUtils.equals(cmdName, Command.COMMAND_UNSET_ACCOUNT.value) && !cmdArgs.isNullOrEmpty()) {
-                MiPushClient.removeAccount(sAppContext, cmdArgs[0])
-            } else if (TextUtils.equals(cmdName, Command.COMMAND_CHK_VDEVID.value)) {
-                if (cmdArgs.isNullOrEmpty()) {
-                    return null
-                }
-                DeviceInfo.updateVirtDevId(sAppContext, cmdArgs[0])
-                return null
-            }
-        }
-        MyLog.persist("resp-cmd:$cmdName, " + result.id)
-        val cmdToken = cmdName?.takeIf { it.isNotBlank() } ?: "unknown"
-        val ok = result.errorCode == 0L
-        emitProcessEvent(
-            name = "push.control",
-            result = if (ok) "ok" else "error",
-            stage = "command_result",
-            reason = if (ok) "success" else "error_code",
-            statusOk = ok,
-            extra = mapOf(
-                "target_package" to sAppContext.packageName,
-                "operation" to cmdToken,
-                "error_code" to result.errorCode.toString(),
-            ),
-        )
-        return PushMessageHelper.generateCommandMessage(
-            cmdName,
-            cmdArgs,
-            result.errorCode,
-            result.reason,
-            result.category
-        )
-    }
+    private fun processCommandResult(result: XmPushActionCommandResult, payload: ByteArray): PushMessageInterface? =
+        actionResultSupport.processCommandResult(result, payload)
 
     private fun processNotification(
         container: XmPushActionContainer,
@@ -631,26 +411,8 @@ class PushMessageProcessor private constructor(context: Context) {
         return processNotificationMessage(container, body)
     }
 
-    private fun processAckNotification(notification: XmPushActionAckNotification): PushMessageInterface? {
-        val id = notification.id
-        MyLog.persist("resp-type:" + notification.type + ", code:" + notification.errorCode + ", " + id)
-        if (NotificationType.DisablePushMessage.value.equals(notification.type, ignoreCase = true)) {
-            processEnableDisableAck(notification, id, RetryType.DISABLE_PUSH, enable = false)
-            return null
-        }
-        if (NotificationType.EnablePushMessage.value.equals(notification.type, ignoreCase = true)) {
-            processEnableDisableAck(notification, id, RetryType.ENABLE_PUSH, enable = true)
-            return null
-        }
-        if (NotificationType.ThirdPartyRegUpdate.value.equals(notification.type, ignoreCase = true)) {
-            processSendTokenAckNotification(notification)
-            return null
-        }
-        if (NotificationType.UploadTinyData.value.equals(notification.type, ignoreCase = true)) {
-            processStatDataACK(notification)
-        }
-        return null
-    }
+    private fun processAckNotification(notification: XmPushActionAckNotification): PushMessageInterface? =
+        notificationActionSupport.processAckNotification(notification)
 
     private fun processEnableDisableAck(
         notification: XmPushActionAckNotification,
@@ -658,179 +420,13 @@ class PushMessageProcessor private constructor(context: Context) {
         retryType: RetryType,
         enable: Boolean
     ) {
-        if (notification.errorCode == 0L) {
-            synchronized(OperatePushHelper::class.java) {
-                val helper = OperatePushHelper.getInstance(sAppContext)
-                if (helper.isMessageOperating(id)) {
-                    helper.removeOperateMessage(id)
-                    if (OperatePushHelper.SYNCING == helper.getSyncStatus(retryType)) {
-                        helper.putSyncStatus(retryType, OperatePushHelper.SYNCED)
-                        if (!enable) {
-                            MiPushClient.clearNotification(sAppContext)
-                            MiPushClient.clearLocalNotificationType(sAppContext)
-                            PushMessageHandler.removeAllPushCallbackClass()
-                            PushServiceClient.getInstance(sAppContext).closePush()
-                        }
-                    }
-                }
-            }
-            return
-        }
-        if (OperatePushHelper.SYNCING != OperatePushHelper.getInstance(sAppContext).getSyncStatus(retryType)) {
-            OperatePushHelper.getInstance(sAppContext).removeOperateMessage(id)
-            return
-        }
-        synchronized(OperatePushHelper::class.java) {
-            val helper = OperatePushHelper.getInstance(sAppContext)
-            if (helper.isMessageOperating(id)) {
-                if (helper.getRetryCount(id) < 10) {
-                    helper.increaseRetryCount(id)
-                    PushServiceClient.getInstance(sAppContext).sendPushEnableDisableMessage(!enable, id)
-                } else {
-                    helper.removeOperateMessage(id)
-                }
-            }
-        }
+        notificationActionSupport.processEnableDisableAck(notification, id, retryType, enable)
     }
 
     private fun processNotificationMessage(
         container: XmPushActionContainer,
         notification: XmPushActionNotification
-    ): PushMessageInterface? {
-        if ("registration id expired".equals(notification.type, ignoreCase = true)) {
-            val allAlias = MiPushClient.getAllAlias(sAppContext)
-            val allTopic = MiPushClient.getAllTopic(sAppContext)
-            val allUserAccount = MiPushClient.getAllUserAccount(sAppContext)
-            val acceptTime = MiPushClient.getAcceptTime(sAppContext)
-            MyLog.persist("resp-type:" + notification.type + ", " + notification.id)
-            MiPushClient.reInitialize(sAppContext, RegistrationReason.RegIdExpired)
-            for (alias in allAlias) {
-                MiPushClient.removeAlias(sAppContext, alias)
-                MiPushClient.setAlias(sAppContext, alias, null)
-            }
-            for (topic in allTopic) {
-                MiPushClient.removeTopic(sAppContext, topic)
-                MiPushClient.subscribe(sAppContext, topic, null)
-            }
-            for (account in allUserAccount) {
-                MiPushClient.removeAccount(sAppContext, account)
-                MiPushClient.setUserAccount(sAppContext, account, null)
-            }
-            val acceptTimeParts = acceptTime.split(",")
-            if (acceptTimeParts.size != 2) {
-                return null
-            }
-            MiPushClient.removeAcceptTime(sAppContext)
-            MiPushClient.addAcceptTime(sAppContext, acceptTimeParts[0], acceptTimeParts[1])
-            return null
-        }
-        if (NotificationType.ClientInfoUpdateOk.value.equals(notification.type, ignoreCase = true)) {
-            val extra = notification.extra
-            if (extra == null || !extra.containsKey(Constants.EXTRA_KEY_APP_VERSION)) {
-                return null
-            }
-            AppInfoHolder.getInstance(sAppContext).updateVersionName(extra[Constants.EXTRA_KEY_APP_VERSION])
-            return null
-        }
-        if (NotificationType.AwakeApp.value.equals(notification.type, ignoreCase = true)) {
-            val extra = notification.extra
-            if (!container.isEncryptAction || extra == null || !extra.containsKey(AwakeUploadHelper.KEY_AWAKE_INFO)) {
-                return null
-            }
-            AwakeHelper.doAwAppLogic(
-                sAppContext,
-                AppInfoHolder.getInstance(sAppContext).appID,
-                OnlineConfig.getInstance(sAppContext).getIntValue(ConfigKey.AwakeInfoUploadWaySwitch.value, 0),
-                extra[AwakeUploadHelper.KEY_AWAKE_INFO]
-            )
-            return null
-        }
-        if (NotificationType.NormalClientConfigUpdate.value.equals(notification.type, ignoreCase = true)) {
-            val normalConfig = XmPushActionNormalConfig()
-            try {
-                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(normalConfig, notification.getBinaryExtra())
-                OnlineConfigHelper.updateNormalConfigs(OnlineConfig.getInstance(sAppContext), normalConfig)
-                return null
-            } catch (_: TException) {
-                return null
-            }
-        }
-        if (NotificationType.CustomClientConfigUpdate.value.equals(notification.type, ignoreCase = true)) {
-            val customConfig = XmPushActionCustomConfig()
-            try {
-                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(customConfig, notification.getBinaryExtra())
-                OnlineConfigHelper.updateCustomConfigs(OnlineConfig.getInstance(sAppContext), customConfig)
-                return null
-            } catch (_: TException) {
-                return null
-            }
-        }
-        if (NotificationType.SyncInfoResult.value.equals(notification.type, ignoreCase = true)) {
-            SyncInfoHelper.saveInfo(sAppContext, notification)
-            return null
-        }
-        if (NotificationType.ForceSync.value.equals(notification.type, ignoreCase = true)) {
-            MyLog.w("receive force sync notification")
-            SyncInfoHelper.doSyncInfoAsync(sAppContext, false)
-            return null
-        }
-        if (!NotificationType.CancelPushMessage.value.equals(notification.type)) {
-            if (NotificationType.HybridRegisterResult.value.equals(notification.type)) {
-                try {
-                    val result = XmPushActionRegistrationResult()
-                    XmPushThriftSerializeUtils.convertByteArrayToThriftObject(result, notification.getBinaryExtra())
-                    MiPushClient4Hybrid.onReceiveRegisterResult(sAppContext, result)
-                    return null
-                } catch (e: TException) {
-                    MyLog.e(e)
-                    return null
-                }
-            }
-            if (!NotificationType.HybridUnregisterResult.value.equals(notification.type)) {
-                NotificationType.PushLogUpload.value.equals(notification.type)
-                return null
-            }
-            try {
-                val result = XmPushActionUnRegistrationResult()
-                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(result, notification.getBinaryExtra())
-                MiPushClient4Hybrid.onReceiveUnregisterResult(sAppContext, result)
-                return null
-            } catch (e: TException) {
-                MyLog.e(e)
-                return null
-            }
-        }
-        MyLog.persist("resp-type:" + notification.type + ", " + notification.id)
-        val extra = notification.extra
-        if (extra != null) {
-            var notifyId = -2
-            if (extra.containsKey(PushConstants.PUSH_NOTIFY_ID)) {
-                val value = extra[PushConstants.PUSH_NOTIFY_ID]
-                notifyId = if (TextUtils.isEmpty(value)) {
-                    -2
-                } else {
-                    try {
-                        value!!.toInt()
-                    } catch (e: NumberFormatException) {
-                        e.printStackTrace()
-                        -2
-                    }
-                }
-            }
-            if (notifyId >= -1) {
-                MiPushClient.clearNotification(sAppContext, notifyId)
-            } else {
-                MiPushClient.clearNotification(
-                    sAppContext,
-                    if (extra.containsKey(PushConstants.PUSH_TITLE)) extra[PushConstants.PUSH_TITLE] else "",
-                    if (extra.containsKey(PushConstants.PUSH_DESCRIPTION)) extra[PushConstants.PUSH_DESCRIPTION] else ""
-                )
-            }
-            return null
-        }
-        sendAckNotification(notification)
-        return null
-    }
+    ): PushMessageInterface? = notificationActionSupport.processNotificationMessage(container, notification)
 
     private fun processMessage(container: XmPushActionContainer, payload: ByteArray): PushMessageInterface? {
         try {
@@ -871,125 +467,21 @@ class PushMessageProcessor private constructor(context: Context) {
     }
 
     private fun processSendTokenAckNotification(notification: XmPushActionAckNotification) {
-        MyLog.v("ASSEMBLE_PUSH : $notification")
-        val id = notification.id
-        val extra = notification.extra
-        if (extra != null) {
-            val regInfo = extra[Constants.ASSEMBLE_PUSH_REG_INFO]
-            if (TextUtils.isEmpty(regInfo)) {
-                return
-            }
-            if (regInfo!!.contains("brand:" + PhoneBrand.FCM.name)) {
-                MyLog.w("ASSEMBLE_PUSH : receive fcm token sync ack")
-                AssemblePushHelper.saveAssemblePushTokenAfterAck(sAppContext, AssemblePush.ASSEMBLE_PUSH_FCM, regInfo)
-                processSingleTokenACK(id, notification.errorCode, AssemblePush.ASSEMBLE_PUSH_FCM)
-                return
-            }
-            if (regInfo.contains("brand:" + PhoneBrand.HUAWEI.name)) {
-                MyLog.w("ASSEMBLE_PUSH : receive hw token sync ack")
-                AssemblePushHelper.saveAssemblePushTokenAfterAck(sAppContext, AssemblePush.ASSEMBLE_PUSH_HUAWEI, regInfo)
-                processSingleTokenACK(id, notification.errorCode, AssemblePush.ASSEMBLE_PUSH_HUAWEI)
-                return
-            }
-            if (regInfo.contains("brand:" + PhoneBrand.OPPO.name)) {
-                MyLog.w("ASSEMBLE_PUSH : receive COS token sync ack")
-                AssemblePushHelper.saveAssemblePushTokenAfterAck(sAppContext, AssemblePush.ASSEMBLE_PUSH_COS, regInfo)
-                processSingleTokenACK(id, notification.errorCode, AssemblePush.ASSEMBLE_PUSH_COS)
-                return
-            }
-            if (regInfo.contains("brand:" + PhoneBrand.VIVO.name)) {
-                MyLog.w("ASSEMBLE_PUSH : receive FTOS token sync ack")
-                AssemblePushHelper.saveAssemblePushTokenAfterAck(sAppContext, AssemblePush.ASSEMBLE_PUSH_FTOS, regInfo)
-                processSingleTokenACK(id, notification.errorCode, AssemblePush.ASSEMBLE_PUSH_FTOS)
-            }
-        }
+        notificationActionSupport.processSendTokenAckNotification(notification)
     }
 
     private fun processSingleTokenACK(id: String?, errorCode: Long, assemblePush: AssemblePush) {
-        val retryType = AssemblePushInfoHelper.getRetryType(assemblePush) ?: return
-        if (errorCode == 0L) {
-            synchronized(OperatePushHelper::class.java) {
-                val helper = OperatePushHelper.getInstance(sAppContext)
-                if (helper.isMessageOperating(id)) {
-                    helper.removeOperateMessage(id)
-                    if (OperatePushHelper.SYNCING == helper.getSyncStatus(retryType)) {
-                        helper.putSyncStatus(retryType, OperatePushHelper.SYNCED)
-                    }
-                }
-            }
-            return
-        }
-        if (OperatePushHelper.SYNCING != OperatePushHelper.getInstance(sAppContext).getSyncStatus(retryType)) {
-            OperatePushHelper.getInstance(sAppContext).removeOperateMessage(id)
-            return
-        }
-        synchronized(OperatePushHelper::class.java) {
-            val helper = OperatePushHelper.getInstance(sAppContext)
-            if (helper.isMessageOperating(id)) {
-                if (helper.getRetryCount(id) < 10) {
-                    helper.increaseRetryCount(id)
-                    PushServiceClient.getInstance(sAppContext).sendAssemblePushTokenCommon(id, retryType, assemblePush)
-                } else {
-                    helper.removeOperateMessage(id)
-                }
-            }
-        }
+        notificationActionSupport.processSingleTokenACK(id, errorCode, assemblePush)
     }
 
     private fun processStatDataACK(notification: XmPushActionAckNotification) {
-        val id = notification.id
-        MyLog.i("receive ack $id")
-        val extra = notification.extra
-        if (extra != null) {
-            val realSource = extra[UploadDataHelper.REAL_SOURCE]
-            if (TextUtils.isEmpty(realSource)) {
-                return
-            }
-            MyLog.i("receive ack : messageId = $id  realSource = $realSource")
-            PushStatClientManager.getInstance(sAppContext).onResult(id ?: "", realSource ?: "", notification.errorCode == 0L)
-        }
+        notificationActionSupport.processStatDataACK(notification)
     }
 
-    private fun reportDecryptFail(container: XmPushActionContainer) {
-        MyLog.w("receive a message but decrypt failed. report now.")
-        val notification = XmPushActionNotification(container.metaInfo.id, false).apply {
-            type = NotificationType.DecryptMessageFail.value
-            appId = container.appid
-            packageName = container.packageName
-            extra = HashMap<String, String>().apply {
-                put("regid", MiPushClient.getRegId(sAppContext))
-            }
-        }
-        PushServiceClient.getInstance(sAppContext).sendMessage(notification, ActionType.Notification, false, null)
-    }
+    private fun reportDecryptFail(container: XmPushActionContainer) = ackSupport.reportDecryptFail(container)
 
-    private fun sendAckNotification(notification: XmPushActionNotification) {
-        val ackNotification = XmPushActionAckNotification().apply {
-            type = NotificationType.CancelPushMessageACK.value
-            id = notification.id
-            target = notification.target
-            appId = notification.appId
-            packageName = notification.packageName
-            errorCode = 0L
-            reason = "success clear push message."
-        }
-        PushServiceClient.getInstance(sAppContext).sendMessage(
-            ackNotification,
-            ActionType.Notification,
-            false,
-            true,
-            null,
-            false,
-            sAppContext.packageName,
-            AppInfoHolder.getInstance(sAppContext).appID,
-            false
-        )
-        PushRuntime.observeNotificationEvent(
-            notification.packageName,
-            "clear_notification_ack_sent",
-            "PushMessageProcessor.sendAckNotification"
-        )
-    }
+    private fun sendAckNotification(notification: XmPushActionNotification) =
+        ackSupport.sendAckNotification(notification)
 
     private fun tryToReinitialize() {
         val sharedPreferences = sAppContext.getSharedPreferences("mipush_extra", 0)
@@ -1000,19 +492,8 @@ class PushMessageProcessor private constructor(context: Context) {
         }
     }
 
-    fun getTimeForTimeZone(timeZone: TimeZone, targetTimeZone: TimeZone, list: List<String>): List<String> {
-        if (timeZone == targetTimeZone) {
-            return list
-        }
-        val rawOffset = ((timeZone.rawOffset - targetTimeZone.rawOffset) / 1000) / 60
-        val startHour = list[0].split(":")[0].toLong()
-        val start = ((((startHour * 60) + list[0].split(":")[1].toLong()) - rawOffset) + 1440) % 1440
-        val end = ((((list[1].split(":")[0].toLong() * 60) + list[1].split(":")[1].toLong()) - rawOffset) + 1440) % 1440
-        return arrayListOf(
-            String.format(Locale.US, "%1$02d:%2$02d", start / 60, start % 60),
-            String.format(Locale.US, "%1$02d:%2$02d", end / 60, end % 60)
-        )
-    }
+    fun getTimeForTimeZone(timeZone: TimeZone, targetTimeZone: TimeZone, list: List<String>): List<String> =
+        PushMessageProcessorTimeZoneConverter.convert(timeZone, targetTimeZone, list)
 
     fun processIntent(intent: Intent): PushMessageInterface? {
         val action = intent.action
@@ -1232,80 +713,9 @@ class PushMessageProcessor private constructor(context: Context) {
         }
 
         @JvmStatic
-        fun getNotificationMessageIntent(context: Context, packageName: String, map: Map<String, String>?): Intent? {
-            if (map == null || !map.containsKey(PushConstants.EXTRA_PARAM_NOTIFY_EFFECT)) {
-                return null
-            }
-            val notifyEffect = map[PushConstants.EXTRA_PARAM_NOTIFY_EFFECT]
-            var intentFlags = -1
-            val flags = map["intent_flag"]
-            if (!TextUtils.isEmpty(flags)) {
-                try {
-                    intentFlags = flags!!.toInt()
-                } catch (e: NumberFormatException) {
-                    MyLog.e("Cause by intent_flag:" + e.message)
-                }
-            }
-            var intent: Intent? = null
-            if (PushConstants.NOTIFICATION_CLICK_DEFAULT == notifyEffect) {
-                try {
-                    intent = context.packageManager.getLaunchIntentForPackage(packageName)
-                } catch (e: Exception) {
-                    MyLog.e("Cause:" + e.message)
-                }
-            } else if (PushConstants.NOTIFICATION_CLICK_INTENT == notifyEffect) {
-                if (map.containsKey("intent_uri")) {
-                    val intentUri = map["intent_uri"]
-                    if (intentUri != null) {
-                        try {
-                            intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME)
-                            intent.setPackage(packageName)
-                        } catch (e: URISyntaxException) {
-                            MyLog.e("Cause:" + e.message)
-                        }
-                    }
-                } else if (map.containsKey("class_name")) {
-                    intent = Intent().apply {
-                        component = ComponentName(packageName, map["class_name"]!!)
-                    }
-                }
-            } else if (PushConstants.NOTIFICATION_CLICK_WEB_PAGE == notifyEffect) {
-                val webUri = map["web_uri"]
-                if (webUri != null) {
-                    var url = webUri.trim()
-                    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                        url = "http://$url"
-                    }
-                    try {
-                        val protocol = URL(url).protocol
-                        if ("http" == protocol || "https" == protocol) {
-                            intent = Intent("android.intent.action.VIEW").apply {
-                                data = Uri.parse(url)
-                            }
-                        }
-                    } catch (e: MalformedURLException) {
-                        MyLog.e("Cause:" + e.message)
-                    }
-                }
-            }
-            if (intent == null) {
-                return null
-            }
-            if (intentFlags >= 0) {
-                intent.flags = intentFlags
-            }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            try {
-                val resolveActivity: ResolveInfo? = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-                if (resolveActivity != null) {
-                    return intent
-                }
-                MyLog.w("not resolve activity:$intent")
-            } catch (e: Exception) {
-                MyLog.e("Cause:" + e.message)
-            }
-            return null
-        }
+        fun getNotificationMessageIntent(context: Context, packageName: String, map: Map<String, String>?): Intent? =
+            PushMessageProcessorNotificationIntentFactory.getNotificationMessageIntent(context, packageName, map)
+
 
         private fun isDuplicateMessage(context: Context, messageId: String?): Boolean = synchronized(lock) {
             AppInfoHolder.getInstance(context)
