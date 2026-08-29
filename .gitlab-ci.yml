@@ -1,19 +1,19 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    ref: efb141b766502035982af8342f97ee93e46f996b
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    ref: efb141b766502035982af8342f97ee93e46f996b
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    ref: efb141b766502035982af8342f97ee93e46f996b
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    ref: efb141b766502035982af8342f97ee93e46f996b
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e4c4a9105025ee4d3ba6d97733850134dc5dac37
+    ref: efb141b766502035982af8342f97ee93e46f996b
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -43,7 +43,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "e4c4a9105025ee4d3ba6d97733850134dc5dac37"
+  MAGISK_CI_TOOLKIT_REF: "efb141b766502035982af8342f97ee93e46f996b"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -55,6 +55,7 @@ variables:
   MAGISK_GRADLE_ARGS: "--warning-mode all"
   MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "true"
+  MAGISK_ANDROID_RELEASE_PLAY_TRACK: "production"
   MAGISK_PLAY_INITIAL_VERSION_CODE: "1569"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
@@ -325,7 +326,7 @@ telegram:ci:
     - job: android:build
       artifacts: true
       optional: true
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
     - job: zygisk:build:arm
@@ -340,7 +341,7 @@ android:detekt:
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
   cache: []
@@ -367,7 +368,7 @@ android:test:pure-modules:
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
   cache: []
@@ -393,7 +394,7 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Coverage gate runs on ARM after Alpha publishing.
+  # Coverage gate runs on ARM after Beta publishing.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
@@ -401,7 +402,7 @@ android:test:
   needs:
     - job: android:test:pure-modules
       artifacts: true
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
   cache: []
@@ -433,7 +434,7 @@ android:module-boundaries:
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
   variables:
@@ -446,13 +447,13 @@ android:shared-compat:
     - .magisk_android_base
     - .mipush_android_rules
   # This is compile-only and does not load Robolectric; it waits for the ARM
-  # Alpha publish so it cannot consume the release runner first.
+  # Beta publish so it cannot consume the release runner first.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
   needs:
-    - job: android:ci:play-alpha
+    - job: android:ci:play-beta
       artifacts: false
       optional: true
   cache: []
@@ -542,7 +543,7 @@ android:release:play-bundle:
   tags:
     - magisk-arm64-linux
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
   needs:
     - job: android:release:guard
@@ -550,6 +551,7 @@ android:release:play-bundle:
   script:
     - |
       set -euo pipefail
+      export MAGISK_PLAY_TRACK_OVERRIDE=production
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       : "${RELEASE_KEYSTORE:?RELEASE_KEYSTORE is required}"
       : "${STORE_PASSWORD:?STORE_PASSWORD is required}"
@@ -612,8 +614,10 @@ android:release:play:
   tags:
     - magisk-arm64-linux
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
+  variables:
+    MAGISK_PLAY_TRACK_OVERRIDE: "production"
   before_script:
     - !reference [.magisk_linux_base, before_script]
     - |
@@ -643,7 +647,7 @@ android:release:play:
     when: always
     expire_in: 1 day
 
-android:ci:play-alpha-bundle:
+android:ci:play-beta-bundle:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
   stage: release-build
@@ -655,6 +659,7 @@ android:ci:play-alpha-bundle:
   script:
     - |
       set -euo pipefail
+      export MAGISK_PLAY_TRACK_OVERRIDE=beta
       keystore_path="$CI_PROJECT_DIR/app/release.jks"
       printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
       chmod 0600 "$keystore_path"
@@ -676,18 +681,17 @@ android:ci:play-alpha-bundle:
       - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - play-release.env
 
-android:ci:play-alpha:
+android:ci:play-beta:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
   stage: release-publish
   tags:
     - magisk-arm64-linux
   rules:
-    - when: never
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
   needs:
-    - job: android:ci:play-alpha-bundle
+    - job: android:ci:play-beta-bundle
       artifacts: true
   script:
     - |
