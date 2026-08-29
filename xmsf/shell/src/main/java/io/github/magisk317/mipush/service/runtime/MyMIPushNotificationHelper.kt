@@ -6,7 +6,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -441,8 +440,12 @@ class MyMIPushNotificationHelper {
             }
 
             val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
-            if (targetPackage.isBlank() || !isTargetRunningForMessageArrived(context, targetPackage)) {
-                logD("skip message arrived because target is not running pkg=$targetPackage")
+            // Keep the stock-compatible callback available even when the target process is idle.
+            // The explicit package and receiver query constrain delivery without requiring XMSF to
+            // observe a running target first; the callback is precisely what can wake its push
+            // receiver and restore the target-owned notification lifecycle.
+            if (targetPackage.isBlank()) {
+                logD("skip message arrived because target package is blank")
                 return false
             }
             val intent = Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).apply {
@@ -471,19 +474,6 @@ class MyMIPushNotificationHelper {
                 )
                 logE("message arrived broadcast failed pkg=$targetPackage", t)
                 false
-            }
-        }
-
-        private fun isTargetRunningForMessageArrived(context: Context, targetPackage: String): Boolean {
-            val processes = runCatching {
-                (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).runningAppProcesses
-            }.getOrNull() ?: return false
-            val extensionProcess = "$targetPackage:pushExtensionService"
-            // Stock 7.4.67-C i0.a delegates to c.n/p9.b.e with this process excluded. This is
-            // newer than SDK 3.7.9's broad isAppRunning check and prevents an idle SDK extension
-            // process from making XMSF wake the application's MESSAGE_ARRIVED receiver.
-            return processes.any { process ->
-                process.processName != extensionProcess && process.pkgList?.contains(targetPackage) == true
             }
         }
 

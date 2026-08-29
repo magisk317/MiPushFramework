@@ -5,6 +5,7 @@ import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import java.io.File
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -16,6 +17,17 @@ class MyMIPushNotificationHelperTest {
     @BeforeEach
     fun resetMockMessageRegistry() {
         MockMessageRegistry.clearAllForTests()
+    }
+
+    @Test
+    fun `message arrived dispatch does not require target process state`() {
+        val source = readShellSource(
+            "io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt",
+        )
+
+        assertFalse(source.contains("isTargetRunningForMessageArrived"))
+        assertTrue(source.contains("PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED"))
+        assertTrue(source.contains("queryBroadcastReceivers(intent, 0)"))
     }
 
     @Test
@@ -316,6 +328,15 @@ class MyMIPushNotificationHelperTest {
         assertEquals("com.ruanmei.ithome", extras["target_package"])
         assertEquals("s123456789012345678901", extras["message_id"])
         assertEquals("1000", extras["eventMessageType"])
+    }
+
+    private fun readShellSource(relativePath: String): String {
+        val candidates = listOf(
+            File("src/main/java/$relativePath"),
+            File("../shell/src/main/java/$relativePath"),
+        )
+        return candidates.firstOrNull(File::isFile)?.readText()
+            ?: error("Source not found: $relativePath from ${File(".").absolutePath}")
     }
 
     private fun notificationContainer(jobKey: String): XmPushActionContainer {
