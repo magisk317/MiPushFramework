@@ -22,14 +22,15 @@ internal object MiPushComponentVisibilityModelFactory {
     private const val PUSH_PROFILE_AUTHORITY = "com.xiaomi.push.provider.profile"
     private const val CHANNEL_PERMISSION = "com.xiaomi.xmsf.permission.CHANNEL"
     private const val PUSH_SUPPORT_PERMISSION = "com.xiaomi.push.permission.PUSH_SUPPORT"
+    private const val XMSF_VERSION_CODE = 70004067
 
     fun fakeXmsfPackageInfo(): PackageInfo {
         return PackageInfo().apply {
             packageName = XMSF_PACKAGE
             versionName = "7.4.67-C"
             @Suppress("DEPRECATION")
-            versionCode = 70004067
-            runCatching { setLongVersionCode(70004067L) }
+            versionCode = XMSF_VERSION_CODE
+            runCatching { setLongVersionCode(XMSF_VERSION_CODE.toLong()) }
             applicationInfo = fakeApplicationInfo(XMSF_PACKAGE, system = true)
             activities = arrayOf(activityInfo(XMSF_PACKAGE, XMSF_MAIN_ACTIVITY, exported = true))
             services = arrayOf(

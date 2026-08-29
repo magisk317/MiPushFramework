@@ -33,7 +33,7 @@ internal object PushMessageProcessorNotificationIntentFactory {
         if (PushConstants.NOTIFICATION_CLICK_DEFAULT == notifyEffect) {
             try {
                 intent = context.packageManager.getLaunchIntentForPackage(packageName)
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                 MyLog.e("Cause:" + e.message)
             }
         } else if (PushConstants.NOTIFICATION_CLICK_INTENT == notifyEffect) {
@@ -84,7 +84,7 @@ internal object PushMessageProcessorNotificationIntentFactory {
                 return intent
             }
             MyLog.w("not resolve activity:$intent")
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
             MyLog.e("Cause:" + e.message)
         }
         return null

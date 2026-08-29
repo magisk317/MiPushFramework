@@ -43,7 +43,7 @@ internal class NotificationChannelRegistrySupport(
         if (packageContext === context) return null
         return try {
             packageContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
             logE("Failed to query package NotificationManager for $packageName", e)
             null
         }
@@ -61,7 +61,7 @@ internal class NotificationChannelRegistrySupport(
             return if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     packageNotificationManager.getNotificationChannel(channelId)
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to query package channel via package context for $packageName/$channelId", e)
                     null
                 }
@@ -72,7 +72,7 @@ internal class NotificationChannelRegistrySupport(
                 "getNotificationChannelForPackage", String::class.java, String::class.java,
             )
             method.invoke(notificationManager, packageName, channelId) as? NotificationChannel
-        } catch (e: Exception) {
+        } catch (e: ReflectiveOperationException) {
             logE("Failed to invoke getNotificationChannelForPackage", e)
             null
         }
@@ -88,7 +88,7 @@ internal class NotificationChannelRegistrySupport(
             return if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     packageNotificationManager.getNotificationChannelGroup(groupId)
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to query package group via package context for $packageName/$groupId", e)
                     null
                 }
@@ -99,7 +99,7 @@ internal class NotificationChannelRegistrySupport(
                 "getNotificationChannelGroupForPackage", String::class.java, String::class.java,
             )
             method.invoke(notificationManager, packageName, groupId) as? NotificationChannelGroup
-        } catch (e: Exception) {
+        } catch (e: ReflectiveOperationException) {
             logE("Failed to invoke getNotificationChannelGroupForPackage", e)
             null
         }
@@ -173,7 +173,7 @@ internal class NotificationChannelRegistrySupport(
                 try {
                     packageNotificationManager.createNotificationChannels(nonNullChannels)
                     return
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to create notification channels via package context for $packageName", e)
                 }
             }
@@ -187,7 +187,7 @@ internal class NotificationChannelRegistrySupport(
                 )
                 method.invoke(notificationManager, packageName, nonNullChannels)
                 return
-            } catch (e: Exception) {
+            } catch (e: ReflectiveOperationException) {
                 logE("Failed to invoke createNotificationChannelsForPackage", e)
             }
         }
@@ -260,7 +260,7 @@ internal class NotificationChannelRegistrySupport(
                         if (packageChannels.isNotEmpty()) {
                             return packageChannels
                         }
-                    } catch (e: Exception) {
+                    } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                         logW("Failed to query channels via package context for $packageName: ${e.message}")
                     }
                 }
@@ -280,7 +280,7 @@ internal class NotificationChannelRegistrySupport(
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     return packageNotificationManager.notificationChannels
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logW("Failed to query channels via package context for $packageName: ${e.message}")
                 }
             }
@@ -347,7 +347,7 @@ internal class NotificationChannelRegistrySupport(
                     if (getNotificationChannel(packageName, channelId) == null) {
                         return true
                     }
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to delete channel via package context for $packageName/$channelId", e)
                 }
             }
@@ -373,7 +373,7 @@ internal class NotificationChannelRegistrySupport(
                     if (getNotificationChannel(packageName, channelId) == null) {
                         return true
                     }
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to delete channel via package context for $packageName/$channelId", e)
                 }
             }
@@ -435,7 +435,7 @@ internal class NotificationChannelRegistrySupport(
                 try {
                     packageNotificationManager.createNotificationChannelGroups(nonNullGroups)
                     return
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to create groups via package context for $packageName", e)
                 }
             }
@@ -497,7 +497,7 @@ internal class NotificationChannelRegistrySupport(
                         if (packageGroups.isNotEmpty()) {
                             return packageGroups
                         }
-                    } catch (e: Exception) {
+                    } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                         logW("Failed to query groups via package context for $packageName: ${e.message}")
                     }
                 }
@@ -515,7 +515,7 @@ internal class NotificationChannelRegistrySupport(
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     return packageNotificationManager.notificationChannelGroups
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logW("Failed to query groups via package context for $packageName: ${e.message}")
                 }
             }
@@ -565,7 +565,7 @@ internal class NotificationChannelRegistrySupport(
                 try {
                     packageNotificationManager.deleteNotificationChannelGroup(groupId)
                     return
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to delete group via package context for $packageName/$groupId", e)
                 }
             }
@@ -583,7 +583,7 @@ internal class NotificationChannelRegistrySupport(
                 try {
                     packageNotificationManager.deleteNotificationChannelGroup(groupId)
                     return
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     logE("Failed to delete group via package context for $packageName/$groupId", e)
                 }
             }

@@ -36,7 +36,11 @@ internal fun EventFilters(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(R.string.recent_activity_filter_prefix), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.recent_activity_filter_prefix),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (showToggleAction) {
                 TextButton(onClick = onExpandedChange) {
                     Text(stringResource(if (expanded) R.string.action_collapse else R.string.action_expand))
@@ -45,17 +49,39 @@ internal fun EventFilters(
         }
         if (!expanded) return@Column
         Text(stringResource(R.string.recent_activity_filter_type_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedTypeFilters.isEmpty(), onClick = { onTypeFiltersChange(emptySet()) }, label = { Text(stringResource(R.string.recent_activity_filter_type_all)) })
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedTypeFilters.isEmpty(),
+                onClick = { onTypeFiltersChange(emptySet()) },
+                label = { Text(stringResource(R.string.recent_activity_filter_type_all)) },
+            )
             EventTypeFilter.entries.forEach { filter ->
-                FilterChip(selected = filter in selectedTypeFilters, onClick = { onTypeFiltersChange(selectedTypeFilters.toggle(filter)) }, label = { Text(stringResource(filter.labelRes)) })
+                FilterChip(
+                    selected = filter in selectedTypeFilters,
+                    onClick = { onTypeFiltersChange(selectedTypeFilters.toggle(filter)) },
+                    label = { Text(stringResource(filter.labelRes)) },
+                )
             }
         }
         Text(stringResource(R.string.recent_activity_filter_status_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selectedStatusFilters.isEmpty(), onClick = { onStatusFiltersChange(emptySet()) }, label = { Text(stringResource(R.string.recent_activity_filter_status_all)) })
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedStatusFilters.isEmpty(),
+                onClick = { onStatusFiltersChange(emptySet()) },
+                label = { Text(stringResource(R.string.recent_activity_filter_status_all)) },
+            )
             EventStatusFilter.entries.forEach { filter ->
-                FilterChip(selected = filter in selectedStatusFilters, onClick = { onStatusFiltersChange(selectedStatusFilters.toggle(filter)) }, label = { Text(stringResource(filter.labelRes)) })
+                FilterChip(
+                    selected = filter in selectedStatusFilters,
+                    onClick = { onStatusFiltersChange(selectedStatusFilters.toggle(filter)) },
+                    label = { Text(stringResource(filter.labelRes)) },
+                )
             }
         }
     }
@@ -82,8 +108,18 @@ internal fun EventInfoForDisplay.matchesFilters(
         when (filter) {
             EventTypeFilter.Notification -> event.canReplayNotification() && !isPassThroughMessage()
             EventTypeFilter.PassThrough -> event.type == ManagerEventType.SEND_MESSAGE && isPassThroughMessage()
-            EventTypeFilter.Registration -> event.type in setOf(ManagerEventType.REGISTRATION, ManagerEventType.REGISTRATION_RESULT, ManagerEventType.UN_REGISTRATION)
-            EventTypeFilter.Other -> event.type !in setOf(ManagerEventType.SEND_MESSAGE, ManagerEventType.NOTIFICATION, ManagerEventType.REGISTRATION, ManagerEventType.REGISTRATION_RESULT, ManagerEventType.UN_REGISTRATION)
+            EventTypeFilter.Registration -> event.type in setOf(
+                ManagerEventType.REGISTRATION,
+                ManagerEventType.REGISTRATION_RESULT,
+                ManagerEventType.UN_REGISTRATION,
+            )
+            EventTypeFilter.Other -> event.type !in setOf(
+                ManagerEventType.SEND_MESSAGE,
+                ManagerEventType.NOTIFICATION,
+                ManagerEventType.REGISTRATION,
+                ManagerEventType.REGISTRATION_RESULT,
+                ManagerEventType.UN_REGISTRATION,
+            )
         }
     }
     val matchesStatus = selectedStatusFilters.isEmpty() || selectedStatusFilters.any { filter ->

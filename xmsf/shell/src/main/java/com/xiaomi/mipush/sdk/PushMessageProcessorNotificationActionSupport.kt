@@ -93,6 +93,7 @@ internal class PushMessageProcessorNotificationActionSupport(
         }
     }
 
+    @Suppress("ReturnCount")
     fun processNotificationMessage(
         container: XmPushActionContainer,
         notification: XmPushActionNotification
