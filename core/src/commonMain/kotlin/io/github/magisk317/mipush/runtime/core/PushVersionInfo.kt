@@ -4,8 +4,8 @@ object PushVersionInfo {
     const val STOCK_XMSF_APP_VERSION_NAME = "7.4.67-C"
     const val STOCK_XMSF_APP_VERSION_CODE = 70004067
 
-    const val PUSH_SDK_VERSION_NAME = "7_8_2-C"
-    const val PUSH_SDK_VERSION_CODE = 70082
+    const val PUSH_SDK_VERSION_NAME = "7_12_4-C"
+    const val PUSH_SDK_VERSION_CODE = 70124
 
     const val KEY_CHANNEL_PUSH_VERSION_NAME = "cpvn"
     const val KEY_CHANNEL_PUSH_VERSION_CODE = "cpvc"

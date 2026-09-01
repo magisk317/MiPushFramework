@@ -162,6 +162,7 @@ const val DEFAULT_NOTIFICATION_RECOMMENDED_SIZE: Int = 24
 private const val DEFAULT_PROTOCOL_VERSION = "icon-pack/1"
 private const val DEFAULT_PROTOCOL_TIMEOUT_MILLIS = 250L
 private const val DEFAULT_PERMISSION_AUDITOR = "resolver"
+private const val INVALID_USER_ID = -1
 
 /**
  * Resolves protocol data only after the caller scope and normalized identity have passed preflight.
@@ -172,7 +173,7 @@ class IconPackResolver(
     private val adapter: IconPackProtocolAdapter = BlockedIconPackProtocolAdapter,
     private val callerScope: IconPackCallerScope = IconPackCallerScope { _, _, _ -> true },
     private val userNormalizer: IconPackUserNormalizer = IconPackUserNormalizer { _, userId ->
-        userId ?: 0
+        userId ?: INVALID_USER_ID
     },
     private val queryFactory: IconPackQueryFactory = DefaultIconPackQueryFactory,
     private val bitmapScaler: NotificationBitmapScaler = ExistingNotificationBitmapScaler,
@@ -182,13 +183,13 @@ class IconPackResolver(
     fun resolve(targetPackage: String, userId: Int?, context: Context): ResolveResult {
         val normalizedPackage = targetPackage.trim()
         if (normalizedPackage.isEmpty()) {
-            return unavailable(normalizedPackage, userId ?: 0, ResolveFailure.PARSE_ERROR)
+            return unavailable(normalizedPackage, userId ?: INVALID_USER_ID, ResolveFailure.PARSE_ERROR)
         }
 
         val normalizedUser = try {
             userNormalizer.normalize(context, userId)
         } catch (_: Exception) {
-            return unavailable(normalizedPackage, userId ?: 0, ResolveFailure.PARSE_ERROR)
+            return unavailable(normalizedPackage, userId ?: INVALID_USER_ID, ResolveFailure.PARSE_ERROR)
         }
         if (normalizedUser < 0) {
             return unavailable(normalizedPackage, normalizedUser, ResolveFailure.PARSE_ERROR)

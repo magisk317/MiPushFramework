@@ -93,6 +93,12 @@ data class PushChannelRecord(
 )
 
 interface PushRuntimeExecutionHost {
+    /**
+     * Framework identity registration is opt-in and must not be implied by runtime startup.
+     * The default keeps non-Android/test hosts backward compatible.
+     */
+    fun isFrameworkRegistrationEnabled(): Boolean = true
+
     fun requestFrameworkRegistration(reason: String): Boolean
 
     fun requestApplicationRegistration(packageName: String, reason: String): Boolean

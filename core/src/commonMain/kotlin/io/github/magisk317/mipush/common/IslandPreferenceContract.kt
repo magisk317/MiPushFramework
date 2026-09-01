@@ -16,13 +16,6 @@ const val ISLAND_PREF_SHOW_NOTIFICATION = io.github.magisk317.mipush.common.isla
 const val ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION =
     io.github.magisk317.mipush.common.island.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 const val ISLAND_PREF_FOCUS_NOTIF = io.github.magisk317.mipush.common.island.ISLAND_PREF_FOCUS_NOTIF
-const val ISLAND_PREF_RENDERER_MODE = io.github.magisk317.mipush.common.island.ISLAND_PREF_RENDERER_MODE
-const val ISLAND_PREF_VISUAL_ENABLED = io.github.magisk317.mipush.common.island.ISLAND_PREF_VISUAL_ENABLED
-const val ISLAND_PREF_DYNAMIC_COLOR = io.github.magisk317.mipush.common.island.ISLAND_PREF_DYNAMIC_COLOR
-const val ISLAND_PREF_BLUR_ENABLED = io.github.magisk317.mipush.common.island.ISLAND_PREF_BLUR_ENABLED
-const val ISLAND_PREF_GLASS_ENABLED = io.github.magisk317.mipush.common.island.ISLAND_PREF_GLASS_ENABLED
-const val ISLAND_PREF_OUTER_GLOW_ENABLED = io.github.magisk317.mipush.common.island.ISLAND_PREF_OUTER_GLOW_ENABLED
-const val ISLAND_PREF_ANIMATION_ENABLED = io.github.magisk317.mipush.common.island.ISLAND_PREF_ANIMATION_ENABLED
 const val COLOR_STATUS_BAR_ICON_KEY = io.github.magisk317.mipush.common.island.COLOR_STATUS_BAR_ICON_KEY
 const val COLOR_STATUS_BAR_ICON_GLOBAL_KEY =
     io.github.magisk317.mipush.common.island.COLOR_STATUS_BAR_ICON_GLOBAL_KEY

@@ -16,6 +16,7 @@ import androidx.annotation.StringRes
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
+import java.io.File
 import java.util.*
 
 @SuppressLint("StaticFieldLeak")
@@ -39,10 +40,18 @@ object Utils {
     }
 
     @JvmStatic
-    fun myUserId(): Int {
-        return runCatching { Process.myUid() / PER_USER_RANGE }
-            .getOrDefault(0)
-            .coerceAtLeast(0)
+    fun myUserId(): Int = runCatching {
+        Process.myUid().takeIf { it >= 0 } ?: error("Invalid process uid")
+    }
+        .getOrNull()
+        ?.div(PER_USER_RANGE)
+        ?.takeIf { it >= 0 }
+        ?: -1
+
+    @JvmStatic
+    fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
     }
 
     @JvmStatic
@@ -184,14 +193,14 @@ object Utils {
     }
 
     @JvmStatic
-    fun getRegSec(packageName: String, userId: Int = myUserId()): String? {
+    fun getRegSec(packageName: String, userId: Int = requireValidUserId(myUserId())): String? {
         return getRegSecs(packageName, userId).firstOrNull()
     }
 
     @JvmStatic
-    fun getRegSecs(packageName: String, userId: Int = myUserId()): List<String> {
+    fun getRegSecs(packageName: String, userId: Int = requireValidUserId(myUserId())): List<String> {
         val app = getApplication() ?: return emptyList()
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         val secrets = linkedSetOf<String>()
         var targetPackageMissing = false
         for (prefName in REG_SEC_PREFS) {
@@ -208,12 +217,20 @@ object Utils {
             }
         }
         // Fallback: read regSec from the target app's own mipush SharedPreferences
-        if (secrets.isEmpty() && normalizedUserId == myUserId().coerceAtLeast(0)) {
+        if (secrets.isEmpty() && normalizedUserId == myUserId().takeIf { it >= 0 }) {
             try {
                 Logger.withTag("Utils").d { "getRegSecs: trying fallback createPackageContext pkg=$packageName" }
                 val pkgContext = app.createPackageContext(packageName, 0)
-                val regSec = pkgContext.getSharedPreferences(PREF_MIPUSH, 0)
-                    ?.getString("regSec", null)
+                val preferencePath = File(
+                    pkgContext.applicationInfo.dataDir,
+                    "shared_prefs/$PREF_MIPUSH.xml",
+                )
+                val regSec = if (preferencePath.isFile) {
+                    pkgContext.getSharedPreferences(PREF_MIPUSH, 0)
+                        ?.getString("regSec", null)
+                } else {
+                    null
+                }
                 if (!regSec.isNullOrEmpty()) {
                     secrets += regSec
                     Logger.withTag("Utils").d { "getRegSecs: found regSec via fallback pkg=$packageName" }
@@ -236,7 +253,7 @@ object Utils {
     }
 
     @JvmStatic
-    fun setRegSec(pkgName: String, regSec: String?, userId: Int = myUserId()) {
+    fun setRegSec(pkgName: String, regSec: String?, userId: Int = requireValidUserId(myUserId())) {
         val app = getApplication() ?: return
         setRegSec(app, pkgName, regSec, userId)
     }
@@ -246,12 +263,12 @@ object Utils {
         context: Context,
         pkgName: String,
         regSec: String?,
-        userId: Int = myUserId(),
+        userId: Int = requireValidUserId(myUserId()),
     ) {
         if (regSec.isNullOrEmpty()) {
             return
         }
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
             context.getSharedPreferences(prefName, 0).edit {
                 putString(regSecPreferenceKey(pkgName, normalizedUserId), regSec)
@@ -261,9 +278,9 @@ object Utils {
     }
 
     @JvmStatic
-    fun removeRegSec(pkgName: String, userId: Int = myUserId()) {
+    fun removeRegSec(pkgName: String, userId: Int = requireValidUserId(myUserId())) {
         val app = getApplication() ?: return
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         for (prefName in REG_SEC_PREFS) {
             app.getSharedPreferences(prefName, 0).edit {
                 remove(regSecPreferenceKey(pkgName, normalizedUserId))
@@ -273,13 +290,13 @@ object Utils {
     }
 
     internal fun regSecPreferenceKey(packageName: String, userId: Int): String =
-        "${userId.coerceAtLeast(0)}:$packageName"
+        "${requireValidUserId(userId)}:$packageName"
 
     @JvmStatic
-    fun getLastReceiveTime(packageName: String, userId: Int = myUserId()): Long? {
+    fun getLastReceiveTime(packageName: String, userId: Int = requireValidUserId(myUserId())): Long? {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
         if (secSp == null) return null
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         val scopedKey = lastReceiveTimePreferenceKey(packageName, normalizedUserId)
         if (secSp.contains(scopedKey)) {
             return secSp.getLong(scopedKey, 0)
@@ -292,9 +309,9 @@ object Utils {
     }
 
     @JvmStatic
-    fun setLastReceiveTime(pkgName: String, time: Long, userId: Int = myUserId()) {
+    fun setLastReceiveTime(pkgName: String, time: Long, userId: Int = requireValidUserId(myUserId())) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         val scopedKey = lastReceiveTimePreferenceKey(pkgName, normalizedUserId)
         secSp?.edit {
             putLong(scopedKey, time)
@@ -303,9 +320,9 @@ object Utils {
     }
 
     @JvmStatic
-    fun removeLastReceiveTime(pkgName: String, userId: Int = myUserId()) {
+    fun removeLastReceiveTime(pkgName: String, userId: Int = requireValidUserId(myUserId())) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = requireValidUserId(userId)
         secSp?.edit {
             remove(lastReceiveTimePreferenceKey(pkgName, normalizedUserId))
             if (normalizedUserId == 0) remove(pkgName)

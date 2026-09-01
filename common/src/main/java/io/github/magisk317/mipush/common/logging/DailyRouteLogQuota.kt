@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.common.logging
 
+import io.github.magisk317.mipush.diagnostics.DailyRouteLogFile
+import io.github.magisk317.mipush.diagnostics.DailyRouteLogQuotaCore
 import io.github.magisk317.mipush.diagnostics.DailyRouteLogNamingPolicy
+import io.github.magisk317.mipush.diagnostics.DailyRouteLogQuotaInput
 import java.io.File
 
 /**
@@ -20,29 +23,36 @@ object DailyRouteLogQuota {
         incomingBytes: Long,
         maxBytes: Long = DEFAULT_MAX_BYTES,
     ): Boolean {
-        if (logDir == null || incomingBytes < 0L || incomingBytes > maxBytes || maxBytes <= 0L) {
+        if (logDir == null) {
             return false
         }
-        val currentName = runtimeFileName(route, currentDay)
-        val routeFiles = logDir.listFiles()
+        val files = logDir.listFiles()
             .orEmpty()
-            .filter { it.isFile && isRouteFile(it.name, route) }
-            .sortedBy(File::getName)
-        var totalBytes = routeFiles.sumOf(File::length)
-        if (totalBytes + incomingBytes <= maxBytes) return true
-
-        for (file in routeFiles) {
-            if (file.name == currentName) continue
-            val fileBytes = file.length()
-            if (file.delete()) totalBytes -= fileBytes
-            if (totalBytes + incomingBytes <= maxBytes) return true
+            .filter(File::isFile)
+            .map { file -> DailyRouteLogFile(file.name, file.length()) }
+        val decision = DailyRouteLogQuotaCore.decide(
+            route = route,
+            input = DailyRouteLogQuotaInput(
+                currentDay = currentDay,
+                incomingBytes = incomingBytes,
+                maxBytes = maxBytes,
+                files = files,
+            ),
+        )
+        if (!decision.accepted) return false
+        decision.filesToDelete.forEach { name ->
+            files.firstOrNull { it.name == name }?.let { file ->
+                File(logDir, file.name).delete()
+            }
         }
-        return totalBytes + incomingBytes <= maxBytes
+        val remainingBytes = logDir.listFiles()
+            .orEmpty()
+            .filter { it.isFile && DailyRouteLogNamingPolicy.isRouteFile(it.name, route) }
+            .sumOf(File::length)
+        return remainingBytes + incomingBytes <= maxBytes
     }
 
     fun runtimeFileName(route: String, day: String): String =
         DailyRouteLogNamingPolicy.runtimeFileName(route, day)
 
-    private fun isRouteFile(name: String, route: String): Boolean =
-        DailyRouteLogNamingPolicy.isRouteFile(name, route)
 }

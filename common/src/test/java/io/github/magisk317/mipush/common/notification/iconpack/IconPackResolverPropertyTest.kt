@@ -151,7 +151,7 @@ class IconPackResolverPropertyTest {
         @ForAll("packageNames") packageName: String,
         @ForAll userId: Int,
     ) {
-        val nonNegativeUser = userId.coerceAtLeast(0)
+        val nonNegativeUser = userId.takeIf { it >= 0 } ?: 0
         var queryCount = 0
         val resolver = IconPackResolver(
             adapter = object : IconPackProtocolAdapter {

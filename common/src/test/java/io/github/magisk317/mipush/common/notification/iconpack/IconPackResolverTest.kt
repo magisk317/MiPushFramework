@@ -149,7 +149,7 @@ class IconPackResolverTest {
     fun `blocked adapter is fail closed and never throws into notification flow`() {
         val resolver = IconPackResolver(adapter = BlockedIconPackProtocolAdapter)
 
-        val result = resolver.resolve("com.example.target", null, context)
+        val result = resolver.resolve("com.example.target", 0, context)
 
         val unavailable = assertInstanceOf(ResolveResult.Unavailable::class.java, result)
         assertEquals(ResolveFailure.BLOCKED, unavailable.reason)
@@ -184,6 +184,10 @@ class IconPackResolverTest {
 
         val negativeUser = resolver.resolve("com.example.target", -1, context)
         assertEquals(ResolveFailure.PARSE_ERROR, (negativeUser as ResolveResult.Unavailable).reason)
+        assertFalse(queried)
+
+        val missingUser = resolver.resolve("com.example.target", null, context)
+        assertEquals(ResolveFailure.PARSE_ERROR, (missingUser as ResolveResult.Unavailable).reason)
         assertFalse(queried)
     }
 

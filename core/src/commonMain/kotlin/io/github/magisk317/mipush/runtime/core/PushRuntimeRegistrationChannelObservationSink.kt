@@ -13,6 +13,7 @@ interface PushRuntimeRegistrationChannelObservationSink {
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     )
 
     fun observeRegistrationResult(
@@ -21,6 +22,7 @@ interface PushRuntimeRegistrationChannelObservationSink {
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     )
 
     fun observeUnregistration(
@@ -28,6 +30,7 @@ interface PushRuntimeRegistrationChannelObservationSink {
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     )
 
     fun observeChannelEvent(
@@ -46,5 +49,6 @@ interface PushRuntimeRegistrationChannelObservationSink {
         reasonCode: Int?,
         reasonMessage: String?,
         nowMs: Long,
+        androidUserId: Int,
     )
 }

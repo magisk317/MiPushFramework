@@ -6,6 +6,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import kotlin.math.max
 
 /** Small, allocation-bounded dominant-color resolver for notification island accents. */
@@ -83,7 +85,7 @@ object DynamicIslandColorResolver {
         drawable ?: return null
         val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: SAMPLE_SIZE
         val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: SAMPLE_SIZE
-        return Bitmap.createBitmap(
+        return createBitmap(
             width.coerceAtMost(MAX_DRAWABLE_SIZE),
             height.coerceAtMost(MAX_DRAWABLE_SIZE),
             Bitmap.Config.ARGB_8888,
@@ -97,11 +99,10 @@ object DynamicIslandColorResolver {
     private fun scaleForSampling(bitmap: Bitmap): Bitmap {
         if (bitmap.width <= SAMPLE_SIZE && bitmap.height <= SAMPLE_SIZE) return bitmap
         val scale = minOf(SAMPLE_SIZE.toFloat() / bitmap.width, SAMPLE_SIZE.toFloat() / bitmap.height)
-        return Bitmap.createScaledBitmap(
-            bitmap,
+        return bitmap.scale(
             (bitmap.width * scale).toInt().coerceAtLeast(1),
             (bitmap.height * scale).toInt().coerceAtLeast(1),
-            true,
+            filter = true,
         )
     }
 

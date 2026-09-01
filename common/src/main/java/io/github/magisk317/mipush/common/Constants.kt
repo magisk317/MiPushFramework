@@ -24,16 +24,22 @@ object Constants {
     const val KEY_ENABLE_PUSH = "enable_push"
 
     /**
-     * XMPush APP id
+     * Explicit opt-in for registering XMSF itself as a MiPush application.
+     * Runtime/service startup must not imply this product-level identity.
      */
+    const val KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION = "enable_framework_self_registration"
+
+    /**
+     * XMPush APP id
+    */
     @JvmField
-    var APP_ID = "1000271"
+    val APP_ID = "1000271"
 
     /**
      * XMPush APP key
-     */
+    */
     @JvmField
-    var APP_KEY = "420100086271"
+    val APP_KEY = "420100086271"
 
     /**
      * Every page item count
