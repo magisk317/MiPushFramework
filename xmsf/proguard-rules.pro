@@ -2,7 +2,7 @@
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.kts.
 
-# The app module is the packaging shell for the xmsf engine library.
+# The :xmsf application module is the packaging shell for the xmsf engine library.
 # ProGuard/R8 rules for the engine are included below since minification
 # runs at the application level.
 
@@ -14,7 +14,7 @@
 # Singleton.instance() creates these via reflection with no-arg constructors.
 -keepclassmembers class io.github.magisk317.mipush.push.hook.ModernHookHandler { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.MiPushEventListener { <init>(); }
--keepclassmembers class io.github.magisk317.mipush.service.RegistrationRecorder { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.service.RegisterRecorder { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.utils.ConfigValueConverter { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.utils.IconConfigurations { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.app.ConfigCenter { <init>(); }

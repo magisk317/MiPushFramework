@@ -6,7 +6,7 @@
 
 # Local config
 /local.properties
-/app/local.properties
+/xmsf/local.properties
 .DS_Store
 
 # Local agent guidance
