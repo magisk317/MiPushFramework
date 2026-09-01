@@ -14,8 +14,12 @@ class SecurityCoreXSpaceMiPushHook : BaseHook() {
     override fun onLoadPackage(param: LoadParam) {
         if (param.packageName != SECURITY_CORE_PACKAGE_NAME) return
         val classLoader = param.classLoader
+        val xspaceUtilClass = runCatching {
+            classLoader.findClass(XSPACE_UTIL_CLASS)
+        }.onFailure {
+            XLog.d(TAG, "skip optional XSpace MiPush hook: $XSPACE_UTIL_CLASS is unavailable")
+        }.getOrNull() ?: return
         runCatching {
-            val xspaceUtilClass = classLoader.findClass(XSPACE_UTIL_CLASS)
             val targetMethod = findMiPushRequiredMethod(xspaceUtilClass)
             targetMethod.hook {
                 doAfter {

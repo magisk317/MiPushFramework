@@ -40,7 +40,7 @@ class IslandPreferencesTest {
     fun `refresh keeps stale package value until asynchronous replacement arrives`() {
         val packageName = "example.app"
         val packageOptions = IslandOptions(enabled = false, showNotification = false)
-        IslandPreferences.cachePackageOptionsForTest(packageName, packageOptions)
+        IslandPreferences.cachePackageOptionsForTest(packageName, packageOptions, userId = 0)
 
         val refresh = IslandPreferences.prepareRefresh()
 
@@ -51,8 +51,8 @@ class IslandPreferencesTest {
     @Test
     fun `package settings cache is isolated by user`() {
         val packageName = "example.app"
-        val ownerOptions = IslandOptions(enabled = false, visualEnabled = false)
-        val cloneOptions = IslandOptions(enabled = true, visualEnabled = true)
+        val ownerOptions = IslandOptions(enabled = false)
+        val cloneOptions = IslandOptions(enabled = true)
         IslandPreferences.cachePackageOptionsForTest(packageName, ownerOptions, userId = 0)
         IslandPreferences.cachePackageOptionsForTest(packageName, cloneOptions, userId = 999)
 
@@ -63,14 +63,13 @@ class IslandPreferencesTest {
     @Test
     fun `unknown package user does not reuse the primary user cache`() {
         val packageName = "example.app"
-        val ownerOptions = IslandOptions(enabled = true, focusNotification = true, visualEnabled = true)
+        val ownerOptions = IslandOptions(enabled = true, focusNotification = true)
         IslandPreferences.cachePackageOptionsForTest(packageName, ownerOptions, userId = 0)
 
         val options = IslandPreferences.current(packageName)
 
         assertFalse(options.enabled)
         assertFalse(options.focusNotification)
-        assertFalse(options.visualEnabled)
     }
 
     @Test
@@ -80,13 +79,6 @@ class IslandPreferencesTest {
         )
 
         assertFalse(IslandPreferences.current("uncached.app").canInjectFocusPayload)
-    }
-
-    @Test
-    fun `uncached package does not inherit globally enabled visual rendering`() {
-        IslandPreferences.resetForTest(IslandOptions(visualEnabled = true))
-
-        assertFalse(IslandPreferences.current("uncached.app").visualEnabled)
     }
 
     @Test

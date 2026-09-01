@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.systemui
 
 import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class IslandClickRoutingTest {
@@ -14,10 +14,9 @@ class IslandClickRoutingTest {
     }
 
     @Test
-    fun `negative user ids use the owner user for request identity`() {
-        assertEquals(
-            IslandClickRouting.requestCode("com.example.app", 42, userId = 0),
-            IslandClickRouting.requestCode("com.example.app", 42, userId = -1),
-        )
+    fun `negative user ids fail closed for request identity`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            IslandClickRouting.requestCode("com.example.app", 42, userId = -1)
+        }
     }
 }

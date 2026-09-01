@@ -3,9 +3,13 @@ import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.os.Binder
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
+import android.os.UserHandle
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
@@ -23,6 +27,21 @@ import io.github.magisk317.xposed.hookMethod
 import io.github.magisk317.xposed.logging.MagiskOtel
 import java.lang.reflect.Method
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicReference
+
+internal object NmsHookInstallRetryPolicy {
+    const val MAX_ATTEMPTS = 8
+    const val RETRY_DELAY_MS = 1_000L
+
+    fun shouldRetry(attempt: Int): Boolean = attempt in 0 until MAX_ATTEMPTS
+}
+
+private enum class NmsHookInstallState {
+    NOT_INSTALLED,
+    INSTALLING,
+    INSTALLED,
+    FAILED,
+}
 
 class HookSystemService : BaseHook() {
     companion object {
@@ -30,6 +49,11 @@ class HookSystemService : BaseHook() {
         private const val MAX_VISIBILITY_LOGS_PER_KEY = 8
 
         private var _isSystemHookReady: Boolean? = null
+        private val nmsHookInstallState = AtomicReference(NmsHookInstallState.NOT_INSTALLED)
+        private val nmsRetryLock = Any()
+        private var nmsRetryHandler: Handler? = null
+        private var nmsRetryTask: Runnable? = null
+        private var nmsRetryAttempt = 0
         private val explicitCompatPackages: Set<String> =
             ModuleCompatRegistry.allProfiles().mapTo(LinkedHashSet()) { it.packageName }
         private val visibilityLogCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
@@ -106,6 +130,37 @@ class HookSystemService : BaseHook() {
                 emitSystemService(result = "ok", reason = "visibility_installed")
             }.onFailure {
                 XLog.e(TAG, "install xmsf global visibility hook failed", it)
+                emitSystemService(result = "error", reason = it.javaClass.simpleName, statusOk = false)
+            }
+        }
+
+        private fun hookForegroundServiceExemption(classLoader: ClassLoader) {
+            runCatching {
+                val amsClass = findHookClass("com.android.server.am.ActivityManagerService", classLoader)
+                amsClass.hookAllMethods("setServiceForeground") {
+                    doBefore {
+                        val className = args.getOrNull(0) as? android.content.ComponentName ?: return@doBefore
+                        if (className.packageName == XMSF_PACKAGE_NAME) {
+                            val activeServices = thisObject?.get<Any?>("mServices") ?: return@doBefore
+                            val serviceRecord = runCatching {
+                                val getServiceByNameMethod = activeServices.javaClass.methods.firstOrNull {
+                                    it.name.contains("getServiceByName")
+                                }
+                                val userId = (UserHandle::class.java.getMethod("getCallingUserId").invoke(null) as? Int) ?: 0
+                                getServiceByNameMethod?.invoke(activeServices, className, userId)
+                            }.getOrNull()
+                            if (serviceRecord != null) {
+                                runCatching {
+                                    serviceRecord.javaClass.getField("mAllowWhileInUsePermissionInFgs").setBoolean(serviceRecord, true)
+                                }
+                            }
+                        }
+                    }
+                }
+                XLog.d(TAG, "installed xmsf foreground service exemption hook")
+                emitSystemService(result = "ok", reason = "fgs_exemption_installed")
+            }.onFailure {
+                XLog.e(TAG, "install xmsf foreground service exemption hook failed", it)
                 emitSystemService(result = "error", reason = it.javaClass.simpleName, statusOk = false)
             }
         }
@@ -220,6 +275,9 @@ class HookSystemService : BaseHook() {
     }
 
     override fun onHotReloading() {
+        // Cancel delayed retries while the old module ClassLoader is still reachable so a
+        // retry cannot invoke hooks through a stale classloader after hot reload.
+        stopNmsHookRetry()
         // system_server owns the XSpace package-sync receiver and its executor. Release them
         // while the old module ClassLoader is still reachable so hot reload can collect its DEX.
         XSpacePackageSyncHook.stop()
@@ -251,20 +309,27 @@ class HookSystemService : BaseHook() {
                 XLog.d(TAG, "onStart invoked")
                 val owner = thisObject ?: return@doAfter
                 val context = owner.callMethod("getContext") as Context
-                XSpacePackageSyncHook.install(context)
                 val service = owner.get<Any?>("mService")
                 if (service == null) {
-                    XLog.w(TAG, "skip system notification hook install because mService is null")
+                    XLog.w(TAG, "skip system notification hook install because mService is null; scheduling retry")
                     emitSystemService(result = "skip", reason = "mservice_null")
+                    scheduleNmsHookRetry(classLoader)
                     return@doAfter
                 }
-                val stubClass = service.javaClass
-                hookPermission(stubClass)
-                hookSystemReadyFlag(stubClass)
-                XLog.i(TAG, "system notification hooks installed")
-                emitSystemService(result = "ok", reason = "nms_installed")
+                installNotificationHooks(
+                    context = context,
+                    service = service,
+                    source = "on_start",
+                    allowRetry = true,
+                    retryClassLoader = classLoader,
+                )
             }
         }
+
+        // onStart has already run when LSPosed hot-reloads the module into an existing
+        // system_server. Resolve the local BinderService now; otherwise the onStart callback
+        // above will never fire and the NMS permission hooks remain uninstalled.
+        installRunningNotificationHooks(classLoader)
 
         //private boolean isPackageSuspendedForUser(String pkg, int uid)
         classNotificationManagerService.hookMethod("isPackageSuspendedForUser", String::class.java, Int::class.java) {
@@ -280,15 +345,150 @@ class HookSystemService : BaseHook() {
         val classShortcutService = findHookClass("com.android.server.pm.ShortcutService", classLoader)
         ShortcutPermissionHooker.hook(classShortcutService)
         hookGlobalVisibility(classLoader)
+        hookForegroundServiceExemption(classLoader)
         SecurityCoreXSpacePackageInfoHook.hook(classLoader)
+    }
+
+    private fun installRunningNotificationHooks(classLoader: ClassLoader, fromRetry: Boolean = false) {
+        val context = currentSystemContext(classLoader)
+        if (context == null) {
+            XLog.w(TAG, "skip hot-reload NMS hook install because system context is unavailable")
+            emitSystemService(result = "skip", reason = "hot_reload_context_unavailable")
+            if (!fromRetry) scheduleNmsHookRetry(classLoader)
+            return
+        }
+        val service = runCatching {
+            findHookClass("android.os.ServiceManager", classLoader)
+                .callStaticMethod("getService", Context.NOTIFICATION_SERVICE)
+        }.onFailure {
+            XLog.w(TAG, "skip hot-reload NMS hook install because notification service lookup failed: ${it.message}")
+        }.getOrNull()
+        if (service == null) {
+            XLog.d(TAG, "notification service is not published yet; onStart will install NMS hooks")
+            emitSystemService(result = "skip", reason = "hot_reload_service_unavailable")
+            if (!fromRetry) scheduleNmsHookRetry(classLoader)
+            return
+        }
+        installNotificationHooks(
+            context = context,
+            service = service,
+            source = "hot_reload",
+            allowRetry = !fromRetry,
+            retryClassLoader = classLoader,
+        )
+    }
+
+    private fun installNotificationHooks(
+        context: Context,
+        service: Any,
+        source: String,
+        allowRetry: Boolean,
+        retryClassLoader: ClassLoader?,
+    ) {
+        val previousState = nmsHookInstallState.get()
+        val acquired = nmsHookInstallState.compareAndSet(
+            NmsHookInstallState.NOT_INSTALLED,
+            NmsHookInstallState.INSTALLING,
+        ) || nmsHookInstallState.compareAndSet(
+            NmsHookInstallState.FAILED,
+            NmsHookInstallState.INSTALLING,
+        )
+        if (!acquired) {
+            XLog.d(TAG, "skip duplicate NMS hook install source=$source state=$previousState")
+            return
+        }
+        val stubClass = service.javaClass
+        XLog.i(TAG, "installing NMS permission hooks source=$source stub=${stubClass.name}")
+        try {
+            XSpacePackageSyncHook.install(context)
+            hookPermission(stubClass)
+            hookSystemReadyFlag(stubClass)
+            nmsHookInstallState.set(NmsHookInstallState.INSTALLED)
+            stopNmsHookRetry()
+            XLog.i(TAG, "system notification hooks installed source=$source")
+            emitSystemService(result = "ok", reason = "nms_installed")
+        } catch (error: Throwable) {
+            nmsHookInstallState.set(NmsHookInstallState.FAILED)
+            XLog.e(TAG, "system notification hooks install failed source=$source", error)
+            emitSystemService(result = "error", reason = error.javaClass.simpleName, statusOk = false)
+            if (allowRetry) {
+                scheduleNmsHookRetry(retryClassLoader)
+            }
+        }
+    }
+
+    private fun scheduleNmsHookRetry(classLoader: ClassLoader?) {
+        if (classLoader == null) {
+            XLog.w(TAG, "cannot schedule NMS hook retry because classloader is unavailable")
+            return
+        }
+        synchronized(nmsRetryLock) {
+            if (nmsRetryTask != null) return
+            val handler = nmsRetryHandler ?: Handler(Looper.getMainLooper()).also {
+                nmsRetryHandler = it
+            }
+            nmsRetryAttempt = 0
+            val task = object : Runnable {
+                override fun run() {
+                    val attempt = synchronized(nmsRetryLock) { nmsRetryAttempt }
+                    if (nmsHookInstallState.get() == NmsHookInstallState.INSTALLED) {
+                        stopNmsHookRetry()
+                        return
+                    }
+                    if (!NmsHookInstallRetryPolicy.shouldRetry(attempt)) {
+                        XLog.w(TAG, "NMS hook retry exhausted; state=${nmsHookInstallState.get()}")
+                        emitSystemService(result = "error", reason = "nms_retry_exhausted", statusOk = false)
+                        stopNmsHookRetry()
+                        return
+                    }
+                    synchronized(nmsRetryLock) {
+                        nmsRetryAttempt = attempt + 1
+                    }
+                    XLog.i(TAG, "retrying NMS hook install attempt=${attempt + 1}/${NmsHookInstallRetryPolicy.MAX_ATTEMPTS}")
+                    installRunningNotificationHooks(classLoader, fromRetry = true)
+                    if (nmsHookInstallState.get() == NmsHookInstallState.INSTALLED) {
+                        stopNmsHookRetry()
+                        return
+                    }
+                    if (NmsHookInstallRetryPolicy.shouldRetry(attempt + 1)) {
+                        handler.postDelayed(this, NmsHookInstallRetryPolicy.RETRY_DELAY_MS)
+                    } else {
+                        XLog.w(TAG, "NMS hook retry exhausted after attempt=${attempt + 1}")
+                        emitSystemService(result = "error", reason = "nms_retry_exhausted", statusOk = false)
+                        stopNmsHookRetry()
+                    }
+                }
+            }
+            nmsRetryTask = task
+            handler.postDelayed(task, NmsHookInstallRetryPolicy.RETRY_DELAY_MS)
+            emitSystemService(result = "skip", reason = "nms_retry_scheduled")
+        }
+    }
+
+    private fun stopNmsHookRetry() {
+        synchronized(nmsRetryLock) {
+            val handler = nmsRetryHandler
+            val task = nmsRetryTask
+            if (handler != null && task != null) {
+                handler.removeCallbacks(task)
+            }
+            nmsRetryTask = null
+            nmsRetryAttempt = 0
+            nmsRetryHandler = null
+        }
+    }
+
+    private fun currentSystemContext(classLoader: ClassLoader): Context? {
+        return runCatching {
+            val activityThreadClass = findHookClass("android.app.ActivityThread", classLoader)
+            val activityThread = activityThreadClass.callStaticMethod("currentActivityThread") ?: return@runCatching null
+            activityThread.callMethod("getSystemContext") as? Context
+        }.getOrNull()
     }
 
     private fun installXSpacePackageSyncReceiver(classLoader: ClassLoader) {
         runCatching {
-            val activityThreadClass = findHookClass("android.app.ActivityThread", classLoader)
-            val activityThread = activityThreadClass.callStaticMethod("currentActivityThread") ?: return
-            val systemContext = activityThread.callMethod("getSystemContext") as? Context ?: return
-            XSpacePackageSyncHook.install(systemContext)
+            currentSystemContext(classLoader)?.let(XSpacePackageSyncHook::install)
         }.onFailure {
             XLog.d(TAG, "skip immediate XSpace package sync receiver install: ${it.message}")
         }

@@ -54,6 +54,28 @@ class FocusNotificationPermissionPolicyTest {
     }
 
     @Test
+    fun `enabled bypass widens Android 17 focus states to allowed`() {
+        IslandPreferences.resetForTest(
+            IslandOptions(
+                enabled = true,
+                enableFloat = true,
+                focusNotification = true,
+            )
+        )
+
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(-1, true) == 1)
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(0, true) == 1)
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(1, true) == 1)
+    }
+
+    @Test
+    fun `disabled bypass preserves Android 17 focus states`() {
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(-1, false) == -1)
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(0, false) == 0)
+        assertTrue(FocusNotificationPermissionPolicy.mergeState(1, false) == 1)
+    }
+
+    @Test
     fun `disabled focus authorization bypass does not widen any package`() {
         assertFalse(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.any"))
     }

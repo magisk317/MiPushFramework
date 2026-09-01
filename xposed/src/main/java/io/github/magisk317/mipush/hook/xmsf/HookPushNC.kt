@@ -4,9 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.hook.xmsf.nm.SystemNotificationManager
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.xposed.HookClassNotFoundError
 import io.github.magisk317.xposed.HookInvocationTargetError
@@ -22,8 +23,18 @@ object HookPushNC {
     private const val ExpectedHookApiVersion = 2
 
     private const val TargetClass = "io.github.magisk317.mipush.notification.NotificationManagerEx"
+    private const val RuntimeNotificationBridgeClass = "io.github.magisk317.mipush.notification.NotificationHookBridge"
     private const val IdentityBridgeClass = "com.xiaomi.push.service.NotificationIdentityBridge"
     private const val IdentityStrategyClass = "com.xiaomi.push.service.NotificationIdentityBridge\$Strategy"
+    private const val READY_RETRY_DELAY_MS = 250L
+    // XMSF may start before system_server publishes NotificationManagerService. Keep polling
+    // long enough to cover slow boots instead of permanently pinning identity ownership false.
+    private const val MAX_READY_RETRY_ATTEMPTS = 120
+
+    private val readyRetryLock = Any()
+    private var readyRetryHandler: Handler? = null
+    private var readyRetryTask: Runnable? = null
+    private var readyRetryAttempt = 0
 
     private val hookCheck = { HookSystemService.isSystemHookReady }
 
@@ -40,6 +51,10 @@ object HookPushNC {
         XLog.d(TAG, "hookPushNC() called with: classLoader = $classLoader")
 
         val classNotificationManager = classLoader.findClass(TargetClass)
+        val runtimeBridge = RuntimeNotificationBridge.create(classLoader) ?: run {
+            XLog.e(TAG, "XMSF notification bridge unavailable; skip notification hook installation", null)
+            return
+        }
         val managerHookApiVersion = runCatching {
             classNotificationManager.getOrNull<Int>("HOOK_API_VERSION") ?: 0
         }.getOrDefault(0)
@@ -77,7 +92,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.notify(
+                    runtimeBridge.notify(
                         args[0] as String,
                         args[1] as String?,
                         args[2] as Int,
@@ -100,7 +115,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.cancel(
+                    runtimeBridge.cancel(
                         args[0] as String,
                         args[1] as String?,
                         args[2] as Int
@@ -121,7 +136,7 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    return@replace SystemNotificationManager.createNotificationChannels(
+                    return@replace runtimeBridge.createNotificationChannels(
                         args[0] as String,
                         args[1] as List<NotificationChannel>
                     )
@@ -140,7 +155,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannel(
+                    return@replace runtimeBridge.getNotificationChannel(
                         args[0] as String,
                         args[1] as String
                     )
@@ -155,7 +170,7 @@ object HookPushNC {
             // Always take over listing: system-hook readiness is not required for NMS/root fallbacks.
             replace {
                 tryInvoke {
-                    val channels = SystemNotificationManager.getNotificationChannels(args[0] as String)
+                    val channels = runtimeBridge.getNotificationChannels(args[0] as String)
                     XLog.d(TAG, "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
                     return@replace channels
                 }
@@ -173,7 +188,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.deleteNotificationChannel(
+                    runtimeBridge.deleteNotificationChannel(
                         args[0] as String,
                         args[1] as String
                     )
@@ -193,7 +208,7 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    SystemNotificationManager.createNotificationChannelGroups(
+                    runtimeBridge.createNotificationChannelGroups(
                         args[0] as String,
                         args[1] as List<NotificationChannelGroup>
                     )
@@ -213,7 +228,7 @@ object HookPushNC {
             ) {
                 replace(hookCheck) {
                     tryInvoke {
-                        return@replace SystemNotificationManager.getNotificationChannelGroup(
+                        return@replace runtimeBridge.getNotificationChannelGroup(
                             args[0] as String,
                             args[1] as String
                         )
@@ -230,7 +245,7 @@ object HookPushNC {
         classNotificationManager.hookMethod("getNotificationChannelGroups", String::class.java) {
             replace {
                 tryInvoke {
-                    val groups = SystemNotificationManager.getNotificationChannelGroups(args[0] as String)
+                    val groups = runtimeBridge.getNotificationChannelGroups(args[0] as String)
                     XLog.d(TAG, "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
                     return@replace groups
                 }
@@ -248,7 +263,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.deleteNotificationChannelGroup(
+                    runtimeBridge.deleteNotificationChannelGroup(
                         args[0] as String,
                         args[1] as String
                     )
@@ -262,7 +277,7 @@ object HookPushNC {
         classNotificationManager.hookMethod("areNotificationsEnabled", String::class.java) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.areNotificationsEnabled(args[0] as String)
+                    return@replace runtimeBridge.areNotificationsEnabled(args[0] as String)
                 }
             }
         }
@@ -273,7 +288,7 @@ object HookPushNC {
         classNotificationManager.hookMethod("getActiveNotifications", String::class.java) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getActiveNotifications(args[0] as String)
+                    return@replace runtimeBridge.getActiveNotifications(args[0] as String)
                 }
             }
         }
@@ -291,7 +306,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.findPreferredTargetChannel(
+                    return@replace runtimeBridge.findPreferredTargetChannel(
                         args[0] as String,
                         args[1] as String?
                     )
@@ -299,19 +314,17 @@ object HookPushNC {
             }
         }
 
-        val identityBridgeHooked = hookIdentityBridge(classLoader)
-        if (identityBridgeHooked && HookSystemService.isSystemHookReady) {
-            try {
-                classNotificationManager["isHooked"] = true
-                XLog.i(TAG, "marked NotificationManagerEx.isHooked = true")
-            } catch (e: Throwable) {
-                XLog.e(TAG, "failed to mark NotificationManagerEx.isHooked", e)
+        val identityBridgeClass = hookIdentityBridge(classLoader, runtimeBridge)
+        if (identityBridgeClass != null) {
+            if (HookSystemService.isSystemHookReady) {
+                markIdentityBridgeReady(classNotificationManager, identityBridgeClass)
+            } else {
+                // The app-side hooks may install before system_server is ready. Do not advertise
+                // target-identity ownership yet, but keep probing so a transient boot race does
+                // not leave this process permanently on the unsafe local fallback path.
+                scheduleIdentityBridgeReady(classNotificationManager, identityBridgeClass)
+                XLog.w(TAG, "identity bridge installed before system_server ready; keeping bridge ownership disabled")
             }
-        } else if (identityBridgeHooked) {
-            // The app-side hooks may install before system_server is ready. Do not advertise
-            // target-identity ownership yet: NotificationManagerEx must keep local channel
-            // fallback enabled until NMS can actually create/query/enqueue as the target.
-            XLog.w(TAG, "identity bridge installed before system_server ready; keeping NotificationManagerEx.isHooked = false")
         } else {
             XLog.w(TAG, "identity bridge hooks unavailable; keeping NotificationManagerEx.isHooked = false")
         }
@@ -329,11 +342,11 @@ object HookPushNC {
         )
     }
 
-    private fun hookIdentityBridge(classLoader: ClassLoader): Boolean {
+    private fun hookIdentityBridge(classLoader: ClassLoader, runtimeBridge: RuntimeNotificationBridge): Class<*>? {
         val identityBridgeClass = runCatching { classLoader.findClass(IdentityBridgeClass) }
             .getOrElse {
                 XLog.d(TAG, "identity bridge class not found, skip")
-                return false
+                return null
             }
         val bridgeHookApiVersion = runCatching {
             identityBridgeClass.getOrNull<Int>("HOOK_API_VERSION") ?: 0
@@ -344,12 +357,12 @@ object HookPushNC {
                 "NotificationIdentityBridge hook api mismatch: expected=$ExpectedHookApiVersion actual=$bridgeHookApiVersion",
                 null
             )
-            return false
+            return null
         }
         val identityStrategyClass = runCatching { classLoader.findClass(IdentityStrategyClass) }
             .getOrElse {
                 XLog.d(TAG, "identity strategy enum not found, skip")
-                return false
+                return null
             }
 
         val frameworkStrategy = runCatching {
@@ -357,7 +370,7 @@ object HookPushNC {
             java.lang.Enum.valueOf(identityStrategyClass as Class<out Enum<*>>, "FRAMEWORK")
         }.getOrElse {
             XLog.e(TAG, "resolve FRAMEWORK strategy failed", it)
-            return false
+            return null
         }
         XLog.i(TAG, "installing identity bridge hooks")
 
@@ -380,7 +393,7 @@ object HookPushNC {
         identityBridgeClass.hookMethod("getTargetNotificationChannels", Context::class.java, String::class.java) {
             replace {
                 tryInvoke {
-                    val channels = SystemNotificationManager.getNotificationChannels(args[1] as String)
+                    val channels = runtimeBridge.getNotificationChannels(args[1] as String)
                     XLog.d(TAG, "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
                     return@replace channels.orEmpty()
                 }
@@ -390,7 +403,7 @@ object HookPushNC {
         identityBridgeClass.hookMethod("getTargetNotificationChannelGroups", Context::class.java, String::class.java) {
             replace {
                 tryInvoke {
-                    val groups = SystemNotificationManager.getNotificationChannelGroups(args[1] as String)
+                    val groups = runtimeBridge.getNotificationChannelGroups(args[1] as String)
                     XLog.d(TAG, "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
                     return@replace groups.orEmpty()
                 }
@@ -400,7 +413,7 @@ object HookPushNC {
         identityBridgeClass.hookMethod("getTargetNotificationChannel", Context::class.java, String::class.java, String::class.java) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannel(
+                    return@replace runtimeBridge.getNotificationChannel(
                         args[1] as String,
                         args[2] as String
                     )
@@ -416,7 +429,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    return@replace SystemNotificationManager.findPreferredTargetChannel(
+                    return@replace runtimeBridge.findPreferredTargetChannel(
                         args[1] as String,
                         args[2] as String?
                     )
@@ -428,7 +441,7 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    SystemNotificationManager.createNotificationChannelGroups(
+                    runtimeBridge.createNotificationChannelGroups(
                         args[1] as String,
                         args[2] as List<NotificationChannelGroup>
                     )
@@ -441,7 +454,7 @@ object HookPushNC {
             replace(hookCheck) {
                 tryInvoke {
                     @Suppress("UNCHECKED_CAST")
-                    return@replace SystemNotificationManager.createNotificationChannels(
+                    return@replace runtimeBridge.createNotificationChannels(
                         args[1] as String,
                         args[2] as List<NotificationChannel>
                     )
@@ -459,7 +472,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.notify(
+                    runtimeBridge.notify(
                         args[1] as String,
                         args[2] as String?,
                         args[3] as Int,
@@ -478,7 +491,7 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    SystemNotificationManager.cancel(
+                    runtimeBridge.cancel(
                         args[1] as String,
                         args[2] as String?,
                         args[3] as Int
@@ -487,22 +500,217 @@ object HookPushNC {
                 }
             }
         }
-        if (!HookSystemService.isSystemHookReady) {
-            // Keep the bridge fail-closed until the system_server NMS hooks are available. The
-            // app-side methods can still be installed now, but target channel/enqueue ownership
-            // is not established and XMSF must retain its local fallback path.
-            XLog.w(TAG, "identity bridge installed before system_server ready; keeping bridge ownership disabled")
-            return true
-        }
-        try {
-            identityBridgeClass["isHooked"] = true
-            XLog.i(TAG, "marked NotificationIdentityBridge.isHooked = true")
-        } catch (e: Throwable) {
-            XLog.e(TAG, "failed to mark NotificationIdentityBridge.isHooked", e)
-            return false
-        }
         XLog.i(TAG, "identity bridge hooks installed")
-        return true
+        return identityBridgeClass
+    }
+
+    private fun markIdentityBridgeReady(
+        notificationManagerClass: Class<*>,
+        identityBridgeClass: Class<*>,
+    ): Boolean = runCatching {
+        identityBridgeClass["isHooked"] = true
+        notificationManagerClass["isHooked"] = true
+        XLog.i(TAG, "marked identity bridge and NotificationManagerEx as ready")
+        true
+    }.onFailure {
+        XLog.e(TAG, "failed to mark identity bridge ready", it)
+    }.getOrDefault(false)
+
+    private fun scheduleIdentityBridgeReady(
+        notificationManagerClass: Class<*>,
+        identityBridgeClass: Class<*>,
+    ) {
+        synchronized(readyRetryLock) {
+            if (readyRetryTask != null) return
+            val handler = readyRetryHandler ?: Handler(Looper.getMainLooper()).also {
+                readyRetryHandler = it
+            }
+            readyRetryAttempt = 0
+            val task = object : Runnable {
+                override fun run() {
+                    val attempt = synchronized(readyRetryLock) { readyRetryAttempt }
+                    if (HookSystemService.isSystemHookReady) {
+                        if (markIdentityBridgeReady(notificationManagerClass, identityBridgeClass)) {
+                            synchronized(readyRetryLock) {
+                                if (readyRetryTask === this) {
+                                    readyRetryTask = null
+                                    readyRetryAttempt = 0
+                                }
+                            }
+                            return
+                        }
+                        XLog.w(TAG, "system_server ready probe succeeded but identity bridge mark failed; retrying")
+                    }
+                    if (!shouldRetrySystemHookReady(attempt)) {
+                        synchronized(readyRetryLock) {
+                            if (readyRetryTask === this) {
+                                readyRetryTask = null
+                                readyRetryAttempt = 0
+                            }
+                        }
+                        XLog.w(TAG, "system_server ready probe exhausted; identity bridge remains disabled")
+                        return
+                    }
+                    synchronized(readyRetryLock) {
+                        readyRetryAttempt = attempt + 1
+                    }
+                    handler.postDelayed(this, READY_RETRY_DELAY_MS)
+                }
+            }
+            readyRetryTask = task
+            handler.postDelayed(task, READY_RETRY_DELAY_MS)
+        }
+    }
+
+    internal fun shouldRetrySystemHookReady(attempt: Int): Boolean =
+        attempt in 0 until MAX_READY_RETRY_ATTEMPTS
+
+    fun stopReadyRetry() {
+        synchronized(readyRetryLock) {
+            val handler = readyRetryHandler
+            val task = readyRetryTask
+            if (handler != null && task != null) {
+                handler.removeCallbacks(task)
+            }
+            readyRetryTask = null
+            readyRetryAttempt = 0
+            readyRetryHandler = null
+        }
+    }
+
+    private class RuntimeNotificationBridge private constructor(private val bridgeClass: Class<*>) {
+        companion object {
+            fun create(classLoader: ClassLoader): RuntimeNotificationBridge? = runCatching {
+                val bridge = classLoader.findClass(RuntimeNotificationBridgeClass)
+                val version = bridge.getOrNull<Int>("HOOK_API_VERSION") ?: 0
+                check(version == 1) { "notification bridge api mismatch: $version" }
+                RuntimeNotificationBridge(bridge)
+            }.onFailure {
+                XLog.e(TAG, "failed to resolve XMSF notification bridge", it)
+            }.getOrNull()
+        }
+
+        private fun invoke(name: String, parameterTypes: Array<Class<*>>, vararg args: Any?): Any? =
+            bridgeClass.getDeclaredMethod(name, *parameterTypes).apply { isAccessible = true }.invoke(null, *args)
+
+        private inline fun <reified T : Any> castNullableList(value: Any?): List<T?>? {
+            val values = value as? List<*> ?: return null
+            return values.map { item ->
+                check(item == null || item is T) { "unexpected reflected list item: ${item?.let { it::class.java.name } ?: "null"}" }
+                item
+            }
+        }
+
+        private inline fun <reified T : Any> castList(value: Any?): List<T> {
+            val values = value as? List<*>
+                ?: error("unexpected reflected list result: ${value?.let { it::class.java.name }}")
+            return values.map { item ->
+                check(item is T) { "unexpected reflected list item: ${item?.let { it::class.java.name }}" }
+                item
+            }
+        }
+
+        private inline fun <reified T : Any> castNullableArray(value: Any?): Array<T?>? {
+            val values = value as? Array<*> ?: return null
+            return values.map { item ->
+                check(item == null || item is T) { "unexpected reflected array item: ${item?.let { it::class.java.name } ?: "null"}" }
+                item
+            }.toTypedArray()
+        }
+
+        fun notify(packageName: String, tag: String?, id: Int, notification: Notification): Boolean =
+            invoke(
+                "notify",
+                arrayOf(
+                    String::class.java,
+                    String::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    Notification::class.java,
+                ),
+                packageName,
+                tag,
+                id,
+                notification,
+            ) as Boolean
+
+        fun cancel(packageName: String, tag: String?, id: Int) {
+            invoke("cancel", arrayOf(String::class.java, String::class.java, Int::class.javaPrimitiveType!!), packageName, tag, id)
+        }
+
+        fun createNotificationChannels(packageName: String, channels: List<NotificationChannel>): Boolean =
+            invoke("createNotificationChannels", arrayOf(String::class.java, List::class.java), packageName, channels) as Boolean
+
+        fun getNotificationChannel(packageName: String, channelId: String?): NotificationChannel? =
+            invoke("getNotificationChannel", arrayOf(String::class.java, String::class.java), packageName, channelId) as NotificationChannel?
+
+        fun getNotificationChannels(packageName: String): List<NotificationChannel?>? =
+            castNullableList(invoke("getNotificationChannels", arrayOf(String::class.java), packageName))
+
+        fun deleteNotificationChannel(packageName: String, channelId: String?) {
+            invoke("deleteNotificationChannel", arrayOf(String::class.java, String::class.java), packageName, channelId)
+        }
+
+        fun createNotificationChannelGroups(packageName: String, groups: List<NotificationChannelGroup>) {
+            invoke("createNotificationChannelGroups", arrayOf(String::class.java, List::class.java), packageName, groups)
+        }
+
+        fun getNotificationChannelGroup(packageName: String, groupId: String?): NotificationChannelGroup? =
+            invoke("getNotificationChannelGroup", arrayOf(String::class.java, String::class.java), packageName, groupId) as NotificationChannelGroup?
+
+        fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup?>? =
+            castNullableList(invoke("getNotificationChannelGroups", arrayOf(String::class.java), packageName))
+
+        fun deleteNotificationChannelGroup(packageName: String, groupId: String?) {
+            invoke("deleteNotificationChannelGroup", arrayOf(String::class.java, String::class.java), packageName, groupId)
+        }
+
+        fun areNotificationsEnabled(packageName: String): Boolean =
+            invoke("areNotificationsEnabled", arrayOf(String::class.java), packageName) as Boolean
+
+        fun getActiveNotifications(packageName: String): Array<StatusBarNotification?>? =
+            castNullableArray(invoke("getActiveNotifications", arrayOf(String::class.java), packageName))
+
+        fun supportsTargetChannelProvisioning(packageName: String): Boolean =
+            invoke("supportsTargetChannelProvisioning", arrayOf(String::class.java), packageName) as Boolean
+
+        fun findPreferredTargetChannel(packageName: String, preferredChannelId: String?): NotificationChannel? =
+            invoke("findPreferredTargetChannel", arrayOf(String::class.java, String::class.java), packageName, preferredChannelId) as NotificationChannel?
+
+        fun getTargetNotificationChannels(packageName: String): List<NotificationChannel> =
+            castList(invoke("getTargetNotificationChannels", arrayOf(String::class.java), packageName))
+
+        fun getTargetNotificationChannelGroups(packageName: String): List<NotificationChannelGroup> =
+            castList(invoke("getTargetNotificationChannelGroups", arrayOf(String::class.java), packageName))
+
+        fun getTargetNotificationChannel(packageName: String, channelId: String?): NotificationChannel? =
+            invoke("getTargetNotificationChannel", arrayOf(String::class.java, String::class.java), packageName, channelId) as NotificationChannel?
+
+        fun getPreferredTargetNotificationChannel(packageName: String, preferredChannelId: String?): NotificationChannel? =
+            invoke("getPreferredTargetNotificationChannel", arrayOf(String::class.java, String::class.java), packageName, preferredChannelId) as NotificationChannel?
+
+        fun createTargetNotificationChannelGroups(packageName: String, groups: List<NotificationChannelGroup>): Boolean =
+            invoke("createTargetNotificationChannelGroups", arrayOf(String::class.java, List::class.java), packageName, groups) as Boolean
+
+        fun createTargetNotificationChannels(packageName: String, channels: List<NotificationChannel>): Boolean =
+            invoke("createTargetNotificationChannels", arrayOf(String::class.java, List::class.java), packageName, channels) as Boolean
+
+        fun notifyAsTargetPackage(packageName: String, tag: String?, id: Int, notification: Notification): Boolean =
+            invoke(
+                "notifyAsTargetPackage",
+                arrayOf(
+                    String::class.java,
+                    String::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    Notification::class.java,
+                ),
+                packageName,
+                tag,
+                id,
+                notification,
+            ) as Boolean
+
+        fun cancelAsTargetPackage(packageName: String, tag: String?, id: Int): Boolean =
+            invoke("cancelAsTargetPackage", arrayOf(String::class.java, String::class.java, Int::class.javaPrimitiveType!!), packageName, tag, id) as Boolean
     }
 
     private inline fun <R> tryInvoke(invoke: () -> R): R {

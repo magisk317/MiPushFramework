@@ -54,6 +54,7 @@ class ResourceSmallIconGuardTest {
         private const val APP_RES_ID = 0x7f081c55
         // The MiPush island dispatcher icon id observed after the framework-icon fallback fix.
         private const val MIPUSH_PROXY_RES_ID = 0x7f0e0000
+        private const val FLAG_AUTOGROUP_SUMMARY = 0x00000400
     }
 
     // ─── isResourceSmallIconLoadable ─────────────────────────────────────────────
@@ -635,6 +636,39 @@ class ResourceSmallIconGuardTest {
                 resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
                 resPackage = "android",
             ),
+        )
+    }
+
+    @Test
+    fun `only framework autogroup summaries use package icon fallback`() {
+        assertTrue(
+            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x010805c7,
+                resPackage = "android",
+                notificationFlags =
+                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = APP_RES_ID,
+                resPackage = ALIPAY_PACKAGE,
+                notificationFlags =
+                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
+            ),
+            "A normal Alipay app resource must keep its existing native icon path.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x01080a0b,
+                resPackage = "android",
+                notificationFlags =
+                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
+            ),
+            "Developer/USB framework summaries must not use the Android autogroup logo fallback.",
         )
     }
 

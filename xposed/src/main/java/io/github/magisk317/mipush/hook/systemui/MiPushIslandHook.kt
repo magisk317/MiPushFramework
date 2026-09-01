@@ -54,7 +54,6 @@ class MiPushIslandHook : BaseHook() {
     private fun handleStatusBarNotification(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
         val extras = notification.extras ?: return
-        sbn.let(MiPushIslandVisualState::record)
         if (extras.getBoolean(IslandDispatchContract.PROCESSED, false)) return
         if (IslandDispatchContract.hasNativeFocusPayload(extras)) {
             XLog.d(TAG, "preserve native focus payload pkg=${sbn.packageName} key=${sbn.key}")
@@ -350,7 +349,6 @@ class MiPushIslandHook : BaseHook() {
         sbn: StatusBarNotification?,
     ) {
         sbn ?: return
-        MiPushIslandVisualState.remove(sbn)
         val context = currentApplication()?.applicationContext ?: return
         val sourceKey = sourceKeyFor(sbn)
         val proxyId = trackedForCancel.removeAndResolveCancellation(sourceKey)

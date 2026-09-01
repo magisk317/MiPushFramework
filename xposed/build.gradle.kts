@@ -138,13 +138,13 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":core"))
     api(project(":magisk-xposed-kit"))
     compileOnly(libs.libxposed.api)
     implementation(libs.hyperisland.kit) {
         exclude(group = "androidx.appcompat", module = "appcompat")
         exclude(group = "com.google.android.material", module = "material")
     }
-    implementation(libs.hiddenapibypass)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)

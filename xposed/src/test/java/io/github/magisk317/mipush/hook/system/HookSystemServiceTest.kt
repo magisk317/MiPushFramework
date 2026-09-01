@@ -115,6 +115,19 @@ class HookSystemServiceTest {
         )
     }
 
+    @Test
+    fun `nms hook retry policy is bounded`() {
+        assertTrue(NmsHookInstallRetryPolicy.shouldRetry(0))
+        assertTrue(NmsHookInstallRetryPolicy.shouldRetry(NmsHookInstallRetryPolicy.MAX_ATTEMPTS - 1))
+        assertFalse(NmsHookInstallRetryPolicy.shouldRetry(-1))
+        assertFalse(NmsHookInstallRetryPolicy.shouldRetry(NmsHookInstallRetryPolicy.MAX_ATTEMPTS))
+    }
+
+    @Test
+    fun `nms hook retry delay is explicit and nonzero`() {
+        assertTrue(NmsHookInstallRetryPolicy.RETRY_DELAY_MS > 0)
+    }
+
     private class FakePackageSetting(private val packageName: String) {
         fun getPackageName(): String = packageName
     }

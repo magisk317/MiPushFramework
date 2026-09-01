@@ -253,19 +253,23 @@ class KeepAliveHook : BaseHook() {
     }
 
     private fun hookOomAdjuster(classLoader: ClassLoader) {
-        runCatching {
-            val owner = findHookClass("com.android.server.am.OomAdjuster", classLoader)
-            val resolved = resolveTarget("oom_apply", owner, KeepAliveHookTargets.oomApply) ?: return
-            resolved.method.hook {
-                doBefore {
-                    val record = args.getOrNull(0) ?: return@doBefore
-                    if (platform.adjustOomAdj(record, flags)) {
-                        logRateLimited("oom_adjust", "updated ProcessStateRecord.mCurAdj for XMSF")
-                    }
+        val owner = KeepAliveHookTargets.oomApplyOwners.firstNotNullOfOrNull { className ->
+            runCatching { findHookClass(className, classLoader) }
+                .onFailure { XLog.d(TAG, "skip oom target $className: ${it.message}") }
+                .getOrNull()
+        } ?: run {
+            XLog.d(TAG, "skip oom_apply: no supported OomAdjuster target")
+            return
+        }
+        val targets = KeepAliveHookTargets.oomApply.filter { it.shape.owner == owner.name }
+        val resolved = resolveTarget("oom_apply", owner, targets) ?: return
+        resolved.method.hook {
+            doBefore {
+                val record = args.getOrNull(0) ?: return@doBefore
+                if (platform.adjustOomAdj(record, flags)) {
+                    logRateLimited("oom_adjust", "updated OomAdjuster process state for XMSF")
                 }
             }
-        }.onFailure {
-            XLog.e(TAG, "failed to hook OomAdjuster", it)
         }
     }
 

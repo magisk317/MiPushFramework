@@ -31,16 +31,29 @@ internal sealed class MethodResolution {
 }
 
 internal object KeepAliveHookTargets {
-    private const val OOM_ADJUSTER = "com.android.server.am.OomAdjuster"
+    private const val LEGACY_OOM_ADJUSTER = "com.android.server.am.OomAdjuster"
+    private const val MODERN_OOM_ADJUSTER = "com.android.server.am.psc.OomAdjuster"
+    private const val MODERN_PROCESS_RECORD = "com.android.server.am.psc.ProcessRecordInternal"
     private const val PROCESS_RECORD = "com.android.server.am.ProcessRecord"
     private const val PROCESS_LIST = "com.android.server.am.ProcessList"
     private const val APP_STANDBY_CONTROLLER = "com.android.server.usage.AppStandbyController"
+
+    val oomApplyOwners = listOf(MODERN_OOM_ADJUSTER, LEGACY_OOM_ADJUSTER)
 
     val oomApply = listOf(
         IndexedHookTarget(
             capability = "oom_apply",
             shape = MethodShape(
-                owner = OOM_ADJUSTER,
+                owner = MODERN_OOM_ADJUSTER,
+                name = "applyOomAdjLSP",
+                parameterTypes = listOf(MODERN_PROCESS_RECORD, "boolean"),
+                returnType = "void",
+            ),
+        ),
+        IndexedHookTarget(
+            capability = "oom_apply",
+            shape = MethodShape(
+                owner = LEGACY_OOM_ADJUSTER,
                 name = "applyOomAdjLSP",
                 parameterTypes = listOf(PROCESS_RECORD, "boolean", "long", "long"),
                 returnType = "boolean",
@@ -49,9 +62,18 @@ internal object KeepAliveHookTargets {
         IndexedHookTarget(
             capability = "oom_apply",
             shape = MethodShape(
-                owner = OOM_ADJUSTER,
+                owner = LEGACY_OOM_ADJUSTER,
                 name = "applyOomAdjLSP",
                 parameterTypes = listOf(PROCESS_RECORD, "boolean", "long", "long", "int", "boolean"),
+                returnType = "boolean",
+            ),
+        ),
+        IndexedHookTarget(
+            capability = "oom_apply",
+            shape = MethodShape(
+                owner = LEGACY_OOM_ADJUSTER,
+                name = "applyOomAdjLSP",
+                parameterTypes = listOf(PROCESS_RECORD, "boolean", "long", "long", "int"),
                 returnType = "boolean",
             ),
         ),
@@ -64,6 +86,25 @@ internal object KeepAliveHookTargets {
                 owner = PROCESS_RECORD,
                 name = "killLocked",
                 parameterTypes = listOf("java.lang.String", "java.lang.String", "int", "int", "boolean"),
+                returnType = "void",
+            ),
+            valueIndex = 2,
+            secondaryValueIndex = 3,
+        ),
+        IndexedHookTarget(
+            capability = "kill_guard",
+            shape = MethodShape(
+                owner = PROCESS_RECORD,
+                name = "killLocked",
+                parameterTypes = listOf(
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "int",
+                    "android.app.ApplicationExitInfo\$AnrInfo",
+                    "boolean",
+                    "boolean",
+                ),
                 returnType = "void",
             ),
             valueIndex = 2,

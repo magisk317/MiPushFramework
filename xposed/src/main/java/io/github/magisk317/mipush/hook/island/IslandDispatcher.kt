@@ -70,7 +70,7 @@ object IslandDispatcher {
     fun cancel(
         context: Context,
         notificationId: Int = DEFAULT_NOTIFICATION_ID,
-        userId: Int = Utils.myUserId().coerceAtLeast(0),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         check(IslandDispatcherNotifier.cancel(context.applicationContext ?: context, notificationId, userId)) {
             "island notification cancel failed user=$userId"
@@ -85,7 +85,7 @@ object IslandDispatcher {
     fun cancelBroadcast(
         context: Context,
         notificationId: Int = DEFAULT_NOTIFICATION_ID,
-        userId: Int = Utils.myUserId().coerceAtLeast(0),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         IslandDispatcherBroadcaster.cancel(context, notificationId, userId)
     }

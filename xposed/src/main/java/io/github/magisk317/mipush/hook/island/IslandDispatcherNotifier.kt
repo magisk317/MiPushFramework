@@ -92,7 +92,12 @@ internal object IslandDispatcherNotifier {
     private fun contextForUser(context: Context, userId: Int): Context? {
         if (userId < 0) return null
         val normalizedUserId = userId
-        val currentUserId = Process.myUid().toLong().div(PER_USER_RANGE).toInt().coerceAtLeast(0)
+        val currentUserId = Process.myUid()
+            .takeIf { it >= 0 }
+            ?.toLong()
+            ?.div(PER_USER_RANGE)
+            ?.toInt()
+            ?: return null
         if (normalizedUserId == currentUserId) return context
         return runCatching {
             val uid = normalizedUserId.toLong() * PER_USER_RANGE + Process.FIRST_APPLICATION_UID

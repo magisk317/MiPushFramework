@@ -13,6 +13,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.notification.StatusBarNotification
+import io.github.magisk317.mipush.common.island.IslandOptions
 import android.view.View
 import android.widget.ImageView
 import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
@@ -40,10 +41,12 @@ class HookSystemUI : BaseHook() {
         private const val FLAG_CAN_COLORIZE = 0x00000800
     }
 
-    @get:SuppressLint("DiscouragedApi")
-    private val idIconIsPreL: Int by lazy {
-        val app = currentApplication() ?: return@lazy 0
-        app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName)
+    private val idIconIsPreL: Int by lazy(::resolveIconIsPreL)
+
+    @SuppressLint("DiscouragedApi")
+    private fun resolveIconIsPreL(): Int {
+        val app = currentApplication() ?: return 0
+        return app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName)
     }
 
     override fun onHotReloading() {
@@ -90,9 +93,7 @@ class HookSystemUI : BaseHook() {
                             sbn.packageName,
                             notification.extras,
                         )
-                        val userId = runCatching {
-                            sbn.callMethod("getUserId") as? Int
-                        }.getOrNull() ?: 0
+                        val userId = notificationUserId(sbn) ?: return@doBefore
                         fun monochromeFallback(): Icon? {
                             if (options.colorStatusBarIconGlobal) {
                                 StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
@@ -261,6 +262,11 @@ class HookSystemUI : BaseHook() {
                                 )
                                 val iconView = args[2] as? View ?: return@runCatching
                                 preLTag?.let { iconView.setTag(idIconIsPreL, it) }
+                                applyFrameworkAutogroupSummaryIcon(
+                                    iconView = iconView,
+                                    sbn = sbn,
+                                    options = options,
+                                )
                                 val shouldTint = SystemUiNotificationPolicy.shouldApplyMonochromeTintToNotification(
                                     colorStatusBarIcon = options.colorStatusBarIcon,
                                     forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
@@ -355,6 +361,11 @@ class HookSystemUI : BaseHook() {
      * Those launcher bitmaps commonly contain an opaque background and become white blocks when
      * the monochrome pipeline tints them. Keep the custom icon for notification headers, but use
      * the already-validated transparent MiPush smallIcon for the status bar descriptor.
+     *
+     * Synthetic AUTOGROUP_SUMMARY records are different: their framework smallIcon is a generic
+     * two-block glyph (for example android:0x010805c7), not a real app status icon. Resolve those
+     * through the icon-pack first and use the owning package icon as a last resort in both visual
+     * modes. Ordinary application group summaries never enter this branch.
      */
     private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
         runCatching {
@@ -365,7 +376,6 @@ class HookSystemUI : BaseHook() {
                 .hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
                     doAfter {
                         val options = IslandPreferences.current()
-                        if (options.colorStatusBarIcon) return@doAfter
                         val entry = args.getOrNull(0) ?: return@doAfter
                         val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
                         val notification = sbn.notification ?: return@doAfter
@@ -373,15 +383,21 @@ class HookSystemUI : BaseHook() {
                         runCatching {
                             val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(notification.extras)
                             val systemUiContext = currentApplication() ?: return@runCatching
-                            val userId = runCatching {
-                                sbn.callMethod("getUserId") as? Int
-                            }.getOrNull() ?: 0
+                            val userId = notificationUserId(sbn) ?: return@runCatching
                             val owner = NotificationOwnerResolver.resolve(
                                 sbn.packageName,
                                 notification.extras,
                             )
-                            fun iconPackIcon(): Icon? {
-                                if (!options.colorStatusBarIconGlobal) return null
+                            val (iconType, resId, resPackage) = readIconResourceFields(notification.smallIcon)
+                            val isFrameworkAutogroupSummary =
+                                SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+                                    iconType = iconType,
+                                    resId = resId,
+                                    resPackage = resPackage,
+                                    notificationFlags = notification.flags,
+                                )
+                            fun iconPackIcon(allowWhenNotGlobal: Boolean = false): Icon? {
+                                if (!allowWhenNotGlobal && !options.colorStatusBarIconGlobal) return null
                                 return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                                     context = systemUiContext,
                                     packageName = owner,
@@ -396,6 +412,20 @@ class HookSystemUI : BaseHook() {
                                     null
                                 }
                             }
+                            if (isFrameworkAutogroupSummary) {
+                                val summaryIcon = iconPackIcon(allowWhenNotGlobal = true)
+                                    ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                if (summaryIcon != null) {
+                                    setHookObjectField(descriptor, "icon", summaryIcon)
+                                    XLog.d(
+                                        TAG,
+                                        "status bar icon source=autogroup-android-logo owner=$owner " +
+                                            "iconPack=${iconPackIcon(allowWhenNotGlobal = true) != null}",
+                                    )
+                                    return@runCatching
+                                }
+                            }
+                            if (options.colorStatusBarIcon) return@runCatching
                             val icon = if (isMiPushManaged) {
                                 iconPackIcon() ?: notification.smallIcon
                             } else if (options.colorStatusBarIconGlobal) {
@@ -416,6 +446,49 @@ class HookSystemUI : BaseHook() {
         }.onFailure {
             XLog.e(TAG, "Failed to hook Android 17 IconManager.getIconDescriptor", it)
         }
+    }
+
+    private fun applyFrameworkAutogroupSummaryIcon(
+        iconView: View,
+        sbn: StatusBarNotification,
+        options: IslandOptions,
+    ) {
+        val notification = sbn.notification ?: return
+        val (iconType, resId, resPackage) = readIconResourceFields(notification.smallIcon)
+        if (!SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+                iconType = iconType,
+                resId = resId,
+                resPackage = resPackage,
+                notificationFlags = notification.flags,
+            )
+        ) {
+            return
+        }
+        val imageView = iconView as? ImageView ?: return
+        val context = imageView.context
+        val owner = NotificationOwnerResolver.resolve(
+            sbn.packageName,
+            notification.extras,
+        )
+        val userId = notificationUserId(sbn) ?: return
+        fun iconPackIcon(packageName: String): Icon? =
+            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                context = context,
+                packageName = packageName,
+                userId = userId,
+            )
+        var icon = iconPackIcon(owner)
+        if (icon == null && owner != sbn.packageName) {
+            icon = iconPackIcon(sbn.packageName)
+        }
+        if (icon == null) {
+            icon = StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+        }
+        if (icon == null) return
+        val drawable = runCatching { icon.loadDrawable(context) }.getOrNull() ?: return
+        imageView.setImageDrawable(drawable)
+        imageView.invalidate()
+        XLog.d(TAG, "setIcon applied framework autogroup package icon owner=$owner")
     }
 
     private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {
@@ -513,6 +586,10 @@ class HookSystemUI : BaseHook() {
             }.getOrNull()
         } ?: 0
     }
+
+    private fun notificationUserId(sbn: StatusBarNotification): Int? = runCatching {
+        sbn.callMethod("getUserId") as? Int
+    }.getOrNull()?.takeIf { it >= 0 }
 
     private fun applyNotificationStatusBarIconTint(iconView: View, shouldTint: Boolean) {
         val imageView = iconView as? ImageView ?: return

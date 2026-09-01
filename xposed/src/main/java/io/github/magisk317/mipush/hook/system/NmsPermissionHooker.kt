@@ -108,9 +108,6 @@ object NmsPermissionHooker {
     private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
         replace {
             var token: Long? = null
-            if (AmapNavigationFocusCompat.attachIfEligibleFromNmsArguments(args)) {
-                XLog.d(TAG, "attached native focus payload to AMap navigation notification")
-            }
             if (fromXmsf()) {
                 if (preserveDelegateIdentity) {
                     // Keep the stock delegate identity. SystemUI and MIUI notification policy use
@@ -131,32 +128,6 @@ object NmsPermissionHooker {
                     Binder.restoreCallingIdentity(token)
                 }
             }
-        }
-    }
-
-    /**
-     * Foreground-service notifications are posted through NotificationManagerInternal rather
-     * than BinderService.enqueueNotificationWithTag. Hook the shared NMS implementation so the
-     * narrow AMap compatibility bridge sees both routes.
-     */
-
-    private fun installAmapNavigationFocusBridge(classLoader: ClassLoader?) {
-        runCatching {
-            val notificationManagerService = findClass(
-                "com.android.server.notification.NotificationManagerService",
-                classLoader,
-            )
-            val hooks = notificationManagerService.hookAllMethods("enqueueNotificationInternal") {
-                doBefore {
-                    if (AmapNavigationFocusCompat.attachIfEligibleFromForegroundServiceNmsArguments(args)) {
-                        XLog.d(TAG, "attached native focus payload to AMap navigation notification via NMS internal enqueue")
-                    }
-                }
-            }
-            check(hooks.isNotEmpty()) { "no NMS enqueueNotificationInternal overloads found" }
-            XLog.i(TAG, "AMap navigation focus bridge installed on ${hooks.size} NMS internal enqueue overload(s)")
-        }.onFailure { throwable ->
-            XLog.w(TAG, "AMap navigation focus bridge unavailable: ${throwable.message}")
         }
     }
 
@@ -210,7 +181,6 @@ object NmsPermissionHooker {
     fun hook(classINotificationManager: Class<*>) {
         XLog.i(TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
         try {
-        installAmapNavigationFocusBridge(classINotificationManager.classLoader)
         val preserveNotificationDelegateIdentity =
             installNotificationDelegateResolver(classINotificationManager.classLoader)
         //boolean canNotifyAsPackage(String callingPkg, String targetPkg, int userId);

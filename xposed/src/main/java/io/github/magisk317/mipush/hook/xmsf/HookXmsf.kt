@@ -12,6 +12,10 @@ class HookXmsf : BaseHook() {
         private const val TAG = "HookXmsf"
     }
 
+    override fun onHotReloading() {
+        HookPushNC.stopReadyRetry()
+    }
+
     override fun onLoadPackage(param: LoadParam) {
         if (param.packageName != XMSF_PACKAGE_NAME) return
         if (param.processName != XMSF_PROCESS_NAME) return

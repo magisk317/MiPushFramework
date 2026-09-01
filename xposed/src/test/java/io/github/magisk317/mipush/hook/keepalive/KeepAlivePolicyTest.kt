@@ -70,6 +70,36 @@ class KeepAlivePolicyTest {
     }
 
     @Test
+    fun `manager package is never selected by xmsf keepalive policy`() {
+        assertNull(KeepAlivePolicy.desiredOomAdj(enabled, "io.github.magisk317.mipush", 900))
+        assertNull(KeepAlivePolicy.desiredStandbyBucket(enabled, "io.github.magisk317.mipush", 45))
+        assertNull(KeepAlivePolicy.desiredIdleState(enabled, "io.github.magisk317.mipush", true))
+        assertFalse(
+            KeepAlivePolicy.shouldSuppressKill(
+                enabled,
+                "io.github.magisk317.mipush",
+                reason = 13,
+                subReason = 6,
+                currentNameMapping = true,
+                currentPidMapping = true,
+            ),
+        )
+        assertFalse(
+            KeepAlivePolicy.shouldSuppressPackageKill(
+                flags = enabled,
+                packageName = "io.github.magisk317.mipush",
+                reason = 13,
+                subReason = 6,
+                callerWillRestart = false,
+                doit = true,
+                evenPersistent = false,
+                setRemoved = false,
+                uninstalling = false,
+            ),
+        )
+    }
+
+    @Test
     fun `package kill policy only suppresses automatic cleanup before removal`() {
         assertTrue(
             KeepAlivePolicy.shouldSuppressPackageKill(

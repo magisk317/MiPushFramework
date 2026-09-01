@@ -15,7 +15,6 @@ import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
 import io.github.magisk317.mipush.common.island.IslandOptions
-import io.github.magisk317.mipush.common.island.IslandRendererPolicy
 import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import kotlinx.serialization.json.Json
@@ -51,9 +50,8 @@ object IslandPayloadBuilder {
         style: NotificationStyle = NotificationStyle.GENERAL,
         smallOnly: Boolean = false,
     ): String {
-        val options = IslandPreferences.current()
-        val visualHighlightColor = highlightColor.takeIf { options.visualEnabled }
-        val visualOuterGlow = options.visualEnabled && islandOuterGlow
+        val visualHighlightColor = highlightColor
+        val visualOuterGlow = islandOuterGlow
         return createNotification(
             context = context,
             title = title,
@@ -97,19 +95,13 @@ object IslandPayloadBuilder {
         val safeContent = content.ifBlank { title }
         val options = optionsOverride ?: IslandPreferences.current(sourcePackage, userId)
         val payloadIcon = icon ?: fallbackIcon(context)
-        val dynamicColor = if (options.visualEnabled && options.dynamicColor) {
-            DynamicIslandColorResolver.resolve(
-                context = context,
-                packageName = sourcePackage,
-                notificationIcon = payloadIcon,
-            )
-        } else {
-            null
-        }
-        val resolvedHighlightColor = if (options.visualEnabled) highlightColor ?: dynamicColor else null
-        val resolvedOuterGlow = options.visualEnabled && (islandOuterGlow || options.outerGlowEnabled)
-        val owner = IslandRendererPolicy.owner(context, options)
-        val rendererMode = IslandRendererPolicy.mode(context, options)
+        val dynamicColor = DynamicIslandColorResolver.resolve(
+            context = context,
+            packageName = sourcePackage,
+            notificationIcon = payloadIcon,
+        )
+        val resolvedHighlightColor = highlightColor ?: dynamicColor
+        val resolvedOuterGlow = islandOuterGlow
         val notification = createNotification(
             context = context,
             title = title,
@@ -144,15 +136,14 @@ object IslandPayloadBuilder {
                     .injectIslandAppearance(resolvedHighlightColor, resolvedOuterGlow)
                     .preserveTriggerAreas(smallOnly),
             )
-            putString(IslandDispatchContract.OWNER, owner)
-            putInt(IslandDispatchContract.VISUAL_VERSION, IslandVisualContract.VERSION)
-            putString(IslandDispatchContract.VISUAL_MODE, rendererMode.wireValue)
-            putString(IslandDispatchContract.VISUAL_MARKER, IslandVisualContract.VISUAL_MARKER)
-            resolvedHighlightColor?.let { putString(IslandDispatchContract.HIGHLIGHT_COLOR, it) }
+            putString(IslandVisualContract.OWNER_KEY, IslandVisualContract.MIPUSH_OWNER)
+            putInt(IslandVisualContract.VISUAL_VERSION_KEY, IslandVisualContract.VERSION)
+            putString(IslandVisualContract.VISUAL_MARKER_KEY, IslandVisualContract.VISUAL_MARKER)
+            resolvedHighlightColor?.let { putString(IslandVisualContract.HIGHLIGHT_COLOR_KEY, it) }
             if (resolvedOuterGlow) {
-                resolvedHighlightColor?.let { putString(IslandDispatchContract.GLOW_COLOR, it) }
-                resolvedHighlightColor?.let { putString(IslandDispatchContract.ISLAND_GLOW_COLOR, it) }
-                resolvedHighlightColor?.let { putString(IslandDispatchContract.FOCUS_GLOW_COLOR, it) }
+                resolvedHighlightColor?.let { putString(IslandVisualContract.GLOW_COLOR_KEY, it) }
+                resolvedHighlightColor?.let { putString(IslandVisualContract.ISLAND_GLOW_COLOR_KEY, it) }
+                resolvedHighlightColor?.let { putString(IslandVisualContract.FOCUS_GLOW_COLOR_KEY, it) }
             }
             putBoolean(IslandDispatchContract.PROCESSED, true)
             if (resolvedOuterGlow) {

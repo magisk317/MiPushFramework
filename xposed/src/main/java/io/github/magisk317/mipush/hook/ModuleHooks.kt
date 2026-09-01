@@ -20,7 +20,6 @@ import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolic
 import io.github.magisk317.mipush.hook.systemui.HookFocusAuthorization
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
-import io.github.magisk317.mipush.hook.systemui.MiPushIslandVisualHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
@@ -30,10 +29,10 @@ import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.BaseLibXposedEntry
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.LibXposedHookApi
-import io.github.magisk317.xposed.XposedRuntime
-import io.github.magisk317.xposed.callStaticMethod
-import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.findHookClass
+import io.github.magisk317.xposed.callStaticMethod
+import io.github.magisk317.xposed.XposedRuntime
+import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
@@ -42,7 +41,6 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.magisk317.xposed.logging.MagiskOtel
-import io.github.magisk317.mipush.common.island.IslandRendererMode
 
 class LibXposedEntry : BaseLibXposedEntry {
 
@@ -166,44 +164,47 @@ class LibXposedEntry : BaseLibXposedEntry {
     }
 
     // -- SystemUI island hooks --
-    private fun installFocusAuthorizationBypass(
-        loadParam: LoadParam,
-        visualHook: MiPushIslandVisualHook?,
-    ) {
+    private fun installFocusAuthorizationBypass(loadParam: LoadParam) {
         HookNotificationSettingsManager().hook(loadParam.classLoader)
 
         val focusNotifUtilsHooker = ISystemUIPluginHooker { pluginLoader ->
             val tag = "HookFocusNotifUtils"
-            try {
-                val classFocusNotifUtils = findClass(
+            val classFocusNotifUtils = runCatching {
+                findClass(
                     "miui.systemui.notification.focus.FocusNotifUtils",
                     pluginLoader
                 )
+            }.onFailure {
+                XLog.d(tag, "skip optional legacy FocusNotifUtils hook: ${it.message}")
+            }.getOrNull() ?: return@ISystemUIPluginHooker
 
-                val method = classFocusNotifUtils.declaredMethods.find { it.name == "canShowFocus" }!!
-                val paramTypes = method.parameterTypes
-                // Identify which parameter index holds the package name (String).
-                // Known signatures: canShowFocus(Context, String) or canShowFocus(String).
-                val pkgArgIndex = paramTypes.indexOfFirst { it == String::class.java }
+            val method = classFocusNotifUtils.declaredMethods.firstOrNull {
+                it.name == "canShowFocus" &&
+                    (it.returnType == Boolean::class.javaPrimitiveType || it.returnType == Boolean::class.java)
+            } ?: run {
+                XLog.d(tag, "skip optional legacy FocusNotifUtils hook: canShowFocus not found")
+                return@ISystemUIPluginHooker
+            }
+            val paramTypes = method.parameterTypes
+            // Identify which parameter index holds the package name (String).
+            // Known signatures: canShowFocus(Context, String) or canShowFocus(String).
+            val pkgArgIndex = paramTypes.indexOfFirst { it == String::class.java }
 
-                XLog.d(tag, "hooking canShowFocus paramTypes=${paramTypes.map { it.simpleName }} pkgArgIndex=$pkgArgIndex")
-                method.hook {
-                    doAfter {
-                        val originalAllowed = result as? Boolean ?: return@doAfter
-                        val packageName = if (pkgArgIndex >= 0) args[pkgArgIndex] as? String else null
-                        val miPushAllowed = FocusNotificationPermissionPolicy.miPushPreferenceAllows(packageName)
-                        val allowed = FocusNotificationPermissionPolicy.merge(
-                            systemAllowed = originalAllowed,
-                            miPushAllowed = miPushAllowed,
-                        )
-                        if (allowed != originalAllowed) {
-                            XLog.d(tag, "canShowFocus pkg=$packageName system=$originalAllowed mipush=$miPushAllowed -> $allowed")
-                            result = allowed
-                        }
+            XLog.d(tag, "hooking canShowFocus paramTypes=${paramTypes.map { it.simpleName }} pkgArgIndex=$pkgArgIndex")
+            method.hook {
+                doAfter {
+                    val originalAllowed = result as? Boolean ?: return@doAfter
+                    val packageName = if (pkgArgIndex >= 0) args[pkgArgIndex] as? String else null
+                    val miPushAllowed = FocusNotificationPermissionPolicy.miPushPreferenceAllows(packageName)
+                    val allowed = FocusNotificationPermissionPolicy.merge(
+                        systemAllowed = originalAllowed,
+                        miPushAllowed = miPushAllowed,
+                    )
+                    if (allowed != originalAllowed) {
+                        XLog.d(tag, "canShowFocus pkg=$packageName system=$originalAllowed mipush=$miPushAllowed -> $allowed")
+                        result = allowed
                     }
                 }
-            } catch (e: Throwable) {
-                XLog.e(tag, "hook failure: ${e.message}", e)
             }
         }
 
@@ -212,7 +213,6 @@ class LibXposedEntry : BaseLibXposedEntry {
             HookFocusAuthorization(),
             focusNotifUtilsHooker,
         )
-        visualHook?.let(pluginHookers::add)
         HookSystemUIPlugin(
             "miui.systemui.plugin",
             *pluginHookers.toTypedArray(),
@@ -221,41 +221,13 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     private fun hookSystemUiIsland(loadParam: LoadParam) {
         // XMSF sends generated-focus requests to this project-private receiver in SystemUI.
-        // An external HyperIsland module may own rendering, but it does not own that receiver.
         IslandDispatcherHook().hook()
-        // Authorization is configured by this module even if an external renderer is installed.
-        val externalRendererOwnsVisuals = hyperIslandOwnsRendering(loadParam.classLoader)
-        val visualHook = if (externalRendererOwnsVisuals) null else MiPushIslandVisualHook()
-        installFocusAuthorizationBypass(loadParam, visualHook)
-        if (externalRendererOwnsVisuals) {
-            XLog.i(TAG, "registered island dispatcher; skip built-in rendering hooks because HyperIsland is installed")
-            return
-        }
+        installFocusAuthorizationBypass(loadParam)
         MiPushIslandHook().onLoadPackage(loadParam)
-        visualHook?.onLoadPackage(loadParam)
     }
 
     private fun hookXmsfFocusAuth(loadParam: LoadParam) {
-        if (hyperIslandOwnsRendering(loadParam.classLoader)) {
-            XLog.i(TAG, "skip xmsf focus auth hook because HyperIsland is installed")
-            return
-        }
         UnlockFocusAuthHook().onLoadPackage(loadParam)
-    }
-
-    private fun hyperIslandOwnsRendering(classLoader: ClassLoader): Boolean {
-        return isHyperIslandInstalled(classLoader) &&
-            IslandPreferences.rendererModeForOwnership() != IslandRendererMode.MIPUSH
-    }
-
-    private fun isHyperIslandInstalled(classLoader: ClassLoader): Boolean {
-        return runCatching {
-            val appGlobals = findHookClass("android.app.AppGlobals", classLoader)
-            val initialApplication = appGlobals.callStaticMethod("getInitialApplication") as? Application
-            val packageManager = initialApplication?.packageManager ?: return@runCatching false
-            packageManager.getPackageInfo(HYPERISLAND_PACKAGE_NAME, 0)
-            true
-        }.getOrDefault(false)
     }
 
     // -- Tax app fallback hooks --
@@ -390,7 +362,6 @@ class LibXposedEntry : BaseLibXposedEntry {
     private companion object {
         private const val TAG = "LibXposedEntry"
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
-        private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
         private const val AMAP_PACKAGE_NAME = "com.autonavi.minimap"

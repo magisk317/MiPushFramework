@@ -13,10 +13,13 @@ internal data class ActiveRecordMappings(
 internal class KeepAlivePlatformAdapter {
     fun adjustOomAdj(record: Any, flags: KeepAliveFlags): Boolean = runCatching {
         val processName = processName(record)
-        val state = getHookObjectField(record, "mState") ?: return@runCatching false
-        val currentAdj = getHookIntField(state, "mCurAdj")
+        // Android 17 moved OomAdjuster and ProcessRecordInternal into the psc package and
+        // flattened mCurAdj onto the record. Older Android releases keep mCurAdj in mState.
+        val state = runCatching { getHookObjectField(record, "mState") }.getOrNull()
+        val stateOwner = state ?: record
+        val currentAdj = getHookIntField(stateOwner, "mCurAdj")
         val desiredAdj = KeepAlivePolicy.desiredOomAdj(flags, processName, currentAdj) ?: return@runCatching false
-        setHookIntField(state, "mCurAdj", desiredAdj)
+        setHookIntField(stateOwner, "mCurAdj", desiredAdj)
         true
     }.getOrDefault(false)
 

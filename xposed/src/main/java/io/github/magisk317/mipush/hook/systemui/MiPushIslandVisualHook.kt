@@ -163,7 +163,7 @@ class MiPushIslandVisualHook : BaseHook(), ISystemUIPluginHooker {
                 doBefore {
                     val view = thisObject as? View ?: return@doBefore
                     val snapshot = snapshotFor(view) ?: return@doBefore
-                    if (!shouldRender(snapshot) || !snapshot.options.animationEnabled) return@doBefore
+                    if (!shouldRender(snapshot)) return@doBefore
                     val value = args.firstOrNull() as? Float ?: return@doBefore
                     args[0] = value.coerceIn(0f, 1f)
                 }
@@ -247,14 +247,14 @@ class MiPushIslandVisualHook : BaseHook(), ISystemUIPluginHooker {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = view.resources.displayMetrics.density *
-            if (snapshot.options.glassEnabled) GLASS_STROKE_WIDTH else 1f
+            GLASS_STROKE_WIDTH
         paint.shader = LinearGradient(
             bounds.left.toFloat(),
             bounds.top.toFloat(),
             bounds.right.toFloat(),
             bounds.bottom.toFloat(),
             Color.argb(
-                if (snapshot.options.glassEnabled) GLASS_HIGHLIGHT_ALPHA else GLASS_DIM_HIGHLIGHT_ALPHA,
+                GLASS_HIGHLIGHT_ALPHA,
                 255,
                 255,
                 255,
@@ -271,7 +271,7 @@ class MiPushIslandVisualHook : BaseHook(), ISystemUIPluginHooker {
             radius,
             paint,
         )
-        if (snapshot.options.outerGlowEnabled) {
+        if (shouldRender(snapshot)) {
             paint.shader = null
             paint.strokeWidth = view.resources.displayMetrics.density * OUTER_GLOW_STROKE_WIDTH
             paint.color = Color.argb(OUTER_GLOW_ALPHA, Color.red(color), Color.green(color), Color.blue(color))
@@ -285,8 +285,7 @@ class MiPushIslandVisualHook : BaseHook(), ISystemUIPluginHooker {
                 paint,
             )
         }
-        if (snapshot.options.animationEnabled &&
-            view.isAttachedToWindow &&
+        if (view.isAttachedToWindow &&
             view.isShown &&
             view.alpha > MIN_VISIBLE_ALPHA
         ) {
@@ -332,11 +331,7 @@ private class MiPushAccentDrawable(
         val color = runCatching { Color.parseColor(snapshot.accentColor) }
             .getOrDefault(Color.rgb(0, 200, 255))
         val radius = bounds.height() * 0.5f
-        val phase = if (snapshot.options.animationEnabled) {
-            ((android.os.SystemClock.uptimeMillis() % 2400L).toFloat() / 2400f)
-        } else {
-            0.5f
-        }
+        val phase = (android.os.SystemClock.uptimeMillis() % 2400L).toFloat() / 2400f
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = density * ACCENT_STROKE_WIDTH
         paint.shader = LinearGradient(
@@ -350,19 +345,17 @@ private class MiPushAccentDrawable(
         )
         canvas.drawRoundRect(RectF(bounds), radius, radius, paint)
         paint.shader = null
-        if (snapshot.options.outerGlowEnabled) {
-            paint.color = Color.argb(ACCENT_GLOW_ALPHA, Color.red(color), Color.green(color), Color.blue(color))
-            paint.strokeWidth = density * ACCENT_GLOW_STROKE_WIDTH
-            canvas.drawRoundRect(
-                bounds.left.toFloat() - density,
-                bounds.top.toFloat() - density,
-                bounds.right.toFloat() + density,
-                bounds.bottom.toFloat() + density,
-                radius + density,
-                radius + density,
-                paint,
-            )
-        }
+        paint.color = Color.argb(ACCENT_GLOW_ALPHA, Color.red(color), Color.green(color), Color.blue(color))
+        paint.strokeWidth = density * ACCENT_GLOW_STROKE_WIDTH
+        canvas.drawRoundRect(
+            bounds.left.toFloat() - density,
+            bounds.top.toFloat() - density,
+            bounds.right.toFloat() + density,
+            bounds.bottom.toFloat() + density,
+            radius + density,
+            radius + density,
+            paint,
+        )
     }
 
     override fun setAlpha(alpha: Int) {
@@ -400,12 +393,7 @@ private object MiPushBlurCompat {
                 View::class.java,
                 Int::class.javaPrimitiveType,
             )
-            val mode = if (snapshot.options.blurEnabled) 1 else 0
-            setMode.invoke(null, view, mode)
-            if (!snapshot.options.blurEnabled) {
-                blurClass.getDeclaredMethod("clearMiBackgroundBlendColorCompat", View::class.java)
-                    .invoke(null, view)
-            }
+            setMode.invoke(null, view, 1)
         }.onFailure {
             XLog.d("MiPushIslandVisualHook", "MiBlurCompat unavailable: ${it.message}")
         }

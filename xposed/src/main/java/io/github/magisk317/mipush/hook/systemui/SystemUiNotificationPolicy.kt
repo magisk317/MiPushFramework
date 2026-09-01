@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.hook.systemui
 
 import android.graphics.drawable.Icon
 import android.os.Bundle
+import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 
 internal object SystemUiNotificationPolicy {
@@ -18,11 +19,14 @@ internal object SystemUiNotificationPolicy {
     /** Mirrors [android.app.Notification.FLAG_GROUP_SUMMARY]. */
     const val FLAG_GROUP_SUMMARY = 0x00000200
 
+    /** Mirrors the hidden [android.app.Notification.FLAG_AUTOGROUP_SUMMARY]. */
+    const val FLAG_AUTOGROUP_SUMMARY = 0x00000400
+
     /**
      * HyperOS/AOSP auto-group summary glyph
      * (`com.android.internal.R.drawable.ic_notification_summary_auto`).
      */
-    const val FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID = 0x010805a6
+    const val FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID = 0x010805c7
 
     /** Package name that owns framework (android.R) resources. */
     private const val FRAMEWORK_RES_PACKAGE = "android"
@@ -59,7 +63,7 @@ internal object SystemUiNotificationPolicy {
             getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false) ||
             getString(EXTRA_MOCK_REPLAY_SOURCE_PACKAGE)?.isNotBlank() == true ||
             getString(IslandDispatchContract.SOURCE_PACKAGE)?.isNotBlank() == true ||
-            getString(IslandDispatchContract.OWNER) == IslandDispatchContract.OWNER_MARKER
+            getString(IslandVisualContract.OWNER_KEY) == IslandVisualContract.MIPUSH_OWNER
     }
 
     fun shouldInterceptSmallIcon(
@@ -125,12 +129,24 @@ internal object SystemUiNotificationPolicy {
         resId: Int,
         resPackage: String?,
     ): Boolean {
-        if (iconType != ICON_TYPE_RESOURCE || resId == 0) return false
-        if (resId == FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID) return true
-        val packageIdSegment = (resId ushr 24) and 0xff
-        if (packageIdSegment != FRAMEWORK_PACKAGE_ID) return false
+        if (iconType != ICON_TYPE_RESOURCE || resId != FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID) return false
         val declaredPackage = resPackage?.takeIf { it.isNotBlank() }
         return declaredPackage == null || declaredPackage == FRAMEWORK_RES_PACKAGE
+    }
+
+    /**
+     * True only for the synthetic Android/HyperOS summary, not ordinary app group summaries.
+     * This path must not fall back to the framework summary glyph when a package icon is needed.
+     */
+    fun isFrameworkAutogroupSummaryNotification(
+        iconType: Int,
+        resId: Int,
+        resPackage: String?,
+        notificationFlags: Int,
+    ): Boolean {
+        return notificationFlags and FLAG_GROUP_SUMMARY != 0 &&
+            notificationFlags and FLAG_AUTOGROUP_SUMMARY != 0 &&
+            isFrameworkAutogroupSummaryIcon(iconType, resId, resPackage)
     }
 
     /**

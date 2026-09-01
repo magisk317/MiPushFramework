@@ -38,6 +38,8 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
         }
         owners.forEach { owner ->
             hookPackageFocusMethod(owner, "canShowFocus")
+            hookPackageFocusMethod(owner, "canShowFocusState")
+            hookPackageFocusMethod(owner, "canShowFocusStateApp")
             hookPackageFocusMethod(owner, "canCustomFocus")
         }
         hookCustomAppIcon(pluginLoader)
@@ -87,11 +89,11 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
     private fun hookPackageFocusMethod(owner: Class<*>, methodName: String) {
         val methods = owner.declaredMethods.filter { method ->
             method.name == methodName &&
-                method.returnsBoolean() &&
+                method.returnsFocusState() &&
                 method.packageNameArgIndex() >= 0
         }
         if (methods.isEmpty()) {
-            XLog.w(TAG, "skip $methodName: no package-name signature found")
+            XLog.d(TAG, "skip $methodName: no supported package-name signature found")
             return
         }
         methods.forEach { method ->
@@ -104,23 +106,36 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
             XLog.d(
                 TAG,
                 "hook ${owner.name}#$methodName paramTypes=${method.parameterTypes.map { it.simpleName }} " +
-                    "pkgArgIndex=$pkgArgIndex"
+                    "returnType=${method.returnType.simpleName} pkgArgIndex=$pkgArgIndex"
             )
             method.hook {
                 doAfter {
-                    val originalAllowed = result as? Boolean ?: return@doAfter
                     val packageName = args[pkgArgIndex] as? String
                     val miPushAllowed = FocusNotificationPermissionPolicy.miPushPreferenceAllows(packageName)
-                    val allowed = FocusNotificationPermissionPolicy.merge(
-                        systemAllowed = originalAllowed,
-                        miPushAllowed = miPushAllowed,
-                    )
-                    if (allowed != originalAllowed) {
-                        XLog.d(
-                            TAG,
-                            "$methodName pkg=$packageName system=$originalAllowed mipush=$miPushAllowed -> $allowed"
-                        )
-                        result = allowed
+                    when (val original = result) {
+                        is Boolean -> {
+                            val allowed = FocusNotificationPermissionPolicy.merge(
+                                systemAllowed = original,
+                                miPushAllowed = miPushAllowed,
+                            )
+                            if (allowed != original) {
+                                XLog.d(
+                                    TAG,
+                                    "$methodName pkg=$packageName system=$original mipush=$miPushAllowed -> $allowed"
+                                )
+                                result = allowed
+                            }
+                        }
+                        is Int -> {
+                            val state = FocusNotificationPermissionPolicy.mergeState(original, miPushAllowed)
+                            if (state != original) {
+                                XLog.d(
+                                    TAG,
+                                    "$methodName pkg=$packageName system=$original mipush=$miPushAllowed -> $state"
+                                )
+                                result = state
+                            }
+                        }
                     }
                 }
             }
@@ -129,6 +144,10 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
 
     private fun Method.packageNameArgIndex(): Int {
         return parameterTypes.indexOfFirst { it == String::class.java }
+    }
+
+    private fun Method.returnsFocusState(): Boolean {
+        return returnsBoolean() || returnType == Int::class.javaPrimitiveType || returnType == Int::class.java
     }
 
     private fun Method.returnsBoolean(): Boolean {
@@ -144,6 +163,10 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
 internal object FocusNotificationPermissionPolicy {
     fun merge(systemAllowed: Boolean, miPushAllowed: Boolean): Boolean {
         return systemAllowed || miPushAllowed
+    }
+
+    fun mergeState(systemState: Int, miPushAllowed: Boolean): Int {
+        return if (miPushAllowed) 1 else systemState
     }
 
     /**

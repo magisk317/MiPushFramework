@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import io.github.magisk317.mipush.common.island.IslandVisualContract
+
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandOptions
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -45,7 +47,7 @@ class PreservationPropertyTest {
             EXTRA_MOCK_REPLAY_RECEIPT,
             EXTRA_MOCK_REPLAY_SOURCE_PACKAGE,
             IslandDispatchContract.SOURCE_PACKAGE,
-            IslandDispatchContract.OWNER,
+            IslandVisualContract.OWNER_KEY,
         )
     }
 

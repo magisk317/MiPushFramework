@@ -19,7 +19,7 @@ data class IslandRequest(
     val enableFloat: Boolean = true,
     val showNotification: Boolean = true,
     val sourcePackage: String? = null,
-    val userId: Int = Utils.myUserId().coerceAtLeast(0),
+    val userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     val sourceChannelId: String? = null,
     val contentIntent: PendingIntent? = null,
     val isOngoing: Boolean = false,

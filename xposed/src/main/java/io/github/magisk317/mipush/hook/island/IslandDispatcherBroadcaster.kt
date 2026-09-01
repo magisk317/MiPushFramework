@@ -30,12 +30,15 @@ object IslandDispatcherBroadcaster {
     fun cancel(
         context: Context,
         notificationId: Int = IslandDispatchContract.DEFAULT_NOTIFICATION_ID,
-        userId: Int = Utils.myUserId().coerceAtLeast(0),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         context.sendBroadcast(
             Intent(IslandDispatchContract.ACTION_CANCEL).apply {
                 putExtra(IslandDispatchContract.EXTRA_NOTIFICATION_ID, notificationId)
-                putExtra(IslandDispatchContract.EXTRA_USER_ID, userId.coerceAtLeast(0))
+                putExtra(
+                    IslandDispatchContract.EXTRA_USER_ID,
+                    Utils.requireValidUserId(userId),
+                )
                 setPackage(IslandDispatchContract.SYSTEM_UI_PACKAGE)
             },
         )

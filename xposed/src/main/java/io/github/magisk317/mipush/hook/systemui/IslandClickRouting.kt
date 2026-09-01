@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.hook.systemui
 import android.content.Context
 import android.os.Process
 import android.os.UserHandle
+import io.github.magisk317.mipush.common.utils.Utils
 
 /** User-aware helpers for the launcher fallback used by known broken notification click routes. */
 internal object IslandClickRouting {
@@ -11,7 +12,7 @@ internal object IslandClickRouting {
 
     fun requestCode(packageName: String, notificationId: Int, userId: Int): Int {
         var result = packageName.hashCode()
-        result = REQUEST_HASH_MULTIPLIER * result + userId.coerceAtLeast(0)
+        result = REQUEST_HASH_MULTIPLIER * result + Utils.requireValidUserId(userId)
         return REQUEST_HASH_MULTIPLIER * result + notificationId
     }
 

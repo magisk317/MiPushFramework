@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import io.github.magisk317.mipush.common.island.IslandVisualContract
+
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandOptions
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -58,7 +60,7 @@ class GetSmallIconHookBugConditionTest {
             if (hasMockReplayReceipt) booleans[EXTRA_MOCK_REPLAY_RECEIPT] = true
             if (hasMockReplaySourcePackage) strings[EXTRA_MOCK_REPLAY_SOURCE_PACKAGE] = packageName
             if (hasSourcePackage) strings[IslandDispatchContract.SOURCE_PACKAGE] = packageName
-            if (hasOwnerMarker) strings[IslandDispatchContract.OWNER] = IslandDispatchContract.OWNER_MARKER
+            if (hasOwnerMarker) strings[IslandVisualContract.OWNER_KEY] = IslandVisualContract.MIPUSH_OWNER
             return NotificationExtras(strings, booleans)
         }
 
@@ -69,8 +71,8 @@ class GetSmallIconHookBugConditionTest {
             if (hasXmsfTargetPackage) active += "xmsf_target_package"
             if (hasMockReplayReceipt) active += "mipush_mock_replay_receipt"
             if (hasMockReplaySourcePackage) active += "mipush_mock_replay_source_package"
-            if (hasSourcePackage) active += "hyperisland_source_pkg"
-            if (hasOwnerMarker) active += "hyperisland.owner"
+            if (hasSourcePackage) active += "mipush_source_pkg"
+            if (hasOwnerMarker) active += "mipush_island_owner"
             return active.joinToString(", ")
         }
     }

@@ -6,6 +6,27 @@ import org.junit.jupiter.api.Test
 
 class KeepAliveHookTargetsTest {
     @Test
+    fun `android 17 targets use psc process state and current kill signature`() {
+        val oom = KeepAliveHookTargets.oomApply.first()
+        assertEquals("com.android.server.am.psc.OomAdjuster", oom.shape.owner)
+        assertEquals(
+            listOf("com.android.server.am.psc.ProcessRecordInternal", "boolean"),
+            oom.shape.parameterTypes,
+        )
+        assertEquals("void", oom.shape.returnType)
+
+        val kill = KeepAliveHookTargets.killLocked.first {
+            it.shape.parameterTypes.any { type -> type.contains("ApplicationExitInfo") }
+        }
+        assertEquals(
+            "android.app.ApplicationExitInfo\$AnrInfo",
+            kill.shape.parameterTypes[4],
+        )
+        assertEquals(2, kill.valueIndex)
+        assertEquals(3, kill.secondaryValueIndex)
+    }
+
+    @Test
     fun `api 33 targets retain the exact parameter roles`() {
         val appIdle = KeepAliveHookTargets.appIdle.single()
         val forceIdle = KeepAliveHookTargets.forceIdle.single()
