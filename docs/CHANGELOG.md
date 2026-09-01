@@ -2,6 +2,15 @@
 
 本日志记录了项目近期的主要变更。
 
+---
+## [v1.0.2] - WIP
+- 版本：`versionCode 13` / `versionName 1.0.2`。
+- `[TODO]` 准备下一阶段开发。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.1...v1.0.2
+
+---
+
 ## [v1.0.1] - 2026-09-01
 - 版本：`versionCode 12` / `versionName 1.0.1`。
 - `[push]` 恢复后台通知 `MESSAGE_ARRIVED` 到达回调，改善原生通知生命周期。
