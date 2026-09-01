@@ -57,6 +57,8 @@ check_non_ascii_subject_allowlist() {
 }
 
 check_non_ascii_subject_allowlist
+# The release guard is supplied by the externally resolved CI toolkit.
+# shellcheck disable=SC1090
 source "${TOOLKIT_SCRIPT}"
 ALLOW_NON_ASCII_COMMIT_SUBJECT=true check_release_guard "$ROOT_DIR" "$TAG_NAME"
 "${ROOT_DIR}/scripts/check_zygisk_version_sync.sh" "$ROOT_DIR"

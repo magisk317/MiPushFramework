@@ -54,18 +54,19 @@ variables:
   MAGISK_ANDROID_SDK_PACKAGES: "platform-tools build-tools;37.0.0"
   MAGISK_GRADLE_ARGS: "--warning-mode all"
   MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
+  MAGISK_ANDROID_RELEASE_PLAY_URL: "https://play.google.com/store/apps/details?id=io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "true"
   MAGISK_ANDROID_RELEASE_PLAY_TRACK: "production"
   MAGISK_PLAY_INITIAL_VERSION_CODE: "1569"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
-  MIPUSH_ZYGISK_REF: "b350ca6bd0467af389e2473cabc308cedd2e2317"
-  MIPUSH_ZYGISK_NDK_VERSION: "r27d"
-  MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
+  MIPUSH_ZYGISK_REF: "77b23b5dfdae8b63b484dc7bf35f4d6951b00733"
+  MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
+  MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
   # Public SHA-256 fingerprint of the production APK signing certificate.
   MAGISK_ANDROID_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
-  MAGISK_ANDROID_RELEASE_APK_ROOTS: "app/build/outputs/apk mipush/build/outputs/apk"
+  MAGISK_ANDROID_RELEASE_APK_ROOTS: "xmsf/build/outputs/apk mipush/build/outputs/apk"
 
 .mipush_android_rules:
   rules:
@@ -121,7 +122,7 @@ android:build:
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_ANDROID_BUILD_TASKS: >-
-      :app:assembleDebug
+      :xmsf:assembleDebug
       :mipush:assembleGithubDebug
       -PbuildSplits
       -PminifyDebug
@@ -134,7 +135,7 @@ android:build:
     when: always
     expire_in: 14 days
     paths:
-      - app/build/outputs/apk/**/debug/*.apk
+      - xmsf/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
 
 android:check:
@@ -147,13 +148,13 @@ android:check:
     - when: never
   variables:
     MAGISK_ANDROID_BUILD_TASKS: >-
-      :app:compileNormalDebugKotlin
+      :xmsf:compileNormalDebugKotlin
       :mipush:compileGithubDebugKotlin
       -Pkotlin.incremental=false
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.98.0-bookworm"
+  image: "rust:1.98.0-trixie"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -274,7 +275,7 @@ android:check:
     paths:
       - MiPushZygisk/build/*.zip
       - MiPushZygisk/magisk/zygisk/*.so
-      - MiPushZygisk/build/.zygisk-skip
+      - MiPushZygisk/build/.zygisk-skip*
 
 zygisk:build:arm:
   extends: .mipush_zygisk_build
@@ -501,7 +502,7 @@ android:release:apk:
       : "${KEY_ALIAS:?KEY_ALIAS is required}"
       : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
 
-      keystore_path="$CI_PROJECT_DIR/app/release.jks"
+      keystore_path="$CI_PROJECT_DIR/release.jks"
       printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
       chmod 0600 "$keystore_path"
       bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
@@ -515,23 +516,23 @@ android:release:apk:
       KEY_ALIAS="$KEY_ALIAS" \
       KEY_PASSWORD="$KEY_PASSWORD" \
         bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-          :app:assembleRelease \
+          :xmsf:assembleRelease \
           :mipush:assembleGithubRelease \
           -PversionName="$MAGISK_PLAY_VERSION_NAME" \
           -PversionCode="$MAGISK_PLAY_VERSION_CODE" \
           -PbuildSplits=true \
           -Pkotlin.incremental=false
       chmod +x "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
-      MAGISK_ANDROID_RELEASE_APK_ROOTS="${MAGISK_ANDROID_RELEASE_APK_ROOTS:-app/build/outputs/apk}" \
+      MAGISK_ANDROID_RELEASE_APK_ROOTS="${MAGISK_ANDROID_RELEASE_APK_ROOTS:-xmsf/build/outputs/apk}" \
         bash "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
   artifacts:
     name: "MiPushFramework-release-apks-$CI_COMMIT_TAG"
     when: always
     expire_in: 30 days
     paths:
-      - app/build/outputs/apk/**/release/*.apk
-      - app/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
-      - app/build/outputs/mapping/**/mapping.txt
+      - xmsf/build/outputs/apk/**/release/*.apk
+      - xmsf/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
+      - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
 
 android:release:play-bundle:
@@ -558,7 +559,7 @@ android:release:play-bundle:
       : "${KEY_ALIAS:?KEY_ALIAS is required}"
       : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
 
-      keystore_path="$CI_PROJECT_DIR/app/release.jks"
+      keystore_path="$CI_PROJECT_DIR/release.jks"
       printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
       chmod 0600 "$keystore_path"
       bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
@@ -622,10 +623,10 @@ android:release:play:
     - !reference [.magisk_linux_base, before_script]
     - |
       set -euo pipefail
-      output_root="$CI_PROJECT_DIR/app/build/outputs"
+      output_root="$CI_PROJECT_DIR/xmsf/build/outputs"
       mkdir -p "$output_root"
 
-      # The inherited publisher searches app/build with find, which does not
+      # The inherited publisher searches xmsf/build with find, which does not
       # traverse a symlink used as its starting path. Materialize the needed
       # artifact directories instead of linking mipush outputs into app.
       rm -rf "$output_root/bundle" "$output_root/mapping" "$output_root/native-debug-symbols"
@@ -660,7 +661,7 @@ android:ci:play-beta-bundle:
     - |
       set -euo pipefail
       export MAGISK_PLAY_TRACK_OVERRIDE=beta
-      keystore_path="$CI_PROJECT_DIR/app/release.jks"
+      keystore_path="$CI_PROJECT_DIR/release.jks"
       printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
       chmod 0600 "$keystore_path"
       bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \

@@ -1,0 +1,3 @@
+# Reviewed external SDK compatibility protocols. Keep each entry covered by a focused ABI test.
+xmsf/shell/src/main/aidl/com/xiaomi/xms/subscribe_remind/IResultCallback.aidl
+xmsf/shell/src/main/aidl/com/xiaomi/xms/subscribe_remind/ISubscribeRemind.aidl

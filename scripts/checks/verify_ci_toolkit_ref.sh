@@ -41,8 +41,8 @@ mapfile -t include_refs < <(
   ' "$CI_FILE"
 ) || fail "a toolkit include is missing its ref"
 
-[ "${#include_refs[@]}" -eq 4 ] ||
-  fail "expected four $TOOLKIT_PROJECT include refs, found ${#include_refs[@]}"
+[ "${#include_refs[@]}" -eq 5 ] ||
+  fail "expected five $TOOLKIT_PROJECT include refs, found ${#include_refs[@]}"
 for ref in "${include_refs[@]}"; do
   normalized_ref="$(printf '%s' "$ref" | normalize_sha)"
   [[ "$normalized_ref" =~ $SHA_PATTERN ]] || fail "include ref must be a full SHA: $ref"

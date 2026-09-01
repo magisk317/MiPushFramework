@@ -137,7 +137,6 @@ exceptions:
       - '**/ForegroundHelper.kt'
       - '**/PushServiceStarter.kt'
       - '**/RegisterRecorder.kt'
-      - '**/RegistrationRecorder.kt'
       - '**/KeepAliveReceiver.kt'
       - '**/MiPushPingReceiver.kt'
       - '**/PkgUninstallReceiver.kt'

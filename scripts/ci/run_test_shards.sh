@@ -3,6 +3,7 @@ set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=android_test_shards.sh
+# shellcheck disable=SC1091
 source "$root_dir/scripts/ci/android_test_shards.sh"
 toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-$root_dir/.magisk-ci-toolkit}"
 gradle_runner="$toolkit_dir/gradle/run_gradle_with_retry.sh"
@@ -27,7 +28,7 @@ run_test() {
 
 run_shard() {
   case "$1" in
-    app-compile) run_test :app:compileNormalDebugKotlin ;;
+    xmsf-compile) run_test :xmsf:compileNormalDebugKotlin ;;
     mipush-compile)
       run_test \
         :mipush:compileGithubDebugKotlin \
@@ -47,6 +48,7 @@ run_shard() {
         :xmsf:runtime:store:testAndroidHostTest \
         :manager:ui:testDebugUnitTest
       run_test :configuration:jvmTest
+      run_test :manager:port:test
       run_test :manager:contract:testDebugUnitTest
       run_test :manager:client:testDebugUnitTest
       run_test :common:testDebugUnitTest

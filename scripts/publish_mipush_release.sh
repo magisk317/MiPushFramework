@@ -161,7 +161,7 @@ collect_and_validate_release_assets() {
   local -a expected_abis=(arm64-v8a armeabi-v7a universal x86 x86_64)
 
   mapfile -t xmsf_release_assets < <(
-    find_if_dir app/build/outputs/apk -type f -path '*/release/*.apk' | sort
+    find_if_dir xmsf/build/outputs/apk -type f -path '*/release/*.apk' | sort
   )
   mapfile -t mipush_release_assets < <(
     find_if_dir mipush/build/outputs/apk -type f -path '*/release/*.apk' | sort
@@ -171,8 +171,8 @@ collect_and_validate_release_assets() {
   )
   mapfile -t release_support_assets < <(
     {
-      find_if_dir app/build/outputs/mapping -type f -name mapping.txt
-      find_if_dir app/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip
+      find_if_dir xmsf/build/outputs/mapping -type f -name mapping.txt
+      find_if_dir xmsf/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip
     } | sort
   )
 

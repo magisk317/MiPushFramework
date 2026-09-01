@@ -86,7 +86,7 @@ run_pre_push_checks() {
     :xmsf:runtime:compileDebugKotlin
     :xmsf:shell:assembleNormalDebug
     :xmsf:shell:assembleVc105Debug
-    :app:assembleRelease
+    :xmsf:assembleRelease
     :mipush:assembleRelease
     -PbuildSplits
     -Pkotlin.incremental=false

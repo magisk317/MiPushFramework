@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 BASELINE="scripts/module_boundary_baseline.txt"
 VENDOR_BASELINE="scripts/vendor_boundary_baseline.txt"
 COMMON_MAIN_JVM_COMPAT_BASELINE="scripts/common_main_jvm_compat_baseline.txt"
+AIDL_CHANGE_ALLOWLIST="scripts/aidl_change_allowlist.txt"
 if [ ! -f "$BASELINE" ]; then
   echo "Missing module boundary baseline: $BASELINE" >&2
   exit 1
@@ -17,6 +18,10 @@ if [ ! -f "$VENDOR_BASELINE" ]; then
 fi
 if [ ! -f "$COMMON_MAIN_JVM_COMPAT_BASELINE" ]; then
   echo "Missing commonMain JVM compatibility baseline: $COMMON_MAIN_JVM_COMPAT_BASELINE" >&2
+  exit 1
+fi
+if [ ! -f "$AIDL_CHANGE_ALLOWLIST" ]; then
+  echo "Missing reviewed AIDL change allowlist: $AIDL_CHANGE_ALLOWLIST" >&2
   exit 1
 fi
 
@@ -152,7 +157,7 @@ fi
 
 for build_file in "manager/ui/build.gradle.kts" "settings/build.gradle.kts"; do
   if [ -f "$build_file" ]; then
-    rg -n 'project\(":(vendor|xmsf:shell|pinned)"\)' "$build_file" \
+    rg -n --with-filename 'project\(":(vendor|xmsf:shell|pinned)"\)' "$build_file" \
       | while IFS=: read -r path _line import_line; do
         [ -n "${path:-}" ] || continue
         printf '%s|%s\n' "$path" "$import_line"
@@ -160,18 +165,24 @@ for build_file in "manager/ui/build.gradle.kts" "settings/build.gradle.kts"; do
   fi
 done
 
-for build_file in "manager/contract/build.gradle.kts" "manager/client/build.gradle.kts"; do
-  if [ -f "$build_file" ]; then
-    rg -n 'project\(":(common|core|pinned|settings|vendor|xmsf:shell)"\)' "$build_file" \
-      | while IFS=: read -r path _line import_line; do
-        [ -n "${path:-}" ] || continue
-        printf '%s|%s\n' "$path" "$import_line"
-      done >> "$tmp_forbidden_deps" || true
-  fi
-done
+build_file="manager/client/build.gradle.kts"
+if [ -f "$build_file" ]; then
+  rg -n --with-filename 'project\(":(common|pinned|settings|vendor|xmsf:shell)"\)' "$build_file" \
+    | while IFS=: read -r path _line import_line; do
+      [ -n "${path:-}" ] || continue
+      printf '%s|%s\n' "$path" "$import_line"
+    done >> "$tmp_forbidden_deps" || true
+fi
+if [ -f "manager/contract/build.gradle.kts" ]; then
+  rg -n --with-filename 'project\(":(common|pinned|settings|vendor|xmsf:shell)"\)' "manager/contract/build.gradle.kts" \
+    | while IFS=: read -r path _line import_line; do
+      [ -n "${path:-}" ] || continue
+      printf '%s|%s\n' "$path" "$import_line"
+    done >> "$tmp_forbidden_deps" || true
+fi
 
 if [ -f "manager/application/build.gradle.kts" ]; then
-  rg -n 'project\(":(common|pinned|settings|vendor|xmsf(:[^\"]+)?)"\)' "manager/application/build.gradle.kts" \
+    rg -n --with-filename 'project\(":(common|pinned|settings|vendor|xmsf(:[^\"]+)?)"\)' "manager/application/build.gradle.kts" \
     | while IFS=: read -r path _line import_line; do
       [ -n "${path:-}" ] || continue
       printf '%s|%s\n' "$path" "$import_line"
@@ -179,7 +190,7 @@ if [ -f "manager/application/build.gradle.kts" ]; then
 fi
 
 # Freeze the reviewed project-dependency DAG for foundational and runtime feature modules.
-# The shell/app modules are composition roots and intentionally are not constrained here.
+# The xmsf shell/application modules are composition roots and intentionally are not constrained here.
 # vendor is frozen compatibility code: its current store edge is recorded as debt so no new
 # lower-layer edge can be introduced; remove the edge only with an explicit vendor review.
 python3 - "$tmp_forbidden_deps" <<'PY'
@@ -194,17 +205,18 @@ allowed = {
     "configuration/build.gradle.kts": {":core", ":common", ":settings"},
     "diagnostics/build.gradle.kts": {":magisk-xposed-kit:logging", ":magisk-xposed-kit:diagnostics"},
     "settings/build.gradle.kts": {":common", ":core"},
-    "xposed/build.gradle.kts": {":common", ":magisk-xposed-kit"},
+    "xposed/build.gradle.kts": {":common", ":core", ":magisk-xposed-kit"},
     "vendor/build.gradle.kts": {
         ":common", ":core", ":pinned", ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
     },
     "xmsf/platform/build.gradle.kts": {":common"},
     "xmsf/runtime/store/build.gradle.kts": {":core"},
-    "manager/contract/build.gradle.kts": set(),
-    "manager/application/build.gradle.kts": {":core"},
-    "manager/client/build.gradle.kts": {":manager:contract", ":magisk-xposed-kit:logging"},
+    "manager/contract/build.gradle.kts": {":core"},
+    "manager/application/build.gradle.kts": {":core", ":manager:port"},
+    "manager/port/build.gradle.kts": set(),
+    "manager/client/build.gradle.kts": {":manager:contract", ":core", ":magisk-xposed-kit:logging"},
     "xmsf/runtime/build.gradle.kts": {
-        ":common", ":manager:application", ":core", ":pinned", ":vendor",
+        ":common", ":manager:port", ":core", ":pinned", ":vendor",
         ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
     },
     "xmsf/push/build.gradle.kts": {
@@ -362,6 +374,16 @@ for root_arg in sys.argv[2:]:
                 print(f"{path}:{line_number}:{code.strip()}")
 PY
 }
+
+manager_port_leaks="$(find_code_platform_references \
+  '\\b(android\\.|androidx\\.|java\\.|javax\\.|com\\.xiaomi\\.|com\\.topjohnwu\\.|org\\.apache\\.thrift\\.)' \
+  "manager/port/src/main" 2>/dev/null || true)"
+if [ -n "$manager_port_leaks" ]; then
+  echo "manager:port must remain a platform-neutral manager value module." >&2
+  echo >&2
+  printf '%s\\n' "$manager_port_leaks" >&2
+  exit 1
+fi
 
 # common is a shared contract/model layer. Protocol serialization and Thrift
 # types belong to the xmsf runtime adapter and must not leak back into it.
@@ -613,7 +635,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|common|common/*|configuration|configuration/*|mipush|mipush/*|app/build.gradle.kts|mipush/build.gradle.kts|README.md|.github/workflows/ci.yml|.gitlab-ci.yml|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/ci/*|scripts/release_tag.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|xmsf/runtime/store/*|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
+    magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
@@ -637,15 +659,21 @@ done < "$tmp_changed_paths"
 
 if [ -s "$tmp_boundary_violations" ]; then
   echo "Runtime boundary check failed: changed files are outside the allowed modules." >&2
-  echo "Allowed: UI/manager modules, xposed, xmsf/vendor warning fixes, and this verifier." >&2
+  echo "Allowed: product modules, reviewed quality configuration, relevant docs/scripts, and this verifier." >&2
   cat "$tmp_boundary_violations" >&2
   exit 1
 fi
 
 if [ -s "$tmp_aidl_changes" ]; then
-  echo "Runtime boundary check failed: AIDL files changed; external Binder semantics must remain unchanged." >&2
-  cat "$tmp_aidl_changes" >&2
-  exit 1
+  tmp_aidl_allowlist="$(mktemp)"
+  trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps" "$tmp_forbidden_xmsf_edges" "$tmp_vendor_current" "$tmp_vendor_baseline" "$tmp_vendor_new" "$tmp_vendor_stale" "$tmp_common_main_jvm_current" "$tmp_common_main_jvm_baseline" "$tmp_common_main_jvm_new" "$tmp_common_main_jvm_stale" "$tmp_aidl_changes" "$tmp_aidl_allowlist"' EXIT
+  sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$AIDL_CHANGE_ALLOWLIST" | sort -u > "$tmp_aidl_allowlist"
+  if comm -23 <(sort -u "$tmp_aidl_changes") "$tmp_aidl_allowlist" | grep -q .; then
+    echo "Runtime boundary check failed: unreviewed AIDL files changed." >&2
+    echo "Add deliberate protocol changes to $AIDL_CHANGE_ALLOWLIST with focused ABI tests." >&2
+    comm -23 <(sort -u "$tmp_aidl_changes") "$tmp_aidl_allowlist" >&2
+    exit 1
+  fi
 fi
 
 # UI Kit is project-neutral. Check both source and its Gradle dependencies so a
@@ -674,7 +702,7 @@ if [ -n "$manager_notification_framework" ]; then
   exit 1
 fi
 
-app_host="app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt"
+xmsf_host="xmsf/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt"
 mipush_host="mipush/src/main/java/io/github/magisk317/mipush/app/App.kt"
 framework_host="xmsf/shell/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt"
 
@@ -690,19 +718,19 @@ require_bootstrap_contract() {
 
 require_bootstrap_contract \
   'implementation\(project\(":manager:ui"\)\)' \
-  "app/build.gradle.kts" \
-  ":app must package the manager bootstrap implementation."
+  "xmsf/build.gradle.kts" \
+  ":xmsf must package the manager bootstrap implementation."
 require_bootstrap_contract \
   'override fun onAppDependenciesStarted\(\)' \
-  "$app_host" \
+  "$xmsf_host" \
   "MiPushHostApp must use the post-AppDependencies startup hook."
 require_bootstrap_contract \
   'PushControllerUtils\.isAppMainProc\(this\)' \
-  "$app_host" \
+  "$xmsf_host" \
   "MiPushHostApp must gate manager startup to the main process."
 require_bootstrap_contract \
   'ManagerDependencies\.startFromAppShell\(this\)' \
-  "$app_host" \
+  "$xmsf_host" \
   "MiPushHostApp must own app-shell manager startup."
 require_bootstrap_contract \
   'protected open fun onAppDependenciesStarted\(\)' \

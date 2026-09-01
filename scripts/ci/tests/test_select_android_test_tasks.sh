@@ -4,6 +4,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$script_dir/../../.." && pwd)"
 selector="$root_dir/scripts/ci/select_android_test_tasks.sh"
 # shellcheck source=../android_test_shards.sh
+# shellcheck disable=SC1091
 source "$root_dir/scripts/ci/android_test_shards.sh"
 tmp_dir="$(mktemp -d)"; trap 'rm -rf "$tmp_dir"' EXIT
 assert_contains() { grep -Fx -- "$1" "$2" >/dev/null || { echo "missing $1" >&2; exit 1; }; }
@@ -26,9 +27,12 @@ assert_contains 'android-pure-modules' "$tmp_dir/out"; assert_known_shards "$tmp
 printf 'impact\nxposed/Example.kt\n' > "$tmp_dir/xposed"
 run_selector /dev/null "$tmp_dir/xposed" > "$tmp_dir/out"
 assert_contains 'android-pure-modules' "$tmp_dir/out"; assert_known_shards "$tmp_dir/out"
-printf 'impact\napp/Example.kt\nmipush/Example.kt\n' > "$tmp_dir/apps"
+printf 'impact\nmanager/port/Example.kt\n' > "$tmp_dir/manager-port"
+run_selector /dev/null "$tmp_dir/manager-port" > "$tmp_dir/out"
+assert_contains 'android-pure-modules' "$tmp_dir/out"; assert_known_shards "$tmp_dir/out"
+printf 'impact\nxmsf/src/Example.kt\nmipush/Example.kt\n' > "$tmp_dir/apps"
 run_selector /dev/null "$tmp_dir/apps" > "$tmp_dir/out"
-assert_contains 'app-compile' "$tmp_dir/out"; assert_contains 'mipush-compile' "$tmp_dir/out"
+assert_contains 'xmsf-compile' "$tmp_dir/out"; assert_contains 'mipush-compile' "$tmp_dir/out"
 assert_known_shards "$tmp_dir/out"
 printf 'impact\ndocs/ci.md\n' > "$tmp_dir/docs"
 run_selector /dev/null "$tmp_dir/docs" > "$tmp_dir/out"; assert_empty "$tmp_dir/out"

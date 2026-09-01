@@ -14,11 +14,15 @@ fail() {
 # A GitLab release must suppress the branch pipeline, while the tag push must
 # remain a normal push so the tag pipeline is created. Force options are
 # allowed because release_tag.sh may rewrite an amended release commit.
+# These patterns intentionally match literal shell source, including the variable names.
+# shellcheck disable=SC2016
 grep -Fq -- '-o ci.skip "$REMOTE_NAME" "$current_branch"' "$RELEASE_SCRIPT" \
   || fail "branch push does not use GitLab ci.skip"
+# shellcheck disable=SC2016
 grep -Fq -- '"$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT" \
   || fail "tag push is missing"
 
+# shellcheck disable=SC2016
 if grep -Fq -- '-o ci.skip "$REMOTE_NAME" "$TAG_NAME"' "$RELEASE_SCRIPT"; then
   fail "ci.skip must not be applied to the tag push"
 fi

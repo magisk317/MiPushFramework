@@ -60,7 +60,7 @@ jobs:
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
       - name: Resolve Play release version
         if: env.HAS_RELEASE_SIGNING == 'true'
         shell: bash
@@ -82,7 +82,7 @@ jobs:
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: :app:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
+          arguments: :xmsf:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -102,10 +102,10 @@ jobs:
               echo "SKIP optional release asset: $source_file"
             fi
           }
-          copy_optional app/build/outputs/mapping/normalRelease/mapping.txt mapping-normal-release.txt
-          copy_optional app/build/outputs/mapping/vc105Release/mapping.txt mapping-vc105-release.txt
-          copy_optional app/build/outputs/native-debug-symbols/normalRelease/native-debug-symbols.zip native-symbols-normal-release.zip
-          copy_optional app/build/outputs/native-debug-symbols/vc105Release/native-debug-symbols.zip native-symbols-vc105-release.zip
+          copy_optional xmsf/build/outputs/mapping/normalRelease/mapping.txt mapping-normal-release.txt
+          copy_optional xmsf/build/outputs/mapping/vc105Release/mapping.txt mapping-vc105-release.txt
+          copy_optional xmsf/build/outputs/native-debug-symbols/normalRelease/native-debug-symbols.zip native-symbols-normal-release.zip
+          copy_optional xmsf/build/outputs/native-debug-symbols/vc105Release/native-debug-symbols.zip native-symbols-vc105-release.zip
 
       - name: Upload XMSF release artifact
         if: env.HAS_RELEASE_SIGNING == 'true'
@@ -113,8 +113,8 @@ jobs:
         with:
           name: apks-xmsf
           path: |
-            app/build/outputs/apk/normal/release/**/*.apk
-            app/build/outputs/apk/vc105/release/**/*.apk
+            xmsf/build/outputs/apk/normal/release/**/*.apk
+            xmsf/build/outputs/apk/vc105/release/**/*.apk
             release-debug-files/
 
   build-mipush-apk:
@@ -138,7 +138,7 @@ jobs:
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
 
       - name: Skip unsupported release signing
         if: env.HAS_RELEASE_SIGNING != 'true'
@@ -181,7 +181,7 @@ jobs:
           checkout: 'false'
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
       - name: Skip unsupported release signing
         if: env.HAS_RELEASE_SIGNING != 'true'
         run: echo "SKIP Play bundle; complete signing credentials are not configured."
@@ -210,6 +210,8 @@ jobs:
     name: Build Zygisk Module
     needs: [validate-release]
     runs-on: ubuntu-latest
+    env:
+      MIPUSH_ZYGISK_REF: 77b23b5dfdae8b63b484dc7bf35f4d6951b00733
     steps:
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7
@@ -221,7 +223,12 @@ jobs:
         id: zygisk-source
         shell: bash
         run: |
-          if git ls-remote --exit-code https://gitlab.com/magisk3171/MiPushZygisk.git refs/heads/main >/dev/null 2>&1; then
+          probe_dir="$(mktemp -d)"
+          trap 'rm -rf "$probe_dir"' EXIT
+          git -C "$probe_dir" init -q
+          git -C "$probe_dir" remote add origin https://gitlab.com/magisk3171/MiPushZygisk.git
+          if git -C "$probe_dir" fetch --quiet --depth 1 origin "$MIPUSH_ZYGISK_REF" &&
+            [[ "$(git -C "$probe_dir" rev-parse FETCH_HEAD)" == "$MIPUSH_ZYGISK_REF" ]]; then
             echo "supported=true" >> "$GITHUB_OUTPUT"
           else
             echo "supported=false" >> "$GITHUB_OUTPUT"
@@ -230,11 +237,15 @@ jobs:
 
       - name: Checkout MiPushZygisk
         if: steps.zygisk-source.outputs.supported == 'true'
-        run: git clone --depth 1 --branch main https://gitlab.com/magisk3171/MiPushZygisk.git MiPushZygisk
+        run: |
+          git init MiPushZygisk
+          git -C MiPushZygisk remote add origin https://gitlab.com/magisk3171/MiPushZygisk.git
+          git -C MiPushZygisk fetch --depth 1 origin "$MIPUSH_ZYGISK_REF"
+          git -C MiPushZygisk checkout --detach FETCH_HEAD
 
       - name: Install Rust toolchain
         if: steps.zygisk-source.outputs.supported == 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.0
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
@@ -243,7 +254,7 @@ jobs:
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r27d
+          ndk-version: r30-beta3
 
       - name: Build Zygisk module
         if: steps.zygisk-source.outputs.supported == 'true'

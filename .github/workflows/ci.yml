@@ -84,12 +84,12 @@ jobs:
           checkout: 'false'
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
       - name: Build
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+          arguments: --warning-mode all :xmsf:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -111,68 +111,68 @@ jobs:
               name=$(basename "$apk")
               app=$(printf '%s\n' "$apk" | awk -F/ '{print $1}')
               echo "| $app | $name | $size |"
-            done < <(find app/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
+            done < <(find xmsf/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload XMSF Normal Debug APK (arm64-v8a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-arm64-v8a
-          path: app/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF vc105 Debug APK (arm64-v8a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-arm64-v8a
-          path: app/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF Normal Debug APK (armeabi-v7a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-armeabi-v7a
-          path: app/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF Normal Debug APK (x86)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-x86
-          path: app/build/outputs/apk/normal/debug/**/*x86_*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*x86_*.apk
       - name: Upload XMSF Normal Debug APK (x86_64)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-x86_64
-          path: app/build/outputs/apk/normal/debug/**/*x86_64*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*x86_64*.apk
       - name: Upload XMSF Normal Debug APK (universal)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-universal
-          path: app/build/outputs/apk/normal/debug/**/*universal*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*universal*.apk
       - name: Upload XMSF vc105 Debug APK (armeabi-v7a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-armeabi-v7a
-          path: app/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF vc105 Debug APK (x86)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-x86
-          path: app/build/outputs/apk/vc105/debug/**/*x86_*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_*.apk
       - name: Upload XMSF vc105 Debug APK (x86_64)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-x86_64
-          path: app/build/outputs/apk/vc105/debug/**/*x86_64*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_64*.apk
       - name: Upload XMSF vc105 Debug APK (universal)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-universal
-          path: app/build/outputs/apk/vc105/debug/**/*universal*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*universal*.apk
       - name: Upload MiPush Debug APK (arm64-v8a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
@@ -208,6 +208,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MAGISK_BUILD_TYPE: debug
+      MIPUSH_ZYGISK_REF: 77b23b5dfdae8b63b484dc7bf35f4d6951b00733
     steps:
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7
@@ -218,10 +219,14 @@ jobs:
         run: echo "MAGISK_BUILD_TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_ENV"
 
       - name: Checkout MiPushZygisk
-        run: git clone --depth 1 --branch main https://gitlab.com/magisk3171/MiPushZygisk.git MiPushZygisk
+        run: |
+          git init MiPushZygisk
+          git -C MiPushZygisk remote add origin https://gitlab.com/magisk3171/MiPushZygisk.git
+          git -C MiPushZygisk fetch --depth 1 origin "$MIPUSH_ZYGISK_REF"
+          git -C MiPushZygisk checkout --detach FETCH_HEAD
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.0
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
@@ -229,7 +234,7 @@ jobs:
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r27d
+          ndk-version: r30-beta3
 
       - name: Build Zygisk module
         env:

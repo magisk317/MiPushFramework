@@ -16,7 +16,10 @@ MIPUSH_ZYGISK_VERSION_CODE="${MIPUSH_ZYGISK_VERSION_CODE:-$(extract_toml_value "
 
 if [[ -z "$MIPUSH_ZYGISK_VERSION_NAME" || -z "$MIPUSH_ZYGISK_VERSION_CODE" ]]; then
   echo "ERROR: failed to parse MiPush version for Zygisk build from $VERSION_FILE" >&2
-  return 1 2>/dev/null || exit 1
+  if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    exit 1
+  fi
+  return 1
 fi
 
 export MIPUSH_ZYGISK_VERSION_NAME

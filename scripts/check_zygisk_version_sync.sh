@@ -15,6 +15,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# shellcheck source=resolve_zygisk_version_env.sh
+# shellcheck disable=SC1091
 MIPUSH_FRAMEWORK_ROOT="$ROOT_DIR" source "$SCRIPT_DIR/resolve_zygisk_version_env.sh"
 
 read_prop_value() {

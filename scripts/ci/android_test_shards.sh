@@ -3,7 +3,7 @@
 # Shared protocol for scripts that select or execute Android CI test shards.
 readonly -a ANDROID_TEST_SHARDS=(
   android-pure-modules
-  app-compile
+  xmsf-compile
   mipush-compile
 )
 

@@ -5,6 +5,7 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 toolkit_dir="${1:-${MAGISK_CI_TOOLKIT_DIR:-$root_dir/.magisk-ci-toolkit}}"
 paths_file="${2:-}"
 # shellcheck source=android_test_shards.sh
+# shellcheck disable=SC1091
 source "$root_dir/scripts/ci/android_test_shards.sh"
 full_shards=("${ANDROID_TEST_SHARDS[@]}")
 
@@ -34,9 +35,9 @@ while IFS= read -r path; do
     impact|.gitlab-ci.yml|.github/workflows/*|docs/*|README*|LICENSE*|CHANGELOG*) continue ;;
     build.gradle*|settings.gradle*|gradle.properties|gradle/*|build-logic/*|.gitmodules|scripts/*|.magisk-ci-toolkit/*)
       printf '%s\n' "${full_shards[@]}"; exit 0 ;;
-    common/*|core/*|xmsf/*|xposed/*|manager/ui/*|manager/contract/*|manager/client/*|settings/*|configuration/*|vendor/*|pinned/*)
+    xmsf/src/*|xmsf/build.gradle.kts|xmsf/proguard-rules.pro) select_task xmsf-compile ;;
+    common/*|core/*|xmsf/*|xposed/*|manager/ui/*|manager/contract/*|manager/client/*|manager/port/*|settings/*|configuration/*|vendor/*|pinned/*)
       select_task android-pure-modules ;;
-    app/*) select_task app-compile ;;
     mipush/*) select_task mipush-compile ;;
     *) has_source_change=1 ;;
   esac

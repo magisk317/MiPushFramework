@@ -11,5 +11,5 @@ bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" \
   :magisk-ui-kit:compileDebugKotlin \
   :magisk-xposed-kit:compileDebugKotlin \
   :manager:ui:compileDebugKotlin \
-  :app:compileNormalDebugKotlin \
+  :xmsf:compileNormalDebugKotlin \
   :mipush:compileGithubDebugKotlin
