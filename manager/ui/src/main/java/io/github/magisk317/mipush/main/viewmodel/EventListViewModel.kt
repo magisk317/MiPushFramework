@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -8,11 +8,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.ManagerStatePolicies
+import io.github.magisk317.mipush.manager.application.ManagerEventResult
+import io.github.magisk317.mipush.manager.application.ManagerEventType
 import io.github.magisk317.mipush.manager.application.ManagerDayCount
 import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
@@ -46,7 +50,7 @@ class EventListViewModel constructor(
     private val eventGateway: ManagerEventGateway,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
-    private val context: Context,
+    private val context: Application,
     private val runtimeClient: ManagerRuntimeClient,
     private val runtimePreferenceGateway: RuntimePreferenceGateway,
     private val cacheStore: EventListCacheStore,
@@ -54,12 +58,97 @@ class EventListViewModel constructor(
     companion object {
         internal const val MAX_EVENT_LIST_SNAPSHOT_EVENTS = 200
 
+        internal fun shouldUseEventCache(refreshSignal: Int): Boolean = refreshSignal == 0
+
+        private val LEGACY_REGISTRATION_ATTEMPT_CONTENTS = setOf(
+            "尝试注册推送",
+            "Try to register push",
+        )
+        private val LEGACY_REGISTRATION_RESULT_CONTENTS = setOf(
+            "收到注册结果",
+            "Receive register result",
+        )
+        private val LEGACY_NOTIFICATION_CONTENT_PREFIXES = setOf(
+            "收到通知",
+            "Receive notification",
+        )
+        private val LEGACY_COMMAND_CONTENT_PREFIXES = setOf(
+            "收到命令",
+            "Receive command",
+        )
+
+        /**
+         * Cached rows written by older manager builds did not persist type. Their default type
+         * becomes SEND_MESSAGE, so recover the non-message type from the stable display summary.
+         */
+        private fun legacyCachedNonMessageType(content: String): Int? {
+            val normalized = content.trim()
+            return when {
+                LEGACY_REGISTRATION_ATTEMPT_CONTENTS.contains(normalized) -> ManagerEventType.REGISTRATION
+                LEGACY_REGISTRATION_RESULT_CONTENTS.contains(normalized) -> ManagerEventType.REGISTRATION_RESULT
+                LEGACY_NOTIFICATION_CONTENT_PREFIXES.any { normalized == it || normalized.startsWith("$it:") } ->
+                    ManagerEventType.NOTIFICATION
+                LEGACY_COMMAND_CONTENT_PREFIXES.any { normalized == it || normalized.startsWith("$it:") } ->
+                    ManagerEventType.NOTIFICATION
+                else -> null
+            }
+        }
+
+        /**
+         * Applies the same default visibility contract as RuntimeEventQueryPolicy to a cached
+         * snapshot. The persisted cache remains unmodified so switching to "show all events"
+         * can still reveal the complete history.
+         */
+        private fun cachedEventType(item: EventInfoForDisplay): Int = when {
+            item.event.type != ManagerEventType.SEND_MESSAGE -> item.event.type
+            else -> legacyCachedNonMessageType(item.content) ?: item.event.type
+        }
+
+        internal fun filterCachedEventsForDefaultMode(
+            events: List<EventInfoForDisplay>,
+        ): List<EventInfoForDisplay> {
+            val firstSuccessfulRegistrationKeys = events
+                .filter { item ->
+                    cachedEventType(item) == ManagerEventType.REGISTRATION_RESULT &&
+                        item.event.result == ManagerEventResult.OK
+                }
+                .groupBy { it.packageName }
+                .values
+                .mapNotNull { packageEvents ->
+                    packageEvents
+                        .minWithOrNull(compareBy<EventInfoForDisplay>({ it.receiveDate.time }, { it.id }))
+                        ?.composeKey()
+                }
+                .toSet()
+
+            return events.filter { item ->
+                when (cachedEventType(item)) {
+                    ManagerEventType.SEND_MESSAGE ->
+                        item.event.result != ManagerEventResult.DENY_DISABLED &&
+                            item.configOptions.none { it.equals("disable", ignoreCase = true) }
+                    ManagerEventType.REGISTRATION_RESULT ->
+                        item.event.result == ManagerEventResult.OK &&
+                            item.composeKey() in firstSuccessfulRegistrationKeys
+                    else -> false
+                }
+            }
+        }
+
+        internal fun eventsForDisplay(
+            events: List<EventInfoForDisplay>,
+            showAllEvents: Boolean,
+        ): List<EventInfoForDisplay> = if (showAllEvents) {
+            events
+        } else {
+            filterCachedEventsForDefaultMode(events)
+        }
+
         internal fun mergeEventItems(
             existing: List<EventInfoForDisplay>,
             incoming: List<EventInfoForDisplay>,
         ): List<EventInfoForDisplay> = (incoming + existing)
             .distinctBy { it.composeKey() }
-            .sortedByDescending { it.receiveDate.time }
+            .let { ManagerStatePolicies.newestFirst(it) { item -> item.receiveDate.time } }
 
         internal fun buildEventListSnapshot(
             events: List<EventInfoForDisplay>,
@@ -74,6 +163,15 @@ class EventListViewModel constructor(
                 hasMore = hasMore || events.size > snapshotEvents.size,
             )
         }
+
+        /**
+         * UI restoration identity includes the external refresh signal even though the persisted
+         * cache key does not. A presentation-policy change must force the list to re-read and filter
+         * the raw cache instead of reusing the previous visible snapshot.
+         */
+        internal fun eventListRestoreKey(query: String, packageName: String, refreshSignal: Int): String =
+            "q=$query;p=$packageName;refresh=$refreshSignal"
+
     }
 
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
@@ -158,6 +256,7 @@ class EventListViewModel constructor(
      * NOT hit the remote runtime. Returns true when a cached page was restored.
      */
     suspend fun loadFromCacheIfPresent(query: String, packageName: String, refreshSignal: Int): Boolean {
+        if (!shouldUseEventCache(refreshSignal)) return false
         if (snapshotValid &&
             snapshotQuery == query && snapshotPackageName == packageName && snapshotRefreshSignal == refreshSignal
         ) {
@@ -165,24 +264,32 @@ class EventListViewModel constructor(
         }
         val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)) ?: return false
         // Reconstruct a snapshot; lastId/hasMore unknown from cache -> full page, no more.
-        putEventListSnapshot(query, packageName, refreshSignal, cached, cached.lastOrNull()?.id, false)
-        _events.value = cached
+        val visible = eventsForDisplay(cached)
+        putEventListSnapshot(query, packageName, refreshSignal, visible, visible.lastOrNull()?.id, false)
+        _events.value = visible
         return true
     }
 
     suspend fun reloadFromCache(query: String, packageName: String, refreshSignal: Int): EventListSnapshot? {
         val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)) ?: return null
+        val visible = eventsForDisplay(cached)
         val snapshot = putEventListSnapshot(
             query,
             packageName,
             refreshSignal,
-            cached,
-            cached.lastOrNull()?.id,
+            visible,
+            visible.lastOrNull()?.id,
             false,
         )
-        _events.value = cached
+        _events.value = visible
         return snapshot
     }
+
+    private suspend fun eventsForDisplay(events: List<EventInfoForDisplay>): List<EventInfoForDisplay> =
+        eventsForDisplay(
+            events = events,
+            showAllEvents = preferenceRepository.showAllEvents.first(),
+        )
 
     /**
      * Background refresh of the first page; writes the persistent cache and the
@@ -197,16 +304,18 @@ class EventListViewModel constructor(
 
     private suspend fun refreshEventsSilently(query: String, packageName: String, refreshSignal: Int) {
         try {
-            val fresh = loadEventsRemote(
+            val freshRaw = loadEventsRemote(
                 EventListRequest(lastId = null, pageSize = Constants.PAGE_SIZE, packageName = packageName, query = query),
                 budget = PageRemoteCallPolicy.backgroundRefresh,
             ).map { toEventInfoForDisplay(it) }
-            // A refresh returns only the newest page. Merge it with older cached pages
-            // so a later cache-first open does not lose history.
+            val fresh = eventsForDisplay(freshRaw)
+            // A refresh returns only the newest page. Merge the raw page with older cached pages
+            // so a later cache-first open does not lose history; only the in-memory handoff is
+            // filtered for the current display mode.
             val cached = cacheStore.getCached(cacheKey(query, packageName, refreshSignal)).orEmpty()
             cacheStore.putCached(
                 cacheKey(query, packageName, refreshSignal),
-                mergeEventItems(cached, fresh).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
+                mergeEventItems(cached, freshRaw).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
             )
             // Silent refresh warms the disk cache only; it must NOT write the
             // in-memory snapshot, otherwise the page's cache-first seed would
@@ -259,14 +368,21 @@ class EventListViewModel constructor(
                         budget = if (isRefresh) PageRemoteCallPolicy.userAction else PageRemoteCallPolicy.visiblePage,
                     )
                 }
-                val loadedEvents = primary.map { toEventInfoForDisplay(it) }
+                val loadedRawEvents = primary.map { toEventInfoForDisplay(it) }
+                val loadedEvents = eventsForDisplay(loadedRawEvents)
                 if (isRefresh) {
                     _events.value = loadedEvents
                 } else {
                     _events.value = _events.value + loadedEvents
                 }
-                // Persist the refreshed first page so cold starts are instant.
-                    cacheStore.putCached(cacheKey(query, packageName, 0), _events.value.take(Constants.PAGE_SIZE))
+                // Persist the raw refreshed page while retaining raw cached history. The visible
+                // list is filtered, but the cache must remain reversible for "show all events".
+                val cacheKey = cacheKey(query, packageName, 0)
+                val cached = cacheStore.getCached(cacheKey).orEmpty()
+                cacheStore.putCached(
+                    cacheKey,
+                    mergeEventItems(cached, loadedRawEvents).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
+                )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: RuntimeReadUnavailableException) {
@@ -337,19 +453,20 @@ class EventListViewModel constructor(
                 query = query,
             )
             try {
-                val events = loadEventsRemote(
+                val loadedEvents = loadEventsRemote(
                     request,
                     budget = if (isRefresh) PageRemoteCallPolicy.userAction else PageRemoteCallPolicy.visiblePage,
                 ).map { toEventInfoForDisplay(it) }
-                // Keep pages already loaded locally when this request returns only one page.
-                if (events.isNotEmpty()) {
+                // Always cache the complete remote page, but never hand registration or disabled
+                // rows directly to the UI when "show all events" is off.
+                if (loadedEvents.isNotEmpty()) {
                     val cached = cacheStore.getCached(cacheKey(query, packageName)).orEmpty()
                     cacheStore.putCached(
                         cacheKey(query, packageName),
-                        mergeEventItems(cached, events).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
+                        mergeEventItems(cached, loadedEvents).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
                     )
                 }
-                events
+                eventsForDisplay(loadedEvents)
             } catch (error: RuntimeReadUnavailableException) {
                 logW("fetchEvents unavailable op=${error.operation} status=${error.status}")
                 throw error

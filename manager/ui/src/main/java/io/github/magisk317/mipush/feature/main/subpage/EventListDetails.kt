@@ -67,9 +67,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
@@ -143,6 +144,7 @@ internal fun EventDetailsDialog(
         MockReplayOutcome.BlockedByPermission to stringResource(R.string.mock_notification_blocked_by_permission),
         MockReplayOutcome.Dispatched to stringResource(R.string.mock_notification_dispatched),
         MockReplayOutcome.Posted to stringResource(R.string.mock_notification_posted),
+        MockReplayOutcome.FailedChannelDisabled to stringResource(R.string.mock_notification_failed_channel_disabled),
         MockReplayOutcome.Failed to stringResource(R.string.mock_notification_failed),
     )
     val replayScope = rememberCoroutineScope()
@@ -150,7 +152,9 @@ internal fun EventDetailsDialog(
     val verticalScroll = rememberScrollState()
     val horizontalScroll = rememberScrollState()
 
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val screenHeight = with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.height.toDp()
+    }
     val targetHeight = screenHeight * 0.9f
     val bodyMaxHeight = screenHeight * 0.62f
 
@@ -262,6 +266,7 @@ internal fun MockReplayOutcome.feedbackStringRes(): Int = when (this) {
     MockReplayOutcome.BlockedByPermission -> R.string.mock_notification_blocked_by_permission
     MockReplayOutcome.Dispatched -> R.string.mock_notification_dispatched
     MockReplayOutcome.Posted -> R.string.mock_notification_posted
+    MockReplayOutcome.FailedChannelDisabled -> R.string.mock_notification_failed_channel_disabled
     MockReplayOutcome.Failed -> R.string.mock_notification_failed
 }
 

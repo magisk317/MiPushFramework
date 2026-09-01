@@ -5,8 +5,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
+import androidx.core.net.toUri
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.common.utils.Utils
@@ -44,7 +44,7 @@ class AppConfigurationUtils(
     fun gotoRecentEventsPage() {
         context.startActivity(
             Intent(context, RecentEventListPage::class.java)
-                .setData(Uri.parse(application.packageName)),
+                .setData(application.packageName.toUri()),
         )
     }
 

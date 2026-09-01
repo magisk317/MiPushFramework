@@ -55,6 +55,7 @@ class ApplicationReadSourcesTest {
                     regSecCount = 0,
                     latestRegistrationEventResult = null,
                     inferenceReason = "never_attempted",
+                    userId = 0,
                 )
             },
             remoteLoader = { _, _ ->
@@ -121,6 +122,7 @@ class ApplicationReadSourcesTest {
                 ManagerRuntimeResult.Success(pages[seenTokens.lastIndex])
             },
             pageSizeProvider = { 2 },
+            userIdProvider = { 0 },
         )
 
         val result = source.load(ApplicationListRequest(query = "example"))
@@ -233,6 +235,7 @@ class ApplicationReadSourcesTest {
         val source = RemoteApplicationListSource(
             pageLoader = { ManagerRuntimeResult.Unsupported(ManagerProtocol.CAPABILITY_APPLICATION_LIST) },
             pageSizeProvider = { 1 },
+            userIdProvider = { 0 },
         )
 
         val result = source.load(ApplicationListRequest())

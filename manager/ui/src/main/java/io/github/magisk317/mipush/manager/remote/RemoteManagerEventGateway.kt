@@ -151,6 +151,7 @@ class RemoteManagerEventGateway(
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED -> MockReplayOutcome.Posted
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_DISPATCHED -> MockReplayOutcome.Dispatched
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED -> MockReplayOutcome.BlockedByPermission
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED -> MockReplayOutcome.FailedChannelDisabled
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED -> MockReplayOutcome.Failed
             else -> if (RemoteWriteSupport.isSuccess(result)) {
                 MockReplayOutcome.Dispatched
@@ -158,11 +159,13 @@ class RemoteManagerEventGateway(
                 MockReplayOutcome.Failed
             }
         }
-        val statusOk = outcome != MockReplayOutcome.Failed && outcome != MockReplayOutcome.BlockedByPermission
+        val statusOk = outcome != MockReplayOutcome.Failed &&
+            outcome != MockReplayOutcome.FailedChannelDisabled &&
+            outcome != MockReplayOutcome.BlockedByPermission
         emitManager(
             stage = "manager_mock_replay",
             result = when (outcome) {
-                MockReplayOutcome.Failed -> "error"
+                MockReplayOutcome.Failed, MockReplayOutcome.FailedChannelDisabled -> "error"
                 MockReplayOutcome.BlockedByPermission -> "skip"
                 else -> "ok"
             },
@@ -170,6 +173,7 @@ class RemoteManagerEventGateway(
                 MockReplayOutcome.Posted -> "posted"
                 MockReplayOutcome.Dispatched -> "dispatched"
                 MockReplayOutcome.BlockedByPermission -> "blocked_by_permission"
+                MockReplayOutcome.FailedChannelDisabled -> "channel_disabled"
                 MockReplayOutcome.Failed -> "failed"
             },
             statusOk = statusOk,

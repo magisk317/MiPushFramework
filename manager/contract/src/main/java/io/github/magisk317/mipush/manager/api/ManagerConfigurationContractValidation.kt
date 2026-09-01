@@ -1,60 +1,52 @@
 package io.github.magisk317.mipush.manager.api
 
-/** Internal preference ownership and configuration-upload validation domain. */
+import io.github.magisk317.mipush.manager.ConfigurationCatalogEntryValidationInput
+import io.github.magisk317.mipush.manager.ConfigurationCatalogValidationInput
+import io.github.magisk317.mipush.manager.ConfigurationUploadRequestValidationInput
+import io.github.magisk317.mipush.manager.ConfigurationUploadResultValidationInput
+import io.github.magisk317.mipush.manager.ManagerContractValidationCore
+import io.github.magisk317.mipush.manager.PreferenceEntryValidationInput
+import io.github.magisk317.mipush.manager.RuntimePreferencesValidationInput
+
+/** Parcelable facade over the platform-neutral configuration contract validation. */
 internal object ManagerConfigurationContractValidation {
-    fun validateRuntimePreferences(snapshot: ManagerRuntimePreferencesDto): String? {
-        if (snapshot.schemaVersion < 1) return "invalid_runtime_preferences_schema"
-        if (snapshot.entries.size > ManagerProtocol.MAX_PREFERENCE_ENTRY_COUNT) {
-            return "too_many_runtime_preferences"
-        }
-        snapshot.entries.forEach { entry ->
-            validatePreferenceEntry(entry, requireRuntimeOwner = true)?.let { return it }
-        }
-        return null
-    }
+    fun validateRuntimePreferences(snapshot: ManagerRuntimePreferencesDto): String? =
+        ManagerContractValidationCore.validateRuntimePreferences(
+            RuntimePreferencesValidationInput(
+                schemaVersion = snapshot.schemaVersion,
+                entries = snapshot.entries.map(::preferenceInput),
+            ),
+        )
 
-    fun validateManagerMigrationSnapshot(snapshot: ManagerMigrationSnapshotDto): String? {
-        if (snapshot.schemaVersion < 1) return "invalid_manager_migration_snapshot_schema"
-        if (snapshot.entries.size > ManagerProtocol.MAX_PREFERENCE_ENTRY_COUNT) {
-            return "too_many_migration_preferences"
-        }
-        snapshot.entries.forEach { entry ->
-            validatePreferenceEntry(entry, requireRuntimeOwner = false)?.let { return it }
-        }
-        return null
-    }
+    fun validateManagerMigrationSnapshot(snapshot: ManagerMigrationSnapshotDto): String? =
+        ManagerContractValidationCore.validateManagerMigrationSnapshot(
+            schemaVersion = snapshot.schemaVersion,
+            entries = snapshot.entries.map(::preferenceInput),
+        )
 
-    fun validateConfigurationUploadRequest(request: ManagerConfigurationUploadRequestDto): String? = when {
-        request.schemaVersion < 1 -> "invalid_configuration_upload_request_schema"
-        request.path.isBlank() || request.path.length > ManagerProtocol.MAX_CONFIGURATION_PATH_LENGTH ->
-            "invalid_configuration_upload_path"
-        request.path.contains("..") || request.path.startsWith("/") ->
-            "invalid_configuration_upload_path"
-        request.contentLength !in 0..ManagerProtocol.MAX_CONFIGURATION_UPLOAD_BYTES ->
-            "invalid_configuration_upload_size"
-        request.parcelFileDescriptor == null -> "configuration_upload_missing_descriptor"
-        else -> null
-    }
+    fun validateConfigurationUploadRequest(request: ManagerConfigurationUploadRequestDto): String? =
+        ManagerContractValidationCore.validateConfigurationUploadRequest(
+            ConfigurationUploadRequestValidationInput(
+                schemaVersion = request.schemaVersion,
+                path = request.path,
+                contentLength = request.contentLength,
+                descriptorPresent = request.parcelFileDescriptor != null,
+            ),
+        )
 
-    fun validateConfigurationUploadResult(result: ManagerConfigurationUploadResultDto): String? = when {
-        result.schemaVersion < 1 -> "invalid_configuration_upload_result_schema"
-        result.details.length > ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH ->
-            "configuration_upload_details_too_long"
-        else -> null
-    }
+    fun validateConfigurationUploadResult(result: ManagerConfigurationUploadResultDto): String? =
+        ManagerContractValidationCore.validateConfigurationUploadResult(
+            ConfigurationUploadResultValidationInput(
+                schemaVersion = result.schemaVersion,
+                details = result.details,
+            ),
+        )
 
-    private fun validatePreferenceEntry(
-        entry: ManagerPreferenceEntryDto,
-        requireRuntimeOwner: Boolean,
-    ): String? = when {
-        entry.schemaVersion < 1 -> "invalid_preference_entry_schema"
-        entry.key.isBlank() || entry.key.length > ManagerProtocol.MAX_PREFERENCE_KEY_LENGTH ->
-            "invalid_preference_key"
-        entry.value.length > ManagerProtocol.MAX_PREFERENCE_VALUE_LENGTH -> "preference_value_too_long"
-        entry.type !in setOf("string", "boolean", "int", "long", "float") ->
-            "invalid_preference_type"
-        requireRuntimeOwner && entry.owner != "runtime" -> "preference_not_runtime_owned"
-        !requireRuntimeOwner && entry.owner != "manager" -> "preference_not_manager_owned"
-        else -> null
-    }
+    private fun preferenceInput(entry: ManagerPreferenceEntryDto) = PreferenceEntryValidationInput(
+        schemaVersion = entry.schemaVersion,
+        key = entry.key,
+        type = entry.type,
+        value = entry.value,
+        owner = entry.owner,
+    )
 }

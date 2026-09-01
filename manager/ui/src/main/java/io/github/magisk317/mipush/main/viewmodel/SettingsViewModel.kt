@@ -14,13 +14,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
-import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
-import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
-import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
@@ -60,7 +53,7 @@ class SettingsViewModel constructor(
     private val permissionGateway: ManagerPermissionGateway,
     private val runtimePreferenceGateway: RuntimePreferenceGateway,
     private val runtimeClient: ManagerRuntimeClient,
-    currentUserIdProvider: () -> Int = { Utils.myUserId() },
+    currentUserIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
 ) : ViewModel() {
     data class ThemeState(
         val mode: Int,
@@ -125,27 +118,6 @@ class SettingsViewModel constructor(
 
     val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val islandRendererMode: StateFlow<String> = preferenceRepository.islandRendererMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "auto")
-
-    val islandVisualEnabled: StateFlow<Boolean> = preferenceRepository.islandVisualEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val islandDynamicColor: StateFlow<Boolean> = preferenceRepository.islandDynamicColor
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val islandBlurEnabled: StateFlow<Boolean> = preferenceRepository.islandBlurEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val islandGlassEnabled: StateFlow<Boolean> = preferenceRepository.islandGlassEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val islandOuterGlowEnabled: StateFlow<Boolean> = preferenceRepository.islandOuterGlowEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val islandAnimationEnabled: StateFlow<Boolean> = preferenceRepository.islandAnimationEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val colorStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -248,27 +220,6 @@ class SettingsViewModel constructor(
     fun setIslandFocusNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_FOCUS_NOTIF, value, onResult)
 
-    fun setIslandRendererMode(value: String, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeString(ISLAND_PREF_RENDERER_MODE, value, onResult)
-
-    fun setIslandVisualEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_VISUAL_ENABLED, value, onResult)
-
-    fun setIslandDynamicColor(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_DYNAMIC_COLOR, value, onResult)
-
-    fun setIslandBlurEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_BLUR_ENABLED, value, onResult)
-
-    fun setIslandGlassEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_GLASS_ENABLED, value, onResult)
-
-    fun setIslandOuterGlowEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_OUTER_GLOW_ENABLED, value, onResult)
-
-    fun setIslandAnimationEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(ISLAND_PREF_ANIMATION_ENABLED, value, onResult)
-
     fun setColorStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, value, onResult)
 
@@ -327,17 +278,6 @@ class SettingsViewModel constructor(
         onResult?.invoke(success)
     }
 
-    private fun updateRuntimeString(
-        key: String,
-        value: String,
-        onResult: ((Boolean) -> Unit)?,
-    ) = viewModelScope.launch {
-        val success = withContext(Dispatchers.IO) {
-            runtimePreferenceGateway.setString(key, value)
-        }
-        onResult?.invoke(success)
-    }
-
     fun setDualAppEnabled(enabled: Boolean, onResult: ((Boolean, String) -> Unit)? = null) {
         if (!canManageDualApp) {
             onResult?.invoke(false, "请在主空间（User 0）管理双开")
@@ -386,62 +326,6 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setUiKitStyle(style)
             _themeState.value = _themeState.value.copy(uiKitStyle = style)
-        }
-    }
-
-    val selectedLauncherIcon = preferenceRepository.selectedLauncherIcon
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "default")
-
-    fun setSelectedLauncherIcon(context: android.content.Context, iconId: String) {
-        viewModelScope.launch {
-            preferenceRepository.setSelectedLauncherIcon(iconId)
-            // Must run on main: finishAndRemoveTask + relaunch refreshes Recents icon.
-            // Cross-user alias sync (dual-space 999) must finish before process kill.
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                val resumeRoute =
-                    io.github.magisk317.mipush.feature.navigation.AppDestinations.Settings.ROUTE
-                io.github.magisk317.mipush.manager.launcher.LauncherIconController.applyAndRelaunch(
-                    context = context,
-                    iconId = iconId,
-                    resumeRoute = resumeRoute,
-                    crossUserSync = { normalized ->
-                        // Binder → xmsf root: pm enable/disable --user 0/999
-                        try {
-                            RemoteWriteSupport.execute(
-                                client = runtimeClient,
-                                operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
-                                argument = normalized,
-                            )
-                        } catch (_: Throwable) {
-                            // The primary alias update and local relaunch remain usable.
-                        }
-                    },
-                    scheduleExternalRelaunch = { route ->
-                        // Primary relaunch: xmsf schedules root `am start` after manager dies.
-                        try {
-                            RemoteWriteSupport.execute(
-                                client = runtimeClient,
-                                operation = ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER,
-                                argument = route,
-                            )
-                        } catch (_: Throwable) {
-                            // The local alarm remains the fallback relaunch path.
-                        }
-                    },
-                )
-            }
-        }
-    }
-
-    fun migrateManagerPreferencesFromRuntime(onDone: (Int) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            // Force re-import of missing keys even if previously marked applied.
-            preferenceRepository.setManagerMigrationApplied(false)
-            val written = io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration.maybeMigrate(
-                client = runtimeClient,
-                preferenceRepository = preferenceRepository,
-            )
-            withContext(Dispatchers.Main) { onDone(written) }
         }
     }
 

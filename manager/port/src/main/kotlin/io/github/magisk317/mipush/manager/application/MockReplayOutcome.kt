@@ -10,5 +10,6 @@ sealed interface MockReplayOutcome {
     data object BlockedByPermission : MockReplayOutcome
     data object Dispatched : MockReplayOutcome
     data object Posted : MockReplayOutcome
+    data object FailedChannelDisabled : MockReplayOutcome
     data object Failed : MockReplayOutcome
 }

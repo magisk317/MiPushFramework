@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.common.utils.Utils
 import java.util.UUID
 
 internal object RemoteWriteSupport {
@@ -15,7 +16,7 @@ internal object RemoteWriteSupport {
         client: ManagerRuntimeClient,
         operation: String,
         packageName: String = "",
-        userId: Int = 0,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
         eventId: Long? = null,
         intArgument: Int = 0,
         longArgument: Long = 0L,

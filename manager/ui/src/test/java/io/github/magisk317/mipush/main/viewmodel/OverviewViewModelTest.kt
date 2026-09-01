@@ -26,6 +26,7 @@ class OverviewViewModelTest {
                 )
             },
             pageSizeProvider = { 100 },
+            userIdProvider = { 0 },
         )
 
         val result = loadOverviewApplications(

@@ -2,16 +2,18 @@ package io.github.magisk317.mipush.manager.client
 
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.ManagerClientPolicyCore
+import io.github.magisk317.mipush.manager.ManagerHandshakeAvailabilityDecision
 
 internal data class ManagerRuntimeCallPolicy(
     val timeoutMillis: Long?,
     val releaseSessionOnTimeout: Boolean,
 )
 
+internal typealias HandshakeAvailabilityDecision = ManagerHandshakeAvailabilityDecision
+
 internal object ManagerRuntimeClientPolicy {
-    private const val INITIAL_RECONNECT_DELAY_MS = 500L
-    private const val MAX_RECONNECT_DELAY_MS = 10_000L
-    internal const val DEFAULT_MAX_RECONNECT_ATTEMPTS = 3
+    internal const val DEFAULT_MAX_RECONNECT_ATTEMPTS = ManagerClientPolicyCore.DEFAULT_MAX_RECONNECT_ATTEMPTS
 
     fun eventPageCallPolicy(timeoutMillis: Long?): ManagerRuntimeCallPolicy =
         ManagerRuntimeCallPolicy(
@@ -32,24 +34,38 @@ internal object ManagerRuntimeClientPolicy {
             runtimeMajor = handshake.protocolMajor,
             runtimeMinor = handshake.protocolMinor,
         )
-        val validationReason = ManagerProtocol.validateHandshake(handshake)
-        return if (validationReason != null || !compatibility.isCompatible) {
-            ManagerRuntimeAvailability.Incompatible(
-                handshake = handshake,
-                // Do not surface arbitrary text supplied by an incompatible runtime.
-                reason = validationReason ?: compatibility.reason ?: "protocol_incompatible",
-            )
-        } else {
+        val decision = classifyHandshakeSignals(
+            compatible = compatibility.isCompatible,
+            compatibilityReason = compatibility.reason,
+            validationReason = ManagerProtocol.validateHandshake(handshake),
+            handshakeWarning = handshake.compatibilityReason,
+        )
+        return if (decision.available) {
             ManagerRuntimeAvailability.Available(
                 handshake = handshake,
-                warning = handshake.compatibilityReason,
+                warning = decision.warning,
+            )
+        } else {
+            ManagerRuntimeAvailability.Incompatible(
+                handshake = handshake,
+                reason = decision.reason ?: "protocol_incompatible",
             )
         }
     }
 
-    fun reconnectDelayMillis(attempt: Int): Long {
-        if (attempt <= 0) return INITIAL_RECONNECT_DELAY_MS
-        val multiplier = 1L shl attempt.coerceAtMost(5)
-        return (INITIAL_RECONNECT_DELAY_MS * multiplier).coerceAtMost(MAX_RECONNECT_DELAY_MS)
+    fun classifyHandshakeSignals(
+        compatible: Boolean,
+        compatibilityReason: String?,
+        validationReason: String?,
+        handshakeWarning: String?,
+    ): HandshakeAvailabilityDecision {
+        return ManagerClientPolicyCore.classifyHandshakeSignals(
+            compatible = compatible,
+            compatibilityReason = compatibilityReason,
+            validationReason = validationReason,
+            handshakeWarning = handshakeWarning,
+        )
     }
+
+    fun reconnectDelayMillis(attempt: Int): Long = ManagerClientPolicyCore.reconnectDelayMillis(attempt)
 }

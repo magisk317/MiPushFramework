@@ -54,7 +54,7 @@ class GatewayEventListSource(
 
 class RemoteEventListSource internal constructor(
     private val pageLoader: suspend (ManagerEventQueryDto) -> ManagerRuntimeResult<ManagerEventPageDto>,
-    private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val userIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
     private val pageCallAdapter: PageRemoteCallAdapter? = null,
 ) {
     constructor(client: ManagerRuntimeClient, pageCallAdapter: PageRemoteCallAdapter? = null) : this(
@@ -66,7 +66,7 @@ class RemoteEventListSource internal constructor(
         request: EventListRequest,
         budget: RemoteCallBudget = PageRemoteCallPolicy.visiblePage,
     ): EventReadResult<List<ManagerEvent>> = try {
-        val userId = userIdProvider().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(userIdProvider())
         when (
             val result = loadPage(
                 ManagerEventQueryDto(
@@ -150,5 +150,5 @@ private fun ManagerRuntimeAvailability.toEventReadStatus(): EventReadStatus = wh
     is ManagerRuntimeAvailability.Incompatible -> EventReadStatus.INCOMPATIBLE
     is ManagerRuntimeAvailability.TemporarilyDisconnected -> EventReadStatus.TEMPORARILY_DISCONNECTED
     is ManagerRuntimeAvailability.Failed -> EventReadStatus.FAILED
-    is ManagerRuntimeAvailability.Available -> EventReadStatus.FAILED
+    is ManagerRuntimeAvailability.Available -> EventReadStatus.UNSUPPORTED
 }

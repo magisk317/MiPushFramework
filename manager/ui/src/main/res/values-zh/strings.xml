@@ -1,20 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
 
     <eat-comment />
 
-    <plurals name="date_minutes" tools:ignore="UnusedQuantity">
-        <item quantity="one">分钟</item>
+    <plurals name="date_minutes">
         <item quantity="other">分钟</item>
     </plurals>
 
     <!-- Auth -->
-    <plurals name="date_hours" tools:ignore="UnusedQuantity">
-        <item quantity="one">小时</item>
+    <plurals name="date_hours">
         <item quantity="other">小时</item>
     </plurals>
-    <plurals name="date_days" tools:ignore="UnusedQuantity">
-        <item quantity="one">天</item>
+    <plurals name="date_days">
         <item quantity="other">天</item>
     </plurals>
     <string name="common_err">%1$s</string>
@@ -76,7 +73,7 @@
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
     <string name="settings_log_sanitization">日志脱敏</string>
     <string name="settings_log_sanitization_summary">开启后隐藏 token、regId、设备标识等敏感内容。默认关闭。</string>
-    <string name="settings_show_all_events">事件列表中展示所有事件</string>
+    <string name="settings_show_all_events">展示所有事件</string>
     <string name="settings_show_all_events_summary">包含默认规则隐藏的事件记录。</string>
     <string name="pref_color_status_bar_icon_title">状态栏通知图标</string>
     <string name="pref_color_status_bar_icon_summary">配置 MiPush 相关通知和全局状态栏图标颜色策略</string>
@@ -340,7 +337,6 @@
     <string name="settings_get_log">保存日志</string>
     <string name="settings_get_log_summary">构建日志包并保存到本地存储，用于调试。</string>
     <string name="settings_runtime_log_retention_days">日志保留天数</string>
-    <string name="settings_runtime_log_retention_days_summary">保留最近 %1$d 天全部日志产物（运行日志、崩溃、导出 zip、临时文件）</string>
     <string name="settings_runtime_log_retention_days_hint">单位：天；覆盖 jsonl/崩溃/导出 zip/staging/临时文件，最小值 1，默认 2。</string>
     <string name="settings_runtime_log_retention_days_error">请输入大于等于 1 的整数。</string>
     <string name="runtime_log_export_failed">导出失败：%1$s</string>
@@ -371,23 +367,16 @@
     <string name="event_retention_dialog_title">记录保留期限</string>
     <string name="event_retention_dialog_hint">保留最近多少天的事件记录（注册状态记录始终保留）。</string>
     <string name="event_retention_dialog_error">请输入不小于 1 的天数。</string>
-    <string name="event_retention_summary">当前保留最近 %1$d 天</string>
     <string name="event_cleanup_title">清理记录</string>
     <string name="event_cleanup_summary">按日历选择清理某天或某天之前的记录</string>
     <string name="event_cleanup_calendar_hint">有记录的日期已高亮，数字为当天可清理条数。</string>
     <string name="event_cleanup_preset_7">清理 7 天前</string>
     <string name="event_cleanup_preset_30">清理 30 天前</string>
     <string name="event_cleanup_preset_all">清理全部</string>
-    <string name="event_cleanup_month_summary">本月共 %1$d 条可清理记录</string>
     <string name="event_cleanup_day_count">%1$d</string>
-    <string name="event_cleanup_selected_day">%1$s · %2$d 条记录</string>
     <string name="event_cleanup_day_only">仅清理当天（%1$s）</string>
     <string name="event_cleanup_day_and_before">清理此日期及之前（%1$s 起）</string>
     <string name="event_cleanup_confirm_title">确认清理</string>
-    <string name="event_cleanup_confirm_day_only">将删除 %1$s 当天的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
-    <string name="event_cleanup_confirm_before">将删除 %1$s 及之前的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
-    <string name="event_cleanup_confirm_all">将删除全部 %1$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
-    <string name="event_cleanup_done">已清理 %1$d 条记录</string>
     <string name="event_cleanup_none">没有可清理的记录</string>
     <string name="event_cleanup_failed">清理失败，请检查 MiPush 运行时连接。</string>
     <string name="event_initial_load_title">正在准备记录</string>
@@ -396,7 +385,6 @@
     <string name="event_load_failed_summary">运行时仍在处理或暂时不可用，请稍后下拉重试。</string>
     <string name="event_cleanup_prev_month">上个月</string>
     <string name="event_cleanup_next_month">下个月</string>
-    <string name="recent_activity_group_count">%1$d 条记录</string>
     <string name="recent_activity_updated_at">更新于 %1$s</string>
     <string name="recent_activity_disabled_label">已禁用</string>
     <string name="recent_activity_filter_prefix">筛选</string>
@@ -505,6 +493,7 @@
     <string name="mock_notification_blocked_by_permission">重放被应用设置或通知权限拦截。</string>
     <string name="mock_notification_dispatched">重放已分发；当前运行路径无法确认通知最终发布。</string>
     <string name="mock_notification_posted">重放通知已发布。</string>
+    <string name="mock_notification_failed_channel_disabled">重放失败：通知渠道已禁用，请在系统通知设置中启用该渠道。</string>
     <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
     <string name="mock_notification_no_receiver">重放预检：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">服务权限</string>
@@ -541,7 +530,6 @@
     <string name="relay_mode_background">后台</string>
     <string name="settings_debug_mode_enabled">详细</string>
     <string name="settings_debug_mode_disabled">标准</string>
-    <string name="settings_overview_registered_hint">当前 %1$d / %2$d 个已识别 MiPush 应用具备注册迹象，可继续在应用页逐个排查未注册项。</string>
     <string name="settings_group_display_and_list">显示与列表</string>
     <string name="settings_group_data_and_debug">数据与调试</string>
     <string name="settings_blur_radius">背景模糊强度</string>
@@ -552,7 +540,6 @@
     <string name="app_list_stats_registered">已注册</string>
     <string name="app_list_stats_not_registered">未注册成功</string>
     <string name="app_list_hero_title">应用接入概览</string>
-    <string name="app_list_hero_summary">当前扫描到 %1$d / %2$d 个应用具备 MiPush 接入面。</string>
     <string name="action_list_settings">列表设置</string>
     <string name="action_show_system_apps">显示系统应用</string>
     <string name="notification_channels_section_mipush">MiPush 渠道</string>
@@ -595,7 +582,7 @@
     <string name="app_detail_redirect_click_summary">通知仍显示为当前应用；点击后打开你指定的应用。功能开发中。</string>
     <string name="app_detail_redirect_click_in_development">「点击打开其他应用」功能开发中</string>
     <string name="app_detail_island_controls">超级岛与焦点展示</string>
-    <string name="app_detail_island_controls_summary">单独配置此应用是否生成 HyperIsland 超级岛与焦点通知参数。</string>
+    <string name="app_detail_island_controls_summary">单独配置此应用是否生成 MiPush 超级岛与焦点通知参数。</string>
     <string name="app_detail_island_enabled">启用超级岛</string>
     <string name="app_detail_island_enabled_summary">允许 MiPushFramework 为此应用生成超级岛参数。</string>
     <string name="app_detail_island_focus_notification">启用焦点通知</string>
@@ -609,12 +596,9 @@
     <string name="overview_chart_not_integrated_label">未接入</string>
     <string name="overview_chart_registered_label">已注册</string>
     <string name="overview_chart_unregistered_label">未注册</string>
-    <string name="overview_chart_ratio_format">%1$d 个 · %2$d%%</string>
     <string name="overview_version_format">版本 %1$s</string>
     <string name="overview_version_code_label">版本号</string>
     <string name="commit_info">提交信息</string>
-    <string name="overview_detected_apps_format">%1$d / %2$d 已识别</string>
-    <string name="overview_registered_apps_format">%1$d / %2$d 已注册</string>
     <string name="overview_project_github_title">GitHub 项目</string>
     <string name="overview_project_github_summary">查看源码、发布页和后续迭代进展。</string>
     <string name="overview_project_about_summary">查看当前版本、构建类型和基本信息。</string>
@@ -625,7 +609,6 @@
     <string name="event_empty_title">暂时还没有活动</string>
     <string name="event_empty_summary">等待应用收到推送事件，或者手动触发一次测试消息。</string>
     <string name="notification_channels_group_summary">检查这一组通知渠道，并继续钻取具体 channel 的行为差异。</string>
-    <string name="group_summary_title">%d 条新消息</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">XMSF 电池优化豁免</string>
     <string name="wizard_title_ignore_battery_optimizations_text">请将 com.xiaomi.xmsf（XMSF）加入电池优化白名单，否则灭屏后可能无法维持推送连接。</string>
     <string name="wizard_title_notification_permission">通知权限</string>
@@ -650,10 +633,9 @@
     <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
-    <string name="pref_island_enabled_title">HyperIsland 焦点展示</string>
-    <string name="pref_island_enabled_summary">为 MiPush 通知生成并注入 HyperIsland 焦点通知参数。</string>
+    <string name="pref_island_enabled_title">MiPush 超级岛焦点展示</string>
+    <string name="pref_island_enabled_summary">为通知生成并注入 MiPush 内置焦点通知参数。</string>
     <string name="pref_island_timeout_title">超级岛超时</string>
-    <string name="pref_island_timeout_summary">%1$d 秒后自动关闭</string>
     <string name="pref_island_timeout_hint">单位：秒，最小值 1，默认 5。</string>
     <string name="pref_island_timeout_error">请输入大于等于 1 的整数。</string>
     <string name="pref_island_first_float_title">首次浮动</string>
@@ -666,23 +648,6 @@
     <string name="pref_island_show_original_notification_summary">展示超级岛时仍保留源应用通知。</string>
     <string name="pref_island_focus_notif_title">焦点认证绕过</string>
     <string name="pref_island_focus_notif_summary">允许所有应用的焦点通知绕过 SystemUI 和 XMSF 认证。</string>
-    <string name="pref_island_renderer_mode_title">小岛渲染器</string>
-    <string name="pref_island_renderer_mode_summary">自动模式在安装 HyperIsland 时交给它渲染，否则使用 MiPush 内置渲染。</string>
-    <string name="pref_island_renderer_mode_auto">自动</string>
-    <string name="pref_island_renderer_mode_mipush">MiPush 内置</string>
-    <string name="pref_island_renderer_mode_hyperisland">HyperIsland</string>
-    <string name="pref_island_visual_title">视觉效果</string>
-    <string name="pref_island_visual_summary">启用 MiPush 小岛背景和视觉层。</string>
-    <string name="pref_island_dynamic_color_title">动态主题色</string>
-    <string name="pref_island_dynamic_color_summary">从通知图标提取小岛主题色。</string>
-    <string name="pref_island_blur_title">背景模糊</string>
-    <string name="pref_island_blur_summary">系统支持时使用 MIUI 背景模糊层。</string>
-    <string name="pref_island_glass_title">玻璃边缘</string>
-    <string name="pref_island_glass_summary">绘制半透明玻璃高光和边缘。</string>
-    <string name="pref_island_outer_glow_title">外圈光效</string>
-    <string name="pref_island_outer_glow_summary">在小岛外绘制彩色轮廓光。</string>
-    <string name="pref_island_animation_title">边缘动画</string>
-    <string name="pref_island_animation_summary">小岛显示时动态移动主题高光。</string>
 
     <string name="mock_target_package">目标包名</string>
     <string name="mock_group_notification_shade">通知栏</string>
@@ -715,15 +680,11 @@
     <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
 
 
-    <string name="settings_launcher_icon">应用图标</string>
-    <string name="settings_launcher_icon_summary">影响桌面与多任务图标。系统「应用管理」使用安装时的包图标，无法随切换变更。双开分身在有 Root 时会同步别名。</string>
-    <string name="settings_launcher_icon_default">默认（推送服务）</string>
-    <string name="settings_launcher_icon_legacy">模块</string>
-    <string name="settings_launcher_icon_xmsf">推送服务风格</string>
-    <string name="settings_migrate_prefs">从运行时导入管理器偏好</string>
-    <string name="settings_migrate_prefs_summary">把仍保存在推送服务包内的界面偏好复制到管理器</string>
-    <string name="settings_migrate_prefs_done">已导入 %1$d 项偏好</string>
 
     <string name="settings_enable_analytics">统计数据</string>
     <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
+    <string name="runtime_missing_dialog_title">未检测到 MiPushFramework 运行时</string>
+    <string name="runtime_missing_dialog_message">未检测到可用的 MiPushFramework 运行时。当前可能只安装了 MiPush 管理器，或安装的是不具备 MiPushFramework 能力的 stock/fork 运行时。请到相关项目群下载并安装匹配的 MiPushFramework 运行时，然后重新打开管理器。</string>
+    <string name="runtime_missing_dialog_exit">退出</string>
+
 </resources>

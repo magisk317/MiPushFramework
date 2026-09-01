@@ -48,6 +48,8 @@ import io.github.magisk317.mipush.feature.main.subpage.Overview
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.feature.navigation.AppNavHostContent
+import io.github.magisk317.mipush.feature.navigation.NavigationInputKind
+import io.github.magisk317.mipush.feature.navigation.PageActivationCoordinator
 import io.github.magisk317.mipush.feature.navigation.TopLevelRoutePagerSynchronizer
 import io.github.magisk317.mipush.feature.navigation.navigateTopLevel
 import io.github.magisk317.mipush.manager.R
@@ -177,6 +179,9 @@ fun MainScreen(
         pageCount = { tabRoutes.size },
         initialPage = initialPagerPage,
     )
+    val pageActivationCoordinator = remember {
+        PageActivationCoordinator(initialPage = initialPagerPage)
+    }
     val routePagerSynchronizer = remember { TopLevelRoutePagerSynchronizer() }
     var routePagerReconciled by remember { mutableStateOf(false) }
     val performanceRecorder = remember { TransitionPerformanceRecorder() }
@@ -190,6 +195,9 @@ fun MainScreen(
         }
         val targetPage = pagerState.selectedPage
         val sourcePage = pagerState.currentPage
+        if (pageActivationCoordinator.state.selectedPage != targetPage) {
+            pageActivationCoordinator.requestNavigation(targetPage, NavigationInputKind.CLICK)
+        }
         performanceHandle[0]?.cancel()
         val token = performanceRecorder.begin(
             sourcePage = sourcePage,
@@ -216,6 +224,7 @@ fun MainScreen(
         navController.navigateTopLevel(route)
     }
     LaunchedEffect(currentRoute, pagerState.isNavigating) {
+        currentRoute?.let(pageActivationCoordinator::onRouteChanged)
         val targetPage = routePagerSynchronizer.targetPageFor(
             route = currentRoute,
             currentPage = pagerState.pagerState.currentPage,
@@ -280,6 +289,10 @@ fun MainScreen(
             },
             pagerVisible = isTopLevelRoute,
             onChromeTransition = { transition ->
+                pageActivationCoordinator.onPagerSettled(
+                    transition.settledPage,
+                    pageActivationCoordinator.token,
+                )
                 performanceHandle[0]?.let { handle ->
                     if (transition.settledPage == handle.token.targetPage) {
                         handle.pagerSettled(transition.settledPage)
@@ -310,7 +323,7 @@ fun MainScreen(
                 }
             },
         ) { page, contentPadding ->
-            val pageIsSettled = page == pagerState.pagerState.settledPage
+            val pageIsSettled = pageActivationCoordinator.activationFor(page).isActive
             // Only the visible pager page may drive the shared chrome. Adjacent pages are
             // precomposed for fast navigation, but their list observers must not overwrite the
             // active page's bottom-bar/header state.

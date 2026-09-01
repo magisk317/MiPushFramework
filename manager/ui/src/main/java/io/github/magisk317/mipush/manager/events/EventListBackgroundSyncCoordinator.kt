@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.manager.events
 
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.ManagerStatePolicies
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
@@ -156,4 +157,4 @@ internal fun mergeEventSnapshots(
     incoming: List<EventInfoForDisplay>,
 ): List<EventInfoForDisplay> = (incoming + existing)
     .distinctBy { it.composeKey() }
-    .sortedByDescending { it.receiveDate.time }
+    .let { ManagerStatePolicies.newestFirst(it) { event -> event.receiveDate.time } }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.SystemClock
+import androidx.core.graphics.createBitmap
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,6 +40,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavController
@@ -74,6 +76,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.theme.UiKitStyle
@@ -96,6 +99,8 @@ import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -115,6 +120,7 @@ open class MainActivity : ComponentActivity() {
 
     private val settingsViewModel: SettingsViewModel by viewModel()
     private val settingsManager: SettingsManager by inject()
+    private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,11 +133,8 @@ open class MainActivity : ComponentActivity() {
             connectionStatusChanged = { placeholder = it.toString() },
             scope = lifecycleScope,
         )
-        val pendingResumeRoute = io.github.magisk317.mipush.manager.launcher.LauncherIconController
-            .consumePendingResumeRoute(this)
         val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
             ?.takeIf { it.isNotBlank() }
-            ?: pendingResumeRoute
         val startTab = intent?.getStringExtra(EXTRA_START_TAB)
         val startDestination = when {
             explicitRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
@@ -147,6 +150,7 @@ open class MainActivity : ComponentActivity() {
             else -> AppDestinations.Overview.ROUTE
         }
         setContent {
+            val runtimeAvailability by runtimeClient.availability.collectAsStateWithLifecycle()
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
 
             var currentThemeMode by remember { mutableIntStateOf(themeState.mode) }
@@ -162,7 +166,7 @@ open class MainActivity : ComponentActivity() {
                 if (themeState.mode != currentThemeMode) {
                     if (view.width > 0 && view.height > 0) {
                         try {
-                            val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                            val bitmap = createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
                             val canvas = android.graphics.Canvas(bitmap)
                             view.draw(canvas)
                             screenshotBitmap = bitmap
@@ -204,12 +208,18 @@ open class MainActivity : ComponentActivity() {
                 uiKitStyle = currentUiKitStyle,
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    MainScreen(
-                        startDestination = startDestination,
-                        initialRouteOverride = explicitRoute,
-                    )
+                    if (runtimeAvailability.requiresRuntimeWarning()) {
+                        RuntimeCompatibilityWarningDialog(
+                            onExit = { finishAndRemoveTask() },
+                        )
+                    } else {
+                        MainScreen(
+                            startDestination = startDestination,
+                            initialRouteOverride = explicitRoute,
+                        )
+                    }
 
-                    if (isAnimating && screenshotBitmap != null) {
+                    if (!runtimeAvailability.requiresRuntimeWarning() && isAnimating && screenshotBitmap != null) {
                         val view = LocalView.current
                         val oldImage = screenshotBitmap!!.asImageBitmap()
                         val maxRadius = hypot(view.width.toFloat(), view.height.toFloat())
@@ -241,4 +251,26 @@ open class MainActivity : ComponentActivity() {
         mainActivityUtils.close()
         super.onDestroy()
     }
+}
+
+@Composable
+private fun RuntimeCompatibilityWarningDialog(onExit: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+        ),
+        title = {
+            Text(stringResource(R.string.runtime_missing_dialog_title))
+        },
+        text = {
+            Text(stringResource(R.string.runtime_missing_dialog_message))
+        },
+        confirmButton = {
+            TextButton(onClick = onExit) {
+                Text(stringResource(R.string.runtime_missing_dialog_exit))
+            }
+        },
+    )
 }

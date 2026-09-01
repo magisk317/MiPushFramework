@@ -8,17 +8,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.RadioButton
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.border
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
@@ -190,89 +180,24 @@ internal fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostSt
 
 @Composable
 internal fun AppearanceBlock(
-    viewModel: SettingsViewModel,
     onNavigateToStatusBarIconSettings: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
-    val normalizedLauncherIcon = if (selectedLauncherIcon == "legacy") "legacy" else "default"
-    val launcherIconSummary = when (normalizedLauncherIcon) {
-        "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
-        else -> stringResource(R.string.settings_launcher_icon_default)
-    }
-    var showLauncherIconDialog by remember { mutableStateOf(false) }
-    val currentPreviewRes = when (normalizedLauncherIcon) {
-        "legacy" -> R.mipmap.ic_launcher_preview_legacy
-        else -> R.mipmap.ic_launcher_preview_default
-    }
-
     SettingsItem(
         title = stringResource(R.string.pref_color_status_bar_icon_title),
         summary = stringResource(R.string.pref_color_status_bar_icon_summary),
         onClick = onNavigateToStatusBarIconSettings,
     )
-
-    SettingsItem(
-        title = stringResource(R.string.settings_launcher_icon),
-        summary = launcherIconSummary + " · " + stringResource(R.string.settings_launcher_icon_summary),
-        trailingContent = {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                tonalElevation = 0.dp,
-            ) {
-                Image(
-                    painter = painterResource(currentPreviewRes),
-                    contentDescription = launcherIconSummary,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .padding(2.dp)
-                        .clip(RoundedCornerShape(6.dp)),
-                )
-            }
-        },
-    ) { showLauncherIconDialog = true }
-
-    if (showLauncherIconDialog) {
-        LauncherIconPickerDialog(
-            selectedIconId = selectedLauncherIcon,
-            onSelect = { id ->
-                viewModel.setSelectedLauncherIcon(context, id)
-                showLauncherIconDialog = false
-            },
-            onDismiss = { showLauncherIconDialog = false },
-        )
-    }
 }
 
 @Composable
 internal fun ConfigurationsBlock(
-    viewModel: SettingsViewModel,
-    snackbarHostState: SnackbarHostState,
     onNavigateToConfigurations: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
     SettingsItem(
         title = stringResource(R.string.main_configs),
         summary = stringResource(R.string.settings_configurations_entry_summary),
         onClick = onNavigateToConfigurations,
     )
-
-    SettingsItem(
-        title = stringResource(R.string.settings_migrate_prefs),
-        summary = stringResource(R.string.settings_migrate_prefs_summary),
-    ) {
-        viewModel.migrateManagerPreferencesFromRuntime { written ->
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.settings_migrate_prefs_done, written),
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -325,16 +250,8 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     val islandShowNotification by viewModel.islandShowNotification.collectAsStateWithLifecycle()
     val islandShowOriginalNotification by viewModel.islandShowOriginalNotification.collectAsStateWithLifecycle()
     val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
-    val islandRendererMode by viewModel.islandRendererMode.collectAsStateWithLifecycle()
-    val islandVisualEnabled by viewModel.islandVisualEnabled.collectAsStateWithLifecycle()
-    val islandDynamicColor by viewModel.islandDynamicColor.collectAsStateWithLifecycle()
-    val islandBlurEnabled by viewModel.islandBlurEnabled.collectAsStateWithLifecycle()
-    val islandGlassEnabled by viewModel.islandGlassEnabled.collectAsStateWithLifecycle()
-    val islandOuterGlowEnabled by viewModel.islandOuterGlowEnabled.collectAsStateWithLifecycle()
-    val islandAnimationEnabled by viewModel.islandAnimationEnabled.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
-    var showIslandRendererDialog by remember { mutableStateOf(false) }
     var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
 
@@ -352,7 +269,11 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
 
     SettingsItem(
         title = stringResource(R.string.pref_island_timeout_title),
-        summary = stringResource(R.string.pref_island_timeout_summary, islandTimeout),
+        summary = pluralStringResource(
+            R.plurals.pref_island_timeout_summary,
+            islandTimeout,
+            islandTimeout,
+        ),
         enabled = islandEnabled,
     ) {
         islandTimeoutInput = islandTimeout.toString()
@@ -422,140 +343,6 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
             if (success) notifyPrefChanged(context)
             showSwitchFeedback(islandFocusNotificationTitle, enabled, success)
         }
-    }
-
-    val rendererModeTitle = stringResource(R.string.pref_island_renderer_mode_title)
-    val rendererModeLabel = when (islandRendererMode) {
-        "mipush" -> stringResource(R.string.pref_island_renderer_mode_mipush)
-        "hyperisland" -> stringResource(R.string.pref_island_renderer_mode_hyperisland)
-        else -> stringResource(R.string.pref_island_renderer_mode_auto)
-    }
-    SettingsItem(
-        title = rendererModeTitle,
-        summary = "$rendererModeLabel - ${stringResource(R.string.pref_island_renderer_mode_summary)}",
-        enabled = islandEnabled,
-    ) {
-        showIslandRendererDialog = true
-    }
-
-    val visualTitle = stringResource(R.string.pref_island_visual_title)
-    SettingsSwitchItem(
-        title = visualTitle,
-        summary = stringResource(R.string.pref_island_visual_summary),
-        checked = islandVisualEnabled,
-        enabled = islandEnabled,
-    ) { enabled ->
-        viewModel.setIslandVisualEnabled(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(visualTitle, enabled, success)
-        }
-    }
-
-    val dynamicColorTitle = stringResource(R.string.pref_island_dynamic_color_title)
-    SettingsSwitchItem(
-        title = dynamicColorTitle,
-        summary = stringResource(R.string.pref_island_dynamic_color_summary),
-        checked = islandDynamicColor,
-        enabled = islandEnabled && islandVisualEnabled,
-    ) { enabled ->
-        viewModel.setIslandDynamicColor(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(dynamicColorTitle, enabled, success)
-        }
-    }
-
-    val blurTitle = stringResource(R.string.pref_island_blur_title)
-    SettingsSwitchItem(
-        title = blurTitle,
-        summary = stringResource(R.string.pref_island_blur_summary),
-        checked = islandBlurEnabled,
-        enabled = islandEnabled && islandVisualEnabled,
-    ) { enabled ->
-        viewModel.setIslandBlurEnabled(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(blurTitle, enabled, success)
-        }
-    }
-
-    val glassTitle = stringResource(R.string.pref_island_glass_title)
-    SettingsSwitchItem(
-        title = glassTitle,
-        summary = stringResource(R.string.pref_island_glass_summary),
-        checked = islandGlassEnabled,
-        enabled = islandEnabled && islandVisualEnabled,
-    ) { enabled ->
-        viewModel.setIslandGlassEnabled(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(glassTitle, enabled, success)
-        }
-    }
-
-    val outerGlowTitle = stringResource(R.string.pref_island_outer_glow_title)
-    SettingsSwitchItem(
-        title = outerGlowTitle,
-        summary = stringResource(R.string.pref_island_outer_glow_summary),
-        checked = islandOuterGlowEnabled,
-        enabled = islandEnabled && islandVisualEnabled,
-    ) { enabled ->
-        viewModel.setIslandOuterGlowEnabled(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(outerGlowTitle, enabled, success)
-        }
-    }
-
-    val animationTitle = stringResource(R.string.pref_island_animation_title)
-    SettingsSwitchItem(
-        title = animationTitle,
-        summary = stringResource(R.string.pref_island_animation_summary),
-        checked = islandAnimationEnabled,
-        enabled = islandEnabled && islandVisualEnabled,
-    ) { enabled ->
-        viewModel.setIslandAnimationEnabled(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(animationTitle, enabled, success)
-        }
-    }
-
-    if (showIslandRendererDialog) {
-        val rendererOptions = listOf(
-            "auto" to stringResource(R.string.pref_island_renderer_mode_auto),
-            "mipush" to stringResource(R.string.pref_island_renderer_mode_mipush),
-            "hyperisland" to stringResource(R.string.pref_island_renderer_mode_hyperisland),
-        )
-        AlertDialog(
-            onDismissRequest = { showIslandRendererDialog = false },
-            title = { Text(rendererModeTitle) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    rendererOptions.forEach { (mode, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setIslandRendererMode(mode) { success ->
-                                        if (success) notifyPrefChanged(context)
-                                        showSwitchFeedback(rendererModeTitle, true, success)
-                                    }
-                                    showIslandRendererDialog = false
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = islandRendererMode == mode,
-                                onClick = null,
-                            )
-                            Text(label, modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showIslandRendererDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            },
-        )
     }
 
     if (showIslandTimeoutDialog) {
@@ -688,8 +475,9 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: S
             verboseLogTitle = debugModeTitle,
             verboseLogSummary = stringResource(R.string.settings_debug_mode_summary),
             retentionTitle = stringResource(R.string.settings_runtime_log_retention_days),
-            retentionSummary = stringResource(
-                R.string.settings_runtime_log_retention_days_summary,
+            retentionSummary = pluralStringResource(
+                R.plurals.settings_runtime_log_retention_days_summary,
+                runtimeLogRetentionDays,
                 runtimeLogRetentionDays,
             ),
             clearLogTitle = stringResource(R.string.runtime_log_clear_confirm_title),
@@ -793,93 +581,4 @@ internal fun SetXMPPServer() {
             onClick = onEdit,
         )
     }
-}
-
-@Preview(showBackground = true)
-
-
-@Composable
-internal fun LauncherIconPickerDialog(
-    selectedIconId: String,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    data class LauncherIconOption(
-        val id: String,
-        val labelRes: Int,
-        val iconRes: Int,
-    )
-    val options = listOf(
-        LauncherIconOption(
-            id = "default",
-            labelRes = R.string.settings_launcher_icon_default,
-            iconRes = R.mipmap.ic_launcher_preview_default,
-        ),
-        LauncherIconOption(
-            id = "legacy",
-            labelRes = R.string.settings_launcher_icon_legacy,
-            iconRes = R.mipmap.ic_launcher_preview_legacy,
-        ),
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_launcher_icon)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                options.forEach { option ->
-                    val selected = option.id == (if (selectedIconId == "legacy") "legacy" else "default")
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .border(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                                shape = RoundedCornerShape(16.dp),
-                            )
-                            .clickable { onSelect(option.id) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            tonalElevation = 0.dp,
-                        ) {
-                            Image(
-                                painter = painterResource(option.iconRes),
-                                contentDescription = stringResource(option.labelRes),
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .padding(4.dp)
-                                    .clip(RoundedCornerShape(10.dp)),
-                            )
-                        }
-                        Text(
-                            text = stringResource(option.labelRes),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        RadioButton(
-                            selected = selected,
-                            onClick = { onSelect(option.id) },
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
-        },
-    )
 }

@@ -1,5 +1,27 @@
 package io.github.magisk317.mipush.manager.api
 
+import io.github.magisk317.mipush.manager.ManagerContractCore
+import io.github.magisk317.mipush.manager.ManagerHandshakeInput
+import io.github.magisk317.mipush.manager.ManagerHandshakeLimits
+
+/** Platform-neutral handshake fields used by the contract facade. */
+internal typealias HandshakeValidationInput = ManagerHandshakeInput
+
+/** Platform-neutral bounds for validating [HandshakeValidationInput]. */
+internal typealias HandshakeValidationLimits = ManagerHandshakeLimits
+
+internal enum class NegotiationStatus {
+    COMPATIBLE,
+    INVALID_VERSION,
+    MAJOR_MISMATCH,
+}
+
+/** Platform-neutral result; [ManagerProtocol] maps it back to its public nested types. */
+internal data class NegotiationResult(
+    val status: NegotiationStatus,
+    val negotiatedMinor: Int?,
+)
+
 /** Internal protocol negotiation domain; [ManagerProtocol] preserves the public facade. */
 internal object ManagerProtocolNegotiationSupport {
     fun evaluateCompatibility(
@@ -7,37 +29,21 @@ internal object ManagerProtocolNegotiationSupport {
         clientMinor: Int,
         runtimeMajor: Int,
         runtimeMinor: Int,
-    ): ManagerProtocol.Compatibility {
-        if (clientMajor < 0 || clientMinor < 0 || runtimeMajor < 0 || runtimeMinor < 0) {
-            return ManagerProtocol.Compatibility(ManagerProtocol.CompatibilityStatus.INVALID_VERSION, null)
-        }
-        if (clientMajor != runtimeMajor) {
-            return ManagerProtocol.Compatibility(ManagerProtocol.CompatibilityStatus.MAJOR_MISMATCH, null)
-        }
-        return ManagerProtocol.Compatibility(
-            status = ManagerProtocol.CompatibilityStatus.COMPATIBLE,
-            negotiatedMinor = minOf(clientMinor, runtimeMinor),
-        )
+    ): NegotiationResult {
+        val result = ManagerContractCore.evaluateCompatibility(clientMajor, clientMinor, runtimeMajor, runtimeMinor)
+        return NegotiationResult(NegotiationStatus.valueOf(result.status.name), result.negotiatedMinor)
     }
 
-    fun recognizedCapabilities(runtimeCapabilities: Iterable<String>): Set<String> =
-        runtimeCapabilities.filterTo(linkedSetOf()) { it in ManagerProtocol.KNOWN_CAPABILITIES }
+    fun recognizedCapabilities(
+        runtimeCapabilities: Iterable<String>,
+        knownCapabilities: Set<String>,
+    ): Set<String> = ManagerContractCore.recognizedCapabilities(runtimeCapabilities, knownCapabilities)
 
-    fun validateHandshake(handshake: ManagerHandshake): String? = when {
-        handshake.protocolMajor < 0 || handshake.protocolMinor < 0 -> "invalid_protocol_version"
-        handshake.runtimeVersionCode < 0L -> "invalid_runtime_version_code"
-        handshake.runtimeVersionName.length > ManagerProtocol.MAX_RUNTIME_VERSION_NAME_LENGTH ->
-            "runtime_version_name_too_long"
-        handshake.compatibilityReason?.let { reason ->
-            reason.length > ManagerProtocol.MAX_COMPATIBILITY_REASON_LENGTH ||
-                reason.any { !it.isLetterOrDigit() && it != '_' && it != '-' && it != '.' }
-        } == true -> "invalid_compatibility_reason"
-        handshake.supportedCapabilities.size > ManagerProtocol.MAX_CAPABILITY_COUNT -> "too_many_capabilities"
-        handshake.supportedCapabilities.any { it.isBlank() || it.length > ManagerProtocol.MAX_CAPABILITY_LENGTH } ->
-            "invalid_capability"
-        handshake.maxPageSize !in 1..ManagerProtocol.MAX_NEGOTIATED_PAGE_SIZE -> "invalid_max_page_size"
-        handshake.maxPayloadBytes !in 1..ManagerProtocol.MAX_NEGOTIATED_PAYLOAD_BYTES ->
-            "invalid_max_payload_bytes"
-        else -> null
-    }
+    fun validateHandshake(
+        input: HandshakeValidationInput,
+        limits: HandshakeValidationLimits,
+    ): String? = ManagerContractCore.validateHandshake(
+        input,
+        limits,
+    )
 }

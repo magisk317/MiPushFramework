@@ -12,7 +12,8 @@ data class ManagerWriteRequestDto(
     val requestId: String = "",
     val operation: String = "",
     val packageName: String = "",
-    val userId: Int = 0,
+    /** Missing identity is invalid; callers must choose the Android user explicitly. */
+    val userId: Int = -1,
     val eventId: Long? = null,
     val intArgument: Int = 0,
     val longArgument: Long = 0L,

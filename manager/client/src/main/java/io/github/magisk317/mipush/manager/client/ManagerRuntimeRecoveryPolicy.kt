@@ -21,5 +21,5 @@ internal object ManagerRuntimeRecoveryPolicy {
         else -> ManagerRuntimeReconnectAction.FailExhausted
     }
 
-    fun androidUserId(uid: Int): Int = (uid / PER_USER_RANGE).coerceAtLeast(0)
+    fun androidUserId(uid: Int): Int = uid.takeIf { it >= 0 }?.div(PER_USER_RANGE) ?: -1
 }

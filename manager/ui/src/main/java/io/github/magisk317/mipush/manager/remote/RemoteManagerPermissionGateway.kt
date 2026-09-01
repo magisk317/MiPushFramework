@@ -39,7 +39,6 @@ import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
 import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
 import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
-import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
@@ -72,7 +71,6 @@ import java.text.SimpleDateFormat
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 import java.util.UUID
-import kotlinx.coroutines.flow.first
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -81,7 +79,6 @@ class RemoteManagerPermissionGateway(
     private val context: Context,
     private val client: ManagerRuntimeClient,
     private val managerRootAccess: ManagerRootAccess,
-    private val preferenceRepository: PreferenceRepository,
 ) : ManagerPermissionGateway {
     @Volatile
     private var runtimeRootState: ManagerRootAccessState = ManagerRootAccessState.UNAVAILABLE
@@ -172,18 +169,7 @@ class RemoteManagerPermissionGateway(
         }
         // Dual-app enable already grants silent perms on runtime; re-assert from manager as well.
         if (stage == ManagerXSpaceRepairStage.COMPLETED && enabled) {
-            grantSilentPermissions(userId = -1, packageName = "", op = "all")
-            // New dual-space clone starts at manifest defaults (Default alias); push current icon.
-            try {
-                val iconId = preferenceRepository.selectedLauncherIcon.first()
-                RemoteWriteSupport.execute(
-                    client = client,
-                    operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
-                    argument = iconId,
-                )
-            } catch (_: RuntimeException) {
-                // Dual-app setup is already complete; icon synchronization is best effort.
-            }
+            grantSilentPermissions(userId = ManagerProtocol.GRANT_USER_AUTO, packageName = "", op = "all")
         }
         return ManagerXSpaceRepairResult(stage = stage, details = result.details)
     }
@@ -207,7 +193,11 @@ class RemoteManagerPermissionGateway(
 
     override suspend fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
         // Grant the requested appop for both packages, primary + dual-space.
-        return grantSilentPermissions(userId = -1, packageName = "", op = permission)
+        return grantSilentPermissions(
+            userId = ManagerProtocol.GRANT_USER_AUTO,
+            packageName = "",
+            op = permission,
+        )
     }
 
     override suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
@@ -220,11 +210,19 @@ class RemoteManagerPermissionGateway(
     }
 
     override suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        return grantSilentPermissions(userId = 0, packageName = "", op = "deviceidle")
+        return grantSilentPermissions(
+            userId = ManagerProtocol.GRANT_USER_AUTO,
+            packageName = "",
+            op = "deviceidle",
+        )
     }
 
     override suspend fun grantNotificationPermission(context: Context): Boolean {
-        return grantSilentPermissions(userId = -1, packageName = "", op = "all")
+        return grantSilentPermissions(
+            userId = ManagerProtocol.GRANT_USER_AUTO,
+            packageName = "",
+            op = "all",
+        )
     }
 
     private suspend fun queryRootState(requestAuthorization: Boolean): ManagerRootAccessState {

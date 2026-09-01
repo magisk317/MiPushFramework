@@ -6,8 +6,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.Process
@@ -170,10 +168,10 @@ class ManagerRuntimeClient(
             is BindResult.Success -> {
                 val state = if (bindResult.accepted) {
                     null
-                } else if (isRuntimeInstalled()) {
-                    ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BIND_REJECTED)
-                } else {
+                } else if (!hasRuntimeServiceEndpoint(intent)) {
                     ManagerRuntimeAvailability.RuntimeMissing
+                } else {
+                    ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BIND_REJECTED)
                 }
                 finishBind(session, bindResult.accepted, state)
             }
@@ -664,6 +662,15 @@ class ManagerRuntimeClient(
         recoveryAction?.let { action ->
             clientScope.launch(ioDispatcher) {
                 val userId = ManagerRuntimeRecoveryPolicy.androidUserId(Process.myUid())
+                if (userId < 0) {
+                    logWarn("skip XMSF recovery: unable to resolve Android user")
+                    synchronized(lock) {
+                        if (!closed) {
+                            _availability.value = ManagerRuntimeAvailability.Failed("recovery_user_unavailable")
+                        }
+                    }
+                    return@launch
+                }
                 val recovered = runCatching { action.recoverXmsf(userId) }.getOrDefault(false)
                 if (recovered) {
                     logInfo("XMSF recovery restart succeeded userId=$userId")
@@ -862,22 +869,17 @@ class ManagerRuntimeClient(
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun isRuntimeInstalled(): Boolean = runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            appContext.packageManager.getApplicationInfo(
-                ManagerProtocol.RUNTIME_PACKAGE,
-                PackageManager.ApplicationInfoFlags.of(0),
-            )
-        } else {
-            appContext.packageManager.getApplicationInfo(ManagerProtocol.RUNTIME_PACKAGE, 0)
-        }
-    }.isSuccess
-
     private sealed interface BindResult {
         data class Success(val accepted: Boolean) : BindResult
         data class Failure(val state: ManagerRuntimeAvailability) : BindResult
     }
+
+    private fun hasRuntimeServiceEndpoint(intent: Intent): Boolean = runCatching {
+        // Resolve the declared Binder endpoint, not merely the runtime package. This keeps a
+        // stock/fork runtime with the same package name from being treated as compatible.
+        appContext.packageManager.resolveService(intent, 0)?.serviceInfo?.name ==
+            ManagerProtocol.RUNTIME_SERVICE_CLASS
+    }.getOrDefault(false)
 
     internal companion object {
         private const val TAG = "ManagerRuntime"
@@ -889,11 +891,3 @@ class ManagerRuntimeClient(
         private const val RECOVERY_RECONNECT_DELAY_MS = 1_000L
     }
 }
-
-private val SAFE_RUNTIME_EXCEPTION_REASON = Regex("[a-z][a-z0-9_]{0,95}")
-
-internal fun runtimeExceptionDiagnosticReason(error: RuntimeException): String =
-    error.message
-        ?.trim()
-        ?.takeIf(SAFE_RUNTIME_EXCEPTION_REASON::matches)
-        ?: "redacted"

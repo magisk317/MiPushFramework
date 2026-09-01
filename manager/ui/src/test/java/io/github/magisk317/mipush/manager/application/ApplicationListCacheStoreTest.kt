@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class ApplicationListCacheStoreTest {
     @Test
@@ -17,6 +18,13 @@ class ApplicationListCacheStoreTest {
         assertNotEquals(queryBucket, filterBucket)
         assertNotEquals(queryBucket, userBucket)
         assertNotEquals(queryBucket, systemBucket)
+    }
+
+    @Test
+    fun `invalid user ids are rejected instead of using the primary namespace`() {
+        assertThrows<IllegalArgumentException> {
+            ApplicationListCacheStore.bucketKey(-1, "mail", 0, false)
+        }
     }
 
     @Test

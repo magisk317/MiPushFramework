@@ -1,8 +1,9 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
+import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,7 +28,7 @@ class ConfigManagerViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val syncGateway: ManagerConfigSyncGateway,
     private val configGateway: ManagerConfigGateway,
-    private val context: Context,
+    private val context: Application,
     private val configurationCatalogSource: RemoteConfigurationCatalogSource,
 ) : ViewModel() {
     private companion object {
@@ -94,7 +95,7 @@ class ConfigManagerViewModel constructor(
                         iconRemoteSource = settings.iconRemoteSource,
                     )
                 }
-                settings.directoryUri?.let { grantXmsfTreePermission(Uri.parse(it)) }
+                settings.directoryUri?.let { grantXmsfTreePermission(it.toUri()) }
                 refreshInternal(forceRemote = false)
             }
         }

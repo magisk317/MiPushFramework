@@ -291,7 +291,6 @@ class ZygiskConfigPage : ComponentActivity() {
         ) {
             AppIconImage(
                 packageName = app.packageName,
-                label = app.appName,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(MaterialTheme.spacing.medium))

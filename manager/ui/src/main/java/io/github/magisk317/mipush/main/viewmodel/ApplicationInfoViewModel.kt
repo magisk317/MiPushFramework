@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
@@ -123,7 +123,7 @@ class ApplicationInfoViewModel constructor(
     private val notificationChannelCommand: RemoteNotificationChannelCommand,
     private val settingsManager: SettingsManager,
     private val permissionGateway: ManagerPermissionGateway,
-    private val context: Context,
+    private val context: Application,
 ) : ViewModel() {
 
     private val _applicationInfo = MutableStateFlow<ManagerApplication?>(null)

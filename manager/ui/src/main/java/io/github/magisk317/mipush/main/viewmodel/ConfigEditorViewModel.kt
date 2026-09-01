@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
+import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,7 +22,7 @@ class ConfigEditorViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val syncGateway: ManagerConfigSyncGateway,
     private val configGateway: ManagerConfigGateway,
-    private val context: Context,
+    private val context: Application,
 ) : ViewModel() {
     data class UiState(
         val path: String = "",

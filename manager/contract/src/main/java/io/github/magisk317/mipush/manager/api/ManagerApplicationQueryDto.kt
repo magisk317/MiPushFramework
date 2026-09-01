@@ -11,7 +11,7 @@ data class ManagerApplicationQueryDto(
     val includeSystemApps: Boolean = false,
     val pageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     val pageToken: String? = null,
-    val userId: Int = 0,
+    val userId: Int,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {

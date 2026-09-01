@@ -64,7 +64,7 @@ val managerRemoteHostModule = module {
     single<ManagerRuntimeActions> { RemoteManagerRuntimeActions(get()) }
     single { ManagerRootAccess() }
     single<ManagerPermissionGateway> {
-        RemoteManagerPermissionGateway(androidContext(), get(), get(), get())
+        RemoteManagerPermissionGateway(androidContext(), get(), get())
     }
     single<ZygiskConfigGateway> { RemoteZygiskConfigGateway(get()) }
 }

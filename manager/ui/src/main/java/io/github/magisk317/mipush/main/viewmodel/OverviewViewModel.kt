@@ -12,6 +12,7 @@ import io.github.magisk317.mipush.manager.application.ApplicationListCacheStore
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.application.CachedApplicationSnapshot
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallPolicy
@@ -35,11 +36,23 @@ class OverviewViewModel constructor(
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
 
+    private val _runtimeVersionName = MutableStateFlow<String?>(null)
+    val runtimeVersionName: StateFlow<String?> = _runtimeVersionName.asStateFlow()
+
     private var statsLoaded = false
     private val _unavailableStatus = MutableStateFlow<ApplicationReadStatus?>(null)
     val unavailableStatus: StateFlow<ApplicationReadStatus?> = _unavailableStatus.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            runtimeClient.availability.collect { availability ->
+                _runtimeVersionName.value = when (availability) {
+                    is ManagerRuntimeAvailability.Available -> availability.handshake.runtimeVersionName
+                    is ManagerRuntimeAvailability.Incompatible -> availability.handshake.runtimeVersionName
+                    else -> null
+                }
+            }
+        }
         viewModelScope.launch {
             collectAvailableRuntimeReloads(
                 availability = runtimeClient.availability,

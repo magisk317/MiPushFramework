@@ -82,7 +82,7 @@ class GatewayApplicationListSource(
 class RemoteApplicationListSource internal constructor(
     private val pageLoader: suspend (ManagerApplicationQueryDto) -> ManagerRuntimeResult<ManagerApplicationPageDto>,
     private val pageSizeProvider: () -> Int,
-    private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val userIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
     private val pageCallAdapter: PageRemoteCallAdapter? = null,
 ) {
     constructor(client: ManagerRuntimeClient, pageCallAdapter: PageRemoteCallAdapter? = null) : this(
@@ -113,7 +113,7 @@ class RemoteApplicationListSource internal constructor(
         budget: RemoteCallBudget,
     ): ApplicationReadResult<ApplicationListSnapshot> {
         val pageSize = pageSizeProvider().coerceAtLeast(1)
-        val userId = userIdProvider().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(userIdProvider())
         val items = mutableListOf<ManagerApplication>()
         val seenPackages = mutableSetOf<String>()
         val seenTokens = mutableSetOf<String>()
@@ -234,7 +234,7 @@ class GatewayApplicationDetailSource(
 class RemoteApplicationDetailSource internal constructor(
     private val detailLoader: suspend (String, Boolean) -> ManagerRuntimeResult<ManagerApplicationDetailDto?>,
     private val diagnosticsLoader: suspend (String, Int) -> ManagerRuntimeResult<ManagerApplicationDiagnosticsDto>,
-    private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val userIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
 ) {
     constructor(client: ManagerRuntimeClient) : this(
         detailLoader = client::getApplicationDetail,
@@ -245,7 +245,7 @@ class RemoteApplicationDetailSource internal constructor(
         packageName: String,
         ignoreNotRegistered: Boolean,
     ): ApplicationReadResult<ManagerApplication?> = safelyLoadRemote {
-        val userId = userIdProvider().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(userIdProvider())
         mapRemoteResult(
             result = detailLoader(packageName, ignoreNotRegistered),
             mapper = { detail ->
@@ -259,7 +259,7 @@ class RemoteApplicationDetailSource internal constructor(
         packageName: String,
         registeredType: Int,
     ): ApplicationReadResult<ManagerApplicationDiagnostics> = safelyLoadRemote {
-        val userId = userIdProvider().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(userIdProvider())
         mapRemoteResult(
             result = diagnosticsLoader(packageName, registeredType),
             mapper = { diagnostics ->
@@ -366,7 +366,6 @@ private fun ManagerRuntimeAvailability.toApplicationReadStatus(): ApplicationRea
     ManagerRuntimeAvailability.TimedOut -> ApplicationReadStatus.TIMED_OUT
     is ManagerRuntimeAvailability.Incompatible -> ApplicationReadStatus.INCOMPATIBLE
     is ManagerRuntimeAvailability.TemporarilyDisconnected -> ApplicationReadStatus.TEMPORARILY_DISCONNECTED
-    is ManagerRuntimeAvailability.Available,
-    is ManagerRuntimeAvailability.Failed,
-    -> ApplicationReadStatus.FAILED
+    is ManagerRuntimeAvailability.Available -> ApplicationReadStatus.UNSUPPORTED
+    is ManagerRuntimeAvailability.Failed -> ApplicationReadStatus.FAILED
 }

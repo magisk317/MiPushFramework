@@ -258,7 +258,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         AppIconImage(
                             packageName = applicationInfo.packageName,
-                            label = applicationInfo.appName,
                             modifier = Modifier.size(52.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {

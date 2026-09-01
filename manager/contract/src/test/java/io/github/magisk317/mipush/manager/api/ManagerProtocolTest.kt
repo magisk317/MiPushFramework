@@ -73,7 +73,7 @@ class ManagerProtocolTest {
 
     @Test
     fun `application query page size is bounded by negotiated maximum`() {
-        val query = ManagerApplicationQueryDto(pageSize = 51)
+        val query = ManagerApplicationQueryDto(pageSize = 51, userId = 0)
 
         assertEquals(
             "invalid_application_page_size",
@@ -93,11 +93,22 @@ class ManagerProtocolTest {
     }
 
     @Test
+    fun `channel query defaults to an invalid user instead of primary user`() {
+        assertEquals(
+            "invalid_notification_channel_user_id",
+            ManagerProtocol.validateNotificationChannelQuery(
+                ManagerNotificationChannelQueryDto(packageName = "com.example.app"),
+                negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            ),
+        )
+    }
+
+    @Test
     fun `application query rejects unknown filter modes`() {
         assertEquals(
             "invalid_application_filter_mode",
             ManagerProtocol.validateApplicationQuery(
-                ManagerApplicationQueryDto(filterMode = 99),
+                ManagerApplicationQueryDto(filterMode = 99, userId = 0),
                 negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
             ),
         )

@@ -59,6 +59,7 @@ class RemoteNotificationChannelSourceTest {
                 )
             },
             pageSizeProvider = { 1 },
+            userIdProvider = { 0 },
         )
 
         val result = source.load("com.example") as NotificationChannelReadResult.Available
@@ -80,6 +81,7 @@ class RemoteNotificationChannelSourceTest {
                 ManagerRuntimeResult.Unavailable(ManagerRuntimeAvailability.PermissionDenied)
             },
             pageSizeProvider = { 20 },
+            userIdProvider = { 0 },
         )
 
         val result = source.load("com.example") as NotificationChannelReadResult.Unavailable

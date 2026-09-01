@@ -252,7 +252,7 @@ private fun SettingsScreen(
                     expanded = sectionExpanded[SettingsViewModel.SectionId.APPEARANCE],
                     onExpandedChange = { toggleSection(SettingsViewModel.SectionId.APPEARANCE) },
                 ) {
-                    AppearanceBlock(viewModel, onNavigateToStatusBarIconSettings)
+                    AppearanceBlock(onNavigateToStatusBarIconSettings)
                 }
 
                 SettingsSectionCard(
@@ -262,8 +262,6 @@ private fun SettingsScreen(
                     onExpandedChange = { toggleSection(SettingsViewModel.SectionId.CONFIGURATIONS) },
                 ) {
                     ConfigurationsBlock(
-                        viewModel = viewModel,
-                        snackbarHostState = snackbarHostState,
                         onNavigateToConfigurations = onNavigateToConfigurations,
                     )
                 }

@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
@@ -23,7 +22,6 @@ import kotlinx.coroutines.withContext
 class RequestPermissionViewModel constructor(
     private val permissionGateway: ManagerPermissionGateway,
     private val preferenceRepository: PreferenceRepository,
-    private val context: Context,
 ) : ViewModel() {
 
     private val _permissionStates = MutableStateFlow<Map<Int, Boolean>>(emptyMap())

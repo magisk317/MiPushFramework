@@ -97,7 +97,7 @@ private fun ManagerRuntimeAvailability.toStatus(): LogExportReadStatus = when (t
     is ManagerRuntimeAvailability.Incompatible -> LogExportReadStatus.INCOMPATIBLE
     is ManagerRuntimeAvailability.TemporarilyDisconnected -> LogExportReadStatus.TEMPORARILY_DISCONNECTED
     is ManagerRuntimeAvailability.Failed -> LogExportReadStatus.FAILED
-    is ManagerRuntimeAvailability.Available -> LogExportReadStatus.FAILED
+    is ManagerRuntimeAvailability.Available -> LogExportReadStatus.UNSUPPORTED
 }
 
 /** Materialize a remote log descriptor into a local cache file for optional manager consumption. */

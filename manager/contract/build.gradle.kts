@@ -11,6 +11,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
+}
+
+dependencies {
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

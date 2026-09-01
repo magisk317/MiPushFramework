@@ -72,8 +72,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -319,7 +321,11 @@ fun EventList(
                 }
                 SettingsItem(
                     title = stringResource(R.string.recent_activity_action_retention),
-                    summary = stringResource(R.string.event_retention_summary, eventRetentionDays),
+                    summary = pluralStringResource(
+                        R.plurals.event_retention_summary,
+                        eventRetentionDays,
+                        eventRetentionDays,
+                    ),
                 ) {
                     showListSettingsSheet = false
                     showRetentionDialog = true
@@ -361,7 +367,7 @@ fun EventList(
 
             if (showCleanupDialog) {
                 val cleanupScope = rememberCoroutineScope()
-                val cleanupDoneTemplate = stringResource(R.string.event_cleanup_done)
+                val resources = LocalResources.current
                 val cleanupNoneMessage = stringResource(R.string.event_cleanup_none)
                 val cleanupFailedMessage = stringResource(R.string.event_cleanup_failed)
                 EventCleanupCalendarDialog(
@@ -372,7 +378,11 @@ fun EventList(
                             snackbarHostState.currentSnackbarData?.dismiss()
                             snackbarHostState.showSnackbar(
                                 if (deleted > 0) {
-                                    String.format(cleanupDoneTemplate, deleted)
+                                    resources.getQuantityString(
+                                        R.plurals.event_cleanup_done,
+                                        deleted,
+                                        deleted,
+                                    )
                                 } else {
                                     cleanupNoneMessage
                                 },

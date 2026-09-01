@@ -185,7 +185,7 @@ internal fun EventList(
     var restoredListKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(isActive, query, packageName, refreshSignal) {
         if (!isActive) return@LaunchedEffect
-        val listKey = viewModel.cacheKey(query, packageName, refreshSignal)
+        val listKey = EventListViewModel.eventListRestoreKey(query, packageName, refreshSignal)
         if (restoredListKey == listKey) return@LaunchedEffect
         if (viewModel.loadFromCacheIfPresent(query, packageName, refreshSignal)) {
             val cached = viewModel.getEventListSnapshot(
@@ -336,7 +336,7 @@ internal fun EventList(
         doRefresh,
         isNeedMore,
         doLoadMore,
-        isNeedRefresh,
+        isNeedRefresh = isNeedRefresh,
         scrollToTopSignal = refreshSignal,
         scrollToTopAfterRefresh = true,
         scrollChromeState = scrollChromeState,
@@ -451,7 +451,10 @@ private fun EventItem(
         containerColor = containerColor,
         onClick = { onClick(item) },
         leadingContent = {
-            AppIconImage(item.packageName, item.appName, modifier = Modifier.size(40.dp))
+            AppIconImage(
+                packageName = item.packageName,
+                modifier = Modifier.size(40.dp),
+            )
         },
         trailingContent = null,
     ) {

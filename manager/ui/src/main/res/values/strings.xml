@@ -379,7 +379,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_get_log">Save logs</string>
     <string name="settings_get_log_summary">Build and save a log bundle to local storage for debugging.</string>
     <string name="settings_runtime_log_retention_days">Runtime log retention</string>
-    <string name="settings_runtime_log_retention_days_summary">Keep the last %1$d days of all log artifacts (runtime, crash, export zips, temp files)</string>
     <string name="settings_runtime_log_retention_days_hint">Days to keep all log products (jsonl, crash, export zips, staging, temp). Minimum 1. Default is 2.</string>
     <string name="settings_runtime_log_retention_days_error">Please enter an integer greater than or equal to 1.</string>
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
@@ -411,23 +410,16 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="event_retention_dialog_title">Record retention</string>
     <string name="event_retention_dialog_hint">How many recent days of event records to keep (registration state records are always kept).</string>
     <string name="event_retention_dialog_error">Please enter a number of days no less than 1.</string>
-    <string name="event_retention_summary">Currently keeping the last %1$d days</string>
     <string name="event_cleanup_title">Clean up records</string>
     <string name="event_cleanup_summary">Pick a day on the calendar to clean that day or everything before it.</string>
     <string name="event_cleanup_calendar_hint">Days with records are highlighted; the number is how many can be cleaned that day.</string>
     <string name="event_cleanup_preset_7">Older than 7 days</string>
     <string name="event_cleanup_preset_30">Older than 30 days</string>
     <string name="event_cleanup_preset_all">Clear all</string>
-    <string name="event_cleanup_month_summary">%1$d records to clean this month</string>
     <string name="event_cleanup_day_count">%1$d</string>
-    <string name="event_cleanup_selected_day">%1$s · %2$d records</string>
     <string name="event_cleanup_day_only">Clean this day only (%1$s)</string>
     <string name="event_cleanup_day_and_before">Clean this day and earlier (from %1$s)</string>
     <string name="event_cleanup_confirm_title">Confirm cleanup</string>
-    <string name="event_cleanup_confirm_day_only">Delete %2$d records from %1$s? Registration-state records are always kept. This cannot be undone.</string>
-    <string name="event_cleanup_confirm_before">Delete %2$d records on and before %1$s? Registration-state records are always kept. This cannot be undone.</string>
-    <string name="event_cleanup_confirm_all">Delete all %1$d records? Registration-state records are always kept. This cannot be undone.</string>
-    <string name="event_cleanup_done">Cleaned up %1$d records</string>
     <string name="event_cleanup_none">No records to clean</string>
     <string name="event_cleanup_failed">Could not clean records. Check the MiPush runtime connection.</string>
     <string name="event_initial_load_title">Preparing event history</string>
@@ -436,7 +428,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="event_load_failed_summary">The runtime is still processing or temporarily unavailable. Pull to retry later.</string>
     <string name="event_cleanup_prev_month">Previous month</string>
     <string name="event_cleanup_next_month">Next month</string>
-    <string name="recent_activity_group_count">%1$d records</string>
     <string name="recent_activity_updated_at">Updated %1$s</string>
     <string name="recent_activity_disabled_label">Disabled</string>
     <string name="recent_activity_filter_prefix">Filter</string>
@@ -518,6 +509,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_blocked_by_permission">Replay was blocked by the app or notification permission settings.</string>
     <string name="mock_notification_dispatched">Replay was dispatched; this runtime cannot confirm the final notification post.</string>
     <string name="mock_notification_posted">Replay notification posted.</string>
+    <string name="mock_notification_failed_channel_disabled">Replay failed: the notification channel is disabled. Enable it in system notification settings.</string>
     <string name="mock_notification_failed">Failed to replay this push message. Check logs for details.</string>
     <string name="mock_notification_no_receiver">Replay warning: target app receiver not found for this push intent.</string>
     <string name="settings_home_service_title">Services</string>
@@ -554,7 +546,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="relay_mode_background">Background</string>
     <string name="settings_debug_mode_enabled">Verbose</string>
     <string name="settings_debug_mode_disabled">Standard</string>
-    <string name="settings_overview_registered_hint">%1$d of %2$d detected MiPush apps currently show registration activity. Open the apps page to inspect the remaining ones.</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>
@@ -565,7 +556,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_list_stats_registered">Registered</string>
     <string name="app_list_stats_not_registered">Not registered</string>
     <string name="app_list_hero_title">MiPush integration overview</string>
-    <string name="app_list_hero_summary">%1$d of %2$d scanned apps currently expose a MiPush-compatible surface.</string>
     <string name="action_list_settings">List settings</string>
     <string name="action_show_system_apps">Show system apps</string>
     <string name="notification_channels_section_mipush">MiPush channels</string>
@@ -608,7 +598,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_redirect_click_summary">Keep this app notification appearance; open a chosen app when tapped. Coming soon.</string>
     <string name="app_detail_redirect_click_in_development">Open another app on click is under development</string>
     <string name="app_detail_island_controls">Island &amp; focus display</string>
-    <string name="app_detail_island_controls_summary">Configure HyperIsland and focus payload generation for this app.</string>
+    <string name="app_detail_island_controls_summary">Configure MiPush island and focus payload generation for this app.</string>
     <string name="app_detail_island_enabled">Enable Super Island</string>
     <string name="app_detail_island_enabled_summary">Allow MiPushFramework to generate Super Island payloads for this app.</string>
     <string name="app_detail_island_focus_notification">Enable focus notification</string>
@@ -622,12 +612,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_chart_not_integrated_label">Not integrated</string>
     <string name="overview_chart_registered_label">Registered</string>
     <string name="overview_chart_unregistered_label">Not registered</string>
-    <string name="overview_chart_ratio_format">%1$d apps · %2$d%%</string>
     <string name="overview_version_format">Version %1$s</string>
     <string name="overview_version_code_label">Version code</string>
     <string name="commit_info">Commit information</string>
-    <string name="overview_detected_apps_format">%1$d / %2$d detected</string>
-    <string name="overview_registered_apps_format">%1$d / %2$d registered</string>
     <string name="overview_project_github_title">GitHub project</string>
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
@@ -638,7 +625,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="event_empty_title">No activity yet</string>
     <string name="event_empty_summary">Wait for a push event to arrive or trigger a test message manually.</string>
     <string name="notification_channels_group_summary">Inspect this notification group and drill into each channel if behavior differs.</string>
-    <string name="group_summary_title">%d new messages</string>
     <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
     <string-array name="theme_mode_entries">
         <item>@string/theme_follow_system</item>
@@ -658,10 +644,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_dedicated_service_summary">Enable an empty accessibility service that system will auto-restart when app dies.</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">Enabled in system Accessibility settings.</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>
-    <string name="pref_island_enabled_title">HyperIsland focus display</string>
-    <string name="pref_island_enabled_summary">Generate and inject HyperIsland focus payloads for MiPush notifications.</string>
+    <string name="pref_island_enabled_title">MiPush island focus display</string>
+    <string name="pref_island_enabled_summary">Generate and inject MiPush-owned focus payloads for notifications.</string>
     <string name="pref_island_timeout_title">Island timeout</string>
-    <string name="pref_island_timeout_summary">Auto close after %1$d seconds</string>
     <string name="pref_island_timeout_hint">Seconds, minimum 1. Default is 5.</string>
     <string name="pref_island_timeout_error">Please enter an integer greater than or equal to 1.</string>
     <string name="pref_island_first_float_title">First float</string>
@@ -674,23 +659,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_island_show_original_notification_summary">Keep the source app\'s notification in the shade alongside the focus notification.</string>
     <string name="pref_island_focus_notif_title">Focus authorization bypass</string>
     <string name="pref_island_focus_notif_summary">Allow focus notifications from all apps to bypass SystemUI and XMSF authorization.</string>
-    <string name="pref_island_renderer_mode_title">Island renderer</string>
-    <string name="pref_island_renderer_mode_summary">Auto delegates to HyperIsland when it is installed; MiPush renders when it is absent.</string>
-    <string name="pref_island_renderer_mode_auto">Auto</string>
-    <string name="pref_island_renderer_mode_mipush">MiPush built-in</string>
-    <string name="pref_island_renderer_mode_hyperisland">HyperIsland</string>
-    <string name="pref_island_visual_title">Visual effects</string>
-    <string name="pref_island_visual_summary">Enable the MiPush island background and visual layer.</string>
-    <string name="pref_island_dynamic_color_title">Dynamic accent color</string>
-    <string name="pref_island_dynamic_color_summary">Derive the island accent from the notification icon.</string>
-    <string name="pref_island_blur_title">Background blur</string>
-    <string name="pref_island_blur_summary">Use the MIUI background blur layer when available.</string>
-    <string name="pref_island_glass_title">Glass edge</string>
-    <string name="pref_island_glass_summary">Draw the translucent glass highlight and edge.</string>
-    <string name="pref_island_outer_glow_title">Outer glow</string>
-    <string name="pref_island_outer_glow_summary">Draw a colored outline around the island.</string>
-    <string name="pref_island_animation_title">Animated edge</string>
-    <string name="pref_island_animation_summary">Animate the accent highlight while the island is visible.</string>
 
     <string name="mock_target_package">Target Package</string>
     <string name="mock_group_notification_shade">Notification shade</string>
@@ -722,15 +690,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_voip_decline">Decline</string>
 
 
-    <string name="settings_launcher_icon">Launcher icon</string>
-    <string name="settings_launcher_icon_summary">Home-screen and Recents icon. System App Info always uses the package default icon. Dual-space clones sync when root is available.</string>
-    <string name="settings_launcher_icon_default">Default (push service)</string>
-    <string name="settings_launcher_icon_legacy">Module</string>
-    <string name="settings_launcher_icon_xmsf">Push service style</string>
-    <string name="settings_migrate_prefs">Import manager preferences from runtime</string>
-    <string name="settings_migrate_prefs_summary">Copy UI preferences saved in the push service package</string>
-    <string name="settings_migrate_prefs_done">Imported %1$d preferences</string>
 
     <string name="settings_enable_analytics">Analytics</string>
     <string name="settings_enable_analytics_summary">Allow anonymous analytics for channel usage, success rates, crashes and technical diagnostics.</string>
+    <string name="runtime_missing_dialog_title">MiPushFramework runtime unavailable</string>
+    <string name="runtime_missing_dialog_message">MiPushFramework runtime was not detected. The device may have only MiPush Manager installed, or may be using a stock/fork runtime without MiPushFramework capabilities. Please download and install the matching MiPushFramework runtime from the relevant project group, then open Manager again.</string>
+    <string name="runtime_missing_dialog_exit">Exit</string>
 </resources>

@@ -59,6 +59,11 @@ internal data class RemoteTarget(
     val handshake: ManagerHandshake,
 )
 
+internal sealed interface BindResult {
+    data class Success(val accepted: Boolean) : BindResult
+    data class Failure(val state: ManagerRuntimeAvailability) : BindResult
+}
+
 internal class RemoteCallTimeoutException(
     val permitsExhausted: Boolean,
 ) : RuntimeException()

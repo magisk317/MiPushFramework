@@ -20,7 +20,7 @@ import kotlinx.serialization.json.Json
  */
 class ApplicationListCacheStore(
     private val context: Context,
-    private val currentUserIdProvider: () -> Int = { Utils.myUserId() },
+    private val currentUserIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
 ) {
     private val dataStore by lazy { context.applicationListCacheDataStore }
     private val json = Json { ignoreUnknownKeys = true }
@@ -61,7 +61,8 @@ class ApplicationListCacheStore(
     }
 
     suspend fun clearForUser(userId: Int = normalizedUserId()) = withContext(Dispatchers.IO) {
-        val prefix = "user=${userId.coerceAtLeast(0)};"
+        requireValidCacheUserId(userId)
+        val prefix = "user=$userId;"
         dataStore.edit { preferences ->
             preferences.asMap().keys
                 .filter { it.name.startsWith(prefix) }
@@ -69,7 +70,7 @@ class ApplicationListCacheStore(
         }
     }
 
-    internal fun normalizedUserId(): Int = currentUserIdProvider().coerceAtLeast(0)
+    internal fun normalizedUserId(): Int = currentUserIdProvider().also(::requireValidCacheUserId)
 
     fun currentUserId(): Int = normalizedUserId()
 
@@ -81,7 +82,10 @@ class ApplicationListCacheStore(
             query: String,
             filterMode: Int,
             includeSystemApps: Boolean,
-        ): String = "user=${userId.coerceAtLeast(0)};q=$query;f=$filterMode;s=$includeSystemApps"
+        ): String {
+            requireValidCacheUserId(userId)
+            return "user=$userId;q=$query;f=$filterMode;s=$includeSystemApps"
+        }
     }
 }
 
@@ -107,3 +111,7 @@ data class CachedApplicationSnapshot(
 }
 
 private val Context.applicationListCacheDataStore by preferencesDataStore(name = "application_list_cache")
+
+private fun requireValidCacheUserId(userId: Int) {
+    require(userId >= 0) { "Invalid application cache user id: $userId" }
+}

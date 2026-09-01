@@ -45,7 +45,6 @@ open class WelcomeActivity : ComponentActivity() {
                 if (!startTab.isNullOrBlank()) {
                     putExtra(MainActivity.EXTRA_START_TAB, startTab)
                 }
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
     }

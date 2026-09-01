@@ -8,6 +8,7 @@ android {
 
 dependencies {
     api(project(":manager:contract"))
+    implementation(project(":core"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(project(":magisk-xposed-kit:logging"))
 

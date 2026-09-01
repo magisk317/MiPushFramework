@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="settings_runtime_log_retention_days_summary">
+        <item quantity="other">保留最近 %1$d 天全部日志产物（运行日志、崩溃、导出 zip、临时文件）</item>
+    </plurals>
+    <plurals name="event_retention_summary">
+        <item quantity="other">当前保留最近 %1$d 天</item>
+    </plurals>
+    <plurals name="event_cleanup_month_summary">
+        <item quantity="other">本月共 %1$d 条可清理记录</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_day_only">
+        <item quantity="other">将删除 %1$s 当天的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_before">
+        <item quantity="other">将删除 %1$s 及之前的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_all">
+        <item quantity="other">将删除全部 %1$d 条记录，注册状态记录会保留。此操作不可撤销。</item>
+    </plurals>
+    <plurals name="event_cleanup_done">
+        <item quantity="other">已清理 %1$d 条记录</item>
+    </plurals>
+    <plurals name="recent_activity_group_count">
+        <item quantity="other">%1$d 条记录</item>
+    </plurals>
+    <plurals name="app_list_hero_summary">
+        <item quantity="other">当前扫描到 %1$d / %2$d 个应用具备 MiPush 接入面。</item>
+    </plurals>
+    <plurals name="pref_island_timeout_summary">
+        <item quantity="other">%1$d 秒后自动关闭</item>
+    </plurals>
+</resources>

@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.main.viewmodel
 
-import android.content.Context
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
@@ -36,7 +36,7 @@ class ApplicationListViewModel constructor(
     applicationSource: RemoteApplicationListSource,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
-    private val context: Context,
+    private val context: Application,
     private val runtimeClient: ManagerRuntimeClient,
     private val cacheStore: ApplicationListCacheStore,
 ) : ViewModel() {

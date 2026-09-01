@@ -46,12 +46,10 @@ import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.root.ManagerRootAccess
-import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
@@ -60,6 +58,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidApplication
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
 import org.koin.core.context.startKoin
@@ -119,7 +118,7 @@ val managerKoinModule = module {
             get<ManagerEventGateway>(),
             get<SettingsManager>(),
             get<PreferenceRepository>(),
-            androidContext(),
+            androidApplication(),
             get<ManagerRuntimeClient>(),
             get<RuntimePreferenceGateway>(),
             get<EventListCacheStore>(),
@@ -136,9 +135,9 @@ val managerKoinModule = module {
         )
     }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
-    viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
-    viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { ConfigManagerViewModel(get(), get(), get(), androidApplication(), get()) }
+    viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidApplication()) }
+    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ApplicationListCacheStore>()) }
     viewModel {
         ConnectionStatusViewModel(
@@ -151,12 +150,12 @@ val managerKoinModule = module {
             get<RemoteApplicationListSource>(),
             get<SettingsManager>(),
             get<PreferenceRepository>(),
-            androidContext(),
+            androidApplication(),
             get<ManagerRuntimeClient>(),
             get<ApplicationListCacheStore>(),
         )
     }
-    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
+    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>()) }
 }
 
 object ManagerDependencies {
@@ -286,12 +285,6 @@ object ManagerDependencies {
         if (!standaloneEventSyncStarted) {
             standaloneEventSyncStarted = true
             koin.get<EventListBackgroundSyncCoordinator>().startStandalonePeriodicRefresh()
-        }
-        appScope.launch(Dispatchers.IO) {
-            val iconId = runCatching {
-                koin.get<PreferenceRepository>().selectedLauncherIcon.first()
-            }.getOrDefault(LauncherIconController.ICON_DEFAULT)
-            LauncherIconController.apply(appContext, iconId)
         }
     }
 

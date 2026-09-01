@@ -40,12 +40,12 @@ fun RefreshableLazyColumn(
     doRefresh: (onRefreshed: () -> Unit) -> Unit,
     isNeedMore: (lastVisibleIndex: Int) -> Boolean,
     doLoadMore: (onRefreshed: () -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
     isNeedRefresh: Boolean = false,
     scrollToTopSignal: Int = 0,
     scrollToTopAfterRefresh: Boolean = false,
     scrollChromeState: ScrollChromeState? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    modifier: Modifier = Modifier,
     listState: LazyListState? = null,
     content: LazyListScope.() -> Unit
 ) {

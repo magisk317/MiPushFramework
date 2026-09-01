@@ -55,6 +55,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":configuration"))
     implementation(project(":manager:application"))
+    implementation(project(":manager:port"))
     implementation(project(":manager:client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))

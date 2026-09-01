@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="settings_runtime_log_retention_days_summary">
+        <item quantity="one">Keep the last %1$d day of all log artifacts (runtime, crash, export zips, temp files)</item>
+        <item quantity="other">Keep the last %1$d days of all log artifacts (runtime, crash, export zips, temp files)</item>
+    </plurals>
+    <plurals name="event_retention_summary">
+        <item quantity="one">Currently keeping the last %1$d day</item>
+        <item quantity="other">Currently keeping the last %1$d days</item>
+    </plurals>
+    <plurals name="event_cleanup_month_summary">
+        <item quantity="one">%1$d record to clean this month</item>
+        <item quantity="other">%1$d records to clean this month</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_day_only">
+        <item quantity="one">Delete %2$d record from %1$s? Registration-state records are always kept. This cannot be undone.</item>
+        <item quantity="other">Delete %2$d records from %1$s? Registration-state records are always kept. This cannot be undone.</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_before">
+        <item quantity="one">Delete %2$d record on and before %1$s? Registration-state records are always kept. This cannot be undone.</item>
+        <item quantity="other">Delete %2$d records on and before %1$s? Registration-state records are always kept. This cannot be undone.</item>
+    </plurals>
+    <plurals name="event_cleanup_confirm_all">
+        <item quantity="one">Delete all %1$d record? Registration-state records are always kept. This cannot be undone.</item>
+        <item quantity="other">Delete all %1$d records? Registration-state records are always kept. This cannot be undone.</item>
+    </plurals>
+    <plurals name="event_cleanup_done">
+        <item quantity="one">Cleaned up %1$d record</item>
+        <item quantity="other">Cleaned up %1$d records</item>
+    </plurals>
+    <plurals name="recent_activity_group_count">
+        <item quantity="one">%1$d record</item>
+        <item quantity="other">%1$d records</item>
+    </plurals>
+    <plurals name="app_list_hero_summary">
+        <item quantity="one">%1$d of %2$d scanned app currently exposes a MiPush-compatible surface.</item>
+        <item quantity="other">%1$d of %2$d scanned apps currently expose a MiPush-compatible surface.</item>
+    </plurals>
+    <plurals name="pref_island_timeout_summary">
+        <item quantity="one">Auto close after %1$d second</item>
+        <item quantity="other">Auto close after %1$d seconds</item>
+    </plurals>
+</resources>

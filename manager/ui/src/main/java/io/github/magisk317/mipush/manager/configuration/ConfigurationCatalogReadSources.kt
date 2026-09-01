@@ -131,5 +131,5 @@ private fun ManagerRuntimeAvailability.toStatus(): ConfigurationCatalogReadStatu
     is ManagerRuntimeAvailability.TemporarilyDisconnected ->
         ConfigurationCatalogReadStatus.TEMPORARILY_DISCONNECTED
     is ManagerRuntimeAvailability.Failed -> ConfigurationCatalogReadStatus.FAILED
-    is ManagerRuntimeAvailability.Available -> ConfigurationCatalogReadStatus.FAILED
+    is ManagerRuntimeAvailability.Available -> ConfigurationCatalogReadStatus.UNSUPPORTED
 }

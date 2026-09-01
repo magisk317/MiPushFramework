@@ -63,6 +63,37 @@ class ManagerRuntimeClientPolicyTest {
     }
 
     @Test
+    fun `handshake classification uses primitive signals instead of the parcelable`() {
+        val available = ManagerRuntimeClientPolicy.classifyHandshakeSignals(
+            compatible = true,
+            compatibilityReason = null,
+            validationReason = null,
+            handshakeWarning = "runtime_degraded",
+        )
+        assertEquals(true, available.available)
+        assertEquals("runtime_degraded", available.warning)
+
+        val incompatible = ManagerRuntimeClientPolicy.classifyHandshakeSignals(
+            compatible = false,
+            compatibilityReason = "protocol_major_mismatch",
+            validationReason = null,
+            handshakeWarning = "ignore-me",
+        )
+        assertEquals(false, incompatible.available)
+        assertEquals("protocol_major_mismatch", incompatible.reason)
+        assertEquals(null, incompatible.warning)
+
+        val invalid = ManagerRuntimeClientPolicy.classifyHandshakeSignals(
+            compatible = true,
+            compatibilityReason = null,
+            validationReason = "invalid_max_payload_bytes",
+            handshakeWarning = "runtime_degraded",
+        )
+        assertEquals(false, invalid.available)
+        assertEquals("invalid_max_payload_bytes", invalid.reason)
+    }
+
+    @Test
     fun `reconnect delay is bounded`() {
         assertEquals(500L, ManagerRuntimeClientPolicy.reconnectDelayMillis(0))
         assertEquals(1_000L, ManagerRuntimeClientPolicy.reconnectDelayMillis(1))

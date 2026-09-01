@@ -53,8 +53,8 @@ class ManagerRuntimeRecoveryPolicyTest {
     }
 
     @Test
-    fun `recovery target is projected to a non-negative Android user`() {
-        assertEquals(0, ManagerRuntimeRecoveryPolicy.androidUserId(-1))
+    fun `recovery target rejects an invalid UID without falling back to primary user`() {
+        assertEquals(-1, ManagerRuntimeRecoveryPolicy.androidUserId(-1))
         assertEquals(0, ManagerRuntimeRecoveryPolicy.androidUserId(99_999))
         assertEquals(1, ManagerRuntimeRecoveryPolicy.androidUserId(100_000))
         assertEquals(999, ManagerRuntimeRecoveryPolicy.androidUserId(99_900_001))

@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.feature.wizard.permission
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
+import androidx.core.net.toUri
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
@@ -25,7 +25,7 @@ class AlertWindowPermissionOperator(private val context: Context) : PermissionOp
     override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:${context.packageName}")
+            "package:${context.packageName}".toUri()
         )
         context.startActivity(intent)
     }

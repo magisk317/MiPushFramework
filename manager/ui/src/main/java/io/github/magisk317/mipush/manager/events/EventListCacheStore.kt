@@ -35,14 +35,17 @@ import io.github.magisk317.mipush.common.utils.Utils
  */
 class EventListCacheStore(
     private val context: Context,
-    private val currentUserIdProvider: () -> Int = { Utils.myUserId() },
+    private val currentUserIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
 ) {
     private val dataStore by lazy { context.eventListCacheDataStore }
     private val mutationMutex = Mutex()
     private val _updates = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val updates: SharedFlow<String> = _updates.asSharedFlow()
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
 
     /** Read cached events for a query key, or null when absent/stale/undecodable. */
     suspend fun getCached(queryKey: String): List<EventInfoForDisplay>? = withContext(Dispatchers.IO) {
@@ -50,26 +53,29 @@ class EventListCacheStore(
     }
 
     private suspend fun readCached(queryKey: String): List<EventInfoForDisplay>? {
-        val currentKey = stringPreferencesKey(scopedKey(queryKey))
-        val legacyKey = stringPreferencesKey(queryKey)
+        val userId = currentUserIdProvider()
+        val currentKey = stringPreferencesKey(buildEventListCacheKey(userId, queryKey))
+        val legacyKey = legacyEventListCacheKey(userId, queryKey)?.let(::stringPreferencesKey)
         val preferences = dataStore.data.first()
-        val raw = preferences[currentKey] ?: preferences[legacyKey]
+        val raw = preferences[currentKey] ?: legacyKey?.let { preferences[it] }
             ?: return null
         val cached = runCatching {
-            json.decodeFromString<List<ManagerEvent>>(raw).map { it.toEventInfoForDisplay() }
+            json.decodeFromString<List<ManagerEvent>>(raw)
+                .takeIf { eventsBelongToUser(it, userId) }
+                ?.map { it.toEventInfoForDisplay() }
         }.getOrNull()
         if (cached == null) {
             // Drop only the corrupt scoped bucket. Other users and query scopes remain intact.
             runCatching {
                 dataStore.edit { values ->
                     values.remove(currentKey)
-                    values.remove(legacyKey)
+                    legacyKey?.let(values::remove)
                 }
             }
             return null
         }
-        // Migrate the pre-user-scoped bucket so existing records remain cache-first.
-        if (preferences[currentKey] == null) {
+        // Migrate the pre-user-scoped bucket only for primary user; it has no owner identity.
+        if (preferences[currentKey] == null && legacyKey != null) {
             runCatching {
                 dataStore.edit { values ->
                     values[currentKey] = raw
@@ -100,11 +106,15 @@ class EventListCacheStore(
 
     private suspend fun writeCached(queryKey: String, events: List<EventInfoForDisplay>) {
         val payload = events.map { it.event }
+        val userId = currentUserIdProvider()
+        require(eventsBelongToUser(payload, userId)) {
+            "Event cache payload contains an event owned by another user: $userId"
+        }
         val raw = json.encodeToString(payload)
         dataStore.edit { prefs -> prefs[stringPreferencesKey(scopedKey(queryKey))] = raw }
         _updates.tryEmit(queryKey)
         this.logI {
-            "event cache write query=$queryKey events=${events.size} user=${currentUserIdProvider().coerceAtLeast(0)}"
+            "event cache write query=$queryKey events=${events.size} user=$userId"
         }
     }
 
@@ -128,8 +138,20 @@ object EventListCacheStoreRegistry {
     }
 }
 
-internal fun buildEventListCacheKey(userId: Int, queryKey: String): String =
-    "user=${userId.coerceAtLeast(0)};$queryKey"
+internal fun buildEventListCacheKey(userId: Int, queryKey: String): String {
+    require(userId >= 0) { "Invalid event cache user id: $userId" }
+    return "user=$userId;$queryKey"
+}
+
+internal fun legacyEventListCacheKey(userId: Int, queryKey: String): String? {
+    require(userId >= 0) { "Invalid event cache user id: $userId" }
+    return queryKey.takeIf { userId == 0 }
+}
+
+internal fun eventsBelongToUser(events: List<ManagerEvent>, userId: Int): Boolean {
+    require(userId >= 0) { "Invalid event cache user id: $userId" }
+    return events.all { it.userId == userId }
+}
 
 private val Context.eventListCacheDataStore by preferencesDataStore(name = "event_list_cache")
 

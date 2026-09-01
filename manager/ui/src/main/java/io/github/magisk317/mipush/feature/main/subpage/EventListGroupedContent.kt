@@ -3,8 +3,8 @@ package io.github.magisk317.mipush.feature.main.subpage
 import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.feature.main.RecentEventListPage
 import android.content.Intent
-import android.net.Uri
 import android.content.Context
+import androidx.core.net.toUri
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -90,6 +91,7 @@ import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.application.EventDebugJson
 import io.github.magisk317.mipush.manager.application.ManagerEvent
+import io.github.magisk317.mipush.manager.ManagerStatePolicies
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
@@ -160,7 +162,7 @@ internal fun EventGroupList(
                 .groupBy { it.packageName }
                 .values
                 .map { events ->
-                    val sortedEvents = events.sortedByDescending { it.receiveDate.time }
+                    val sortedEvents = ManagerStatePolicies.newestFirst(events) { it.receiveDate.time }
                     val first = sortedEvents.first()
                     EventGroupForDisplay(
                         packageName = first.packageName,
@@ -169,7 +171,7 @@ internal fun EventGroupList(
                         latestDate = first.receiveDate,
                     )
                 }
-                .sortedByDescending { it.latestDate.time }
+                .let { ManagerStatePolicies.newestFirst(it) { group -> group.latestDate.time } }
             withContext(Dispatchers.Main.immediate) {
                 groupedItems.clear()
                 groupedItems.addAll(grouped)
@@ -183,7 +185,7 @@ internal fun EventGroupList(
     var restoredListKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(isActive, query, refreshSignal) {
         if (!isActive) return@LaunchedEffect
-        val listKey = viewModel.cacheKey(query, "", refreshSignal)
+        val listKey = EventListViewModel.eventListRestoreKey(query, "", refreshSignal)
         if (restoredListKey == listKey) return@LaunchedEffect
         withFrameNanos { }
         // Cache-first keeps cold-start UI responsive. Automatic refresh is owned by the
@@ -343,11 +345,14 @@ internal fun EventGroupList(
                     onClick = {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
-                                .setData(Uri.parse(group.packageName)),
+                                .setData(group.packageName.toUri()),
                         )
                     },
                     leadingContent = {
-                        AppIconImage(group.packageName, group.appName, modifier = Modifier.size(48.dp))
+                        AppIconImage(
+                            packageName = group.packageName,
+                            modifier = Modifier.size(48.dp),
+                        )
                     },
                     trailingContent = {
                         Icon(
@@ -372,7 +377,11 @@ internal fun EventGroupList(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         InfoPill(
-                            text = stringResource(R.string.recent_activity_group_count, group.events.size),
+                            text = pluralStringResource(
+                                R.plurals.recent_activity_group_count,
+                                group.events.size,
+                                group.events.size,
+                            ),
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

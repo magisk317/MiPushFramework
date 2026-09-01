@@ -53,7 +53,7 @@ class RemoteNotificationChannelSource internal constructor(
     private val pageLoader: suspend (ManagerNotificationChannelQueryDto) ->
     ManagerRuntimeResult<ManagerNotificationChannelPageDto>,
     private val pageSizeProvider: () -> Int,
-    private val userIdProvider: () -> Int = { Utils.myUserId() },
+    private val userIdProvider: () -> Int = { Utils.requireValidUserId(Utils.myUserId()) },
 ) {
     constructor(client: ManagerRuntimeClient) : this(
         pageLoader = client::getNotificationChannelPage,
@@ -68,7 +68,7 @@ class RemoteNotificationChannelSource internal constructor(
 
     suspend fun load(packageName: String): NotificationChannelReadResult<NotificationChannelSnapshot> = try {
         val pageSize = pageSizeProvider().coerceAtLeast(1)
-        val userId = userIdProvider().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(userIdProvider())
         val items = mutableListOf<NotificationChannelSummary>()
         val seenTokens = mutableSetOf<String>()
         var token: String? = null
@@ -160,5 +160,5 @@ private fun ManagerRuntimeAvailability.toNotificationChannelReadStatus(): Notifi
         is ManagerRuntimeAvailability.TemporarilyDisconnected ->
             NotificationChannelReadStatus.TEMPORARILY_DISCONNECTED
         is ManagerRuntimeAvailability.Failed -> NotificationChannelReadStatus.FAILED
-        is ManagerRuntimeAvailability.Available -> NotificationChannelReadStatus.FAILED
+        is ManagerRuntimeAvailability.Available -> NotificationChannelReadStatus.UNSUPPORTED
     }

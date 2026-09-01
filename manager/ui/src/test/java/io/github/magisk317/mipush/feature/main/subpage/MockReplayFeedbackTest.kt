@@ -21,6 +21,10 @@ class MockReplayFeedbackTest {
             MockReplayOutcome.Posted.feedbackStringRes(),
         )
         assertEquals(
+            R.string.mock_notification_failed_channel_disabled,
+            MockReplayOutcome.FailedChannelDisabled.feedbackStringRes(),
+        )
+        assertEquals(
             R.string.mock_notification_failed,
             MockReplayOutcome.Failed.feedbackStringRes(),
         )

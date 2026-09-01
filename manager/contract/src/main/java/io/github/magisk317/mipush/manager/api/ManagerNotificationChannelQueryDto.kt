@@ -8,7 +8,8 @@ data class ManagerNotificationChannelQueryDto(
     val packageName: String = "",
     val pageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     val pageToken: String? = null,
-    val userId: Int = 0,
+    /** Missing identity is invalid; callers must choose the Android user explicitly. */
+    val userId: Int = -1,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {

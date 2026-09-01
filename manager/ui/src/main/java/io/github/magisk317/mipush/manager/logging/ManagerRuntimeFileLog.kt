@@ -5,8 +5,8 @@ import android.content.Context
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
-import io.github.magisk317.xposed.logging.JsonLineEncoder
-import io.github.magisk317.xposed.logging.JsonLineField
+import io.github.magisk317.mipush.diagnostics.StructuredLogCore
+import io.github.magisk317.mipush.diagnostics.DailyRouteLogNamingPolicy
 import io.github.magisk317.xposed.logging.LogSink
 import io.github.magisk317.xposed.logging.LoggingKit
 import java.io.File
@@ -87,7 +87,7 @@ object ManagerRuntimeFileLog {
         synchronized(writeLock) {
             return getLogDir(context).listFiles()
                 .orEmpty()
-                .filter { it.isFile && it.name.startsWith("runtime.") && it.name.endsWith(".jsonl") }
+                .filter { it.isFile && DailyRouteLogNamingPolicy.isRouteFile(it.name, ROUTE) }
                 .sortedBy { it.name }
         }
     }
@@ -121,27 +121,27 @@ object ManagerRuntimeFileLog {
     ) {
         val now = Date()
         val thread = Thread.currentThread()
-        val line = JsonLineEncoder.encode(
-            JsonLineField.string(
+        val line = StructuredLogCore.encode(
+            StructuredLogCore.stringField(
                 "time",
                 Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
             ),
-            JsonLineField.string("level", level),
-            JsonLineField.string("tag", tag),
-            JsonLineField.string(
+            StructuredLogCore.stringField("level", level),
+            StructuredLogCore.stringField("tag", tag),
+            StructuredLogCore.stringField(
                 "message",
                 if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
             ),
-            JsonLineField.string(
+            StructuredLogCore.stringField(
                 "throwable",
                 if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
                 include = throwable.isNotBlank(),
             ),
-            JsonLineField.string("route", ROUTE),
-            JsonLineField.string("packageName", context.packageName),
-            JsonLineField.string("processName", currentProcessName()),
-            JsonLineField.number("pid", android.os.Process.myPid()),
-            JsonLineField.string("threadName", thread.name.orEmpty()),
+            StructuredLogCore.stringField("route", ROUTE),
+            StructuredLogCore.stringField("packageName", context.packageName),
+            StructuredLogCore.stringField("processName", currentProcessName()),
+            StructuredLogCore.numberField("pid", android.os.Process.myPid()),
+            StructuredLogCore.stringField("threadName", thread.name.orEmpty()),
         ) + "\n"
         synchronized(writeLock) {
             runCatching {

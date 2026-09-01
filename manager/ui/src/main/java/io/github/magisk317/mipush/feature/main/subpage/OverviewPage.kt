@@ -142,6 +142,7 @@ private fun OverviewScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
+    val runtimeVersionName by overviewViewModel.runtimeVersionName.collectAsState()
     var hasLoadedStats by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(isActive) {
         if (!isActive || hasLoadedStats) return@LaunchedEffect
@@ -186,6 +187,8 @@ private fun OverviewScreen(
 
             io.github.magisk317.uikit.surface.OverviewAppInfoCard(
                 appVersionName = appVersionName,
+                runtimeVersionName = runtimeVersionName
+                    ?: stringResource(UiKitR.string.unknown),
                 appVersionCode = appVersionCode,
                 appVersionCodeLabel = stringResource(R.string.commit_info),
             )

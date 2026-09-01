@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import io.github.magisk317.mipush.manager.ManagerStatePolicies
 
 /** The content scope of a page snapshot. Refresh generations are deliberately not part of this key. */
 data class SnapshotKey(
@@ -291,8 +292,12 @@ class PageSnapshotStore<T>(
         } else {
             snapshot.generation.value <= expectedGeneration.value
         }) &&
-        snapshot.isComplete &&
-        snapshot.isFresh(now) &&
+        ManagerStatePolicies.isValidSnapshot(
+            createdAtMillis = snapshot.createdAtMillis,
+            expiresAtMillis = snapshot.expiresAtMillis,
+            nowMillis = now,
+            complete = snapshot.isComplete,
+        ) &&
         userScope(snapshot.key) &&
         integrity(snapshot.value)
 }

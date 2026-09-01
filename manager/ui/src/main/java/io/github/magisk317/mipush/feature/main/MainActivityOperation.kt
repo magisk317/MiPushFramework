@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.feature.main
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import java.util.Locale
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_CODE
@@ -11,7 +11,7 @@ class MainActivityOperation(private val context: Context) {
     private fun openUrl(url: String) {
         context.startActivity(
             Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse(url))
+                .setData(url.toUri())
         )
     }
 

@@ -68,6 +68,7 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.utils.Utils
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
@@ -171,7 +172,7 @@ fun ApplicationList(
                     onRefresh,
                     { false },
                     onRefresh,
-                    isNeedRefresh,
+                    isNeedRefresh = isNeedRefresh,
                     scrollToTopSignal = refreshSignal,
                     scrollChromeState = scrollChromeState,
                     contentPadding = PaddingValues(
@@ -213,8 +214,9 @@ fun ApplicationList(
                     },
                     preSearchContent = {
                     Text(
-                        text = stringResource(
-                            R.string.app_list_hero_summary,
+                        text = pluralStringResource(
+                            R.plurals.app_list_hero_summary,
+                            stats.usingMiPush,
                             stats.usingMiPush,
                             stats.total,
                         ),
@@ -410,7 +412,10 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         containerColor = containerColor,
         onClick = { onAppClick(item.packageName) },
         leadingContent = {
-            AppIconImage(item.packageName, item.appName, Modifier.size(44.dp))
+            AppIconImage(
+                packageName = item.packageName,
+                modifier = Modifier.size(44.dp),
+            )
         },
         trailingContent = {
             Icon(

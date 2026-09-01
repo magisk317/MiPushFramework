@@ -1,8 +1,9 @@
 package io.github.magisk317.mipush.manager.events
 
 import android.content.Context
-import android.net.Uri
 import android.os.Bundle
+import androidx.core.net.toUri
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import kotlinx.serialization.json.Json
 
@@ -19,7 +20,7 @@ object EventListCacheSync {
     const val MAX_CACHE_EVENTS = 200
     const val MAX_PAYLOAD_BYTES = 512 * 1024
 
-    private val uri = Uri.parse("content://$AUTHORITY")
+    private val uri = "content://$AUTHORITY".toUri()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -35,6 +36,11 @@ object EventListCacheSync {
     ): EventListCacheHandoffResult {
         if (queryKey != DEFAULT_QUERY_KEY) {
             return EventListCacheHandoffResult(false, error = "unsupported_query")
+        }
+        val userId = runCatching { Utils.requireValidUserId(Utils.myUserId()) }
+            .getOrElse { return EventListCacheHandoffResult(false, error = "invalid_user") }
+        validateEventCacheHandoff(events, userId)?.let { error ->
+            return EventListCacheHandoffResult(false, error = error)
         }
         val raw = encode(events)
         if (raw.toByteArray(Charsets.UTF_8).size > MAX_PAYLOAD_BYTES) {
@@ -60,6 +66,11 @@ object EventListCacheSync {
             error = response.getString(RESULT_ERROR),
         )
     }
+}
+
+fun validateEventCacheHandoff(events: List<ManagerEvent>, userId: Int): String? {
+    if (userId < 0) return "invalid_user"
+    return "user_mismatch".takeIf { !eventsBelongToUser(events, userId) }
 }
 
 data class EventListCacheHandoffResult(

@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -87,8 +88,6 @@ fun EventCleanupCalendarDialog(
     val monthCount = remember(dayCounts, visibleMonth) {
         dayCounts.entries.filter { YearMonth.from(it.key) == visibleMonth }.sumOf { it.value }
     }
-
-    val doneMessage = stringResource(R.string.event_cleanup_done, 0)
 
     fun perform(action: PendingCleanup) {
         scope.launch {
@@ -171,7 +170,11 @@ fun EventCleanupCalendarDialog(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = stringResource(R.string.event_cleanup_month_summary, monthCount),
+                            text = pluralStringResource(
+                                R.plurals.event_cleanup_month_summary,
+                                monthCount,
+                                monthCount,
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -233,19 +236,25 @@ fun EventCleanupCalendarDialog(
     // 二次确认
     pending?.let { action ->
         val message = when (action) {
-            is PendingCleanup.DayOnly -> stringResource(
-                R.string.event_cleanup_confirm_day_only,
+            is PendingCleanup.DayOnly -> pluralStringResource(
+                R.plurals.event_cleanup_confirm_day_only,
+                action.count,
                 dayKeyFormatter.format(action.day),
                 action.count,
             )
-            is PendingCleanup.Before -> stringResource(
-                R.string.event_cleanup_confirm_before,
+            is PendingCleanup.Before -> pluralStringResource(
+                R.plurals.event_cleanup_confirm_before,
+                action.count,
                 action.day?.let { dayKeyFormatter.format(it) } ?: dayKeyFormatter.format(
                     Instant.ofEpochMilli(action.cutoff).atZone(ZoneId.systemDefault()).toLocalDate().minusDays(1),
                 ),
                 action.count,
             )
-            is PendingCleanup.All -> stringResource(R.string.event_cleanup_confirm_all, action.count)
+            is PendingCleanup.All -> pluralStringResource(
+                R.plurals.event_cleanup_confirm_all,
+                action.count,
+                action.count,
+            )
         }
         AppAlertDialog(
             onDismissRequest = { pending = null },

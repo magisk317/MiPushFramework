@@ -92,16 +92,6 @@ class RuntimePreferenceGateway internal constructor(
         ),
     )
 
-    suspend fun setString(key: String, value: String): Boolean = write(
-        RuntimePreferenceWrite(
-            operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_STRING,
-            key = key,
-            type = TYPE_STRING,
-            value = value,
-            argument = "$key=$value",
-        ),
-    )
-
     suspend fun setXmppServer(host: String): Boolean {
         val normalizedHost = host.trim()
         return write(

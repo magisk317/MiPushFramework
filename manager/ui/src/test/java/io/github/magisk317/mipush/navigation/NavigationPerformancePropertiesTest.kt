@@ -26,14 +26,14 @@ class NavigationPerformancePropertiesTest {
         val state = NavigationModel()
         requests.forEach(state::request)
 
-        val valid = requests.filter { it in 0..4 }
+        val valid = requests.filter { it in 0..3 }
         assertEquals(valid.size, state.tokenCount)
         if (valid.isNotEmpty()) {
             assertEquals(valid.last(), state.selectedPage)
             assertEquals("tab-${valid.last()}", state.route)
             assertTrue(state.routeSyncs <= valid.size)
         }
-        assertTrue(state.routeHistory.all { it in 0..4 })
+        assertTrue(state.routeHistory.all { it in 0..3 })
     }
 
     // **Validates: Requirements 2.1-2.4**
@@ -204,7 +204,7 @@ class NavigationPerformancePropertiesTest {
     @Provide
     fun snapshotKeys(): Arbitrary<List<SnapshotKey>> =
         Combinators.combine(
-            Arbitraries.integers().between(0, 4),
+            Arbitraries.integers().between(0, 3),
             Arbitraries.strings().withChars('a', 'c').ofMaxLength(3),
             Arbitraries.strings().withChars('x', 'z').ofMaxLength(3),
             Arbitraries.integers().between(0, 2),
@@ -253,7 +253,7 @@ class NavigationPerformancePropertiesTest {
         var routeSyncs = 0
         val routeHistory = mutableListOf<Int>()
         fun request(page: Int) {
-            if (page !in 0..4) return
+            if (page !in 0..3) return
             tokenCount++
             selectedPage = page
             currentPage = page
@@ -273,7 +273,7 @@ class NavigationPerformancePropertiesTest {
         val reads = mutableListOf<Read>()
         val cancelledTokens = mutableListOf<Int>()
         fun navigate(page: Int, policy: Policy) {
-            if (page !in 0..4) return
+            if (page !in 0..3) return
             val old = latestToken
             latestToken++
             if (old != 0) cancelledTokens += old
