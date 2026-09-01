@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.common.notification
 
+import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

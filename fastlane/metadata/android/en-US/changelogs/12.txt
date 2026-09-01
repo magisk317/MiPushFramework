@@ -1,2 +1,3 @@
-- Optimize billing retry and auto-settlement flow.
+- Restore background notification arrived callbacks.
+- Optimize reconnect flow and runtime observation.
 - Polish connection status page and navigation interactions.

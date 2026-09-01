@@ -2,11 +2,13 @@
 
 本日志记录了项目近期的主要变更。
 
-## [v1.0.1] - 2026-08-20
-
-- `[build/release]` 对齐 GitLab Release APK 与 Google Play 版本号与发版门禁。
-- `[fix(billing)]` 升级 `magisk-ui-kit`，支持连接建立自动补结算与重试。
-- `[fix(manager)]` 优化连接状态页面与导航交互。
+## [v1.0.1] - 2026-09-01
+- 版本：`versionCode 12` / `versionName 1.0.1`。
+- `[push]` 恢复后台通知 `MESSAGE_ARRIVED` 到达回调，改善原生通知生命周期。
+- `[runtime]` 优化长连接重连与事件观测状态同步。
+- `[notification]` 改进通知渠道展示与 Live Update 调度。
+- `[manager]` 优化连接状态页面与导航交互。
+- `[ci]` 对齐共享 CI 工具链、签名隔离与发布门禁。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.0...v1.0.1
 

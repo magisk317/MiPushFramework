@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.runtime.core.DuplicateMessagePolicy
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.RepeatedTest
@@ -16,10 +18,12 @@ import kotlin.random.Random
  * for the same input sequence.
  */
 class DuplicateMessagePolicyPropertyTest {
+    private lateinit var policy: DuplicateMessagePolicy
 
     @BeforeEach
     fun setUp() {
-        DuplicateMessagePolicy.clearAllForTests()
+        policy = DuplicateMessagePolicy()
+        policy.clearAll()
     }
 
     /**
@@ -44,15 +48,15 @@ class DuplicateMessagePolicyPropertyTest {
         }
 
         // First run: record results
-        DuplicateMessagePolicy.clearAllForTests()
+        policy.clearAll()
         val firstRunResults = calls.map { (id, ts) ->
-            DuplicateMessagePolicy.checkAndMark(id, ts)
+            policy.checkAndMark(id, ts)
         }
 
         // Second run: replay same sequence, expect identical results
-        DuplicateMessagePolicy.clearAllForTests()
+        policy.clearAll()
         val secondRunResults = calls.map { (id, ts) ->
-            DuplicateMessagePolicy.checkAndMark(id, ts)
+            policy.checkAndMark(id, ts)
         }
 
         assertEquals(
@@ -82,8 +86,8 @@ class DuplicateMessagePolicyPropertyTest {
         }
 
         val allResults = (1..3).map {
-            DuplicateMessagePolicy.clearAllForTests()
-            calls.map { (id, ts) -> DuplicateMessagePolicy.checkAndMark(id, ts) }
+            policy.clearAll()
+            calls.map { (id, ts) -> policy.checkAndMark(id, ts) }
         }
 
         // All runs must produce identical results
@@ -108,12 +112,12 @@ class DuplicateMessagePolicyPropertyTest {
 
         // Pre-populate with some random state
         repeat(rng.nextInt(0, 20)) {
-            DuplicateMessagePolicy.checkAndMark("pre-${rng.nextInt(100)}", rng.nextLong(0, 100_000L))
+            policy.checkAndMark("pre-${rng.nextInt(100)}", rng.nextLong(0, 100_000L))
         }
 
         val blankInputs = listOf(null, "", "  ", "\t", "\n")
         for (input in blankInputs) {
-            val result = DuplicateMessagePolicy.checkAndMark(input, rng.nextLong(0, 200_000L))
+            val result = policy.checkAndMark(input, rng.nextLong(0, 200_000L))
             assertEquals(
                 false,
                 result,
