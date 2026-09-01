@@ -137,10 +137,9 @@ object PackageDataClearedCoordinator {
                 @Suppress("DEPRECATION")
                 context.packageManager.getApplicationInfo(packageName, 0).uid
             }
-            (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
-        }.getOrElse {
-            Utils.myUserId().coerceAtLeast(0)
-        }
+            require(uid >= 0) { "Invalid target package uid: $uid" }
+            (uid.toLong() / 100_000L).toInt()
+        }.getOrElse { error("Unable to resolve target package user for $packageName: ${it.message}") }
     }
 
     fun buildPayload(packageName: String, appId: String): ByteArray {

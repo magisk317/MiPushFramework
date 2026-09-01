@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.app
 
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -20,6 +21,11 @@ class FirstRegister(
         PushRuntime.requestFrameworkRegistration(source = source, reason = reason)
     },
     private val scheduleRetry: (Context, Int) -> Unit = PushControllerUtils::registerPush,
+    private val frameworkSelfRegistrationEnabled: (Context) -> Boolean =
+        PushControllerUtils::isFrameworkSelfRegistrationEnabled,
+    private val androidUserIdProvider: () -> Int = {
+        Utils.requireValidUserId(Utils.myUserId())
+    },
 ) : Runnable {
     private val tag = "FirstRegister"
 
@@ -30,7 +36,8 @@ class FirstRegister(
                 packageName = context.packageName,
                 success = true,
                 source = "FirstRegister.run",
-                reason = "reg_id_present"
+                reason = "reg_id_present",
+                androidUserId = androidUserIdProvider(),
             )
             logI("register successed")
             MagiskOtel.event(
@@ -41,6 +48,21 @@ class FirstRegister(
                     "process" to "main",
                     "stage" to "first",
                     "reason" to "reg_id_present",
+                ),
+                statusOk = true,
+            )
+            return
+        }
+        if (!frameworkSelfRegistrationEnabled(context)) {
+            logI("framework self-registration disabled; skip initial registration")
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "first",
+                    "reason" to "framework_self_registration_disabled",
                 ),
                 statusOk = true,
             )

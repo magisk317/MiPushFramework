@@ -815,7 +815,12 @@ object Network {
             return -1
         }
         val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
-        return telephonyManager?.dataNetworkType ?: TelephonyManager.NETWORK_TYPE_UNKNOWN
+        // Android 17 may deny the hidden subscriber-backed query even when the app can
+        // observe the active cellular transport. Keep the transport classification usable
+        // and let callers fall back to generic mobile instead of leaking SecurityException.
+        return runCatching { telephonyManager?.dataNetworkType }
+            .getOrNull()
+            ?: TelephonyManager.NETWORK_TYPE_UNKNOWN
     }
 
     private fun getActiveCellularSubtypeName(context: Context?): String {

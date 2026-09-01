@@ -49,6 +49,7 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
             source = reason,
             reason = message,
             nowMs = System.currentTimeMillis(),
+            androidUserId = currentUserId(),
         )
     }
 
@@ -64,6 +65,7 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
             source = source,
             reason = reason,
             nowMs = System.currentTimeMillis(),
+            androidUserId = currentUserId(),
         )
     }
 
@@ -74,8 +76,11 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
             source = "MiPushRuntimeObserverBridge.observeUnregistration",
             reason = state.name,
             nowMs = System.currentTimeMillis(),
+            androidUserId = currentUserId(),
         )
     }
+
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? =
         RegistrationPayloadRepair.repair(context, packageName)
@@ -102,12 +107,12 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
     }
 
     fun dispatchRegistrationTasks(source: String, dispatcher: Any?) {
-        PushRuntimeRegistrationTaskStore.dispatchAll(source) { _, intent ->
+        PushRuntimeRegistrationTaskStore.dispatchAll(source, dispatcher = { _, intent ->
             runCatching {
                 appContext.startService(Intent(intent))
                 true
             }.getOrDefault(false)
-        }
+        })
     }
 
     fun clearRegistrationTasks(packageName: String) {
@@ -125,14 +130,17 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
             notifier = { packageName, payload, code, message ->
                 MIPushClientManager.notifyError(appContext, packageName, payload, code, message)
             },
+            androidUserId = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+                io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+            ),
         )
     }
 
     fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) {
         val pushAction = XMPushServiceProxy.get() ?: return
-        PushRuntimePendingPacketStore.processPendingRegistrationRequests(source) { packageName, payload ->
+        PushRuntimePendingPacketStore.processPendingRegistrationRequests(source, sender = { packageName, payload ->
             com.xiaomi.push.service.MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
-        }
+        })
     }
 
     fun resolveRegisterAppPlan(

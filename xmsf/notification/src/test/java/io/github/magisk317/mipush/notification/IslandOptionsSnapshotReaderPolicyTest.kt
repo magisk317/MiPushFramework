@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.notification
 
-import io.github.magisk317.mipush.common.island.IslandRendererMode
 import io.github.magisk317.mipush.data.IslandSettingsSnapshot
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -75,32 +74,6 @@ class IslandOptionsSnapshotReaderPolicyTest {
     }
 
     @Test
-    fun `visual settings cross the runtime snapshot without changing notification semantics`() {
-        val snapshot = IslandOptionsSnapshotReader.merge(
-            settings = settings(
-                rendererMode = IslandRendererMode.HYPERISLAND.wireValue,
-                visualEnabled = false,
-                dynamicColor = false,
-                blurEnabled = false,
-                glassEnabled = false,
-                outerGlowEnabled = false,
-                animationEnabled = false,
-            ),
-            appEnabled = null,
-            appFocusNotification = null,
-        )
-
-        assertEquals(IslandRendererMode.HYPERISLAND, snapshot.options.rendererMode)
-        assertFalse(snapshot.options.visualEnabled)
-        assertFalse(snapshot.options.dynamicColor)
-        assertFalse(snapshot.options.blurEnabled)
-        assertFalse(snapshot.options.glassEnabled)
-        assertFalse(snapshot.options.outerGlowEnabled)
-        assertFalse(snapshot.options.animationEnabled)
-        assertTrue(snapshot.options.showNotification)
-    }
-
-    @Test
     fun `unavailable settings disable island proxy but preserve original notification`() {
         val snapshot = IslandOptionsSnapshotReader.unavailableSnapshot()
 
@@ -114,13 +87,6 @@ class IslandOptionsSnapshotReaderPolicyTest {
         enabled: Boolean = true,
         timeoutSecs: Int = 5,
         focusNotification: Boolean = false,
-        rendererMode: String = "auto",
-        visualEnabled: Boolean = true,
-        dynamicColor: Boolean = true,
-        blurEnabled: Boolean = true,
-        glassEnabled: Boolean = true,
-        outerGlowEnabled: Boolean = true,
-        animationEnabled: Boolean = true,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
         timeoutSecs = timeoutSecs,
@@ -133,12 +99,5 @@ class IslandOptionsSnapshotReaderPolicyTest {
         colorStatusBarIconGlobal = false,
         dualAppEnabled = false,
         logSanitizationEnabled = false,
-        rendererMode = rendererMode,
-        visualEnabled = visualEnabled,
-        dynamicColor = dynamicColor,
-        blurEnabled = blurEnabled,
-        glassEnabled = glassEnabled,
-        outerGlowEnabled = outerGlowEnabled,
-        animationEnabled = animationEnabled,
     )
 }

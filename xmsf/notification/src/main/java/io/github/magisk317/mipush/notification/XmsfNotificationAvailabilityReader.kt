@@ -57,7 +57,7 @@ class XmsfNotificationAvailabilityReader(
                 packageName,
             ) ?: return false
         val key = NotificationAvailabilityCache.Key(
-            userId = Utils.myUserId().coerceAtLeast(0),
+            userId = Utils.requireValidUserId(Utils.myUserId()),
             packageName = packageName,
             channelId = channelId,
         )

@@ -17,7 +17,9 @@ import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.push.service.ResetConnectJob
+import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -25,6 +27,13 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
 
     @Volatile
     private var appContext: Context? = null
+
+    override fun isFrameworkRegistrationEnabled(): Boolean {
+        val context = appContext ?: return false
+        return runCatching {
+            PushControllerUtils.isFrameworkSelfRegistrationEnabled(context)
+        }.getOrDefault(false)
+    }
 
     @JvmStatic
     fun attach(context: Context) {
@@ -40,6 +49,18 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
 
     override fun requestFrameworkRegistration(reason: String): Boolean {
         val context = appContext ?: return false
+        if (!isFrameworkRegistrationEnabled()) {
+            logI("framework self-registration disabled; skip reason=$reason")
+            emitBridge(
+                name = "push.register",
+                result = "skip",
+                stage = "runtime_framework_register",
+                reason = "framework_self_registration_disabled",
+                durationMs = 0L,
+                extra = mapOf("target_package" to PushRuntimeComponents.SERVICE_PACKAGE),
+            )
+            return false
+        }
         val startedAt = System.nanoTime()
         return runCatching {
             val appInfoHolder = AppInfoHolder.getInstance(context)

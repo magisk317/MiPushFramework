@@ -4,7 +4,7 @@ data class ManagerNotificationChannelReadQuery(
     val packageName: String,
     val pageSize: Int = 100,
     val pageToken: String? = null,
-    val userId: Int = 0,
+    val userId: Int = -1,
 )
 
 data class ManagerNotificationChannelReadSummary(

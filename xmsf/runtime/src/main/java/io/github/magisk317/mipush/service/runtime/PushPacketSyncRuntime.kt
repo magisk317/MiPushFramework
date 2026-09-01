@@ -142,19 +142,18 @@ object PushPacketSyncRuntime {
 
     @JvmStatic
     fun resolveRedirect(hostsText: String?): PushRedirectPlan {
-        val preferredHosts = hostsText
-            ?.split(com.xiaomi.push.mpcd.Constants.ITEM_SEPARATOR)
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            .orEmpty()
+        val corePlan = io.github.magisk317.mipush.runtime.core.PushRedirectPlanFactory.resolve(
+            hostsText = hostsText,
+            itemSeparator = com.xiaomi.push.mpcd.Constants.ITEM_SEPARATOR,
+        )
         val plan = PushRedirectPlan(
-            preferredHosts = preferredHosts,
-            shouldReconnect = preferredHosts.isNotEmpty()
+            preferredHosts = corePlan.preferredHosts,
+            shouldReconnect = corePlan.shouldReconnect,
         )
         emitPacketSync(
             result = if (plan.shouldReconnect) "ok" else "skip",
             reason = if (plan.shouldReconnect) "redirect" else "no_hosts",
-            count = preferredHosts.size,
+            count = plan.preferredHosts.size,
         )
         return plan
     }

@@ -297,7 +297,7 @@ internal object MyMIPushNotificationStyleSupport {
         return ConversationKey(userId, packageName, notificationId, conversationId)
     }
 
-    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     private fun messageKey(
         metaInfo: PushMetaInfo?,
@@ -343,7 +343,7 @@ internal object MyMIPushNotificationStyleSupport {
             ?.notification
 
     private fun resolveTargetUserId(context: Context, packageName: String?): Int {
-        if (packageName.isNullOrBlank()) return currentUserId()
+        require(!packageName.isNullOrBlank()) { "Unable to resolve target package user" }
         return runCatching {
             val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getApplicationInfo(
@@ -354,8 +354,9 @@ internal object MyMIPushNotificationStyleSupport {
                 @Suppress("DEPRECATION")
                 context.packageManager.getApplicationInfo(packageName, 0).uid
             }
-            (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
-        }.getOrElse { currentUserId() }
+            require(uid >= 0) { "Invalid target package uid: $uid" }
+            (uid.toLong() / 100_000L).toInt()
+        }.getOrElse { error("Unable to resolve target package user for $packageName: ${it.message}") }
     }
 
     private fun createMessageStyleNotificationBuilder(

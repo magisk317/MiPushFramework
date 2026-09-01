@@ -25,6 +25,12 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 internal class XMPushServicePacketDelegate(
     private val service: XMPushServiceCore,
 ) {
+    companion object {
+        /** Stock ext_user_id is the Xiaomi account id, not the Android profile user id. */
+        internal fun resolveRawPacketAccountUserId(intent: Intent): Long =
+            intent.getStringExtra(PushConstants.EXTRA_USER_ID)?.toLongOrNull() ?: 0L
+    }
+
     private fun emitPacket(
         stage: String,
         result: String,
@@ -298,17 +304,17 @@ internal class XMPushServicePacketDelegate(
         rawPacket: ByteArray,
         pushClientsManager: PushClientsManager,
     ): Blob? {
-        val userId = intent.getLongExtra(PushConstants.EXTRA_USER_ID, 0L)
+        val accountUserId = resolveRawPacketAccountUserId(intent)
         val userResource = intent.getStringExtra(PushConstants.EXTRA_USER_RES)
         val channelId = intent.getStringExtra(PushConstants.EXTRA_CHID)
-        val client = pushClientsManager.getClientLoginInfoByChidAndUserId(channelId, userId.toString()) ?: return null
+        val client = pushClientsManager.getClientLoginInfoByChidAndUserId(channelId, accountUserId.toString()) ?: return null
         return Blob().apply {
             channelId?.toIntOrNull()?.let(::setChannelId)
             setCmd(Blob.CMD_SECMSG, null)
             from = if (userResource.isNullOrEmpty()) {
-                "$userId@xiaomi.com"
+                "$accountUserId@xiaomi.com"
             } else {
-                "$userId@xiaomi.com/$userResource"
+                "$accountUserId@xiaomi.com/$userResource"
             }
             packetID = intent.getStringExtra(PushConstants.EXTRA_PACKET_ID)
             setPayload(rawPacket, client.security)

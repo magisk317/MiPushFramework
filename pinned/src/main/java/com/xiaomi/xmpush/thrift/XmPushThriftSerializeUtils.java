@@ -94,14 +94,14 @@ public class XmPushThriftSerializeUtils {
     }
 
     private static int getNotificationStatus(Context context, String packageName) {
-        if (context == null || TextUtils.isEmpty(packageName) || Build.VERSION.SDK_INT < 19) {
+        if (context == null || TextUtils.isEmpty(packageName)) {
             return NOTIFICATION_STATUS_UNKNOWN;
         }
         ApplicationInfo applicationInfo = getApplicationInfo(context, packageName);
         if (applicationInfo == null) {
             return NOTIFICATION_STATUS_UNKNOWN;
         }
-        if (packageName.equals(context.getPackageName()) && Build.VERSION.SDK_INT >= 24) {
+        if (packageName.equals(context.getPackageName())) {
             try {
                 NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 if (notificationManager != null) {

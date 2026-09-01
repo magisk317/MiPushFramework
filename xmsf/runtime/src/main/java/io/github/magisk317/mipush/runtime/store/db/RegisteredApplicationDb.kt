@@ -81,7 +81,7 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun getIslandSettings(pkg: String, requestedUserId: Int? = null): RuntimeIslandSettings? {
-        val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
         return runBlocking {
             repository(userId).getIslandSettings(pkg)
         }
@@ -89,7 +89,7 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun markUnregistered(pkg: String, requestedUserId: Int? = null): Boolean {
-        val userId = requestedUserId?.takeIf { it >= 0 } ?: currentUserId()
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
         val startedAt = System.nanoTime()
         val result = runBlocking { repository(userId).markUnregistered(pkg) }
         val updated = result == RuntimeUnregistrationResult.Updated
@@ -118,7 +118,15 @@ object RegisteredApplicationDb {
             },
         )
 
-    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 
     private object DatabaseRegisteredApplicationStore : RuntimeRegisteredApplicationStore {
         override suspend fun getByPackageName(

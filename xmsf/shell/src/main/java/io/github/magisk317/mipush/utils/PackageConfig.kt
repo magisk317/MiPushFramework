@@ -5,9 +5,11 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
+import io.github.magisk317.mipush.common.configurations.ConfigFieldAccessor
+import io.github.magisk317.mipush.common.configurations.ConfigFieldValue
+import io.github.magisk317.mipush.common.configurations.ConfigRulePlans
 import org.apache.thrift.TBase
 import java.lang.reflect.InvocationTargetException
-import java.util.regex.Pattern
 
 class PackageConfig(private val configurations: Configurations) {
     var cfgMatch: ConfigJsonObject? = null
@@ -20,7 +22,6 @@ class PackageConfig(private val configurations: Configurations) {
     inner class Walker(val data: TBase<*, *>?) {
         var matchGroup: MutableMap<String, String>? = null
 
-        @Throws(NoSuchFieldException::class, IllegalAccessException::class)
         fun match(): Boolean {
             matchGroup = Companion.match(data, cfgMatch)
             return matchGroup != null
@@ -37,7 +38,6 @@ class PackageConfig(private val configurations: Configurations) {
     }
 
     companion object {
-        private val PLACEHOLDER_PATTERN = Pattern.compile("\\$\\$|\\$\\{([^}]+)\\}")
         const val KEY_MATCH = "match"
         const val KEY_REPLACE = "replace"
         const val KEY_META_INFO = "metaInfo"
@@ -50,102 +50,41 @@ class PackageConfig(private val configurations: Configurations) {
         const val OPERATION_NOTIFY = "notify"
         const val OPERATION_WAKE = "wake"
 
-        internal fun replacePlaceholders(value: String, matchGroup: Map<String, String>?): String {
-            val matcher = PLACEHOLDER_PATTERN.matcher(value)
-            val sb = StringBuilder(value)
+        internal fun replacePlaceholders(value: String, matchGroup: Map<String, String>?): String =
+            ConfigRulePlans.replacePlaceholders(value, matchGroup)
 
-            data class Replacement(val start: Int, val end: Int, val value: String)
-
-            val replacements = mutableListOf<Replacement>()
-            while (matcher.find()) {
-                val replacement = when (matcher.group()) {
-                    "$$" -> "$"
-                    else -> {
-                        val groupName = matcher.group(1)
-                        if (!groupName.isNullOrEmpty()) {
-                            matchGroup?.get(groupName)
-                        } else {
-                            null
-                        }
-                    }
-                }
-                if (replacement != null) {
-                    replacements.add(Replacement(matcher.start(), matcher.end(), replacement))
-                }
-            }
-
-            for (index in replacements.indices.reversed()) {
-                val replacement = replacements[index]
-                sb.replace(replacement.start, replacement.end, replacement.value)
-            }
-            return sb.toString()
-        }
-
-        @Throws(NoSuchFieldException::class, IllegalAccessException::class)
         private fun match(data: TBase<*, *>?, cfgMatch: ConfigJsonObject?): MutableMap<String, String>? {
-            return match(data, data, cfgMatch, arrayOf())
+            if (cfgMatch == null || data == null) return hashMapOf()
+            val groups = ConfigRulePlans.match(cfgMatch, ConfigFieldAccessor { path ->
+                readField(data, path)
+            }) ?: return null
+            return groups.toMutableMap()
         }
 
-        @Throws(NoSuchFieldException::class, IllegalAccessException::class)
-        private fun match(
-            root: TBase<*, *>?,
-            data: TBase<*, *>?,
-            cfgMatch: ConfigJsonObject?,
-            path: Array<String>
-        ): MutableMap<String, String>? {
-            val matchGroup = hashMapOf<String, String>()
-            if (cfgMatch == null || data == null) {
-                return matchGroup
-            }
-            val cfgKeys = cfgMatch.keys()
-            while (cfgKeys.hasNext()) {
-                val cfgKey = cfgKeys.next()
-                val field = data.javaClass.declaredFields.firstOrNull { it.name == cfgKey } ?: return null
-                val newPath = concat(path, arrayOf(cfgKey))
-                val rawValue = runCatching { field.get(data) }.getOrNull()
-                val value = Global.configValueConverter().convert(root, newPath, rawValue)
-
-                val isMap = value is Map<*, *>
-                val isTBase = value is TBase<*, *>
-
-                var cfgSubObj: ConfigJsonObject? = null
-                if (isMap || isTBase) {
-                    try {
-                        cfgSubObj = cfgMatch.getJSONObject(cfgKey)
-                    } catch (e: ConfigJsonException) {
-                        throw NoSuchFieldException(
-                            "The type of field \"$cfgKey\" is ${value.javaClass.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
-                        ).initCause(e)
+        private fun readField(root: TBase<*, *>, path: List<String>): ConfigFieldValue {
+            var current: Any? = root
+            val traversed = mutableListOf<String>()
+            for (key in path) {
+                val raw = when (current) {
+                    is Map<*, *> -> current[key]
+                    is TBase<*, *> -> {
+                        val field = current.javaClass.declaredFields.firstOrNull { it.name == key }
+                            ?: return ConfigFieldValue(null)
+                        field.get(current)
                     }
+                    else -> null
                 }
-
-                if (isMap) {
-                    @Suppress("UNCHECKED_CAST")
-                    val subMap = value as Map<String, Any?>
-                    val cfgSubKeys = cfgSubObj!!.keys()
-                    while (cfgSubKeys.hasNext()) {
-                        val cfgSubKey = cfgSubKeys.next()
-                        val subPath = concat(newPath, arrayOf(cfgSubKey))
-                        if (mismatchField(
-                                cfgSubObj,
-                                cfgSubKey,
-                                Global.configValueConverter().convert(root, subPath, subMap[cfgSubKey]),
-                                matchGroup
-                            )
-                        ) {
-                            return null
-                        }
-                    }
-                } else if (isTBase && cfgSubObj != null) {
-                    val group = match(root, value, cfgSubObj, newPath) ?: return null
-                    matchGroup.putAll(group)
-                } else {
-                    if (mismatchField(cfgMatch, cfgKey, value, matchGroup)) {
-                        return null
-                    }
-                }
+                traversed += key
+                current = Global.configValueConverter().convert(
+                    root,
+                    traversed.toTypedArray(),
+                    raw,
+                )
             }
-            return matchGroup
+            return ConfigFieldValue(
+                value = current,
+                isContainer = current is Map<*, *> || current is TBase<*, *>,
+            )
         }
 
         @Throws(NoSuchFieldException::class, IllegalAccessException::class)
@@ -233,43 +172,6 @@ class PackageConfig(private val configurations: Configurations) {
                     }
                 }
             }
-        }
-
-        private fun mismatchField(
-            obj: ConfigJsonObject,
-            cfgKey: String,
-            value: Any?,
-            matchGroup: MutableMap<String, String>
-        ): Boolean {
-            if (obj.isNull(cfgKey)) {
-                return value != null
-            } else if (value == null) {
-                return true
-            }
-            val regex = obj.optString(cfgKey)
-            val pattern = Pattern.compile(regex)
-            val matcher = pattern.matcher(value.toString())
-            if (!matcher.find()) {
-                return true
-            }
-            val groups = getNamedGroupCandidates(regex)
-            for (i in groups.indices) {
-                val name = groups[i]
-                matchGroup[name] = matcher.group(name) ?: ""
-            }
-            return false
-        }
-
-        private fun getNamedGroupCandidates(regex: String): ArrayList<String> {
-            val namedGroups = arrayListOf<String>()
-            val m = Pattern.compile("(?<!\\\\)\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(regex)
-            while (m.find()) {
-                val groupName = m.group(1)
-                if (!groupName.isNullOrEmpty()) {
-                    namedGroups.add(groupName)
-                }
-            }
-            return namedGroups
         }
 
         @JvmStatic

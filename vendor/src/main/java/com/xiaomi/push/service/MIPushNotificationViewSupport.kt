@@ -39,7 +39,9 @@ object MIPushNotificationViewSupport {
                 }
             }
         }
-        return arrayOf(title, description)
+        // PushMetaInfo fields are nullable in the Thrift contract. Notification.Builder accepts
+        // an empty value, while arrayOf() must not receive null elements on Kotlin/JVM.
+        return arrayOf(title.orEmpty(), description.orEmpty())
     }
 
     @JvmStatic

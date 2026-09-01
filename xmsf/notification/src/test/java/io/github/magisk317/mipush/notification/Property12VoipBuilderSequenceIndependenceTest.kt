@@ -124,11 +124,11 @@ class Property12VoipBuilderSequenceIndependenceTest {
                 "sequence" to higherSeq.toString(),
             )
         }
-        VoipNotificationHelper.shouldDropStale(setupMeta, pkg)
+        shouldDropStaleForTest(setupMeta, pkg)
 
         // Now test with arbitrary combo at a lower sequence
         val testMeta = buildMetaWithSequence(combo.styleType, combo.busiType, seq)
-        val dropped = VoipNotificationHelper.shouldDropStale(testMeta, pkg)
+        val dropped = shouldDropStaleForTest(testMeta, pkg)
 
         val expectsFiltering = combo.busiType == "voip"
         if (expectsFiltering) {
@@ -208,7 +208,7 @@ class Property12VoipBuilderSequenceIndependenceTest {
                 "sequence" to (seq + 1000).toString(),
             )
         }
-        VoipNotificationHelper.shouldDropStale(setupMeta, pkg)
+        shouldDropStaleForTest(setupMeta, pkg)
 
         // style-only: styleType=6, busi=not "voip"
         val styleOnlyMeta = buildMetaWithSequence("6", "message", seq)
@@ -221,7 +221,7 @@ class Property12VoipBuilderSequenceIndependenceTest {
 
         // Should NOT participate in sequence filtering (never dropped)
         assertFalse(
-            VoipNotificationHelper.shouldDropStale(styleOnlyMeta, pkg),
+            shouldDropStaleForTest(styleOnlyMeta, pkg),
             "style-only (styleType=6, busiType≠voip) must not participate in sequence filtering",
         )
     }
@@ -247,7 +247,7 @@ class Property12VoipBuilderSequenceIndependenceTest {
                 "sequence" to higherSeq.toString(),
             )
         }
-        VoipNotificationHelper.shouldDropStale(setupMeta, pkg)
+        shouldDropStaleForTest(setupMeta, pkg)
 
         // busi-only: busiType="voip", styleType=not 6 (e.g., "1")
         val busiOnlyMeta = buildMetaWithSequence("1", "voip", seq)
@@ -260,12 +260,17 @@ class Property12VoipBuilderSequenceIndependenceTest {
 
         // Should participate in sequence filtering (lower seq is dropped)
         assertTrue(
-            VoipNotificationHelper.shouldDropStale(busiOnlyMeta, pkg),
+            shouldDropStaleForTest(busiOnlyMeta, pkg),
             "busi-only (busiType=voip, styleType≠6) with seq=$seq < stored=$higherSeq must be dropped",
         )
     }
 
     // -- Helpers --
+
+    private fun shouldDropStaleForTest(
+        metaInfo: PushMetaInfo,
+        packageName: String,
+    ): Boolean = VoipNotificationHelper.shouldDropStale(metaInfo, packageName, userId = 0)
 
     private fun buildMeta(styleType: String?, busiType: String?): PushMetaInfo {
         return PushMetaInfo().apply {

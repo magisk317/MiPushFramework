@@ -40,13 +40,13 @@ class RuntimeEventDeletionRepositoryTest {
             repository.deleteByIdWithUndoSnapshot(
                 id = 42,
                 packageName = "com.example.app",
-                requestedUserId = -1,
+                requestedUserId = 999,
             ),
         )
 
-        assertEquals(Triple(42L, 0, "com.example.app"), store.lastUndoDelete)
+        assertEquals(Triple(42L, 999, "com.example.app"), store.lastUndoDelete)
         assertEquals(
-            Triple(now - EventRetentionPolicy.UNDO_RETENTION_MS, EventRetentionPolicy.MAX_UNDO_EVENTS, 0),
+            Triple(now - EventRetentionPolicy.UNDO_RETENTION_MS, EventRetentionPolicy.MAX_UNDO_EVENTS, 999),
             store.lastPrune,
         )
     }
@@ -60,9 +60,30 @@ class RuntimeEventDeletionRepositoryTest {
         assertEquals(null, store.lastPrune)
         assertEquals(
             84L,
+            repository.restoreDeletedEvent(42, "com.example.app", requestedUserId = 999),
+        )
+        assertEquals(Triple(42L, 999, "com.example.app"), store.lastRestore)
+    }
+
+    @Test
+    fun `invalid requested user fails closed without touching the store`() = runBlocking {
+        val store = FakeStore(undoDeleteResult = true, restoredId = 84L)
+        val repository = repository(store, userId = 7)
+
+        assertFalse(
+            repository.deleteByIdWithUndoSnapshot(
+                id = 42,
+                packageName = "com.example.app",
+                requestedUserId = -1,
+            ),
+        )
+        assertEquals(null, store.lastUndoDelete)
+        assertEquals(null, store.lastPrune)
+        assertEquals(
+            null,
             repository.restoreDeletedEvent(42, "com.example.app", requestedUserId = -2),
         )
-        assertEquals(Triple(42L, 0, "com.example.app"), store.lastRestore)
+        assertEquals(null, store.lastRestore)
     }
 
     @Test

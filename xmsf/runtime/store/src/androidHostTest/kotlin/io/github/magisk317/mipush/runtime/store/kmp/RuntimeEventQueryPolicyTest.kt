@@ -1,7 +1,10 @@
 package io.github.magisk317.mipush.runtime.store.kmp
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class RuntimeEventQueryPolicyTest {
     @Test
@@ -17,7 +20,7 @@ class RuntimeEventQueryPolicyTest {
 
         assertEquals(
             "SELECT * FROM EVENT WHERE user_id = ? AND id < ? AND pkg = ? " +
-                "AND type IN (?,?) AND (search_text LIKE ? OR (search_text IS NULL AND dev_info LIKE ?)) " +
+                "AND (type IN (?,?)) AND (search_text LIKE ? OR (search_text IS NULL AND dev_info LIKE ?)) " +
                 "ORDER BY id DESC LIMIT ?",
             query.sql,
         )
@@ -37,34 +40,112 @@ class RuntimeEventQueryPolicyTest {
     }
 
     @Test
-    fun `page query keeps current search behavior and paging order`() {
-        val query = RuntimeEventQueryPolicy.page(
-            offset = 40,
-            limit = 20,
-            types = null,
-            packageName = " ",
-            text = "body",
-            userId = -1,
+    fun `default event query keeps only push messages and excludes registration`() {
+        val query = RuntimeEventQueryPolicy.byId(
+            lastId = null,
+            size = 20,
+            types = setOf(EventRowType.SendMessage),
+            packageName = "com.example.app",
+            text = null,
+            userId = 999,
+            includeFirstSuccessfulRegistration = false,
+            excludedResults = setOf(EventRowResultType.DENY_DISABLED),
         )
 
         assertEquals(
-            "SELECT * FROM EVENT WHERE user_id = ? " +
-                "AND (search_text LIKE ? OR dev_info LIKE ?) " +
-                "ORDER BY date DESC LIMIT ? OFFSET ?",
+            "SELECT * FROM EVENT WHERE user_id = ? AND pkg = ? " +
+                "AND (type IN (?) AND result NOT IN (?)) " +
+                "ORDER BY id DESC LIMIT ?",
             query.sql,
         )
         assertEquals(
             listOf(
-                RuntimeQueryArgument.IntValue(0),
-                RuntimeQueryArgument.TextValue("%body%"),
-                RuntimeQueryArgument.TextValue("%body%"),
+                RuntimeQueryArgument.IntValue(999),
+                RuntimeQueryArgument.TextValue("com.example.app"),
+                RuntimeQueryArgument.IntValue(EventRowType.SendMessage),
+                RuntimeQueryArgument.IntValue(EventRowResultType.DENY_DISABLED),
                 RuntimeQueryArgument.IntValue(20),
-                RuntimeQueryArgument.IntValue(40),
             ),
             query.arguments,
         )
     }
 
+    @Test
+    fun `default query can include only the first successful registration result`() {
+        val query = RuntimeEventQueryPolicy.byId(
+            lastId = null,
+            size = 20,
+            types = setOf(EventRowType.SendMessage),
+            packageName = "com.example.app",
+            text = null,
+            userId = 999,
+            includeFirstSuccessfulRegistration = true,
+            excludedResults = setOf(EventRowResultType.DENY_DISABLED),
+        )
+
+        assertTrue(query.sql.contains("OR (type = ? AND result = ? AND NOT EXISTS"))
+        assertEquals(
+            listOf(
+                RuntimeQueryArgument.IntValue(999),
+                RuntimeQueryArgument.TextValue("com.example.app"),
+                RuntimeQueryArgument.IntValue(EventRowType.SendMessage),
+                RuntimeQueryArgument.IntValue(EventRowResultType.DENY_DISABLED),
+                RuntimeQueryArgument.IntValue(EventRowType.RegistrationResult),
+                RuntimeQueryArgument.IntValue(EventRowResultType.OK),
+                RuntimeQueryArgument.IntValue(EventRowType.RegistrationResult),
+                RuntimeQueryArgument.IntValue(EventRowResultType.OK),
+                RuntimeQueryArgument.IntValue(20),
+            ),
+            query.arguments,
+        )
+    }
+
+    @Test
+    fun `page query rejects invalid user instead of falling back to primary`() {
+        assertThrows<IllegalArgumentException> {
+            RuntimeEventQueryPolicy.page(
+                offset = 40,
+                limit = 20,
+                types = null,
+                packageName = " ",
+                text = "body",
+                userId = -1,
+            )
+        }
+    }
+
+
+    @Test
+    fun `disabled messages are hidden by default but activity policy is type scoped`() {
+        assertTrue(
+            RuntimeEventVisibilityPolicy.isHiddenByDefault(
+                type = EventRowType.SendMessage,
+                result = EventRowResultType.OK,
+                currentlyDisabled = true,
+            ),
+        )
+        assertTrue(
+            RuntimeEventVisibilityPolicy.isHiddenByDefault(
+                type = EventRowType.SendMessage,
+                result = EventRowResultType.DENY_DISABLED,
+                currentlyDisabled = false,
+            ),
+        )
+        assertFalse(
+            RuntimeEventVisibilityPolicy.isHiddenByDefault(
+                type = EventRowType.SendMessage,
+                result = EventRowResultType.OK,
+                currentlyDisabled = false,
+            ),
+        )
+        assertFalse(
+            RuntimeEventVisibilityPolicy.isHiddenByDefault(
+                type = EventRowType.RegistrationResult,
+                result = EventRowResultType.OK,
+                currentlyDisabled = true,
+            ),
+        )
+    }
     @Test
     fun `blank filters are omitted`() {
         val query = RuntimeEventQueryPolicy.byId(

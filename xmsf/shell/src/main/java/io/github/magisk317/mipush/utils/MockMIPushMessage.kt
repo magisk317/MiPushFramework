@@ -219,6 +219,8 @@ object MockMIPushMessage {
                 emitMockReplay(result = "ok", statusOk = true, reason = "dispatched", startedAt = startedAt)
             MockReplayOutcome.Posted ->
                 emitMockReplay(result = "ok", statusOk = true, reason = "posted", startedAt = startedAt)
+            MockReplayOutcome.FailedChannelDisabled ->
+                emitMockReplay(result = "error", statusOk = false, reason = "channel_disabled", startedAt = startedAt)
             MockReplayOutcome.Failed ->
                 emitMockReplay(result = "error", statusOk = false, reason = "failed", startedAt = startedAt)
         }
@@ -232,6 +234,7 @@ object MockMIPushMessage {
         MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
         MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
         MockReplayOutcome.Posted -> "mock_replay_posted"
+        MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
         MockReplayOutcome.Failed -> "mock_replay_failed"
     }
 

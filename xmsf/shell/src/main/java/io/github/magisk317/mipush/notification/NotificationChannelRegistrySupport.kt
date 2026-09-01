@@ -5,8 +5,7 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import com.xiaomi.push.service.NotificationIdentityBridge
-import com.xiaomi.push.service.NotificationManagerPlatformSupport
+import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -52,7 +51,7 @@ internal class NotificationChannelRegistrySupport(
     fun getDirectPackageNotificationChannel(packageName: String, channelId: String?): NotificationChannel? {
         if (channelId.isNullOrEmpty()) return null
         if (shouldUseModernIdentityStrategy(packageName)) {
-            val channel = NotificationIdentityBridge.getTargetNotificationChannel(context, packageName, channelId)
+            val channel = NotificationVendorAdapter.getTargetChannel(context, packageName, channelId)
             if (channel == null) maybeLogDiagnosticsOnce("target-channel-unavailable", packageName, channelId, null)
             return channel
         }
@@ -142,7 +141,7 @@ internal class NotificationChannelRegistrySupport(
             return
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
-            if (NotificationIdentityBridge.createTargetNotificationChannels(context, packageName, nonNullChannels)) {
+            if (NotificationVendorAdapter.createTargetChannels(context, packageName, nonNullChannels)) {
                 if (!isHooked) {
                     createLocalNotificationChannels(
                         nonNullChannels.filter {
@@ -232,12 +231,12 @@ internal class NotificationChannelRegistrySupport(
         }
 
         val strategy = runCatching {
-            NotificationIdentityBridge.resolveStrategy(context, packageName)
+            NotificationVendorAdapter.resolveIdentityStrategy(context, packageName)
         }.getOrNull()
         logD("getNotificationChannels strategy=$strategy for $packageName")
 
         if (shouldUseModernIdentityStrategy(packageName)) {
-            val targetChannels = NotificationIdentityBridge.getTargetNotificationChannels(context, packageName)
+            val targetChannels = NotificationVendorAdapter.getTargetChannels(context, packageName)
             logD("getNotificationChannels identity count=${targetChannels.size} pkg=$packageName")
             if (targetChannels.isNotEmpty()) {
                 return targetChannels
@@ -300,8 +299,8 @@ internal class NotificationChannelRegistrySupport(
 
     private fun queryPlatformNotificationChannels(packageName: String): List<NotificationChannel?> {
         return runCatching {
-            NotificationManagerPlatformSupport.init(context)
-            NotificationManagerPlatformSupport.getNotificationChannels(packageName).orEmpty()
+            NotificationVendorAdapter.initPlatform(context)
+            NotificationVendorAdapter.getPlatformChannels(packageName).orEmpty()
         }.onFailure {
             logE("queryPlatformNotificationChannels failed pkg=$packageName", it)
         }.getOrDefault(emptyList())
@@ -336,7 +335,7 @@ internal class NotificationChannelRegistrySupport(
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             // Prefer deleting under the target package identity when possible.
-            if (NotificationIdentityBridge.deleteTargetNotificationChannel(context, packageName, channelId)) {
+            if (NotificationVendorAdapter.deleteTargetChannel(context, packageName, channelId)) {
                 return true
             }
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
@@ -404,7 +403,7 @@ internal class NotificationChannelRegistrySupport(
             return
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
-            if (NotificationIdentityBridge.createTargetNotificationChannelGroups(context, packageName, nonNullGroups)) {
+            if (NotificationVendorAdapter.createTargetGroups(context, packageName, nonNullGroups)) {
                 if (!isHooked) {
                     createLocalNotificationChannelGroups(
                         nonNullGroups.filter {
@@ -475,7 +474,7 @@ internal class NotificationChannelRegistrySupport(
             return notificationManager.notificationChannelGroups
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
-            val targetGroups = NotificationIdentityBridge.getTargetNotificationChannelGroups(context, packageName)
+            val targetGroups = NotificationVendorAdapter.getTargetGroups(context, packageName)
             logD("getNotificationChannelGroups identity count=${targetGroups.size} pkg=$packageName")
             if (targetGroups.isNotEmpty()) {
                 return targetGroups
@@ -534,8 +533,8 @@ internal class NotificationChannelRegistrySupport(
 
     private fun queryPlatformNotificationChannelGroups(packageName: String): List<NotificationChannelGroup?> {
         return runCatching {
-            NotificationManagerPlatformSupport.init(context)
-            NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName).orEmpty()
+            NotificationVendorAdapter.initPlatform(context)
+            NotificationVendorAdapter.getPlatformGroups(packageName).orEmpty()
         }.onFailure {
             logE("queryPlatformNotificationChannelGroups failed pkg=$packageName", it)
         }.getOrDefault(emptyList())

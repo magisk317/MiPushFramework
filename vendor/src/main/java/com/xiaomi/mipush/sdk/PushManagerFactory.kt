@@ -2,6 +2,7 @@ package com.xiaomi.mipush.sdk
 
 import android.content.Context
 import android.text.TextUtils
+import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 
 /*
@@ -22,6 +23,23 @@ object PushManagerFactory {
         if (TextUtils.isEmpty(manageClassInfo.className) || TextUtils.isEmpty(manageClassInfo.methodName)) {
             return null
         }
-        return JavaCalls.callStaticMethod(manageClassInfo.className!!, manageClassInfo.methodName!!, context) as AbstractPushManager
+        return try {
+            callOptionalProbe {
+                JavaCalls.callStaticMethodOrThrow(manageClassInfo.className!!, manageClassInfo.methodName!!, context)
+            } as? AbstractPushManager
+        } catch (e: Exception) {
+            MyLog.e("assemble push manager load failed", e)
+            null
+        }
+    }
+
+    private inline fun <T> callOptionalProbe(block: () -> T): T? {
+        return try {
+            block()
+        } catch (_: NoSuchMethodException) {
+            null
+        } catch (_: ClassNotFoundException) {
+            null
+        }
     }
 }

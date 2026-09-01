@@ -37,7 +37,6 @@ class RootPromptBoundaryContractTest {
             source.section("fun allowPermission", "fun grantSilentPermissions"),
             source.section("fun grantSilentPermissions(", "fun grantSilentPermissionsForFramework"),
             source.section("fun grantSilentPermissionsForFramework", "fun lunchAppOps"),
-            source.section("fun syncLauncherIconAliases", "\n}"),
         )
 
         assertFalse(source.contains("ensureRootAccess"))

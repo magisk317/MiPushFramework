@@ -55,8 +55,20 @@ class PushMessageProcessorSupportExtractionContractTest {
         assertTrue(ack.contains("\"client_ack_sent\""))
         assertTrue(ack.contains("\"clear_notification_ack_sent\""))
         assertTrue(intentFactory.contains("Intent.URI_INTENT_SCHEME"))
+        assertTrue(intentFactory.contains("intent.setPackage(packageName)"))
+        assertTrue(intentFactory.contains("ComponentName(packageName, map[\"class_name\"]!!)"))
         assertTrue(intentFactory.contains("intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)"))
         assertTrue(intentFactory.contains("PackageManager.MATCH_DEFAULT_ONLY"))
+
+        val notificationIntent = source(
+            "xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/" +
+                "MyMIPushNotificationIntentSupport.kt",
+        )
+        assertTrue(notificationIntent.contains("ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS)"))
+        assertTrue(notificationIntent.contains("applyPendingIntentIdentity(this, container.packageName"))
+        assertTrue(notificationIntent.contains("logClickRoute(\"bridge_activity\""))
+        assertTrue(notificationIntent.contains("logClickRoute(\"xmsf_service\""))
+        assertTrue(notificationIntent.contains("PendingIntent.getActivity("))
     }
 
     private fun source(relativePath: String): String {

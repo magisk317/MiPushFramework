@@ -3,6 +3,9 @@ package io.github.magisk317.mipush.push.bridge
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.common.notification.NotificationAvailabilityReader
+import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRequest
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -69,9 +72,23 @@ object DefaultPushShellBridge : PushShellBridge {
             container,
             application,
         )
+        val result = runCatching {
+            val disabled = AppDependencies.get<NotificationAvailabilityReader>(context)
+                .isNotificationDisabled(
+                    NotificationAvailabilityRequest(
+                        packageName = packageName,
+                        metaInfoExtra = container.metaInfo?.extra.orEmpty(),
+                    ),
+                )
+            if (disabled) {
+                io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType.DENY_DISABLED
+            } else {
+                io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType.OK
+            }
+        }.getOrDefault(io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType.OK)
         kotlinx.coroutines.runBlocking {
             io.github.magisk317.mipush.runtime.store.db.EventDb.insertEventAsync(
-                io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType.OK,
+                result,
                 eventType,
             )
         }

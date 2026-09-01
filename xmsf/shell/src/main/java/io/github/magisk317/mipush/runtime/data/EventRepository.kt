@@ -38,6 +38,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.DayCount
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventVisibilityPolicy
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
@@ -53,6 +54,7 @@ class EventRepository constructor(
     private val configNavigationHelper: ConfigNavigationHelper,
     private val notificationAvailabilityReader: NotificationAvailabilityReader,
 ) {
+
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
         if (container == null) {
             return HashSet()
@@ -104,30 +106,77 @@ class EventRepository constructor(
         return ""
     }
 
-    fun getEventsById(lastId: Long?, size: Int, packetName: String, query: String): List<RuntimeEventRow> {
-        var types: Set<Int>? = null
-        if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
-            types = setOf(
-                EventRowType.SendMessage,
-                EventRowType.Registration,
-                EventRowType.RegistrationResult,
-                EventRowType.UnRegistration
-            )
+    fun getEventsById(
+        lastId: Long?,
+        size: Int,
+        packetName: String,
+        query: String,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
+    ): List<RuntimeEventRow> {
+        val showAllEvents = runBlocking { configCenter.isShowAllEventsAsync() }
+        val types = if (showAllEvents) null else setOf(EventRowType.SendMessage)
+        val excludedResults = if (showAllEvents) emptySet() else setOf(EventRowResultType.DENY_DISABLED)
+        if (showAllEvents) {
+            return runBlocking {
+                EventDb.queryByIdAsync(
+                    lastId = lastId,
+                    size = size,
+                    types = types,
+                    pkg = packetName,
+                    text = query,
+                    userId = userId,
+                )
+            }
         }
-        return runBlocking { EventDb.queryByIdAsync(lastId, size, types, packetName, query) }
+
+        // Disabled status can be derived from the current notification channel state, so SQL
+        // alone cannot hide historical rows reliably. Read candidate rows in bounded chunks and
+        // advance the internal cursor until a complete visible page is assembled. The caller's
+        // cursor remains the last visible id, so filtered rows are never exposed or lost.
+        val visible = ArrayList<RuntimeEventRow>(size)
+        var cursor = lastId
+        while (visible.size < size) {
+            val candidates = runBlocking {
+                EventDb.queryByIdAsync(
+                    lastId = cursor,
+                    size = maxOf(size, DISABLED_FILTER_BATCH_SIZE),
+                    types = types,
+                    pkg = packetName,
+                    text = query,
+                    userId = userId,
+                    includeFirstSuccessfulRegistration = true,
+                    excludedResults = excludedResults,
+                )
+            }
+            if (candidates.isEmpty()) break
+            cursor = candidates.last().id
+            visible += candidates.filterNot(::isDisabledMessage)
+        }
+        return visible.take(size)
+    }
+
+    private fun isDisabledMessage(event: RuntimeEventRow): Boolean {
+        val container = RegSecUtils.getContainerWithRegSec(event)
+        return RuntimeEventVisibilityPolicy.isHiddenByDefault(
+            type = event.type,
+            result = event.result,
+            currentlyDisabled = container != null && getStatus(container).contains("disable"),
+        )
     }
 
     fun getEvents(pageIndex: Int, pageSize: Int, packetName: String, query: String): List<RuntimeEventRow> {
-        var types: Set<Int>? = null
-        if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
-            types = setOf(
-                EventRowType.SendMessage,
-                EventRowType.Registration,
-                EventRowType.RegistrationResult,
-                EventRowType.UnRegistration
-            )
-        }
-        return EventDb.queryByPage(pageIndex, pageSize, types, packetName, query)
+        val showAllEvents = runBlocking { configCenter.isShowAllEventsAsync() }
+        val types = if (showAllEvents) null else setOf(EventRowType.SendMessage)
+        val rows = EventDb.queryByPage(
+            pageIndex = pageIndex,
+            pageSize = pageSize,
+            types = types,
+            pkg = packetName,
+            text = query,
+            includeFirstSuccessfulRegistration = true,
+            excludedResults = if (showAllEvents) emptySet() else setOf(EventRowResultType.DENY_DISABLED),
+        )
+        return if (showAllEvents) rows else rows.filterNot(::isDisabledMessage)
     }
 
     suspend fun deleteEvent(event: RuntimeEventRow): Boolean {
@@ -348,6 +397,7 @@ class EventRepository constructor(
             MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
             MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
             MockReplayOutcome.Posted -> "mock_replay_posted"
+            MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
             MockReplayOutcome.Failed -> "mock_replay_failed"
         }
         PushRuntime.observeNotificationEvent(packageName, action, "EventRepository.mockMessage")
@@ -423,6 +473,7 @@ class EventRepository constructor(
     }
 
     companion object {
+        private const val DISABLED_FILTER_BATCH_SIZE = 32
         private const val MOCK_REPLAY_MAX_WAIT_MS = 5_000L
         private const val MOCK_REPLAY_POLL_MS = 100L
 

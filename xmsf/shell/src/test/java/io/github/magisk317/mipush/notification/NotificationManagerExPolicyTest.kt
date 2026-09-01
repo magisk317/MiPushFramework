@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import java.io.File
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -114,15 +115,58 @@ class NotificationManagerExPolicyTest {
     }
 
     @Test
+    fun `invalid requested user cannot fall back to primary user`() {
+        assertFalse(NotificationManagerEx.canCancelForUser(requestedUserId = -1, currentUserId = 0))
+        assertFalse(NotificationManagerEx.canNotifyForUser(requestedUserId = -1, currentUserId = 0))
+        assertFalse(NotificationManagerEx.canNotifyForUser(requestedUserId = 0, currentUserId = -1))
+    }
+
+    @Test
     fun `foreign user cancellation fails closed`() {
         assertFalse(NotificationManagerEx.canCancelForUser(requestedUserId = 10, currentUserId = 0))
         assertTrue(NotificationManagerEx.canCancelForUser(requestedUserId = 0, currentUserId = 0))
-        assertTrue(NotificationManagerEx.canCancelForUser(requestedUserId = -1, currentUserId = 0))
+    }
+
+    @Test
+    fun `local cancel security exception is swallowed`() {
+        val cancelled = NotificationManagerEx.cancelLocallySafely("tag", 42) {
+            throw SecurityException("not the notification owner")
+        }
+
+        assertFalse(cancelled)
+    }
+
+    @Test
+    fun `successful local cancel is reported`() {
+        var invoked = false
+        val cancelled = NotificationManagerEx.cancelLocallySafely("tag", 42) {
+            invoked = true
+        }
+
+        assertTrue(cancelled)
+        assertTrue(invoked)
     }
 
     @Test
     fun `foreign user publication fails closed`() {
         assertFalse(NotificationManagerEx.canNotifyForUser(requestedUserId = 10, currentUserId = 0))
         assertTrue(NotificationManagerEx.canNotifyForUser(requestedUserId = 0, currentUserId = 0))
+    }
+
+    @Test
+    fun `group cancellation passes resolved user to notification manager`() {
+        val source = resolveNotificationControllerSource().readText()
+        val groupBranch = source.substringAfter("if (clearGroup) {")
+            .substringBefore("\n        }\n    }\n\n    @JvmStatic")
+
+        assertTrue(groupBranch.contains("userId = userId,"))
+    }
+
+    private fun resolveNotificationControllerSource(): File {
+        val relativePath =
+            "src/main/java/io/github/magisk317/mipush/notification/NotificationController.kt"
+        return listOf(File(relativePath), File("xmsf/shell/$relativePath"))
+            .firstOrNull(File::isFile)
+            ?: error("NotificationController.kt not found")
     }
 }

@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
+import androidx.core.content.edit
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
@@ -21,7 +22,7 @@ object LegacyNotificationIdentityMigration {
             .map { it.packageName }
             .filter { it.isNotBlank() }
             .distinct()
-        val currentUserId = Utils.myUserId().coerceAtLeast(0)
+        val currentUserId = Utils.requireValidUserId(Utils.myUserId())
         var removed = 0
         var allPackagesInspected = true
         for (packageName in packages) {
@@ -47,7 +48,7 @@ object LegacyNotificationIdentityMigration {
             Logger.withTag(TAG).w { "legacy notification identity migration deferred after an active-notification query failed" }
             return
         }
-        prefs.edit().putBoolean(KEY_COMPLETED, true).apply()
+        prefs.edit { putBoolean(KEY_COMPLETED, true) }
         Logger.withTag(TAG).i { "legacy notification identity migration completed packages=${packages.size} removed=$removed" }
     }
 

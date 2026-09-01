@@ -173,7 +173,8 @@ class RegistrationHelper(
                 AndroidPushRuntime.observeRegistrationRequest(
                     packageName,
                     "RegistrationHelper.tryForceRegisterFallback",
-                    "force_trigger_fallback"
+                    "force_trigger_fallback",
+                    androidUserId = Utils.requireValidUserId(Utils.myUserId()),
                 )
                 RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {
@@ -221,7 +222,8 @@ class RegistrationHelper(
                 AndroidPushRuntime.observeRegistrationRequest(
                     packageName,
                     "RegistrationHelper.tryForceRegister",
-                    "force_trigger"
+                    "force_trigger",
+                    androidUserId = Utils.requireValidUserId(Utils.myUserId()),
                 )
                 RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {

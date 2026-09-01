@@ -83,14 +83,21 @@ class MessageHandleService : BaseService() {
                                 receiver.onReceiveMessage(context, pushMessageInterface)
                             }
                             if (pushMessageInterface.passThrough == 1) {
-                                PushClientReportManager.getInstance(context.applicationContext).reportEvent(
-                                    context.packageName,
-                                    intent,
-                                    ReportConstants.THROUGH_TYPE_RECEIVE_CALL_CALLBACK,
-                                    null,
-                                )
-                                MyLog.persist("begin execute onReceivePassThroughMessage from " + pushMessageInterface.messageId)
-                                receiver.onReceivePassThroughMessage(context, pushMessageInterface)
+                                if (PushMessageReceiverDispatchPolicy.isCallMessage(pushMessageInterface)) {
+                                    MyLog.persist("begin execute onCallMessage from " + pushMessageInterface.messageId)
+                                    receiver.onCallMessage(
+                                        CallMessage(pushMessageInterface.messageId, pushMessageInterface.content),
+                                    )
+                                } else {
+                                    PushClientReportManager.getInstance(context.applicationContext).reportEvent(
+                                        context.packageName,
+                                        intent,
+                                        ReportConstants.THROUGH_TYPE_RECEIVE_CALL_CALLBACK,
+                                        null,
+                                    )
+                                    MyLog.persist("begin execute onReceivePassThroughMessage from " + pushMessageInterface.messageId)
+                                    receiver.onReceivePassThroughMessage(context, pushMessageInterface)
+                                }
                             } else if (!pushMessageInterface.isNotified) {
                                 MyLog.persist("begin execute onNotificationMessageArrived from " + pushMessageInterface.messageId)
                                 receiver.onNotificationMessageArrived(context, pushMessageInterface)

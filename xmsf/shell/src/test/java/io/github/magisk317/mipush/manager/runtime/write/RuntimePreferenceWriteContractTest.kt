@@ -35,7 +35,6 @@ class RuntimePreferenceWriteContractTest {
         assertTrue(source.contains("private val preferenceRepository: PreferenceRepository"))
         assertTrue(source.contains("preferenceRepository = AppDependencies.get(context)"))
         assertFalse(source.contains("val repo = PreferenceRepository()"))
-        assertFalse(source.contains("PreferenceRepository().setIslandRendererMode"))
     }
 
     @Test

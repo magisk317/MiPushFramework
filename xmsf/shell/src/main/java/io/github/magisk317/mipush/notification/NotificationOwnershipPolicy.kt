@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.notification
 
 internal object NotificationOwnershipPolicy {
     fun canAccessUser(requestedUserId: Int, currentUserId: Int): Boolean =
-        requestedUserId.coerceAtLeast(0) == currentUserId.coerceAtLeast(0)
+        requestedUserId >= 0 && currentUserId >= 0 && requestedUserId == currentUserId
 
     fun shouldUseLocalChannel(packageName: String, channelId: String?, hostPackageName: String): Boolean =
         packageName == hostPackageName ||

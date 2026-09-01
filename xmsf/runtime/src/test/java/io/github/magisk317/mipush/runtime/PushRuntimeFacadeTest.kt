@@ -16,8 +16,8 @@ class PushRuntimeFacadeTest {
     fun `facade registration observations land on the AndroidPushRuntime singleton`() {
         AndroidPushRuntime.clearStateForTests()
 
-        PushRuntime.observeRegistrationRequest("com.example.facade", "facade-test")
-        PushRuntime.observeRegistrationResult("com.example.facade", success = true, source = "facade-test")
+        PushRuntime.observeRegistrationRequest("com.example.facade", "facade-test", androidUserId = 0)
+        PushRuntime.observeRegistrationResult("com.example.facade", success = true, source = "facade-test", androidUserId = 0)
 
         val implSnapshot = AndroidPushRuntime.snapshot()
         assertEquals(1, implSnapshot.trackedRegistrationCount)
@@ -30,8 +30,8 @@ class PushRuntimeFacadeTest {
     fun `facade snapshot mirrors the implementation snapshot`() {
         AndroidPushRuntime.clearStateForTests()
 
-        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "test")
-        AndroidPushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test")
+        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "test", androidUserId = 0)
+        AndroidPushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test", androidUserId = 0)
 
         val facadeSnapshot = PushRuntime.snapshot()
         val implSnapshot = AndroidPushRuntime.snapshot()

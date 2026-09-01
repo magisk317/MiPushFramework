@@ -5,7 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.push.service.NotificationManagerPlatformSupport
+import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 import com.xiaomi.push.service.NotificationUtils
 import io.github.magisk317.mipush.common.utils.logE
 
@@ -17,10 +17,14 @@ internal object NotificationLocalStateSupport {
     fun filterActive(
         packageName: String,
         activeNotifications: Array<StatusBarNotification>,
-    ): Array<StatusBarNotification?> = NotificationManagerPlatformSupport
-        .filterLocalActiveNotifications(packageName, activeNotifications)
-        .map { it as StatusBarNotification? }
-        .toTypedArray()
+        userId: Int,
+    ): Array<StatusBarNotification?> {
+        if (userId < 0) return emptyArray()
+        return NotificationVendorAdapter
+            .filterLocalActiveNotifications(packageName, activeNotifications, userId)
+            .map { it as StatusBarNotification? }
+            .toTypedArray()
+    }
 
     @Suppress("DEPRECATION")
     fun hasTarget(

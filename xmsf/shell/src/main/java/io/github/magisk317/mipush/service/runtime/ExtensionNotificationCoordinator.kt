@@ -237,7 +237,7 @@ internal class ExtensionPendingRegistry(
         userId: Int,
         publish: (XmPushActionContainer, ByteArray) -> Unit,
     ) {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         entries[key(normalizedUserId, packageName, messageId)] =
             Entry(elapsedRealtime(), packageName, normalizedUserId, container, payload, publish)
     }
@@ -268,7 +268,7 @@ internal class ExtensionPendingRegistry(
         fail(packageName, messageId, userId)
 
     fun clearPackage(packageName: String, userId: Int): Set<String> {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         val prefix = "$normalizedUserId|$packageName\u0000"
         return entries.keys
             .filter { it.startsWith(prefix) }
@@ -282,7 +282,7 @@ internal class ExtensionPendingRegistry(
     }
 
     private fun key(userId: Int, packageName: String, messageId: String): String =
-        "${userId.coerceAtLeast(0)}|$packageName\u0000$messageId"
+        "${Utils.requireValidUserId(userId)}|$packageName\u0000$messageId"
 }
 
 /**
@@ -361,7 +361,7 @@ internal object ExtensionNotificationCoordinator {
     }
 
     fun clearPackageState(packageName: String, userId: Int = currentUserId()) {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         val messageIds = pending.clearPackage(packageName, normalizedUserId)
         messageIds.forEach { messageId ->
             handler.removeCallbacksAndMessages(token(packageName, messageId, normalizedUserId))
@@ -500,9 +500,9 @@ internal object ExtensionNotificationCoordinator {
     }
 
     private fun token(packageName: String, messageId: String, userId: Int): String =
-        "${userId.coerceAtLeast(0)}|$packageName\u0000$messageId"
+        "${Utils.requireValidUserId(userId)}|$packageName\u0000$messageId"
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
 }
 
@@ -622,5 +622,5 @@ private class ExtensionServiceConnectionPool {
     }
 
     private fun userKey(userId: Int, packageName: String): String =
-        "${userId.coerceAtLeast(0)}|$packageName"
+        "${Utils.requireValidUserId(userId)}|$packageName"
 }

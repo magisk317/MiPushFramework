@@ -158,15 +158,8 @@ object NetworkCheckup {
         }
     }
 
-    private fun extractGateway(line: String?): String? {
-        if (line.isNullOrBlank()) return null
-        val parts = line.split(" ")
-        val index = parts.indexOf("default")
-        if (index != -1 && index + 2 < parts.size && parts[index + 1] == "via") {
-            return parts[index + 2]
-        }
-        return null
-    }
+    private fun extractGateway(line: String?): String? =
+        io.github.magisk317.mipush.runtime.core.PushNetworkCheckPlanFactory.extractGateway(line)
 
     private fun readFile(path: String): String? {
         return try {

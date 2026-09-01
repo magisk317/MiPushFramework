@@ -8,7 +8,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":manager:application"))
+    implementation(project(":manager:port"))
     implementation(project(":core"))
     implementation(project(":pinned"))
     implementation(project(":vendor"))

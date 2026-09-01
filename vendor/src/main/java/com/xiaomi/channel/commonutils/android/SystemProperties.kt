@@ -14,6 +14,10 @@ object SystemProperties {
             SystemUtils.loadClass(null, "android.os.SystemProperties")
                 .getMethod("get", String::class.java, String::class.java)
                 .invoke(null, str, str2) as String
+        } catch (_: ClassNotFoundException) {
+            str2
+        } catch (_: NoSuchMethodException) {
+            str2
         } catch (e: Exception) {
             MyLog.w("SystemProperties.get: $e")
             str2

@@ -41,7 +41,7 @@ class ManagerApplicationRuntimeReaderTest {
             receiveTimes = mapOf("observed" to 20L),
         )
         val reader = ManagerApplicationRuntimeReader(source, maxPageSize = 2)
-        val query = ManagerApplicationReadQuery(pageSize = 2)
+        val query = ManagerApplicationReadQuery(pageSize = 2, userId = 0)
 
         val first = reader.readPageBlocking(query)
         assertEquals(listOf("registered", "observed"), first.items.map { it.packageName })
@@ -65,7 +65,7 @@ class ManagerApplicationRuntimeReaderTest {
             locallyRegistered = setOf("target"),
         )
 
-        val result = ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery())
+        val result = ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery(userId = 0))
 
         assertEquals(ManagerApplication.RegisteredType.REGISTERED, result.items.single().registeredType)
         assertEquals(ManagerApplication.RegisteredType.NOT_REGISTERED, row.registeredType)
@@ -90,10 +90,16 @@ class ManagerApplicationRuntimeReaderTest {
         val reader = ManagerApplicationRuntimeReader(source)
 
         val notRegistered = reader.readPageBlocking(
-            ManagerApplicationReadQuery(filterMode = ManagerApplicationReadQuery.FILTER_NOT_REGISTERED),
+            ManagerApplicationReadQuery(
+                filterMode = ManagerApplicationReadQuery.FILTER_NOT_REGISTERED,
+                userId = 0,
+            ),
         )
         val unregistered = reader.readPageBlocking(
-            ManagerApplicationReadQuery(filterMode = ManagerApplicationReadQuery.FILTER_UNREGISTERED),
+            ManagerApplicationReadQuery(
+                filterMode = ManagerApplicationReadQuery.FILTER_UNREGISTERED,
+                userId = 0,
+            ),
         )
 
         assertEquals(listOf("never"), notRegistered.items.map { it.packageName })
@@ -106,7 +112,7 @@ class ManagerApplicationRuntimeReaderTest {
             installed = listOf(installed("one", "One"), installed("two", "Two")),
         )
         val reader = ManagerApplicationRuntimeReader(source, maxPageSize = 1)
-        val firstQuery = ManagerApplicationReadQuery(pageSize = 1)
+        val firstQuery = ManagerApplicationReadQuery(pageSize = 1, userId = 0)
         val token = reader.readPageBlocking(firstQuery).nextPageToken
 
         assertThrows(IllegalArgumentException::class.java) {
@@ -124,6 +130,51 @@ class ManagerApplicationRuntimeReaderTest {
     }
 
     @Test
+    fun `rejects an invalid source user instead of falling back to primary user`() {
+        val reader = ManagerApplicationRuntimeReader(FakeSource(userId = -1))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.readPageBlocking(ManagerApplicationReadQuery(userId = 0))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.readDetailBlocking("target", ignoreNotRegistered = true)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.readDiagnosticsBlocking(
+                packageName = "target",
+                registeredType = ManagerApplication.RegisteredType.NOT_REGISTERED,
+            )
+        }
+    }
+
+    @Test
+    fun `negative persisted rows do not become primary-user rows`() {
+        val source = FakeSource(
+            stored = listOf(stored("target", ManagerApplication.RegisteredType.REGISTERED, userId = -1)),
+            installed = listOf(installed("target", "Target")),
+        )
+        val reader = ManagerApplicationRuntimeReader(source)
+
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery(userId = 0)).items.single()
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
+
+        assertEquals(ManagerApplication.RegisteredType.NOT_REGISTERED, listItem.registeredType)
+        assertEquals(0, listItem.userId)
+        assertNull(detail)
+    }
+
+    @Test
+    fun `transient projection rejects an invalid user`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            installed("target", "Target").toTransientManagerApplication(
+                locallyRegistered = false,
+                lastReceiveTimeMs = 0L,
+                userId = -1,
+            )
+        }
+    }
+
+    @Test
     fun `page item count shrinks before the negotiated payload bound`() {
         val longLabel = "x".repeat(4_096)
         val source = FakeSource(
@@ -132,7 +183,7 @@ class ManagerApplicationRuntimeReaderTest {
             },
         )
         val page = ManagerApplicationRuntimeReader(source).readPageBlocking(
-            ManagerApplicationReadQuery(pageSize = 100),
+            ManagerApplicationReadQuery(pageSize = 100, userId = 0),
         )
 
         assertTrue(page.items.isNotEmpty())
@@ -187,7 +238,7 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source)
 
-        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery()).items.single()
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery(userId = 0)).items.single()
         val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
 
         assertEquals(ManagerApplication.RegisteredType.NOT_REGISTERED, listItem.registeredType)
@@ -205,7 +256,7 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source)
 
-        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery()).items.single()
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery(userId = 0)).items.single()
         val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
 
         assertEquals("Target", listItem.appName)
@@ -232,7 +283,7 @@ class ManagerApplicationRuntimeReaderTest {
             ),
         )
 
-        ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery())
+        ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery(userId = 0))
 
         assertEquals(setOf("pending", "transient"), source.lastLocalProbePackages)
     }

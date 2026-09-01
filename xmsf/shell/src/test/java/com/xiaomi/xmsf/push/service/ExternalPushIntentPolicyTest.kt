@@ -33,6 +33,18 @@ class ExternalPushIntentPolicyTest {
     }
 
     @Test
+    fun `client report config is rejected before payload validation`() {
+        val context = mockk<android.content.Context>(relaxed = true)
+        val intent = mockk<Intent>(relaxed = true)
+        every { intent.action } returns PushConstants.ACTION_CLIENT_REPORT_CONFIG
+
+        val result = ExternalPushIntentPolicy.validate(context, intent)
+
+        assertEquals("action_not_public", result.rejectionReason)
+        assertEquals(null, result.intent)
+    }
+
+    @Test
     fun `bound ingress caller package must match the Messenger sending uid`() {
         assertTrue(
             ExternalPushIntentPolicy.isCallerPackageAllowed(

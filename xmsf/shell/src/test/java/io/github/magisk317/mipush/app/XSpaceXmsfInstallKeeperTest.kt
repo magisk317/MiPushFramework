@@ -178,6 +178,20 @@ class XSpaceXmsfInstallKeeperTest {
         )
     }
 
+    @Test
+    fun `dual app state read failure skips synchronization instead of defaulting to uninstall`() {
+        val sourcePath = "src/main/java/io/github/magisk317/mipush/app/XSpaceXmsfInstallKeeper.kt"
+        val source = listOf(java.io.File(sourcePath), java.io.File("xmsf/shell/$sourcePath"))
+            .firstOrNull(java.io.File::isFile)
+            ?.readText()
+            ?: error("XSpaceXmsfInstallKeeper.kt not found")
+
+        assertTrue(source.contains("if (isDualAppEnabled == null)"))
+        assertTrue(source.contains("reason=dual_app_state_unavailable"))
+        assertTrue(source.contains("}.getOrNull()"))
+        assertFalse(source.contains("}.getOrDefault(false)"))
+    }
+
     private class RecordingRootRunner(
         vararg responses: Pair<String, BoundedShellResult>,
     ) {

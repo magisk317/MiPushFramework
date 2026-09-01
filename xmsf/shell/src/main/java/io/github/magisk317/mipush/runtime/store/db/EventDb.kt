@@ -53,7 +53,7 @@ object EventDb {
     }
 
     suspend fun getByIdAsync(id: Long, userId: Int = currentUserId()): RuntimeEventRow? =
-        eventDao.getById(id, userId.coerceAtLeast(0))
+        eventDao.getById(id, requireValidUserId(userId))
 
     suspend fun insertOrReplaceEventAsync(event: RuntimeEventRow): Long {
         Logger.withTag("EventDb").d { "insertOrReplaceEvent() called with: $event" }
@@ -93,6 +93,8 @@ object EventDb {
         pkg: String?,
         text: String?,
         userId: Int = currentUserId(),
+        includeFirstSuccessfulRegistration: Boolean = false,
+        excludedResults: Set<Int> = emptySet(),
     ): List<RuntimeEventRow> {
         val query = RuntimeEventQueryPolicy.byId(
             lastId = lastId,
@@ -101,6 +103,8 @@ object EventDb {
             packageName = pkg,
             text = text,
             userId = userId,
+            includeFirstSuccessfulRegistration = includeFirstSuccessfulRegistration,
+            excludedResults = excludedResults,
         )
         return eventDao.queryRaw(roomRawQuery(query))
     }
@@ -111,9 +115,21 @@ object EventDb {
         pageSize: Int,
         types: Set<Int>?,
         pkg: String?,
-        text: String?
+        text: String?,
+        includeFirstSuccessfulRegistration: Boolean = false,
+        excludedResults: Set<Int> = emptySet(),
     ): List<RuntimeEventRow> {
-        return runBlocking { queryAsync((pageIndex - 1) * pageSize, pageSize, types, pkg, text) }
+        return runBlocking {
+            queryAsync(
+                (pageIndex - 1) * pageSize,
+                pageSize,
+                types,
+                pkg,
+                text,
+                includeFirstSuccessfulRegistration = includeFirstSuccessfulRegistration,
+                excludedResults = excludedResults,
+            )
+        }
     }
 
     suspend fun queryAsync(
@@ -121,7 +137,9 @@ object EventDb {
         limit: Int,
         types: Set<Int>?,
         pkg: String?,
-        text: String?
+        text: String?,
+        includeFirstSuccessfulRegistration: Boolean = false,
+        excludedResults: Set<Int> = emptySet(),
     ): List<RuntimeEventRow> {
         val query = RuntimeEventQueryPolicy.page(
             offset = skip,
@@ -130,6 +148,8 @@ object EventDb {
             packageName = pkg,
             text = text,
             userId = currentUserId(),
+            includeFirstSuccessfulRegistration = includeFirstSuccessfulRegistration,
+            excludedResults = excludedResults,
         )
         return eventDao.queryRaw(roomRawQuery(query))
     }
@@ -277,5 +297,13 @@ object EventDb {
         ): Int = eventDao.deleteHistoryInRange(startMillis, endMillis, userId)
     }
 
-    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 }

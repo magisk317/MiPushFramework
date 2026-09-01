@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
@@ -219,6 +220,7 @@ internal object KeepAliveEnvironment {
         )
     }
 
+    @SuppressLint("PrivateApi")
     private fun readSystemProperty(key: String, defaultValue: String): String {
         return runCatching {
             Class.forName("android.os.SystemProperties")

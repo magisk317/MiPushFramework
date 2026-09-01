@@ -21,9 +21,9 @@ class PushRuntimeTest {
         val host = TestExecutionHost()
         AndroidPushRuntime.attachExecutionHost(host)
         try {
-            AndroidPushRuntime.observeRegistrationRequest("com.example.pending", "test")
+            AndroidPushRuntime.observeRegistrationRequest("com.example.pending", "test", androidUserId = 0)
 
-            val result = AndroidPushRuntime.handleNetworkAvailable("test")
+            val result = AndroidPushRuntime.handleNetworkAvailableForUser("test", androidUserId = 0)
 
             assertTrue(result.processRegisterTaskTriggered)
             assertTrue(result.frameworkRegistrationTriggered)
@@ -33,6 +33,23 @@ class PushRuntimeTest {
             assertEquals(1, host.processRegisterTaskReasons.size)
             assertEquals(1, host.connectionEnsureReasons.size)
             assertEquals(listOf("com.example.pending"), host.replayedPackages)
+        } finally {
+            AndroidPushRuntime.detachExecutionHost(host)
+        }
+    }
+
+    @Test
+    fun `network available skips framework registration when host disables self-registration`() {
+        AndroidPushRuntime.clearStateForTests()
+        val host = TestExecutionHost(frameworkRegistrationEnabled = false)
+        AndroidPushRuntime.attachExecutionHost(host)
+        try {
+            val result = AndroidPushRuntime.handleNetworkAvailableForUser("test", androidUserId = 0)
+
+            assertFalse(result.frameworkRegistrationTriggered)
+            assertTrue(result.connectionEnsureTriggered)
+            assertTrue(host.frameworkRegistrationReasons.isEmpty())
+            assertEquals(null, AndroidPushRuntime.snapshot().lastRegistrationPackage)
         } finally {
             AndroidPushRuntime.detachExecutionHost(host)
         }
@@ -57,7 +74,8 @@ class PushRuntimeTest {
                 messageId = "msg-1",
                 payload = byteArrayOf(1, 2, 3),
                 source = "test",
-                launchApp = true
+                launchApp = true,
+                androidUserId = 0,
             )
             val cancelled = AndroidPushRuntime.cancelNotificationForPayload(
                 packageName = "com.example.app",
@@ -88,7 +106,8 @@ class PushRuntimeTest {
             userId = "u@example.com",
             session = "s1",
             state = PushChannelState.OpenFailed,
-            source = "test"
+            source = "test",
+            androidUserId = 0,
         )
         AndroidPushRuntime.synchronizeChannels(
             connectionState = PushConnectionState.Connected,
@@ -113,7 +132,8 @@ class PushRuntimeTest {
                     source = "seed"
                 )
             ),
-            source = "test"
+            source = "test",
+            androidUserId = 0,
         )
 
         val snapshot = AndroidPushRuntime.snapshot()
@@ -141,6 +161,7 @@ class PushRuntimeTest {
             channels = emptyList(),
             source = "sync",
             nowMs = 200L,
+            androidUserId = 0,
         )
         AndroidPushRuntime.synchronizeChannels(
             connectionState = PushConnectionState.Connected,
@@ -148,6 +169,7 @@ class PushRuntimeTest {
             channels = emptyList(),
             source = "sync-again",
             nowMs = 300L,
+            androidUserId = 0,
         )
 
         val connected = AndroidPushRuntime.connectionSnapshot()
@@ -161,6 +183,7 @@ class PushRuntimeTest {
             channels = emptyList(),
             source = "disconnect",
             nowMs = 400L,
+            androidUserId = 0,
         )
         AndroidPushRuntime.synchronizeChannels(
             connectionState = PushConnectionState.Disconnected,
@@ -168,6 +191,7 @@ class PushRuntimeTest {
             channels = emptyList(),
             source = "disconnect-again",
             nowMs = 500L,
+            androidUserId = 0,
         )
 
         val disconnected = AndroidPushRuntime.connectionSnapshot()
@@ -293,11 +317,11 @@ class PushRuntimeTest {
     fun `registration state transitions are tracked in snapshot`() {
         AndroidPushRuntime.clearStateForTests()
 
-        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "test")
-        AndroidPushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test")
+        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "test", androidUserId = 0)
+        AndroidPushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test", androidUserId = 0)
 
         val snapshot = AndroidPushRuntime.snapshot()
-        val record = AndroidPushRuntime.getRegistrationRecord("com.example.app")
+        val record = AndroidPushRuntime.getRegistrationRecord("com.example.app", androidUserId = 0)
 
         assertEquals(1, snapshot.trackedRegistrationCount)
         assertEquals(1, snapshot.registeredPackageCount)
@@ -384,7 +408,8 @@ class PushRuntimeTest {
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-1",
-                source = "test"
+                source = "test",
+                androidUserId = 0,
             )
         )
         assertFalse(
@@ -392,7 +417,8 @@ class PushRuntimeTest {
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-1",
-                source = "test"
+                source = "test",
+                androidUserId = 0,
             )
         )
         assertTrue(
@@ -401,7 +427,8 @@ class PushRuntimeTest {
                 action = "AckMessage",
                 messageId = "ack-1",
                 source = "test",
-                isAck = true
+                isAck = true,
+                androidUserId = 0,
             )
         )
 
@@ -421,6 +448,7 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "shared-id",
                 source = "test",
+                androidUserId = 0,
             )
         )
         assertTrue(
@@ -429,6 +457,7 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "shared-id",
                 source = "test",
+                androidUserId = 0,
             )
         )
         assertFalse(
@@ -437,6 +466,7 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "shared-id",
                 source = "test",
+                androidUserId = 0,
             )
         )
     }
@@ -451,7 +481,8 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "id-window",
                 source = "test",
-                nowMs = 1_000L
+                nowMs = 1_000L,
+                androidUserId = 0,
             )
         )
         assertFalse(
@@ -460,7 +491,8 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "id-window",
                 source = "test",
-                nowMs = 31_000L
+                nowMs = 31_000L,
+                androidUserId = 0,
             )
         )
         assertTrue(
@@ -469,7 +501,8 @@ class PushRuntimeTest {
                 action = "SendMessage",
                 messageId = "id-window",
                 source = "test",
-                nowMs = 92_000L
+                nowMs = 92_000L,
+                androidUserId = 0,
             )
         )
     }
@@ -483,14 +516,20 @@ class PushRuntimeTest {
                 nestedDispatchResult = AndroidPushRuntime.forceTriggerRegistration(
                     packageName,
                     "test:nested",
-                    "reentrant"
+                    "reentrant",
+                    androidUserId = 0,
                 )
                 true
             }
         )
         AndroidPushRuntime.attachExecutionHost(host)
         try {
-            val dispatched = AndroidPushRuntime.forceTriggerRegistration("com.example.app", "test", "manual")
+            val dispatched = AndroidPushRuntime.forceTriggerRegistration(
+                "com.example.app",
+                "test",
+                "manual",
+                androidUserId = 0,
+            )
 
             assertTrue(dispatched)
             assertFalse(nestedDispatchResult)
@@ -549,7 +588,8 @@ class PushRuntimeTest {
     private class TestExecutionHost(
         private val downstreamDispatchResult: PushRuntimeApplicationDispatchResult = PushRuntimeApplicationDispatchResult(),
         private val cancelNotificationResult: Boolean = false,
-        private val onApplicationRegistration: ((String, String) -> Boolean)? = null
+        private val onApplicationRegistration: ((String, String) -> Boolean)? = null,
+        private val frameworkRegistrationEnabled: Boolean = true,
     ) : PushRuntimeExecutionHost {
         val frameworkRegistrationReasons = mutableListOf<String>()
         val replayedPackages = mutableListOf<String>()
@@ -558,6 +598,8 @@ class PushRuntimeTest {
         val connectionResetReasons = mutableListOf<String>()
         val downstreamDispatches = mutableListOf<String>()
         val cancellationRequests = mutableListOf<String>()
+
+        override fun isFrameworkRegistrationEnabled(): Boolean = frameworkRegistrationEnabled
 
         override fun requestFrameworkRegistration(reason: String): Boolean {
             frameworkRegistrationReasons += reason

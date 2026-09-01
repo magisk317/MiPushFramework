@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
+import android.annotation.SuppressLint
 import android.os.Binder
 import android.os.IBinder
 import co.touchlab.kermit.Logger
@@ -142,6 +143,7 @@ internal class ProcessObserverCompat(
             )
         }
 
+        @SuppressLint("PrivateApi")
         private fun resolveRuntimeLayout(): TransactionLayout {
             return resolveLayout(
                 Class.forName("android.app.IActivityManager\$Stub"),
@@ -149,6 +151,7 @@ internal class ProcessObserverCompat(
             )
         }
 
+        @SuppressLint("PrivateApi")
         private fun activityManagerBinder(): IBinder {
             val serviceManager = Class.forName("android.os.ServiceManager")
             return requireNotNull(

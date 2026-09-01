@@ -9,7 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.push.service.NotificationManagerHelper
-import com.xiaomi.push.service.NotificationManagerPlatformSupport
+import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 
 /** Stock ChannelProvider protocol and channel-id translation. */
 internal object StockChannelSupport {
@@ -38,7 +38,7 @@ internal object StockChannelSupport {
         if (method == null || extras == null) return result(CODE_UNEXPECTED)
         if (callingPackage != STOCK_CHANNEL_CALLER) return result(CODE_ACCESS_DENIED)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return result(CODE_NOT_SUPPORTED)
-        if (!NotificationManagerPlatformSupport.isRomSupportNotificationBelongToApp(context)) {
+        if (!NotificationVendorAdapter.isRomNotificationBelongToAppSupported(context)) {
             return result(CODE_NOT_SUPPORTED)
         }
         return try {

@@ -77,7 +77,9 @@ class NotificationManagerHelper private constructor(
         // ordering so a clear command cannot inspect another delegated package first.
         return getActiveNotifications().orEmpty().filter { statusBarNotification ->
             val notification = statusBarNotification.notification ?: return@filter false
-            val operationPackage = JavaCalls.callMethod(statusBarNotification, "getOpPkg")?.toString()
+            val operationPackage = runCatching {
+                JavaCalls.callMethodOrThrow(statusBarNotification, "getOpPkg")
+            }.getOrNull()?.toString()
             isManagedNotificationIdentity(
                 messageId = notification.extras?.getString(EXTRA_MESSAGE_ID),
                 operationPackage = operationPackage,

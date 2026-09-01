@@ -40,9 +40,10 @@ internal fun shouldReviveXmsfNotification(
     sbn: StatusBarNotification,
     ownerPackageName: String,
 ): Boolean {
+    val currentUserId = Utils.myUserId().takeIf { it >= 0 } ?: return false
     if (
         sbn.packageName != ownerPackageName ||
-        sbn.userId != Utils.myUserId() ||
+        sbn.userId != currentUserId ||
         sbn.tag != null
     ) return false
 

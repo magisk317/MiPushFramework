@@ -152,23 +152,35 @@ object MIPushNotificationPlatformSupport {
         }
     }
 
+    private fun extraNotificationOrNull(notification: Notification): Any? {
+        return try {
+            JavaCalls.getFieldOrThrow(Notification::class.java, notification, "extraNotification")
+        } catch (_: NoSuchFieldException) {
+            null
+        }
+    }
+
     private fun setMessageCount(notification: Notification, count: Int) {
-        val extraNotification = JavaCalls.getField(notification, "extraNotification")
-        if (extraNotification != null) {
-            JavaCalls.callMethod(extraNotification, "setMessageCount", count)
+        val extraNotification = extraNotificationOrNull(notification) ?: return
+        try {
+            JavaCalls.callMethodOrThrow(extraNotification, "setMessageCount", count)
+        } catch (_: NoSuchMethodException) {
+            // Optional MIUI field method is absent on this ROM.
+        } catch (e: Exception) {
+            MyLog.e("fail to set message count", e)
         }
     }
 
     private fun setTargetPackage(notification: Notification, packageName: String): Notification {
+        val extraNotification = extraNotificationOrNull(notification) ?: return notification
         try {
-            val extraNotificationField = Notification::class.java.getDeclaredField("extraNotification")
-            extraNotificationField.isAccessible = true
-            val extraNotification = extraNotificationField.get(notification)
             val setTargetPkg = extraNotification.javaClass.getDeclaredMethod("setTargetPkg", CharSequence::class.java)
             setTargetPkg.isAccessible = true
             setTargetPkg.invoke(extraNotification, packageName)
+        } catch (_: NoSuchMethodException) {
+            // Optional MIUI target package setter is absent on this ROM.
         } catch (e: Exception) {
-            MyLog.e(e)
+            MyLog.e("fail to set target package", e)
         }
         return notification
     }

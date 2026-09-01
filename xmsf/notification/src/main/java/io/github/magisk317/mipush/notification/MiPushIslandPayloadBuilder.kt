@@ -19,7 +19,6 @@ import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.d4viddf.hyperisland_kit.models.TimerInfo
 import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
-import io.github.magisk317.mipush.common.island.IslandRendererPolicy
 import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
@@ -72,7 +71,7 @@ object MiPushIslandPayloadBuilder {
             liveUpdateResult = liveUpdateResult,
         ).buildJsonParam().injectVisualAppearance(
             highlightColor = dynamicColor,
-            outerGlow = options.visualEnabled && options.outerGlowEnabled,
+            outerGlow = dynamicColor != null,
         )
     }
 
@@ -123,15 +122,12 @@ object MiPushIslandPayloadBuilder {
                     .buildJsonParam()
                     .injectVisualAppearance(
                         highlightColor = dynamicColor,
-                        outerGlow = payloadOptions.visualEnabled && payloadOptions.outerGlowEnabled,
+                        outerGlow = dynamicColor != null,
                     )
                     .withNotificationIdentity(packageName, notificationId),
             )
-            val owner = IslandRendererPolicy.owner(context, payloadOptions)
-            val rendererMode = IslandRendererPolicy.mode(context, payloadOptions)
-            putString(IslandVisualContract.OWNER_KEY, owner)
+            putString(IslandVisualContract.OWNER_KEY, IslandVisualContract.MIPUSH_OWNER)
             putInt(IslandVisualContract.VISUAL_VERSION_KEY, IslandVisualContract.VERSION)
-            putString(IslandVisualContract.VISUAL_MODE_KEY, rendererMode.wireValue)
             putString(IslandVisualContract.VISUAL_MARKER_KEY, IslandVisualContract.VISUAL_MARKER)
             dynamicColor?.let {
                 putString(IslandVisualContract.HIGHLIGHT_COLOR_KEY, it)
@@ -139,7 +135,7 @@ object MiPushIslandPayloadBuilder {
                 putString(IslandVisualContract.ISLAND_GLOW_COLOR_KEY, it)
                 putString(IslandVisualContract.FOCUS_GLOW_COLOR_KEY, it)
             }
-            putString("hyperisland_source_pkg", packageName)
+            putString("mipush_source_pkg", packageName)
             putString("hyperisland_source_label", appLabel)
             putString(PIC_ICON, PIC_ICON)
             putBundle(
@@ -189,7 +185,6 @@ object MiPushIslandPayloadBuilder {
         icon: Icon,
         options: MiPushIslandOptions,
     ): String? {
-        if (!options.visualEnabled || !options.dynamicColor) return null
         return DynamicIslandColorResolver.resolve(
             context = context,
             packageName = packageName,

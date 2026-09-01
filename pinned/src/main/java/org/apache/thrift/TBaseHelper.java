@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -235,7 +236,7 @@ public final class TBaseHelper {
     }
 
     public static String paddedByteString(byte b) {
-        return Integer.toHexString((b | 256) & 511).toUpperCase().substring(1);
+        return Integer.toHexString((b | 256) & 511).toUpperCase(Locale.ROOT).substring(1);
     }
 
     public static ByteBuffer rightSize(ByteBuffer byteBuffer) {

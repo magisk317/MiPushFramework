@@ -5,9 +5,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import co.touchlab.kermit.Logger
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.R as CommonR
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -69,7 +71,7 @@ object VoipNotificationHelper {
         if (!isVoipBusiness(extras)) return false
 
         val sequence = sequence(extras)
-        val key = SequenceKey(userId.coerceAtLeast(0), packageName)
+        val key = SequenceKey(Utils.requireValidUserId(userId), packageName)
         synchronized(sequenceCache) {
             val previous = sequenceCache[key] ?: 0L
             if (previous > sequence) {
@@ -141,7 +143,7 @@ object VoipNotificationHelper {
     private fun getLargeIcon(context: Context, metaInfo: PushMetaInfo): android.graphics.Bitmap? {
         val iconUri = metaInfo.extra?.get("large_icon") ?: return null
         return try {
-            val uri = android.net.Uri.parse(iconUri)
+            val uri = iconUri.toUri()
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 android.graphics.BitmapFactory.decodeStream(stream)
             }
@@ -157,14 +159,13 @@ object VoipNotificationHelper {
     }
 
     fun clearPackageState(packageName: String, userId: Int = currentUserId()) {
-        val key = SequenceKey(userId.coerceAtLeast(0), packageName)
+        val key = SequenceKey(Utils.requireValidUserId(userId), packageName)
         synchronized(sequenceCache) {
             sequenceCache.remove(key)
         }
     }
 
-    private fun currentUserId(): Int = runCatching { io.github.magisk317.mipush.common.utils.Utils.myUserId() }
-        .getOrDefault(0)
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     internal fun hasVoipStyle(extras: Map<String, String>): Boolean {
         return extras[KEY_NOTIFICATION_STYLE_TYPE] == STYLE_TYPE_VOIP

@@ -98,21 +98,21 @@ class Property2VoipSequenceMonotonicityTest {
         VoipNotificationHelper.resetForTest()
 
         // First sequence establishes the baseline
-        val firstResult = VoipNotificationHelper.shouldDropStale(voipMeta(pair.lower), pkg)
+        val firstResult = shouldDropStaleForTest(voipMeta(pair.lower), pkg)
         assertFalse(
             firstResult,
             "First sequence=${pair.lower} for pkg=[$pkg] must be allowed",
         )
 
         // Higher sequence must be allowed
-        val higherResult = VoipNotificationHelper.shouldDropStale(voipMeta(pair.higher), pkg)
+        val higherResult = shouldDropStaleForTest(voipMeta(pair.higher), pkg)
         assertFalse(
             higherResult,
             "Higher sequence=${pair.higher} > stored=${pair.lower} for pkg=[$pkg] must be allowed",
         )
 
         // Now the lower sequence must be suppressed (stored updated to pair.higher)
-        val staleResult = VoipNotificationHelper.shouldDropStale(voipMeta(pair.lower), pkg)
+        val staleResult = shouldDropStaleForTest(voipMeta(pair.lower), pkg)
         assertTrue(
             staleResult,
             "Lower sequence=${pair.lower} < stored=${pair.higher} for pkg=[$pkg] must be suppressed",
@@ -132,10 +132,10 @@ class Property2VoipSequenceMonotonicityTest {
         VoipNotificationHelper.resetForTest()
 
         // Establish higher stored value first
-        VoipNotificationHelper.shouldDropStale(voipMeta(pair.higher), pkg)
+        shouldDropStaleForTest(voipMeta(pair.higher), pkg)
 
         // Lower sequence must be suppressed
-        val result = VoipNotificationHelper.shouldDropStale(voipMeta(pair.lower), pkg)
+        val result = shouldDropStaleForTest(voipMeta(pair.lower), pkg)
         assertTrue(
             result,
             "Sequence=${pair.lower} < stored=${pair.higher} for pkg=[$pkg] must be suppressed",
@@ -155,10 +155,10 @@ class Property2VoipSequenceMonotonicityTest {
         VoipNotificationHelper.resetForTest()
 
         // Establish stored sequence
-        VoipNotificationHelper.shouldDropStale(voipMeta(sequence), pkg)
+        shouldDropStaleForTest(voipMeta(sequence), pkg)
 
         // Same sequence must be allowed (stock behavior: equal is not dropped)
-        val result = VoipNotificationHelper.shouldDropStale(voipMeta(sequence), pkg)
+        val result = shouldDropStaleForTest(voipMeta(sequence), pkg)
         assertFalse(
             result,
             "Equal sequence=$sequence for pkg=[$pkg] must be allowed (stock behavior)",
@@ -178,10 +178,10 @@ class Property2VoipSequenceMonotonicityTest {
         VoipNotificationHelper.resetForTest()
 
         // Establish high sequence for package A
-        VoipNotificationHelper.shouldDropStale(voipMeta(seqs.higher), pair.pkgA)
+        shouldDropStaleForTest(voipMeta(seqs.higher), pair.pkgA)
 
         // Package B should still allow a low sequence (independent state)
-        val resultB = VoipNotificationHelper.shouldDropStale(voipMeta(seqs.lower), pair.pkgB)
+        val resultB = shouldDropStaleForTest(voipMeta(seqs.lower), pair.pkgB)
         assertFalse(
             resultB,
             "pkg=[${pair.pkgB}] should be independent of pkg=[${pair.pkgA}]'s stored " +
@@ -205,15 +205,15 @@ class Property2VoipSequenceMonotonicityTest {
         val storedSeq = 100L
 
         // Establish sequence for target package
-        VoipNotificationHelper.shouldDropStale(voipMeta(storedSeq), targetPkg)
+        shouldDropStaleForTest(voipMeta(storedSeq), targetPkg)
 
         // Insert many other packages (>128, testing no LRU)
         for (pkg in otherPkgs) {
-            VoipNotificationHelper.shouldDropStale(voipMeta(1L), pkg)
+            shouldDropStaleForTest(voipMeta(1L), pkg)
         }
 
         // Target package state must be retained — lower sequence still suppressed
-        val staleResult = VoipNotificationHelper.shouldDropStale(voipMeta(storedSeq - 1), targetPkg)
+        val staleResult = shouldDropStaleForTest(voipMeta(storedSeq - 1), targetPkg)
         assertTrue(
             staleResult,
             "After inserting ${otherPkgs.size} other packages, " +
@@ -239,7 +239,7 @@ class Property2VoipSequenceMonotonicityTest {
         var maxSeen = 0L // initial stored value is 0
 
         for (seq in sequences) {
-            val shouldDrop = VoipNotificationHelper.shouldDropStale(voipMeta(seq), pkg)
+            val shouldDrop = shouldDropStaleForTest(voipMeta(seq), pkg)
 
             if (maxSeen > seq) {
                 // Stale: stored > incoming → should be dropped
@@ -259,6 +259,11 @@ class Property2VoipSequenceMonotonicityTest {
     }
 
     // -- Helper --
+
+    private fun shouldDropStaleForTest(
+        metaInfo: PushMetaInfo,
+        packageName: String,
+    ): Boolean = VoipNotificationHelper.shouldDropStale(metaInfo, packageName, userId = 0)
 
     private fun voipMeta(sequence: Long): PushMetaInfo {
         return PushMetaInfo().apply {

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class StockMiPushPayloadDeduperTest {
     @BeforeEach
@@ -101,5 +102,20 @@ class StockMiPushPayloadDeduperTest {
 
         assertTrue(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_002L, userId = 0))
         assertFalse(StockMiPushPayloadDeduper.shouldDrop("com.example.app", payload, 1_003L, userId = 10))
+    }
+
+    @Test
+    fun `explicit invalid user scope is rejected instead of becoming a shared key`() {
+        assertThrows<IllegalArgumentException> {
+            StockMiPushPayloadDeduper.shouldDrop(
+                "com.example.app",
+                byteArrayOf(1),
+                1_000L,
+                userId = -1,
+            )
+        }
+        assertThrows<IllegalArgumentException> {
+            StockMiPushPayloadDeduper.clearPackageState("com.example.app", userId = -1)
+        }
     }
 }

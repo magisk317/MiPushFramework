@@ -124,26 +124,18 @@ internal class BlobWriter(
         return bytes
     }
 
-    private fun fallbackWritePlan(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan {
-        if (serializedSize > Blob.MAX_BLOB_SIZE) {
-            return PushSlimWritePlan(
-                eventAction = "slim_write_drop",
-                shouldDrop = true,
-                requiredCapacity = currentCapacity,
-                shouldEncrypt = false
-            )
-        }
-        val requiredCapacity = serializedSize + Blob.HEADER_SIZE + Blob.CHCKSUM_SIZE
-        return PushSlimWritePlan(
-            eventAction = if (Blob.CMD_PING == cmd) "slim_ping_sent" else "slim_write",
-            requiredCapacity = if (requiredCapacity > currentCapacity || currentCapacity > 4096) {
-                requiredCapacity
-            } else {
-                currentCapacity.coerceAtLeast(2048)
+    private fun fallbackWritePlan(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan =
+        io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planWrite(
+            serializedSize = serializedSize,
+            command = when (cmd) {
+                Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
+                Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
+                Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
+                Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
+                else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
             },
-            shouldEncrypt = Blob.CMD_CONN != cmd
+            currentCapacity = currentCapacity,
         )
-    }
 
     @Throws(IOException::class)
     fun write(connResp: ChannelMessage.XMMsgConnResp) {

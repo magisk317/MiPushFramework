@@ -130,15 +130,6 @@ object IslandOptionsSnapshotReader {
             // read needs the registered-app focus opt-in to narrow generated payloads.
             focusNotification = settings.focusNotification &&
                 (!packageScoped || appFocusNotification == true),
-            rendererMode = io.github.magisk317.mipush.common.island.IslandRendererMode.parse(
-                settings.rendererMode,
-            ),
-            visualEnabled = settings.visualEnabled,
-            dynamicColor = settings.dynamicColor,
-            blurEnabled = settings.blurEnabled,
-            glassEnabled = settings.glassEnabled,
-            outerGlowEnabled = settings.outerGlowEnabled,
-            animationEnabled = settings.animationEnabled,
             colorStatusBarIcon = settings.colorStatusBarIcon,
             colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
             dualAppEnabled = settings.dualAppEnabled,

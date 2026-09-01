@@ -22,7 +22,7 @@ object FocusNotificationLifecycle {
         notificationId: Int,
         tag: String? = NotificationShellBridge.getNotificationTag(packageName),
         cancelNotification: Boolean = true,
-        userId: Int = io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        userId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(io.github.magisk317.mipush.common.utils.Utils.myUserId()),
     ) {
         val resolvedTag = tag
         if (cancelNotification) {

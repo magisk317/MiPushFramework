@@ -9,6 +9,11 @@ import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.RuntimeNotificationChannelNameEnricher
 import io.github.magisk317.mipush.common.utils.Utils
 
+private fun resolveManagerNotificationUserId(): Int = runCatching { Utils.myUserId() }
+    .getOrNull()
+    ?.takeIf { it >= 0 }
+    ?: error("Unable to resolve current Android user id")
+
 class ManagerNotificationChannelRuntimeReader(
     private val maxPageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     private val isHookedProvider: () -> Boolean = { NotificationManagerEx.isHooked },
@@ -18,11 +23,13 @@ class ManagerNotificationChannelRuntimeReader(
         NotificationManagerEx::getNotificationChannelGroups,
     private val channelEnricher: (String, List<NotificationChannel>) -> List<NotificationChannel> =
         RuntimeNotificationChannelNameEnricher::enrich,
-    private val userIdProvider: () -> Int = { Utils.myUserId().coerceAtLeast(0) },
+    private val userIdProvider: () -> Int = ::resolveManagerNotificationUserId,
 ) {
     fun readPage(query: ManagerNotificationChannelReadQuery): ManagerNotificationChannelReadPage {
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
-        val userId = userIdProvider().also { require(it >= 0) }
+        val userId = userIdProvider().also {
+            require(it >= 0) { "Unable to resolve a valid Android user id: $it" }
+        }
         require(query.userId == userId) { "Notification channel user mismatch" }
         val packageName = query.packageName
         val isHooked = isHookedProvider()

@@ -75,15 +75,14 @@ class NotificationListener : NotificationListenerService() {
         private const val TAG = "NotificationListener"
 
         /**
-         * Stock 7.4.67-C NotificationListener.a compares the SBN UserHandle with the process user
-         * before dispatching collection callbacks. Negative IDs represent USER_ALL and remain
-         * accepted; cross-user records must not mutate owner-space focus or grouping state.
+         * Notification callbacks are dispatched only for a concrete, valid Android user owned by
+         * this process. Negative IDs are unknown/USER_ALL and must not mutate user-scoped state.
          */
         internal fun acceptsUser(
             eventUserId: Int,
-            currentUserId: Int = Utils.myUserId(),
+            currentUserId: Int = Utils.requireValidUserId(Utils.myUserId()),
         ): Boolean {
-            return currentUserId < 0 || eventUserId < 0 || currentUserId == eventUserId
+            return eventUserId >= 0 && currentUserId >= 0 && currentUserId == eventUserId
         }
 
         @JvmStatic

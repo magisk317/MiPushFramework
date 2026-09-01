@@ -166,33 +166,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="message_type_notification">notification message</string>
     <string name="message_type_pass_through">pass through message</string>
 
-    <!-- Date parse -->
-    <eat-comment />
-    <!-- Date format -->
-    <!-- Just, < 1 min -->
-    <string name="date_just">Just Now</string>
-    <!-- 1 Minute ago, >= 1 Minute, < 60 Minutes -->
-    <plurals name="date_minutes">
-        <item quantity="one">Minute</item>
-        <item quantity="other">Minutes</item>
-    </plurals>
-    <!-- 1 Hours ago, >= 1 hour, < 24 hours -->
-    <plurals name="date_hours">
-        <item quantity="one">Hour</item>
-        <item quantity="other">Hours</item>
-    </plurals>
-    <!-- 1 Day ago, >= 1 day, < days -->
-    <plurals name="date_days">
-        <item quantity="one">Day</item>
-        <item quantity="other">Days</item>
-    </plurals>
-    <!-- For non-just and non-long format -->
-    <string name="date_format_normal">%1$s %2$s ago</string>
-    <!-- For Just format -->
-    <string name="date_format_just">%1$s</string>
-    <!-- For Long ago format -->
-    <string name="date_format_long">%1$s</string>
-
     <string name="action_edit_permission_title">Edit Permissions (Save by ----></string>
     <string name="action_app_info">App Info</string>
     <string name="action_notify">replay</string>
@@ -234,7 +207,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_get_log">Share logs</string>
     <string name="settings_get_log_summary">Build and share a log bundle for debugging.</string>
     <string name="settings_runtime_log_retention_days">Runtime log retention</string>
-    <string name="settings_runtime_log_retention_days_summary">Keep the last %1$d days of all log artifacts (runtime, crash, export zips, temp files)</string>
     <string name="settings_runtime_log_retention_days_hint">Days to keep all log products (jsonl, crash, export zips, staging, temp). Minimum 1. Default is 2.</string>
     <string name="settings_runtime_log_retention_days_error">Please enter an integer greater than or equal to 1.</string>
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
@@ -256,7 +228,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="recent_activity_mode_stream">Stream</string>
     <string name="recent_activity_action_show_events">Show events</string>
     <string name="recent_activity_action_group_by_app">Group by app</string>
-    <string name="recent_activity_group_count">%1$d records</string>
     <string name="recent_activity_updated_at">Updated %1$s</string>
     <string name="recent_activity_disabled_label">Disabled</string>
     <string name="recent_activity_filter_prefix">Filter</string>
@@ -360,7 +331,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="relay_mode_background">Background</string>
     <string name="settings_debug_mode_enabled">Verbose</string>
     <string name="settings_debug_mode_disabled">Standard</string>
-    <string name="settings_overview_registered_hint">%1$d of %2$d detected MiPush apps currently show registration activity. Open the apps page to inspect the remaining ones.</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>
@@ -371,7 +341,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_list_stats_registered">Registered</string>
     <string name="app_list_stats_not_registered">Not registered</string>
     <string name="app_list_hero_title">MiPush integration overview</string>
-    <string name="app_list_hero_summary">%1$d of %2$d scanned apps currently expose a MiPush-compatible surface.</string>
     <string name="app_list_item_delivery_active">Recently active</string>
     <string name="app_list_item_delivery_idle">Waiting to trigger</string>
     <string name="app_detail_force_register">Launch and force register</string>
@@ -389,7 +358,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_block">Block this app</string>
     <string name="app_detail_block_summary">Block all push messages, registrations, and event records for this app.</string>
     <string name="app_detail_island_controls">Island &amp; focus display</string>
-    <string name="app_detail_island_controls_summary">Configure HyperIsland and focus payload generation for this app.</string>
+    <string name="app_detail_island_controls_summary">Configure MiPush island and focus payload generation for this app.</string>
     <string name="app_detail_island_enabled">Enable Super Island</string>
     <string name="app_detail_island_enabled_summary">Allow MiPushFramework to generate Super Island payloads for this app.</string>
     <string name="app_detail_island_focus_notification">Enable focus notification</string>
@@ -403,11 +372,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_chart_not_integrated_label">Not integrated</string>
     <string name="overview_chart_registered_label">Registered</string>
     <string name="overview_chart_unregistered_label">Not registered</string>
-    <string name="overview_chart_ratio_format">%1$d apps · %2$d%%</string>
     <string name="overview_version_format">Version %1$s</string>
     <string name="overview_version_code_label">Version code</string>
-    <string name="overview_detected_apps_format">%1$d / %2$d detected</string>
-    <string name="overview_registered_apps_format">%1$d / %2$d registered</string>
     <string name="overview_project_github_title">GitHub project</string>
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
@@ -426,7 +392,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="dialog_donate_alipay_token">Copy token</string>
     <string name="dialog_donate_alipay_qrcode">Save QR code</string>
     <string name="dialog_donate_cancel">Next time</string>
-    <string name="save_to_gallery_success">Image saved to gallery, opening %1$s...</string>
+    <string name="save_to_gallery_success">Image saved to gallery, opening %1$s…</string>
     <string name="save_to_gallery_failed">Save failed, please check file permissions</string>
     <string name="save_to_gallery">Save to gallery</string>
     <string name="event_detail_developer_info">Developer info</string>
@@ -455,10 +421,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_dedicated_service_summary">Enable an empty accessibility service that system will auto-restart when app dies.</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">Enabled in system Accessibility settings.</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>
-    <string name="pref_island_enabled_title">HyperIsland focus display</string>
-    <string name="pref_island_enabled_summary">Generate and inject HyperIsland focus payloads for MiPush notifications.</string>
+    <string name="pref_island_enabled_title">MiPush island focus display</string>
+    <string name="pref_island_enabled_summary">Generate and inject MiPush-owned focus payloads for notifications.</string>
     <string name="pref_island_timeout_title">Island timeout</string>
-    <string name="pref_island_timeout_summary">Auto close after %1$d seconds</string>
     <string name="pref_island_timeout_hint">Seconds, minimum 1. Default is 5.</string>
     <string name="pref_island_timeout_error">Please enter an integer greater than or equal to 1.</string>
     <string name="pref_island_first_float_title">First float</string>

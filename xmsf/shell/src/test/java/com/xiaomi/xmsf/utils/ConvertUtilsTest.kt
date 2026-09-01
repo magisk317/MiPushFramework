@@ -33,7 +33,7 @@ class ConvertUtilsTest {
             setPushAction(byteArrayOf(1, 2, 3, 4))
         }
 
-        assertNull(ConvertUtils.getResponseMessageBodyFromContainer(container, null))
+        assertNull(ConvertUtils.getResponseMessageBodyFromContainer(container, null, userId = 0))
     }
 
     @Test
@@ -55,7 +55,7 @@ class ConvertUtilsTest {
             setPushAction(byteArrayOf(1, 2, 3, 4))
         }
 
-        val json = ConvertUtils.toJson(container, null).toString()
+        val json = ConvertUtils.toJson(container, null, userId = 0).toString()
 
         assertEquals(true, json.contains("missing_reg_sec"))
     }
@@ -74,10 +74,10 @@ class ConvertUtilsTest {
             regSec = correctRegSec
         )
 
-        val message = ConvertUtils.getResponseMessageBodyFromContainer(container, wrongRegSec) as XmPushActionSendMessage
+        val message = ConvertUtils.getResponseMessageBodyFromContainer(container, wrongRegSec, userId = 0) as XmPushActionSendMessage
 
         assertEquals("msg-fallback", message.id)
-        assertEquals(correctRegSec, Utils.getRegSec("com.example.app"))
+        assertEquals(correctRegSec, Utils.getRegSec("com.example.app", userId = 0))
     }
 
     @Test
@@ -92,7 +92,7 @@ class ConvertUtilsTest {
             regSec = correctRegSec
         )
 
-        val json = ConvertUtils.toJson(container, null).toString()
+        val json = ConvertUtils.toJson(container, null, userId = 0).toString()
 
         assertEquals(false, json.contains("missing_reg_sec"))
         assertEquals(true, json.contains("msg-json"))
@@ -108,7 +108,7 @@ class ConvertUtilsTest {
             regSec = correctRegSec
         )
 
-        val json = ConvertUtils.toJson(container, wrongRegSec).toString()
+        val json = ConvertUtils.toJson(container, wrongRegSec, userId = 0).toString()
 
         assertEquals(false, json.contains("decrypt_failed"))
         assertEquals(false, json.contains("pushAction"))
@@ -127,7 +127,7 @@ class ConvertUtilsTest {
             setPushAction(TSerializer(TBinaryProtocol.Factory()).serialize(request))
         }
 
-        val body = ConvertUtils.getResponseMessageBodyFromContainer(container, null)
+        val body = ConvertUtils.getResponseMessageBodyFromContainer(container, null, userId = 0)
 
         assertEquals(XmPushActionRegistration::class.java, body?.javaClass)
         assertEquals("request-id", (body as XmPushActionRegistration).id)
@@ -143,7 +143,7 @@ class ConvertUtilsTest {
             setPushAction(ByteArray(0))
         }
 
-        val json = ConvertUtils.toJson(container, null).toString()
+        val json = ConvertUtils.toJson(container, null, userId = 0).toString()
 
         assertEquals(true, json.contains("empty_payload"))
         assertEquals(false, json.contains("thrift_deserialize_failed"))

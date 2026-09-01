@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class PushRuntimeRegistrationTaskStoreTest {
 
@@ -17,16 +18,18 @@ class PushRuntimeRegistrationTaskStoreTest {
             packageName = "com.example.app",
             intent = Intent("first"),
             source = "test",
-            reason = "first"
+            reason = "first",
+            androidUserId = 0,
         )
         PushRuntimeRegistrationTaskStore.cache(
             packageName = "com.example.app",
             intent = Intent("second"),
             source = "test",
-            reason = "second"
+            reason = "second",
+            androidUserId = 0,
         )
 
-        val pending = PushRuntimeRegistrationTaskStore.pendingTasks()
+        val pending = PushRuntimeRegistrationTaskStore.pendingTasks(androidUserId = 0)
         val snapshot = AndroidPushRuntime.snapshot()
 
         assertEquals(1, pending.size)
@@ -46,30 +49,41 @@ class PushRuntimeRegistrationTaskStoreTest {
             packageName = "com.example.one",
             intent = Intent("one"),
             source = "test",
-            reason = "one"
+            reason = "one",
+            androidUserId = 0,
         )
         PushRuntimeRegistrationTaskStore.cache(
             packageName = "com.example.two",
             intent = Intent("two"),
             source = "test",
-            reason = "two"
+            reason = "two",
+            androidUserId = 0,
         )
 
-        val firstPass = PushRuntimeRegistrationTaskStore.dispatchAll("dispatch") { packageName, _ ->
+        val firstPass = PushRuntimeRegistrationTaskStore.dispatchAll("dispatch", androidUserId = 0, dispatcher = { packageName, _ ->
             dispatched += packageName
             packageName == "com.example.one"
-        }
+        })
 
         assertEquals(1, firstPass)
-        assertEquals(1, PushRuntimeRegistrationTaskStore.pendingCount())
-        assertEquals("com.example.two", PushRuntimeRegistrationTaskStore.pendingTasks().single().packageName)
+        assertEquals(1, PushRuntimeRegistrationTaskStore.pendingCount(androidUserId = 0))
+        assertEquals("com.example.two", PushRuntimeRegistrationTaskStore.pendingTasks(androidUserId = 0).single().packageName)
 
-        val secondPass = PushRuntimeRegistrationTaskStore.dispatchAll("retry") { _, _ -> true }
+        val secondPass = PushRuntimeRegistrationTaskStore.dispatchAll("retry", androidUserId = 0, dispatcher = { _, _ -> true })
 
         assertEquals(1, secondPass)
-        assertEquals(0, PushRuntimeRegistrationTaskStore.pendingCount())
-        assertEquals(PushRegistrationState.Registering, AndroidPushRuntime.getRegistrationRecord("com.example.one")?.state)
+        assertEquals(0, PushRuntimeRegistrationTaskStore.pendingCount(androidUserId = 0))
+        assertEquals(PushRegistrationState.Registering, AndroidPushRuntime.getRegistrationRecord("com.example.one", androidUserId = 0)?.state)
         assertTrue(dispatched.contains("com.example.one"))
         assertTrue(dispatched.contains("com.example.two"))
+    }
+
+    @Test
+    fun `clear rejects invalid user ids instead of falling back to primary`() {
+        PushRuntimeRegistrationTaskStore.clearForTests()
+
+        assertThrows<IllegalArgumentException> {
+            PushRuntimeRegistrationTaskStore.clear("com.example.app", -1)
+        }
     }
 }

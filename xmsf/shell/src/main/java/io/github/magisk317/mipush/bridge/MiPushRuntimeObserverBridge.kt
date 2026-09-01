@@ -57,6 +57,7 @@ import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeNotification
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeNotificationObservationSink
+import java.lang.ref.WeakReference
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
     private val appContext: Context = context.applicationContext ?: context
@@ -110,16 +111,16 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val compatibilityAdapter = MiPushRuntimeCompatibilityAdapter(appContext)
 
     init {
-        activeBridge = this
+        activeBridge = WeakReference(this)
         XMPushServiceCore.observer = this
     }
 
     companion object {
         @Volatile
-        private var activeBridge: MiPushRuntimeObserverBridge? = null
+        private var activeBridge: WeakReference<MiPushRuntimeObserverBridge>? = null
 
         fun currentService(): XMPushServiceCore? {
-            val bridge = activeBridge ?: return null
+            val bridge = activeBridge?.get() ?: return null
             if (XMPushServiceCore.observer !== bridge) return null
             return bridge.observerState.service()
         }
@@ -533,6 +534,15 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan {
         return MiPushRuntimePolicyExecutionAdapter.planSlimHandshake(hasChallenge, hasConfigMessage)
+    }
+
+    override fun planSlimPayloadDispatch(
+        payloadType: Int,
+        cmd: String?,
+        channelId: Int,
+        subcmd: String?,
+    ): PushSlimPayloadPlan {
+        return MiPushRuntimePolicyExecutionAdapter.planSlimPayloadDispatch(payloadType, cmd, channelId, subcmd)
     }
 
     override fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan {

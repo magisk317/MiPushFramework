@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import io.github.magisk317.mipush.common.island.IslandRendererMode
 import io.github.magisk317.mipush.data.IslandSettingsSnapshot
 import io.mockk.every
 import io.mockk.mockk
@@ -25,7 +24,6 @@ class IslandOptionsSnapshotReaderTest {
             settings(
                 enabled = false,
                 timeoutSecs = 17,
-                rendererMode = IslandRendererMode.HYPERISLAND.wireValue,
             ),
         )
 
@@ -33,13 +31,11 @@ class IslandOptionsSnapshotReaderTest {
 
         assertFalse(snapshot.options.enabled)
         assertEquals(17, snapshot.options.timeoutSecs)
-        assertEquals(IslandRendererMode.HYPERISLAND, snapshot.options.rendererMode)
     }
 
     private fun settings(
         enabled: Boolean,
         timeoutSecs: Int,
-        rendererMode: String,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
         timeoutSecs = timeoutSecs,
@@ -52,12 +48,5 @@ class IslandOptionsSnapshotReaderTest {
         colorStatusBarIconGlobal = false,
         dualAppEnabled = false,
         logSanitizationEnabled = false,
-        rendererMode = rendererMode,
-        visualEnabled = true,
-        dynamicColor = true,
-        blurEnabled = true,
-        glassEnabled = true,
-        outerGlowEnabled = true,
-        animationEnabled = true,
     )
 }

@@ -17,8 +17,11 @@ class ISubProcBridgeAbiContractTest {
     }
 
     @Test
-    fun `main process service preserves legacy nullable string default adaptation`() {
-        val source = File("src/main/java/com/xiaomi/xmsf/services/MainProcBridgeService.kt").readText()
-        assertTrue(source.contains("key, defaultValue.orEmpty()"))
+    fun `service box no longer depends on removed main process bridge`() {
+        val source = File("src/main/java/com/xiaomi/xmsf/services/ServiceBoxService.kt").readText()
+
+        assertTrue(!source.contains("bindService"))
+        assertTrue(!source.contains("mainProcBridge"))
+        assertTrue(source.contains("KeepAliveRuntimeAdapter.refreshOnlineConfig(this)"))
     }
 }

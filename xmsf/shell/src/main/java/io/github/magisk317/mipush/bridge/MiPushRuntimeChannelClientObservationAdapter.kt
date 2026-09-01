@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.bridge
 import com.xiaomi.push.service.PushChannelState
 import com.xiaomi.push.service.PushClientsManager
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.service.runtime.PushClientStatusSupport
 
@@ -33,6 +34,7 @@ internal class MiPushRuntimeChannelClientObservationAdapter(
             reasonCode = reasonCode,
             reasonMessage = reasonMsg,
             nowMs = System.currentTimeMillis(),
+            androidUserId = Utils.requireValidUserId(Utils.myUserId()),
         )
     }
 

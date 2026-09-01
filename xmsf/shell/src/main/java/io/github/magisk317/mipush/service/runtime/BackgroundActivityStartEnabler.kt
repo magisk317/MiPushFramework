@@ -1,10 +1,4 @@
 package io.github.magisk317.mipush.service.runtime
-import com.xiaomi.push.service.*
-import com.xiaomi.smack.packet.*
-import com.xiaomi.smack.*
-import com.xiaomi.slim.*
-import com.xiaomi.push.service.timers.*
-import com.xiaomi.push.service.*
 
 import android.app.Notification
 import android.app.Notification.GROUP_ALERT_SUMMARY
@@ -16,10 +10,10 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Parcel
 import android.service.notification.StatusBarNotification
-import co.touchlab.kermit.Logger
 import androidx.annotation.RequiresApi
-import io.github.magisk317.mipush.service.ForegroundHelper.Companion.CHANNEL_STATUS
+import co.touchlab.kermit.Logger
 import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.service.ForegroundHelper.Companion.CHANNEL_STATUS
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 @RequiresApi(29)
@@ -28,7 +22,21 @@ object BackgroundActivityStartEnabler {
     private val notificationLock = Any()
     private var whitelistedNotification: Notification? = null
     private const val TAG = "MPF.BAFE"
+    private const val CAPTURE_DELAY_MS = 500L
+    private const val INITIAL_CAPTURE_RETRIES = 5
 
+
+    internal data class NotificationCaptureCandidate(
+        val id: Int,
+        val tag: String?,
+        val hasPendingIntent: Boolean,
+    )
+
+    private enum class CaptureSource {
+        None,
+        InitializingNotification,
+        ExistingNotification,
+    }
     @JvmStatic
     fun clonePendingIntentForBackgroundActivityStart(pi: PendingIntent): PendingIntent? {
         synchronized(notificationLock) {
@@ -51,19 +59,42 @@ object BackgroundActivityStartEnabler {
 
     @JvmStatic
     fun initialize(context: Context) {
+        synchronized(notificationLock) {
+            // A service restart must not reuse a Notification object captured by an older
+            // initialization cycle.
+            whitelistedNotification = null
+        }
         val nm = context.getSystemService(NotificationManager::class.java)
         if (nm == null) {
             emitBg(result = "error", reason = "no_notification_manager", statusOk = false)
             return
         }
-        val channelId = tryGetValidPushStatusChannelId(context, nm)
-        if (channelId == null) {
-            emitBg(result = "error", reason = "no_channel", statusOk = false)
-            return
+        val canPostInitializingNotification = nm.areNotificationsEnabled()
+        val postedChannelId = if (canPostInitializingNotification) {
+            val channelId = tryGetValidPushStatusChannelId(context, nm)
+            if (channelId == null) {
+                emitBg(result = "error", reason = "no_channel", statusOk = false)
+                return
+            }
+            if (notifyPushStatusInitializing(context, channelId, nm)) {
+                channelId
+            } else {
+                Logger.withTag(TAG).w {
+                    "Initializing notification unavailable; trying existing active notification donor"
+                }
+                null
+            }
+        } else {
+            Logger.withTag(TAG).i {
+                "Notifications disabled for XMSF; using existing active notification donor"
+            }
+            null
         }
-        notifyPushStatusInitializing(context, channelId, nm)
-        scheduleCapture(nm, 5)
-        emitBg(result = "ok", reason = "initialized")
+        scheduleCapture(nm, postedChannelId, INITIAL_CAPTURE_RETRIES)
+        emitBg(
+            result = "ok",
+            reason = if (postedChannelId == null) "initialized_existing_notification_fallback" else "initialized",
+        )
     }
 
     private fun emitBg(
@@ -88,7 +119,7 @@ object BackgroundActivityStartEnabler {
         context: Context,
         channelId: String,
         nm: NotificationManager
-    ) {
+    ): Boolean {
         val n = Notification.Builder(context, channelId)
             .setTimeoutAfter(5_000)
             .setContentTitle("Initializing...")
@@ -97,7 +128,12 @@ object BackgroundActivityStartEnabler {
             .setGroupAlertBehavior(GROUP_ALERT_SUMMARY)
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
             .build()
-        nm.notify(TAG, 0, n)
+        return runCatching {
+            nm.notify(TAG, 0, n)
+            true
+        }.onFailure {
+            Logger.withTag(TAG).e(it) { "Failed to post initializing notification: ${it.message}" }
+        }.getOrDefault(false)
     }
 
     private fun tryGetValidPushStatusChannelId(
@@ -132,28 +168,63 @@ object BackgroundActivityStartEnabler {
         return channelId
     }
 
-    private fun scheduleCapture(nm: NotificationManager, retries: Int) {
+    private fun scheduleCapture(
+        nm: NotificationManager,
+        postedChannelId: String?,
+        retries: Int,
+    ) {
+        val attempt = INITIAL_CAPTURE_RETRIES - retries + 1
         Handler(Looper.getMainLooper()).postDelayed({
-            val notifications = nm.activeNotifications
-            findPushStatusInitializingNotification(nm, notifications)
-            if (pushStatusInitializingNotificationExists()) {
-                deleteTemporaryChannel(nm)
-            } else if (retries == 0) {
-                Logger.withTag(TAG).e { "Failed to capture active notification." }
-                nm.cancel(TAG, 0)
-            } else {
-                Logger.withTag(TAG).i { "Wait to capture active notification." }
-                scheduleCapture(nm, retries - 1)
+            val notifications = runCatching { nm.activeNotifications }
+                .onFailure {
+                    Logger.withTag(TAG).e(it) {
+                        "Failed to read active notifications attempt=$attempt: ${it.message}"
+                    }
+                }
+                .getOrDefault(emptyArray())
+            val captureSource = findCaptureNotification(notifications)
+            val captured = captureSource != CaptureSource.None
+            Logger.withTag(TAG).d {
+                "Capture attempt=$attempt activeCount=${notifications.size} captured=$captured " +
+                    "source=${captureSource.name} remainingRetries=$retries"
             }
-        }, 500)
+            if (captured || pushStatusInitializingNotificationExists()) {
+                cancelInitializingNotificationSafely(nm)
+                deleteTemporaryChannel(nm, postedChannelId)
+                emitBg(
+                    result = "ok",
+                    reason = if (captureSource == CaptureSource.ExistingNotification) {
+                        "existing_active_notification_captured"
+                    } else {
+                        "active_notification_captured"
+                    },
+                )
+            } else if (retries == 0) {
+                Logger.withTag(TAG).e {
+                    "Failed to capture active notification after attempts=$attempt"
+                }
+                emitBg(result = "error", reason = "active_notification_capture_failed", statusOk = false)
+                cancelInitializingNotificationSafely(nm)
+                deleteTemporaryChannel(nm, postedChannelId)
+            } else {
+                Logger.withTag(TAG).i {
+                    "Wait to capture active notification attempt=$attempt nextAttempt=${attempt + 1}"
+                }
+                scheduleCapture(nm, postedChannelId, retries - 1)
+            }
+        }, CAPTURE_DELAY_MS)
     }
 
-    private fun deleteTemporaryChannel(nm: NotificationManager) {
-        val channelId = synchronized(notificationLock) {
-            whitelistedNotification?.channelId
-        } ?: return
-        if (CHANNEL_STATUS != channelId) {
-            nm.deleteNotificationChannel(channelId)
+    private fun cancelInitializingNotificationSafely(nm: NotificationManager) {
+        runCatching { nm.cancel(TAG, 0) }
+            .onFailure {
+                Logger.withTag(TAG).w(it) { "skip initializing notification cleanup: ${it.message}" }
+            }
+    }
+
+    private fun deleteTemporaryChannel(nm: NotificationManager, postedChannelId: String?) {
+        if (postedChannelId != null && CHANNEL_STATUS != postedChannelId) {
+            nm.deleteNotificationChannel(postedChannelId)
         }
     }
 
@@ -161,18 +232,51 @@ object BackgroundActivityStartEnabler {
         whitelistedNotification != null
     }
 
-    private fun findPushStatusInitializingNotification(
-        nm: NotificationManager,
-        notifications: Array<StatusBarNotification>
-    ) {
-        for (notification in notifications) {
-            if (notification.id == 0 && TAG == notification.tag) {
-                synchronized(notificationLock) {
-                    whitelistedNotification = notification.notification
-                }
-                nm.cancel(TAG, 0)
-                break
+    private fun findCaptureNotification(
+        notifications: Array<StatusBarNotification>,
+    ): CaptureSource {
+        val candidates = notifications.map { statusBarNotification ->
+            val notification = statusBarNotification.notification
+            NotificationCaptureCandidate(
+                id = statusBarNotification.id,
+                tag = statusBarNotification.tag,
+                hasPendingIntent = notification.contentIntent != null ||
+                    notification.deleteIntent != null ||
+                    notification.fullScreenIntent != null ||
+                    notification.actions?.any { action -> action.actionIntent != null } == true,
+            )
+        }
+        val candidateIndex = selectCaptureCandidate(candidates)
+        if (candidateIndex < 0) {
+            return CaptureSource.None
+        }
+        val statusBarNotification = notifications[candidateIndex]
+        synchronized(notificationLock) {
+            whitelistedNotification = statusBarNotification.notification
+        }
+        return if (isInitializingNotification(statusBarNotification.id, statusBarNotification.tag)) {
+            CaptureSource.InitializingNotification
+        } else {
+            Logger.withTag(TAG).i {
+                "Captured existing active notification donor " +
+                    "pkg=${statusBarNotification.packageName} id=${statusBarNotification.id} " +
+                    "tag=${statusBarNotification.tag} channel=${statusBarNotification.notification.channelId}"
             }
+            CaptureSource.ExistingNotification
         }
     }
+
+    internal fun selectCaptureCandidate(candidates: List<NotificationCaptureCandidate>): Int {
+        val initializingIndex = candidates.indexOfFirst { candidate ->
+            isInitializingNotification(candidate.id, candidate.tag)
+        }
+        return if (initializingIndex >= 0) {
+            initializingIndex
+        } else {
+            candidates.indexOfFirst(NotificationCaptureCandidate::hasPendingIntent)
+        }
+    }
+
+    internal fun isInitializingNotification(id: Int, tag: String?): Boolean =
+        id == 0 && TAG == tag
 }

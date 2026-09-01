@@ -8,17 +8,24 @@ internal object RuntimeDeterministicCoordinator {
     fun packageScope(packageName: String): String = packageScope(packageName, currentUserId())
 
     fun packageScope(packageName: String, androidUserId: Int): String =
-        "${androidUserId.coerceAtLeast(0)}:$packageName"
+        "${requireValidUserId(androidUserId)}:$packageName"
+
+    fun messageScope(packageName: String?, messageId: String, androidUserId: Int): String =
+        "${requireValidUserId(androidUserId)}:${packageName.orEmpty()}:$messageId"
 
     fun messageScope(packageName: String?, messageId: String): String =
-        "${currentUserId()}:${packageName.orEmpty()}:$messageId"
+        messageScope(packageName, messageId, currentUserId())
+
+    fun actionScope(packageName: String, action: String, androidUserId: Int): String =
+        "${requireValidUserId(androidUserId)}:$packageName:$action"
 
     fun actionScope(packageName: String, action: String): String =
-        "${currentUserId()}:$packageName:$action"
+        actionScope(packageName, action, currentUserId())
 
     fun currentUserId(): Int = runCatching { Utils.myUserId() }
-        .getOrDefault(0)
-        .coerceAtLeast(0)
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
 
     fun buildReason(source: String, reason: String?): String =
         if (reason.isNullOrBlank()) source else "$source:$reason"
@@ -27,7 +34,7 @@ internal object RuntimeDeterministicCoordinator {
         channelIdentity(record, record.androidUserId)
 
     fun channelIdentity(record: PushChannelRecord, androidUserId: Int): String = buildString {
-        append(androidUserId.coerceAtLeast(0))
+        append(requireValidUserId(androidUserId))
         append(':')
         append(record.channelId)
         append(':')
@@ -36,5 +43,10 @@ internal object RuntimeDeterministicCoordinator {
         append(record.userId ?: "")
         append(':')
         append(record.session ?: "")
+    }
+
+    private fun requireValidUserId(androidUserId: Int): Int {
+        require(androidUserId >= 0) { "Invalid Android user id: $androidUserId" }
+        return androidUserId
     }
 }

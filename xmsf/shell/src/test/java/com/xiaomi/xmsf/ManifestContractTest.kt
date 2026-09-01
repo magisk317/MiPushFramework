@@ -264,12 +264,15 @@ class ManifestContractTest {
     }
 
     @Test
-    fun `stock bridge and listener services are restored`() {
+    fun `stock service and listener surfaces are restored without the removed main bridge`() {
         val document = parseManifest()
 
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.push.service.StatService")
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener")
-        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.MainProcBridgeService")
+        assertNull(
+            findApplicationNodeByAndroidName(document, "service", "com.xiaomi.xmsf.services.MainProcBridgeService"),
+            "Stock XMSF 7.5.29-C removed MainProcBridgeService.",
+        )
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.ServiceBoxService")
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService")
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.sync.BindMiCloudPushService")
@@ -364,7 +367,6 @@ class ManifestContractTest {
 
         assertNotNull(service)
         assertEquals("true", service!!.getAttributeNS(ANDROID_NS, "exported"))
-        assertEquals(":services", service.getAttributeNS(ANDROID_NS, "process"))
         assertEquals(
             "com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG",
             service.getAttributeNS(ANDROID_NS, "permission"),
@@ -419,6 +421,42 @@ class ManifestContractTest {
 
         assertNotNull(provider)
         assertEquals("com.xiaomi.xmsf.fileprovider", provider!!.getAttributeNS(ANDROID_NS, "authorities"))
+    }
+
+    @Test
+    fun `7_12_4 client contract metadata and subscribe remind boundary are explicit`() {
+        val document = parseManifest()
+        val application = document.getElementsByTagName("application").item(0) as Element
+        val metadata = application.getElementsByTagName("meta-data")
+
+        fun metadataValue(name: String): String? = (0 until metadata.length)
+            .mapNotNull { metadata.item(it) as? Element }
+            .firstOrNull { it.getAttributeNS(ANDROID_NS, "name") == name }
+            ?.getAttributeNS(ANDROID_NS, "value")
+
+        assertEquals("70124", metadataValue("MIPUSH_SDK_VERSION_CODE"))
+        assertEquals("7_12_4-C", metadataValue("MIPUSH_SDK_VERSION_NAME"))
+        assertEquals("false", metadataValue("supportScenePush"))
+        assertEquals("false", metadataValue("supportSubscribeRemind"))
+        assertEquals("false", metadataValue("supportSubscribeChannel"))
+
+        val subscribeService = findApplicationNodeByAndroidName(
+            document,
+            "service",
+            "com.xiaomi.xms.subscribe_remind.SubscribeRemindService",
+        )
+        assertNotNull(subscribeService)
+        assertEquals("true", subscribeService!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertTrue(
+            (0 until subscribeService.getElementsByTagName("action").length).any { index ->
+                (subscribeService.getElementsByTagName("action").item(index) as? Element)
+                    ?.getAttributeNS(ANDROID_NS, "name") == "com.xiaomi.xms.subscribeRemindService"
+            },
+        )
+        assertNull(
+            findApplicationNodeByAndroidName(document, "activity", "com.xiaomi.mipush.sdk.NotificationClickedActivity"),
+            "NotificationClickedActivity belongs to the client AAR, not the XMSF host manifest.",
+        )
     }
 
     private fun parseManifest() = DocumentBuilderFactory.newInstance()

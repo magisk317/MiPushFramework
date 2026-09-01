@@ -7,7 +7,6 @@ import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -195,7 +194,7 @@ object NativeNotificationFeatureBuilder {
         }
     }
 
-    private fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     private fun nativeCategory(
         style: NotificationStyle?,
@@ -245,9 +244,7 @@ object NativeNotificationFeatureBuilder {
         if (durationMs > 0) {
             builder.setWhen(System.currentTimeMillis() + durationMs)
             builder.setUsesChronometer(true)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                builder.setChronometerCountDown(true)
-            }
+            builder.setChronometerCountDown(true)
             builder.setOngoing(true)
             builder.setAutoCancel(false)
             return true
@@ -283,9 +280,6 @@ object NativeNotificationFeatureBuilder {
         notification: Notification,
         mediaSessionToken: MediaSession.Token?,
     ): Notification {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            return notification
-        }
         return runCatching {
             val actionCount = notification.actions?.size ?: 0
             val compactActions = IntArray(minOf(actionCount, 3)) { it }

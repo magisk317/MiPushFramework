@@ -170,7 +170,7 @@ internal object MIPushTopNotificationSupport {
         }
         val builder = Notification.Builder.recoverBuilder(context, notification)
         builder.setChannelId(defaultChannelId)
-        JavaCalls.callMethod(builder, "setPriority", 0)
+        runCatching { JavaCalls.callMethodOrThrow(builder, "setPriority", 0) }
         MyLog.w("update top notification to common: $messageId")
         manager.notify(notificationId, builder.build())
     }

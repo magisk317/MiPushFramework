@@ -50,4 +50,10 @@ class PushControllerUtilsProcessTest {
     fun `startup policy restores an enabled service`() {
         assertTrue(PushControllerUtils.shouldStartServiceFromPersistedPreference(true))
     }
+
+    @Test
+    fun `framework self-registration policy is opt-in`() {
+        assertFalse(PushControllerUtils.shouldStartFrameworkSelfRegistration(false))
+        assertTrue(PushControllerUtils.shouldStartFrameworkSelfRegistration(true))
+    }
 }

@@ -58,7 +58,7 @@ object ExplicitHookBridge {
             AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
             return false
         }
-        val scope = "${Utils.myUserId()}:$packageName"
+        val scope = "${Utils.requireValidUserId(Utils.myUserId())}:$packageName"
         val duplicated = duplicateMessagePolicy.checkAndMark(
             scope = scope,
             messageId = messageId,

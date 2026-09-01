@@ -97,7 +97,7 @@ class SweetNotificationCoordinatorPureTest {
         )
         assertEquals(
             "n_sweet_timeout_42_com.example.app",
-            SweetNotificationCoordinator.jobId("com.example.app", 42),
+            SweetNotificationCoordinator.jobId("com.example.app", 42, userId = 0),
         )
         assertEquals(
             SweetNotificationCoordinator.TrackedNotification("com.example.app", 42, 999),

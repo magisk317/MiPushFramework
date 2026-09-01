@@ -93,7 +93,7 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun clearPackageTransientState(
             packageName: String,
-            userId: Int = Utils.myUserId().coerceAtLeast(0),
+            userId: Int = Utils.requireValidUserId(Utils.myUserId()),
         ) {
             val prefix = "$userId|$packageName|"
             synchronized(nonDisplayDispatchLock) {
@@ -112,7 +112,7 @@ class MyMIPushNotificationHelper {
                 val result = when (outcome) {
                     MockReplayOutcome.Dispatched, MockReplayOutcome.Posted -> "ok"
                     MockReplayOutcome.BlockedByPermission -> "skip"
-                    MockReplayOutcome.Failed -> "error"
+                    MockReplayOutcome.FailedChannelDisabled, MockReplayOutcome.Failed -> "error"
                 }
                 val attrs = mutableMapOf(
                     "result" to result,
@@ -528,7 +528,7 @@ class MyMIPushNotificationHelper {
             messageId: String?,
             nowMs: Long = System.currentTimeMillis()
         ): Boolean {
-            val key = "${Utils.myUserId().coerceAtLeast(0)}|$packageName|$action|${messageId.orEmpty()}"
+            val key = "${Utils.requireValidUserId(Utils.myUserId())}|$packageName|$action|${messageId.orEmpty()}"
             synchronized(nonDisplayDispatchLock) {
                 val iterator = recentNonDisplayDispatches.entries.iterator()
                 while (iterator.hasNext()) {
@@ -734,6 +734,15 @@ class MyMIPushNotificationHelper {
             return outcome
         }
 
+        internal fun mapPublishResult(
+            result: NotificationController.PublishResult,
+        ): MockReplayOutcome = when (result) {
+            NotificationController.PublishResult.Posted -> MockReplayOutcome.Posted
+            NotificationController.PublishResult.ChannelDisabled -> MockReplayOutcome.FailedChannelDisabled
+            NotificationController.PublishResult.SuppressedByPolicy -> MockReplayOutcome.Dispatched
+            NotificationController.PublishResult.Failed -> MockReplayOutcome.Failed
+        }
+
         private fun postNotification(
             context: Context,
             container: XmPushActionContainer,
@@ -753,14 +762,15 @@ class MyMIPushNotificationHelper {
                 "doNotifyPushMessage publish start pkg=$targetPackage action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
             )
-            val posted = NotificationController.publish(
-                context,
-                metaInfo,
-                result.notificationId,
-                targetPackage,
-                result.notificationBuilder
+            return mapPublishResult(
+                NotificationController.publish(
+                    context,
+                    metaInfo,
+                    result.notificationId,
+                    targetPackage,
+                    result.notificationBuilder,
+                ),
             )
-            return if (posted) MockReplayOutcome.Posted else MockReplayOutcome.Failed
         }
 
 

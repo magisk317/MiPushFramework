@@ -182,13 +182,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     override suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         var application = RegisteredApplicationDb.getRegisteredApplication(packageName)
         if (application == null && ignoreNotRegistered) {
-            application = RuntimeRegisteredApplicationRow(
-                id = null,
+            application = transientRegisteredApplication(
                 packageName = packageName,
-                type = RegisteredAppType.ASK,
-                notificationOnRegister = true,
-                registeredType = RegisteredAppRegisteredType.NotRegistered,
                 appName = Global.applicationNameCache().getAppName(context, packageName).toString(),
+                userId = Utils.requireValidUserId(Utils.myUserId()),
             )
         }
         if (application != null &&
@@ -226,6 +223,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     }
 
     override suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
+        val userId = Utils.requireValidUserId(Utils.myUserId())
         val latestRegistrationEvent = EventDb.queryAsync(
             skip = 0,
             limit = 1,
@@ -252,6 +250,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 hasLocalRegistration = hasLocalRegistration,
                 hasRegSec = regSecCount > 0,
             ),
+            userId = userId,
         )
     }
 
@@ -338,3 +337,17 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     }
 
 }
+
+internal fun transientRegisteredApplication(
+    packageName: String,
+    appName: String,
+    userId: Int,
+): RuntimeRegisteredApplicationRow = RuntimeRegisteredApplicationRow(
+    id = null,
+    packageName = packageName,
+    userId = Utils.requireValidUserId(userId),
+    type = RegisteredAppType.ASK,
+    notificationOnRegister = true,
+    registeredType = RegisteredAppRegisteredType.NotRegistered,
+    appName = appName,
+)

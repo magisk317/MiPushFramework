@@ -8,20 +8,28 @@ import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 /** Coordinates application-registration replay and dedupe while using the runtime's sole state lock. */
 internal class RuntimeRegistrationCoordinator(
     private val state: AndroidPushRuntimeState,
-    private val packageScope: (String) -> String,
+    private val packageScope: (String, Int) -> String,
     private val buildReason: (String, String?) -> String,
     private val replayWindowMs: Long,
     private val pruneWindows: (Long) -> Unit,
 ) {
-    fun clearReplayDedupeForForce(packageName: String): Boolean = state.withLock {
-        val packageKey = packageScope(packageName)
+    fun clearReplayDedupeForForce(
+        packageName: String,
+        androidUserId: Int,
+    ): Boolean = state.withLock {
+        val packageKey = packageScope(packageName, androidUserId)
         if (activeRegistrationDispatches.contains(packageKey)) return false
         recentRegistrationReplays.remove(packageKey)
         recentPackageActions.remove("$packageKey:registration:Registering")
         true
     }
 
-    fun replayPending(source: String, reason: String, limit: Int = 8): Int {
+    fun replayPending(
+        source: String,
+        reason: String,
+        limit: Int = 8,
+        androidUserId: Int,
+    ): Int {
         val nowMs = System.currentTimeMillis()
         val pendingPackages = state.withLock {
             pruneWindows(nowMs)
@@ -34,22 +42,27 @@ internal class RuntimeRegistrationCoordinator(
                         it.state == PushRegistrationState.Failed ||
                         it.state == PushRegistrationState.NotRegistered
                 }
-                .filterNot { activeRegistrationDispatches.contains(packageScope(it.packageName)) }
-                .filter { shouldReplayLocked(it.packageName, nowMs) }
+                .filterNot { activeRegistrationDispatches.contains(packageScope(it.packageName, androidUserId)) }
+                .filter { shouldReplayLocked(it.packageName, nowMs, androidUserId) }
                 .take(limit)
                 .map { it.packageName }
                 .toList()
         }
-        val dispatched = pendingPackages.count { dispatchApplication(it, source, reason) }
+        val dispatched = pendingPackages.count { dispatchApplication(it, source, reason, androidUserId) }
         if (dispatched > 0) {
             logD("replayed pending application registrations count=$dispatched source=$source reason=$reason")
         }
         return dispatched
     }
 
-    fun dispatchApplication(packageName: String, source: String, reason: String?): Boolean {
+    fun dispatchApplication(
+        packageName: String,
+        source: String,
+        reason: String?,
+        androidUserId: Int,
+    ): Boolean {
         val host = state.withLock {
-            val packageKey = packageScope(packageName)
+            val packageKey = packageScope(packageName, androidUserId)
             if (activeRegistrationDispatches.contains(packageKey)) {
                 logD("skip active application registration package=$packageName source=$source reason=$reason")
                 return false
@@ -65,12 +78,16 @@ internal class RuntimeRegistrationCoordinator(
             logE("requestApplicationRegistration failed package=$packageName", it)
             false
         }.also {
-            state.withLock { activeRegistrationDispatches -= packageScope(packageName) }
+            state.withLock { activeRegistrationDispatches -= packageScope(packageName, androidUserId) }
         }
     }
 
-    private fun shouldReplayLocked(packageName: String, nowMs: Long): Boolean {
-        val previous = state.recentRegistrationReplays[packageScope(packageName)] ?: return true
+    private fun shouldReplayLocked(
+        packageName: String,
+        nowMs: Long,
+        androidUserId: Int,
+    ): Boolean {
+        val previous = state.recentRegistrationReplays[packageScope(packageName, androidUserId)] ?: return true
         return (nowMs - previous) > replayWindowMs
     }
 }

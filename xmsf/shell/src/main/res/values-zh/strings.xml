@@ -3,20 +3,6 @@
 
     <eat-comment />
 
-    <plurals name="date_minutes">
-        <item quantity="one">分钟</item>
-        <item quantity="other">分钟</item>
-    </plurals>
-
-    <!-- Auth -->
-    <plurals name="date_hours">
-        <item quantity="one">小时</item>
-        <item quantity="other">小时</item>
-    </plurals>
-    <plurals name="date_days">
-        <item quantity="one">天</item>
-        <item quantity="other">天</item>
-    </plurals>
     <string name="common_err">%1$s</string>
     <string name="start">开始</string>
     <string name="end">结束</string>
@@ -171,23 +157,10 @@
     <string name="status_granted">已授权</string>
     <string name="status_pending">待授权</string>
 
-    <!-- Date parse -->
     <string name="status_deny_disable">禁用推送，已拒绝</string>
-    <!-- Date format -->
-    <!-- Just, < 1 min -->
     <string name="status_deny_user">您已拒绝</string>
-    <!-- 1 Minute ago, >= 1 Minute, < 60 Minutes -->
-    <string name="date_just">刚刚</string>
-    <!-- 1 Hours ago, >= 1 hour, < 24 hours -->
-    <string name="date_format_normal">%1$s %2$s前</string>
-    <!-- 1 Day ago, >= 1 day, < days -->
-    <string name="date_format_just">%1$s</string>
-    <!-- For non-just and non-long format -->
-    <string name="date_format_long">%1$s</string>
-    <!-- For Just format -->
     <string name="action_edit_permission_title">修改权限（保存 ----></string>
     <string name="action_app_info">应用信息</string>
-    <!-- For Long ago format -->
     <string name="permissions">权限</string>
 
     <!-- Permission -->
@@ -213,7 +186,6 @@
     <string name="settings_get_log">分享日志</string>
     <string name="settings_get_log_summary">构建并分享日志包用于调试。</string>
     <string name="settings_runtime_log_retention_days">日志保留天数</string>
-    <string name="settings_runtime_log_retention_days_summary">保留最近 %1$d 天全部日志产物（运行日志、崩溃、导出 zip、临时文件）</string>
     <string name="settings_runtime_log_retention_days_hint">单位：天；覆盖 jsonl/崩溃/导出 zip/staging/临时文件，最小值 1，默认 2。</string>
     <string name="settings_runtime_log_retention_days_error">请输入大于等于 1 的整数。</string>
     <string name="runtime_log_export_failed">导出失败：%1$s</string>
@@ -234,7 +206,6 @@
     <string name="recent_activity_mode_stream">事件流</string>
     <string name="recent_activity_action_show_events">显示事件流</string>
     <string name="recent_activity_action_group_by_app">按应用分组</string>
-    <string name="recent_activity_group_count">%1$d 条记录</string>
     <string name="recent_activity_updated_at">更新于 %1$s</string>
     <string name="recent_activity_disabled_label">已禁用</string>
     <string name="recent_activity_filter_prefix">筛选</string>
@@ -343,7 +314,6 @@
     <string name="relay_mode_background">后台</string>
     <string name="settings_debug_mode_enabled">详细</string>
     <string name="settings_debug_mode_disabled">标准</string>
-    <string name="settings_overview_registered_hint">当前 %1$d / %2$d 个已识别 MiPush 应用具备注册迹象，可继续在应用页逐个排查未注册项。</string>
     <string name="settings_group_display_and_list">显示与列表</string>
     <string name="settings_group_data_and_debug">数据与调试</string>
     <string name="settings_blur_radius">背景模糊强度</string>
@@ -354,7 +324,6 @@
     <string name="app_list_stats_registered">已注册</string>
     <string name="app_list_stats_not_registered">未注册成功</string>
     <string name="app_list_hero_title">应用接入概览</string>
-    <string name="app_list_hero_summary">当前扫描到 %1$d / %2$d 个应用具备 MiPush 接入面。</string>
     <string name="app_list_item_delivery_active">近期活跃</string>
     <string name="app_list_item_delivery_idle">等待触发</string>
     <string name="app_detail_force_register">启动并强制注册</string>
@@ -372,7 +341,7 @@
     <string name="app_detail_block">拉黑此应用</string>
     <string name="app_detail_block_summary">拉黑后，该应用的所有推送消息、注册请求和事件记录都将被忽略。</string>
     <string name="app_detail_island_controls">超级岛与焦点展示</string>
-    <string name="app_detail_island_controls_summary">单独配置此应用是否生成 HyperIsland 超级岛与焦点通知参数。</string>
+    <string name="app_detail_island_controls_summary">单独配置此应用是否生成 MiPush 超级岛与焦点通知参数。</string>
     <string name="app_detail_island_enabled">启用超级岛</string>
     <string name="app_detail_island_enabled_summary">允许 MiPushFramework 为此应用生成超级岛参数。</string>
     <string name="app_detail_island_focus_notification">启用焦点通知</string>
@@ -386,11 +355,8 @@
     <string name="overview_chart_not_integrated_label">未接入</string>
     <string name="overview_chart_registered_label">已注册</string>
     <string name="overview_chart_unregistered_label">未注册</string>
-    <string name="overview_chart_ratio_format">%1$d 个 · %2$d%%</string>
     <string name="overview_version_format">版本 %1$s</string>
     <string name="overview_version_code_label">版本号</string>
-    <string name="overview_detected_apps_format">%1$d / %2$d 已识别</string>
-    <string name="overview_registered_apps_format">%1$d / %2$d 已注册</string>
     <string name="overview_project_github_title">GitHub 项目</string>
     <string name="overview_project_github_summary">查看源码、发布页和后续迭代进展。</string>
     <string name="overview_project_about_summary">查看当前版本、构建类型和基本信息。</string>
@@ -409,7 +375,7 @@
     <string name="dialog_donate_alipay_token">复制口令</string>
     <string name="dialog_donate_alipay_qrcode">保存收款码</string>
     <string name="dialog_donate_cancel">下次一定</string>
-    <string name="save_to_gallery_success">图片已保存到相册，正在打开 %1$s...</string>
+    <string name="save_to_gallery_success">图片已保存到相册，正在打开 %1$s…</string>
     <string name="save_to_gallery_failed">保存失败，请检查文件权限</string>
     <string name="save_to_gallery">保存到相册</string>
     <string name="event_detail_developer_info">调试信息</string>
@@ -443,10 +409,9 @@
     <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
-    <string name="pref_island_enabled_title">HyperIsland 焦点展示</string>
-    <string name="pref_island_enabled_summary">为 MiPush 通知生成并注入 HyperIsland 焦点通知参数。</string>
+    <string name="pref_island_enabled_title">MiPush 超级岛焦点展示</string>
+    <string name="pref_island_enabled_summary">为通知生成并注入 MiPush 内置焦点通知参数。</string>
     <string name="pref_island_timeout_title">超级岛超时</string>
-    <string name="pref_island_timeout_summary">%1$d 秒后自动关闭</string>
     <string name="pref_island_timeout_hint">单位：秒，最小值 1，默认 5。</string>
     <string name="pref_island_timeout_error">请输入大于等于 1 的整数。</string>
     <string name="pref_island_first_float_title">首次浮动</string>

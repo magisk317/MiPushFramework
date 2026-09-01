@@ -10,7 +10,7 @@ object RegSecUtils {
     const val RegSecField = "__reg_sec__"
 
     @JvmStatic
-    fun getRegSec(container: XmPushActionContainer?, userId: Int = Utils.myUserId()): String? {
+    fun getRegSec(container: XmPushActionContainer?, userId: Int = Utils.requireValidUserId(Utils.myUserId())): String? {
         return getCandidateRegSecs(container, userId = userId).firstOrNull()
     }
 
@@ -18,7 +18,7 @@ object RegSecUtils {
     fun getCandidateRegSecs(
         container: XmPushActionContainer?,
         preferredRegSec: String? = null,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): List<String> {
         val candidates = directCandidates(container, preferredRegSec, userId)
         if (candidates.isNotEmpty()) return candidates

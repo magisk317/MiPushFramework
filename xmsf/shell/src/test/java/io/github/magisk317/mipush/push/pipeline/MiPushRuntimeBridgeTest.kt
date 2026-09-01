@@ -109,6 +109,7 @@ class MiPushRuntimeBridgeTest {
                 isAck = false,
                 isMockReplay = false,
                 payloadSize = 128,
+                androidUserId = 0,
             ),
         )
         assertFalse(
@@ -120,6 +121,7 @@ class MiPushRuntimeBridgeTest {
                 isAck = false,
                 isMockReplay = false,
                 payloadSize = 128,
+                androidUserId = 0,
             ),
         )
     }

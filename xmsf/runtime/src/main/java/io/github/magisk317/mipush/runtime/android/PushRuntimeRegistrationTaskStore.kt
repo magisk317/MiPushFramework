@@ -18,7 +18,7 @@ object PushRuntimeRegistrationTaskStore {
         val queuedAtMs: Long,
         val source: String,
         val reason: String?,
-        val userId: Int = 0,
+        val userId: Int,
     )
 
     private val lock = Any()
@@ -30,9 +30,10 @@ object PushRuntimeRegistrationTaskStore {
         intent: Intent,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = currentUserId()
     ): PendingRegisterTask {
-        val userId = currentUserId()
+        val userId = Utils.requireValidUserId(androidUserId)
         val task = PendingRegisterTask(
             packageName = packageName,
             intent = Intent(intent),
@@ -55,7 +56,8 @@ object PushRuntimeRegistrationTaskStore {
             packageName = packageName,
             source = source,
             reason = reason ?: "queued_register_task",
-            nowMs = nowMs
+            nowMs = nowMs,
+            androidUserId = userId,
         )
         MagiskOtel.event(
             name = "push.register",
@@ -76,9 +78,10 @@ object PushRuntimeRegistrationTaskStore {
     @JvmStatic
     fun dispatchAll(
         source: String,
-        dispatcher: RegistrationIntentDispatcher
+        dispatcher: RegistrationIntentDispatcher,
+        androidUserId: Int = currentUserId(),
     ): Int {
-        val userId = currentUserId()
+        val userId = Utils.requireValidUserId(androidUserId)
         val snapshot = synchronized(lock) {
             pendingTasks.filterKeys { it.startsWith("$userId:") }.values.map {
                 it.copy(intent = Intent(it.intent))
@@ -112,7 +115,8 @@ object PushRuntimeRegistrationTaskStore {
                     packageName = task.packageName,
                     state = PushRegistrationState.Registering,
                     source = source,
-                    reason = task.reason ?: "dispatched_cached_register_task"
+                    reason = task.reason ?: "dispatched_cached_register_task",
+                    androidUserId = userId,
                 )
             } else {
                 failed += task.copy(source = source)
@@ -159,7 +163,7 @@ object PushRuntimeRegistrationTaskStore {
     @JvmStatic
     fun clear(packageName: String, userId: Int) {
         synchronized(lock) {
-            pendingTasks.remove(taskKey(userId.coerceAtLeast(0), packageName))
+            pendingTasks.remove(taskKey(requireValidUserId(userId), packageName))
         }
     }
 
@@ -169,20 +173,28 @@ object PushRuntimeRegistrationTaskStore {
     }
 
     @JvmStatic
-    fun pendingTasks(): List<PendingRegisterTask> {
-        val userId = currentUserId()
+    fun pendingTasks(androidUserId: Int = currentUserId()): List<PendingRegisterTask> {
+        val userId = Utils.requireValidUserId(androidUserId)
         return synchronized(lock) {
             pendingTasks.filterKeys { it.startsWith("$userId:") }.values.map { it.copy(intent = Intent(it.intent)) }
         }
     }
 
     @JvmStatic
-    fun pendingCount(): Int {
-        val userId = currentUserId()
+    fun pendingCount(androidUserId: Int = currentUserId()): Int {
+        val userId = Utils.requireValidUserId(androidUserId)
         return synchronized(lock) { pendingTasks.keys.count { it.startsWith("$userId:") } }
     }
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 
     private fun taskKey(userId: Int, packageName: String): String = "$userId:$packageName"
 }

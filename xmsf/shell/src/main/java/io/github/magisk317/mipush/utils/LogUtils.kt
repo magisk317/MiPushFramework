@@ -7,8 +7,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
-import io.github.magisk317.xposed.logging.JsonLineEncoder
-import io.github.magisk317.xposed.logging.JsonLineField
+import io.github.magisk317.mipush.diagnostics.StructuredLogCore
 import io.github.magisk317.xposed.logging.LogSink
 import io.github.magisk317.xposed.logging.LoggingKit
 import java.io.File
@@ -483,20 +482,20 @@ object LogUtils {
         }.getOrNull()
     }
 
-    private fun encodeJsonLine(entry: RuntimeLogEntry): String = JsonLineEncoder.encode(
-        JsonLineField.string(
+    private fun encodeJsonLine(entry: RuntimeLogEntry): String = StructuredLogCore.encode(
+        StructuredLogCore.stringField(
             "time",
             Instant.ofEpochMilli(entry.timestamp).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
         ),
-        JsonLineField.string("level", entry.level),
-        JsonLineField.string("tag", entry.tag),
-        JsonLineField.string("message", entry.message),
-        JsonLineField.string("throwable", entry.throwable, include = entry.throwable.isNotBlank()),
-        JsonLineField.string("route", entry.route),
-        JsonLineField.string("packageName", entry.packageName, include = entry.packageName.isNotBlank()),
-        JsonLineField.string("processName", entry.processName, include = entry.processName.isNotBlank()),
-        JsonLineField.number("pid", entry.pid),
-        JsonLineField.string("threadName", entry.threadName, include = entry.threadName.isNotBlank()),
+        StructuredLogCore.stringField("level", entry.level),
+        StructuredLogCore.stringField("tag", entry.tag),
+        StructuredLogCore.stringField("message", entry.message),
+        StructuredLogCore.stringField("throwable", entry.throwable, include = entry.throwable.isNotBlank()),
+        StructuredLogCore.stringField("route", entry.route),
+        StructuredLogCore.stringField("packageName", entry.packageName, include = entry.packageName.isNotBlank()),
+        StructuredLogCore.stringField("processName", entry.processName, include = entry.processName.isNotBlank()),
+        StructuredLogCore.numberField("pid", entry.pid),
+        StructuredLogCore.stringField("threadName", entry.threadName, include = entry.threadName.isNotBlank()),
     )
 
     private fun sanitizeSegment(value: String): String {

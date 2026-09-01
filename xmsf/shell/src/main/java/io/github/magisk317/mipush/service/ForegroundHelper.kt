@@ -64,6 +64,31 @@ class ForegroundHelper(private val service: Service) {
         }
     }
 
+    /** Satisfy an external startForegroundService call without keeping the facade alive. */
+    internal fun satisfyForegroundStartContract() {
+        try {
+            createNotificationGroupForPushStatus()
+            showForegroundNotificationToKeepAlive()
+            stopForegroundNotification()
+        } catch (t: Throwable) {
+            Logger.withTag("ForegroundHelper").w(t) {
+                "Failed to satisfy external startForegroundService contract, falling back to background dispatch"
+            }
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "fallback",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "foreground",
+                    "reason" to "external_ingress_fgs_disallowed",
+                    "error_class" to t.javaClass.simpleName,
+                ),
+                statusOk = true,
+            )
+        }
+    }
+
     fun stopForegroundNotification() {
         ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
         MagiskOtel.event(

@@ -24,10 +24,12 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
     private val registeredApplicationDao by lazy { database.registeredApplicationDao() }
     private val eventDao by lazy { database.eventDao() }
 
-    override suspend fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
+    override suspend fun currentUserId(): Int = resolveCurrentUserId()
 
-    override suspend fun readStoredApplications(): List<StoredApplicationSnapshot> =
-        registeredApplicationDao.getAll(Utils.myUserId().coerceAtLeast(0)).map { it.toStoredApplicationSnapshot() }
+    override suspend fun readStoredApplications(): List<StoredApplicationSnapshot> {
+        val userId = currentUserId()
+        return registeredApplicationDao.getAll(userId).map { it.toStoredApplicationSnapshot() }
+    }
 
     override suspend fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot {
         val candidates = loadPackagesOnDevice()
@@ -57,12 +59,13 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
         Utils.getLastReceiveTime(packageName, currentUserId()) ?: 0L
 
     override suspend fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> {
-        val databaseTimes = eventDao.getAllLastReceiveTimes(Utils.myUserId().coerceAtLeast(0))
+        val userId = currentUserId()
+        val databaseTimes = eventDao.getAllLastReceiveTimes(userId)
             .associate { it.pkg to it.date }
         return packageNames.associateWith { packageName ->
             maxOf(
                 databaseTimes[packageName] ?: 0L,
-                Utils.getLastReceiveTime(packageName, currentUserId()) ?: 0L,
+                Utils.getLastReceiveTime(packageName, userId) ?: 0L,
             )
         }
     }
@@ -84,6 +87,11 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             text = null,
         ).firstOrNull()
             ?.let { RegistrationEventSnapshot(type = it.type, result = it.result) }
+
+    private fun resolveCurrentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
 
     private fun loadPackagesOnDevice(): List<PackageInfo> = try {
         val visiblePackages = PackageManagerCompatBridge.getInstalledPackages(packageManager, 0)
@@ -112,8 +120,9 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
 
     private fun loadPackageNamesThroughRoot(): List<String>? {
         if (!AppRootAccessFacade.refreshRootAccessIfGranted()) return null
+        val userId = resolveCurrentUserId()
         val result = AppRootAccessFacade.runRootCommand(
-            "pm list packages --user ${Utils.myUserId().coerceAtLeast(0)}",
+            "pm list packages --user $userId",
             timeoutMs = ROOT_PACKAGE_SCAN_TIMEOUT_MS,
         )
         if (!result.isSuccess) {

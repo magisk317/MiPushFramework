@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.runtime.android
 
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.PUSH_RUNTIME_API_VERSION
 import io.github.magisk317.mipush.runtime.core.PushChannelRecord
 import io.github.magisk317.mipush.runtime.core.PushChannelState
@@ -72,8 +73,11 @@ internal class RuntimeSnapshotProjectionCoordinator(
             lastReconnectToConnectedLatencyMs = lastReconnectToConnectedLatencyMs,
         )
     }
-    fun getRegistrationRecord(packageName: String): PushRegistrationRecord? = state.withLock {
-        val userId = RuntimeDeterministicCoordinator.currentUserId()
+    fun getRegistrationRecord(
+        packageName: String,
+        androidUserId: Int,
+    ): PushRegistrationRecord? = state.withLock {
+        val userId = Utils.requireValidUserId(androidUserId)
         registrationRecords[RuntimeDeterministicCoordinator.packageScope(packageName, userId)]
     }
 

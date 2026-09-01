@@ -22,13 +22,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
-import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
-import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
-import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
@@ -175,13 +168,10 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS -> grantSilentPermissions(request)
             ManagerProtocol.WRITE_OP_QUERY_USAGE_STATS -> queryUsageStats(request)
             ManagerProtocol.WRITE_OP_QUERY_ROOT -> queryRoot(request)
-            ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON -> syncLauncherIcon(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN -> setRuntimeBoolean(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_INT -> setRuntimeInt(request)
-            ManagerProtocol.WRITE_OP_SET_RUNTIME_STRING -> setRuntimeString(request)
             ManagerProtocol.WRITE_OP_RESTART_RUNTIME -> restartRuntime(request)
             ManagerProtocol.WRITE_OP_REBOOT_DEVICE -> rebootDevice(request)
-            ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER -> relaunchManager(request)
             ManagerProtocol.WRITE_OP_SET_XMPP_SERVER -> setXmppServer(request)
             ManagerProtocol.WRITE_OP_CLEAR_HISTORY -> clearHistory(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION -> {
@@ -417,21 +407,6 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
-    private fun syncLauncherIcon(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val iconId = request.argument.ifBlank { "default" }
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SYNC_LAUNCHER_ICON_ROOT_MISSING)
-        }
-        val ok = io.github.magisk317.mipush.platform.support.PermissionUtils.syncLauncherIconAliases(iconId)
-        logI("sync_launcher_icon iconId=$iconId ok=$ok")
-        return if (ok) {
-            success(request.requestId, ManagerProtocol.WRITE_DETAIL_SYNC_LAUNCHER_ICON_OK)
-        } else {
-            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SYNC_LAUNCHER_ICON_FAILED)
-        }
-    }
-
-
     private suspend fun mockMessage(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
         val outcome = eventGateway.mockMessage(
@@ -462,6 +437,10 @@ class ManagerWriteRuntimeExecutor(
             MockReplayOutcome.BlockedByPermission -> failed(
                 request.requestId,
                 ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED,
+            )
+            MockReplayOutcome.FailedChannelDisabled -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED,
             )
             MockReplayOutcome.Failed -> failed(
                 request.requestId,
@@ -537,17 +516,6 @@ class ManagerWriteRuntimeExecutor(
             preferenceRepository = preferenceRepository,
             logInfo = ::logI,
         )
-
-    private suspend fun setRuntimeString(request: ManagerWriteRequestDto): ManagerWriteResultDto =
-        ManagerRuntimePreferenceCommandSupport.setRuntimeString(
-            request = request,
-            context = context,
-            preferenceRepository = preferenceRepository,
-            logInfo = ::logI,
-        )
-
-    private fun relaunchManager(request: ManagerWriteRequestDto): ManagerWriteResultDto =
-        ManagerSystemActionCommandSupport.relaunchManager(request, ::logI)
 
     private fun rebootDevice(request: ManagerWriteRequestDto): ManagerWriteResultDto =
         ManagerSystemActionCommandSupport.rebootDevice(request, ::logI)

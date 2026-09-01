@@ -25,6 +25,8 @@ object RuntimeEventQueryPolicy {
         packageName: String?,
         text: String?,
         userId: Int,
+        includeFirstSuccessfulRegistration: Boolean = false,
+        excludedResults: Set<Int> = emptySet(),
     ): RuntimeEventQuery = buildQuery(
         page = false,
         cursorId = lastId,
@@ -34,6 +36,8 @@ object RuntimeEventQueryPolicy {
         packageName = packageName,
         text = text,
         userId = userId,
+        includeFirstSuccessfulRegistration = includeFirstSuccessfulRegistration,
+        excludedResults = excludedResults,
     )
 
     fun page(
@@ -43,6 +47,8 @@ object RuntimeEventQueryPolicy {
         packageName: String?,
         text: String?,
         userId: Int,
+        includeFirstSuccessfulRegistration: Boolean = false,
+        excludedResults: Set<Int> = emptySet(),
     ): RuntimeEventQuery = buildQuery(
         page = true,
         cursorId = null,
@@ -52,6 +58,8 @@ object RuntimeEventQueryPolicy {
         packageName = packageName,
         text = text,
         userId = userId,
+        includeFirstSuccessfulRegistration = includeFirstSuccessfulRegistration,
+        excludedResults = excludedResults,
     )
 
     private fun buildQuery(
@@ -63,10 +71,12 @@ object RuntimeEventQueryPolicy {
         packageName: String?,
         text: String?,
         userId: Int,
+        includeFirstSuccessfulRegistration: Boolean,
+        excludedResults: Set<Int>,
     ): RuntimeEventQuery {
         val sql = StringBuilder("SELECT * FROM EVENT WHERE user_id = ?")
         val arguments = mutableListOf<RuntimeQueryArgument>(
-            RuntimeQueryArgument.IntValue(userId.coerceAtLeast(0)),
+            RuntimeQueryArgument.IntValue(requireValidUserId(userId)),
         )
 
         cursorId?.let {
@@ -77,11 +87,50 @@ object RuntimeEventQueryPolicy {
             sql.append(" AND pkg = ?")
             arguments += RuntimeQueryArgument.TextValue(it)
         }
-        types?.takeIf { it.isNotEmpty() }?.let { values ->
-            sql.append(" AND type IN (")
-            sql.append(values.sorted().joinToString(",") { "?" })
+        if (includeFirstSuccessfulRegistration) {
+            sql.append(" AND (")
+            types?.takeIf { it.isNotEmpty() }?.let { values ->
+                sql.append("(")
+                sql.append("type IN (")
+                sql.append(values.sorted().joinToString(",") { "?" })
+                sql.append(")")
+                arguments += values.sorted().map { RuntimeQueryArgument.IntValue(it) }
+                excludedResults.takeIf { it.isNotEmpty() }?.let { results ->
+                    sql.append(" AND result NOT IN (")
+                    sql.append(results.sorted().joinToString(",") { "?" })
+                    sql.append(")")
+                    arguments += results.sorted().map { RuntimeQueryArgument.IntValue(it) }
+                }
+                sql.append(") OR ")
+            }
+            sql.append(
+                "(type = ? AND result = ? AND NOT EXISTS (" +
+                    "SELECT 1 FROM EVENT prior WHERE prior.user_id = EVENT.user_id " +
+                    "AND prior.pkg = EVENT.pkg AND prior.type = ? AND prior.result = ? " +
+                    "AND (prior.date < EVENT.date OR " +
+                    "(prior.date = EVENT.date AND prior.id < EVENT.id))" +
+                    "))"
+            )
+            arguments += RuntimeQueryArgument.IntValue(EventRowType.RegistrationResult)
+            arguments += RuntimeQueryArgument.IntValue(EventRowResultType.OK)
+            arguments += RuntimeQueryArgument.IntValue(EventRowType.RegistrationResult)
+            arguments += RuntimeQueryArgument.IntValue(EventRowResultType.OK)
             sql.append(")")
-            arguments += values.sorted().map { RuntimeQueryArgument.IntValue(it) }
+        } else {
+            types?.takeIf { it.isNotEmpty() }?.let { values ->
+                sql.append(" AND (")
+                sql.append("type IN (")
+                sql.append(values.sorted().joinToString(",") { "?" })
+                sql.append(")")
+                arguments += values.sorted().map { RuntimeQueryArgument.IntValue(it) }
+                excludedResults.takeIf { it.isNotEmpty() }?.let { results ->
+                    sql.append(" AND result NOT IN (")
+                    sql.append(results.sorted().joinToString(",") { "?" })
+                    sql.append(")")
+                    arguments += results.sorted().map { RuntimeQueryArgument.IntValue(it) }
+                }
+                sql.append(")")
+            }
         }
         text?.takeIf { it.isNotBlank() }?.let {
             sql.append(
@@ -105,5 +154,10 @@ object RuntimeEventQueryPolicy {
             arguments += RuntimeQueryArgument.IntValue(limit)
         }
         return RuntimeEventQuery(sql = sql.toString(), arguments = arguments)
+    }
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
     }
 }

@@ -195,7 +195,7 @@ object RegistrationStateCompat {
 
     @JvmStatic
     fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> {
-        val userId = Utils.myUserId()
+        val userId = Utils.requireValidUserId(Utils.myUserId())
         logD { "find local registration start: queried=${packages.size} userId=$userId" }
         if (packages.isEmpty()) return emptySet()
         val result = linkedSetOf<String>()
@@ -279,9 +279,9 @@ object RegistrationStateCompat {
     }
 
     @JvmStatic
-    fun recoverLocalRegSec(packageName: String, userId: Int = Utils.myUserId()): String? {
+    fun recoverLocalRegSec(packageName: String, userId: Int = Utils.requireValidUserId(Utils.myUserId())): String? {
         if (!packageName.matches(SAFE_PACKAGE_NAME)) return null
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         val cacheKey = "$normalizedUserId:$packageName"
         Utils.getRegSec(packageName, normalizedUserId)?.let { return it }
         if (!getRootCapability().available) return null
@@ -445,7 +445,7 @@ object RegistrationStateCompat {
     }
 
     private fun registrationArtifactPaths(packageName: String): List<String> {
-        return registrationArtifactPathsForUser(packageName, Utils.myUserId())
+        return registrationArtifactPathsForUser(packageName, Utils.requireValidUserId(Utils.myUserId()))
     }
 
     internal fun registrationArtifactPathsForUser(packageName: String, userId: Int): List<String> {

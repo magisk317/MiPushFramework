@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.runtime.android
 
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -21,22 +22,18 @@ import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationDispatchResult
 
 object AndroidPushRuntime {
-    private const val MESSAGE_DEDUP_WINDOW_MS = 60_000L
-    private const val APP_ACTION_BURST_WINDOW_MS = 2_000L
-    private const val REGISTRATION_REPLAY_WINDOW_MS = 30_000L
-    private const val MAX_REGISTRATION_RECORDS = 512
-    private const val MAX_CHANNEL_RECORDS = 256
-
     private val state = AndroidPushRuntimeState()
     private val bridgeIntentDispatcher = RuntimeBridgeIntentDispatcher(state)
     private val connectionObservationCoordinator = RuntimeConnectionObservationCoordinator(state)
     private val snapshotProjectionCoordinator = RuntimeSnapshotProjectionCoordinator(state)
     private val registrationCoordinator = RuntimeRegistrationCoordinator(
         state = state,
-        packageScope = { packageName -> RuntimeDeterministicCoordinator.packageScope(packageName) },
+        packageScope = { packageName, androidUserId ->
+            RuntimeDeterministicCoordinator.packageScope(packageName, androidUserId)
+        },
         buildReason = { source, reason -> RuntimeDeterministicCoordinator.buildReason(source, reason) },
-        replayWindowMs = REGISTRATION_REPLAY_WINDOW_MS,
-        pruneWindows = ::pruneMessageWindowsLocked,
+        replayWindowMs = AndroidPushRuntimeWindowSupport.REGISTRATION_REPLAY_WINDOW_MS,
+        pruneWindows = { nowMs -> AndroidPushRuntimeWindowSupport.pruneMessageWindows(state, nowMs) },
     )
 
     @JvmStatic
@@ -122,13 +119,30 @@ object AndroidPushRuntime {
     fun observeReconnectConnected(atMs: Long) = connectionObservationCoordinator.observeReconnectConnected(atMs)
 
     @JvmStatic
-    fun requestFrameworkRegistration(source: String, reason: String? = null): Boolean {
+    fun requestFrameworkRegistration(source: String, reason: String? = null): Boolean =
+        requestFrameworkRegistrationForUser(
+            source = source,
+            reason = reason,
+            androidUserId = RuntimeDeterministicCoordinator.currentUserId(),
+        )
+
+    private fun requestFrameworkRegistrationForUser(
+        source: String,
+        reason: String?,
+        androidUserId: Int,
+    ): Boolean {
+        Utils.requireValidUserId(androidUserId)
+        val host = state.withLock { executionHost } ?: return false
+        if (!host.isFrameworkRegistrationEnabled()) {
+            logI("framework self-registration disabled; skip source=$source userId=$androidUserId")
+            return false
+        }
         observeRegistrationRequest(
             packageName = PushRuntimeComponents.SERVICE_PACKAGE,
             source = source,
-            reason = reason
+            reason = reason,
+            androidUserId = androidUserId,
         )
-        val host = state.withLock { executionHost } ?: return false
         return runCatching {
             host.requestFrameworkRegistration(reason = RuntimeDeterministicCoordinator.buildReason(source, reason))
         }.getOrElse {
@@ -138,20 +152,31 @@ object AndroidPushRuntime {
     }
 
     @JvmStatic
-    fun requestApplicationRegistration(packageName: String, source: String, reason: String? = null): Boolean {
+    fun requestApplicationRegistration(
+        packageName: String,
+        source: String,
+        reason: String? = null,
+        androidUserId: Int,
+    ): Boolean {
         observeRegistrationRequest(
             packageName = packageName,
             source = source,
-            reason = reason
+            reason = reason,
+            androidUserId = androidUserId,
         )
-        return replayApplicationRegistration(packageName, source, reason)
+        return replayApplicationRegistration(packageName, source, reason, androidUserId)
     }
 
     @JvmStatic
     fun handleBootCompleted(source: String): PushRuntimeRegistrationDispatchResult {
-        val frameworkTriggered = requestFrameworkRegistration(source, "boot_completed")
+        val androidUserId = RuntimeDeterministicCoordinator.currentUserId()
+        val frameworkTriggered = requestFrameworkRegistrationForUser(source, "boot_completed", androidUserId)
         val connectionTriggered = requestConnection(source, "boot_completed")
-        val replayed = replayPendingApplicationRegistrations(source, reason = "boot_completed")
+        val replayed = replayPendingApplicationRegistrations(
+            source,
+            reason = "boot_completed",
+            androidUserId = androidUserId,
+        )
         MagiskOtel.event(
             name = "push.boot",
             attributes = mapOf(
@@ -173,7 +198,15 @@ object AndroidPushRuntime {
     }
 
     @JvmStatic
-    fun handleNetworkAvailable(source: String): PushRuntimeRegistrationDispatchResult {
+    fun handleNetworkAvailable(source: String): PushRuntimeRegistrationDispatchResult =
+        handleNetworkAvailableForUser(source, RuntimeDeterministicCoordinator.currentUserId())
+
+    /** Explicit-user seam used by cross-user callers and JVM contract tests. */
+    internal fun handleNetworkAvailableForUser(
+        source: String,
+        androidUserId: Int,
+    ): PushRuntimeRegistrationDispatchResult {
+        Utils.requireValidUserId(androidUserId)
         val host = state.withLock { executionHost }
         val processTriggered = if (host == null) {
             false
@@ -184,9 +217,13 @@ object AndroidPushRuntime {
                     false
                 }
         }
-        val frameworkTriggered = requestFrameworkRegistration(source, "network_available")
+        val frameworkTriggered = requestFrameworkRegistrationForUser(source, "network_available", androidUserId)
         val connectionTriggered = requestConnection(source, "network_available")
-        val replayed = replayPendingApplicationRegistrations(source, reason = "network_available")
+        val replayed = replayPendingApplicationRegistrations(
+            source,
+            reason = "network_available",
+            androidUserId = androidUserId,
+        )
         return PushRuntimeRegistrationDispatchResult(
             frameworkRegistrationTriggered = frameworkTriggered,
             pendingAppReplayCount = replayed,
@@ -264,7 +301,8 @@ object AndroidPushRuntime {
         messageId: String?,
         payload: ByteArray,
         source: String,
-        launchApp: Boolean
+        launchApp: Boolean,
+        androidUserId: Int,
     ): PushRuntimeApplicationDispatchResult {
         val host = state.withLock { executionHost } ?: run {
             MagiskOtel.event(
@@ -311,7 +349,8 @@ object AndroidPushRuntime {
                 packageName = packageName,
                 action = action,
                 messageId = messageId,
-                source = source
+                source = source,
+                androidUserId = androidUserId,
             )
         }
         if (result.deliveredByBroadcastFallback) {
@@ -373,77 +412,84 @@ object AndroidPushRuntime {
     }
 
     @JvmStatic
-    @JvmOverloads
     fun observeRegistrationRequest(
         packageName: String,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): PushRegistrationRecord {
         return updateRegistrationRecord(
             packageName = packageName,
             state = PushRegistrationState.Registering,
             source = source,
             reason = reason,
-            nowMs = nowMs
+            nowMs = nowMs,
+            androidUserId = androidUserId,
         )
     }
 
     @JvmStatic
-    @JvmOverloads
     fun observeRegistrationResult(
         packageName: String,
         success: Boolean,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): PushRegistrationRecord {
         return updateRegistrationRecord(
             packageName = packageName,
             state = if (success) PushRegistrationState.Registered else PushRegistrationState.Failed,
             source = source,
             reason = reason,
-            nowMs = nowMs
+            nowMs = nowMs,
+            androidUserId = androidUserId,
         )
     }
 
     @JvmStatic
-    @JvmOverloads
     fun observeUnregistration(
         packageName: String,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): PushRegistrationRecord {
         return updateRegistrationRecord(
             packageName = packageName,
             state = PushRegistrationState.Unregistered,
             source = source,
             reason = reason,
-            nowMs = nowMs
+            nowMs = nowMs,
+            androidUserId = androidUserId,
         )
     }
 
     @JvmStatic
-    @JvmOverloads
     fun observeRegistrationState(
         packageName: String,
         state: PushRegistrationState,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): PushRegistrationRecord {
         return updateRegistrationRecord(
             packageName = packageName,
             state = state,
             source = source,
             reason = reason,
-            nowMs = nowMs
+            nowMs = nowMs,
+            androidUserId = androidUserId,
         )
     }
 
     @JvmStatic
-    fun getRegistrationRecord(packageName: String): PushRegistrationRecord? = snapshotProjectionCoordinator.getRegistrationRecord(packageName)
+    fun getRegistrationRecord(
+        packageName: String,
+        androidUserId: Int,
+    ): PushRegistrationRecord? = snapshotProjectionCoordinator.getRegistrationRecord(packageName, androidUserId)
 
     @JvmStatic
     fun getRegistrationRecords(): List<PushRegistrationRecord> = snapshotProjectionCoordinator.getRegistrationRecords()
@@ -455,11 +501,14 @@ object AndroidPushRuntime {
         messageId: String?,
         source: String,
         isAck: Boolean = false,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): Boolean {
         state.withLock {
-            pruneMessageWindowsLocked(nowMs)
-            val duplicated = isDuplicateLocked(packageName, action, messageId, nowMs)
+            AndroidPushRuntimeWindowSupport.pruneMessageWindows(state, nowMs)
+            val duplicated = AndroidPushRuntimeWindowSupport.isDuplicate(
+                state, packageName, action, messageId, nowMs, androidUserId,
+            )
             if (duplicated) {
                 duplicateMessageCount += 1
             } else {
@@ -485,12 +534,16 @@ object AndroidPushRuntime {
         action: String,
         messageId: String?,
         source: String,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ) {
+        Utils.requireValidUserId(androidUserId)
         state.withLock {
             deliveredToAppCount += 1
             updateLastObservationLocked(packageName, action)
-            markMessageIdentityLocked(packageName, action, messageId, nowMs)
+            AndroidPushRuntimeWindowSupport.markMessageIdentity(
+                state, packageName, action, messageId, nowMs, androidUserId,
+            )
         }
     }
 
@@ -536,7 +589,7 @@ object AndroidPushRuntime {
             reason = reason
         )
         this.state.withLock {
-            applyConnectionStateLocked(
+            connectionObservationCoordinator.applyConnectionState(
                 record = record,
                 nowMs = nowMs,
                 resolvedIp = resolvedIp,
@@ -546,50 +599,7 @@ object AndroidPushRuntime {
         return record
     }
 
-    private fun applyConnectionStateLocked(
-        record: PushConnectionRecord,
-        nowMs: Long,
-        resolvedIp: String? = null,
-    ) {
-        val previousState = state.connectionRecord.state
-        state.connectionRecord = record
-        when (record.state) {
-            PushConnectionState.Connected -> {
-                val reconnectElapsedMs = if (state.lastDisconnectedAtMs > 0L) {
-                    (nowMs - state.lastDisconnectedAtMs).takeIf { it >= 0L }
-                } else {
-                    null
-                }
-                val mergesPreviousSession =
-                    previousState != PushConnectionState.Connected &&
-                        state.connectionSessionCount > 0L &&
-                        state.connectedAtMs > 0L &&
-                        reconnectElapsedMs != null &&
-                        reconnectElapsedMs <
-                        io.github.magisk317.mipush.runtime.core.PushReconnectPolicy
-                            .CONNECTION_SESSION_MERGE_WINDOW_MS
-
-                if (previousState != PushConnectionState.Connected && !mergesPreviousSession) {
-                    state.connectedAtMs = nowMs
-                    state.connectionSessionCount += 1
-                }
-                if (resolvedIp != null) {
-                    state.lastResolvedIp = resolvedIp
-                }
-            }
-
-            PushConnectionState.Disconnected -> {
-                if (previousState != PushConnectionState.Disconnected) {
-                    state.lastDisconnectedAtMs = nowMs
-                }
-            }
-
-            else -> Unit
-        }
-    }
-
     @JvmStatic
-    @JvmOverloads
     fun observeChannelState(
         packageName: String?,
         channelId: String,
@@ -599,9 +609,10 @@ object AndroidPushRuntime {
         source: String,
         reasonCode: Int? = null,
         reasonMessage: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ): PushChannelRecord {
-        val androidUserId = RuntimeDeterministicCoordinator.currentUserId()
+        Utils.requireValidUserId(androidUserId)
         val record = PushChannelRecord(
             packageName = packageName,
             channelId = channelId,
@@ -616,7 +627,10 @@ object AndroidPushRuntime {
         )
         this.state.withLock {
             channelRecords[RuntimeDeterministicCoordinator.channelIdentity(record, androidUserId)] = record
-            evictOldestIfNeeded(channelRecords, MAX_CHANNEL_RECORDS)
+            AndroidPushRuntimeWindowSupport.evictOldestIfNeeded(
+                channelRecords,
+                AndroidPushRuntimeWindowSupport.MAX_CHANNEL_RECORDS,
+            )
             lastChannelPackage = packageName
             lastChannelState = state
         }
@@ -630,12 +644,13 @@ object AndroidPushRuntime {
         host: String?,
         channels: List<PushChannelRecord>,
         source: String,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int,
     ) {
-        val androidUserId = RuntimeDeterministicCoordinator.currentUserId()
+        Utils.requireValidUserId(androidUserId)
         val scopedChannels = channels.map { it.copy(androidUserId = androidUserId, updatedAtMs = nowMs, source = source) }
         state.withLock {
-            applyConnectionStateLocked(
+            connectionObservationCoordinator.applyConnectionState(
                 record = PushConnectionRecord(
                     state = connectionState,
                     updatedAtMs = nowMs,
@@ -686,8 +701,14 @@ object AndroidPushRuntime {
     fun capabilities(): PushRuntimeCapabilities = snapshotProjectionCoordinator.capabilities()
 
     @JvmStatic
-    fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean {
-        if (!registrationCoordinator.clearReplayDedupeForForce(packageName)) {
+    fun forceTriggerRegistration(
+        packageName: String,
+        source: String,
+        reason: String? = null,
+        androidUserId: Int,
+    ): Boolean {
+        Utils.requireValidUserId(androidUserId)
+        if (!registrationCoordinator.clearReplayDedupeForForce(packageName, androidUserId)) {
             logD("skip reentrant application registration package=$packageName source=$source reason=$reason")
             MagiskOtel.event(
                 name = "push.register",
@@ -704,7 +725,7 @@ object AndroidPushRuntime {
             )
             return false
         }
-        val triggered = requestApplicationRegistration(packageName, source, reason)
+        val triggered = requestApplicationRegistration(packageName, source, reason, androidUserId)
         MagiskOtel.event(
             name = "push.register",
             attributes = mapOf(
@@ -728,7 +749,7 @@ object AndroidPushRuntime {
 
     @JvmStatic
     fun clearPackageTransientState(packageName: String, userId: Int) {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         val packageKey = "$normalizedUserId:$packageName"
         state.withLock {
             val packagePrefix = "$packageKey:"
@@ -797,9 +818,10 @@ object AndroidPushRuntime {
         state: PushRegistrationState,
         source: String,
         reason: String?,
-        nowMs: Long
+        nowMs: Long,
+        androidUserId: Int,
     ): PushRegistrationRecord {
-        val androidUserId = RuntimeDeterministicCoordinator.currentUserId()
+        Utils.requireValidUserId(androidUserId)
         val record = PushRegistrationRecord(
             packageName = packageName,
             state = state,
@@ -810,7 +832,10 @@ object AndroidPushRuntime {
         )
         this.state.withLock {
             registrationRecords[RuntimeDeterministicCoordinator.packageScope(packageName, androidUserId)] = record
-            evictOldestIfNeeded(registrationRecords, MAX_REGISTRATION_RECORDS)
+            AndroidPushRuntimeWindowSupport.evictOldestIfNeeded(
+                registrationRecords,
+                AndroidPushRuntimeWindowSupport.MAX_REGISTRATION_RECORDS,
+            )
             lastRegistrationPackage = packageName
             lastRegistrationState = state
             updateLastObservationLocked(packageName, "registration:${state.name}")
@@ -823,77 +848,25 @@ object AndroidPushRuntime {
         state.lastAction = action
     }
 
-    private fun pruneMessageWindowsLocked(nowMs: Long) {
-        pruneWindowLocked(state.recentMessageIds, nowMs, MESSAGE_DEDUP_WINDOW_MS)
-        pruneWindowLocked(state.recentPackageActions, nowMs, APP_ACTION_BURST_WINDOW_MS)
-        pruneWindowLocked(state.recentRegistrationReplays, nowMs, REGISTRATION_REPLAY_WINDOW_MS)
-    }
-
-    private fun pruneWindowLocked(window: LinkedHashMap<String, Long>, nowMs: Long, ttlMs: Long) {
-        val iterator = window.entries.iterator()
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
-            if ((nowMs - entry.value) > ttlMs) {
-                iterator.remove()
-            }
-        }
-    }
-
-    private fun isDuplicateLocked(
-        packageName: String?,
-        action: String,
-        messageId: String?,
-        nowMs: Long
-    ): Boolean {
-        var duplicated = false
-        if (!messageId.isNullOrBlank()) {
-            val messageKey = RuntimeDeterministicCoordinator.messageScope(packageName, messageId)
-            val previous = state.recentMessageIds[messageKey]
-            duplicated = previous != null && (nowMs - previous) <= MESSAGE_DEDUP_WINDOW_MS
-            state.recentMessageIds[messageKey] = nowMs
-        }
-        if (!duplicated && !packageName.isNullOrBlank()) {
-            val appActionKey = RuntimeDeterministicCoordinator.actionScope(packageName, action)
-            val previous = state.recentPackageActions[appActionKey]
-            duplicated = previous != null && (nowMs - previous) <= APP_ACTION_BURST_WINDOW_MS
-            state.recentPackageActions[appActionKey] = nowMs
-        }
-        return duplicated
-    }
-    private fun markMessageIdentityLocked(
-        packageName: String?,
-        action: String,
-        messageId: String?,
-        nowMs: Long
-    ) {
-        if (!messageId.isNullOrBlank()) {
-            state.recentMessageIds[RuntimeDeterministicCoordinator.messageScope(packageName, messageId)] = nowMs
-        }
-        if (!packageName.isNullOrBlank()) {
-            state.recentPackageActions[RuntimeDeterministicCoordinator.actionScope(packageName, action)] = nowMs
-        }
-    }
-
     private fun replayPendingApplicationRegistrations(
         source: String,
         reason: String,
         limit: Int = 8,
-    ): Int = registrationCoordinator.replayPending(source, reason, limit)
+        androidUserId: Int,
+    ): Int = registrationCoordinator.replayPending(source, reason, limit, androidUserId)
 
-    private fun replayApplicationRegistration(packageName: String, source: String, reason: String?): Boolean =
-        registrationCoordinator.dispatchApplication(packageName, source, reason)
+    private fun replayApplicationRegistration(
+        packageName: String,
+        source: String,
+        reason: String?,
+        androidUserId: Int,
+    ): Boolean = registrationCoordinator.dispatchApplication(packageName, source, reason, androidUserId)
 
-    private fun dispatchApplicationRegistration(packageName: String, source: String, reason: String?): Boolean =
-        registrationCoordinator.dispatchApplication(packageName, source, reason)
+    private fun dispatchApplicationRegistration(
+        packageName: String,
+        source: String,
+        reason: String?,
+        androidUserId: Int,
+    ): Boolean = registrationCoordinator.dispatchApplication(packageName, source, reason, androidUserId)
 
-    /**
-     * Evict oldest entries from a LinkedHashMap when it exceeds [maxSize].
-     * Must be called under [lock].
-     */
-    private fun <K, V> evictOldestIfNeeded(map: LinkedHashMap<K, V>, maxSize: Int) {
-        while (map.size > maxSize) {
-            val firstKey = map.keys.firstOrNull() ?: break
-            map.remove(firstKey)
-        }
-    }
 }

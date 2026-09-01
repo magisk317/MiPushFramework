@@ -25,6 +25,7 @@ class PushRuntimeRegistrationChannelObservationAdapterTest {
             source = "registration-state",
             reason = "pending",
             nowMs = 10L,
+            androidUserId = 0,
         )
         adapter.observeRegistrationResult(
             packageName = "com.example.app",
@@ -32,12 +33,14 @@ class PushRuntimeRegistrationChannelObservationAdapterTest {
             source = "registration-result",
             reason = "ok",
             nowMs = 20L,
+            androidUserId = 0,
         )
         adapter.observeUnregistration(
             packageName = "com.example.app",
             source = "unregistration",
             reason = "user_request",
             nowMs = 30L,
+            androidUserId = 0,
         )
         adapter.observeChannelEvent("com.example.app", "opened", "channel-event")
         adapter.observeChannelState(
@@ -50,9 +53,10 @@ class PushRuntimeRegistrationChannelObservationAdapterTest {
             reasonCode = 0,
             reasonMessage = "bound",
             nowMs = 40L,
+            androidUserId = 0,
         )
 
-        val registration = AndroidPushRuntime.getRegistrationRecord("com.example.app")
+        val registration = AndroidPushRuntime.getRegistrationRecord("com.example.app", androidUserId = 0)
         val channel = AndroidPushRuntime.getChannelRecords().single()
         val snapshot = AndroidPushRuntime.snapshot()
 

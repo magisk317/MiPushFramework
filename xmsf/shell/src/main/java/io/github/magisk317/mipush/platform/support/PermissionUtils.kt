@@ -86,7 +86,7 @@ object PermissionUtils {
     fun allowPermission(
         permission: String,
         packageName: String = Constants.SERVICE_APP_NAME,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): Boolean {
         if (!hasExistingRootAccess()) return false
         val commands = listOf(
@@ -213,7 +213,10 @@ object PermissionUtils {
         if (Utils.isAppOpsInstalled()) {
             val intent = Intent(Intent.ACTION_SHOW_APP_INFO)
                 .setClassName("rikka.appops", "rikka.appops.appdetail.AppDetailActivity")
-                .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUserId())
+                .putExtra(
+                    "rikka.appops.intent.extra.USER_HANDLE",
+                    Utils.requireValidUserId(Utils.myUserId()),
+                )
                 .putExtra("rikka.appops.intent.extra.PACKAGE_NAME", Constants.SERVICE_APP_NAME)
                 .setData(Uri.parse("package:" + Constants.SERVICE_APP_NAME))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -335,57 +338,5 @@ object PermissionUtils {
 
     private fun requestRootForUserAction(): Boolean =
         hasExistingRootAccess() || requestRootAccess()
-
-    /**
-     * Sync manager launcher activity-aliases for [userIds] (desktop icon per user).
-     * PackageManager.setComponentEnabledSetting only affects the calling user; dual-space
-     * (999) needs root `pm enable/disable --user`.
-     *
-     * Note: system App Info always uses the package [android:icon] on &lt;application&gt;,
-     * which cannot be changed at runtime — only launcher/recents follow aliases.
-     */
-    @JvmStatic
-    fun syncLauncherIconAliases(
-        iconId: String,
-        userIds: Collection<Int> = listOf(USER_PRIMARY, USER_XSPACE),
-    ): Boolean {
-        if (!hasExistingRootAccess()) {
-            logI("syncLauncherIconAliases skip no-root iconId=$iconId")
-            return false
-        }
-        val selected = when (iconId) {
-            "legacy" -> "legacy"
-            else -> "default"
-        }
-        val aliases = linkedMapOf(
-            "default" to "io.github.magisk317.mipush.app.ManagerLauncherActivityDefault",
-            "legacy" to "io.github.magisk317.mipush.app.ManagerLauncherActivityLegacy",
-        )
-        val retired = "io.github.magisk317.mipush.app.ManagerLauncherActivityXmsf"
-        val pkg = Constants.MANAGER_APP_NAME
-        var any = false
-        for (user in userIds) {
-            if (user != USER_PRIMARY && !isPackageInstalledForUser(pkg, user)) {
-                logI("syncLauncherIconAliases skip missing pkg user=$user")
-                continue
-            }
-            for ((id, className) in aliases) {
-                val component = "$pkg/$className"
-                val cmd = if (id == selected) {
-                    "pm enable --user $user $component"
-                } else {
-                    "pm disable --user $user $component"
-                }
-                val result = AppRootAccessFacade.runRootCommand(cmd, timeoutMs = 5_000L)
-                logI("syncLauncherIconAliases $cmd ok=${result.isSuccess} out=${result.stdoutText.trim()}")
-                if (result.isSuccess) any = true
-            }
-            AppRootAccessFacade.runRootCommand(
-                "pm disable --user $user $pkg/$retired",
-                timeoutMs = 5_000L,
-            )
-        }
-        return any
-    }
 
 }

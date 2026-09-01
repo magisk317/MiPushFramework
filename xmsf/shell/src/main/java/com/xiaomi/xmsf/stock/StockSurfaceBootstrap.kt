@@ -103,9 +103,9 @@ object StockSurfaceBootstrap {
         }
         handler.removeCallbacks(retryRunnable)
         val accepted = runCatching {
-            // Stock XMSF 7.4.67-C dc.e keeps an explicit main-to-:services binding and forwards
-            // OnlineConfig callback 105. The older project only started the service, leaving its
-            // ISubProcBridge unused and keep-alive config stale after the initial snapshot.
+            // Stock XMSF 7.5.29-C keeps the main-to-:services ISubProcBridge route but removes
+            // MainProcBridgeService. ServiceBoxService reads OnlineConfig locally and refreshes
+            // KeepAliveRuntimeAdapter when callback 105 arrives.
             context.bindService(
                 Intent(context, ServiceBoxService::class.java),
                 serviceConnection,

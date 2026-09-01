@@ -29,6 +29,7 @@ import io.github.magisk317.mipush.receiver.BootReceiver
 import io.github.magisk317.mipush.receiver.KeepAliveReceiver
 import java.util.Objects
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 @SuppressLint("WrongConstant")
@@ -60,13 +61,27 @@ object PushControllerUtils {
     fun pushRegistered(context: Context): Boolean = !MiPushClient.getRegId(context).isNullOrEmpty()
 
     private fun getPrefs(context: Context): SharedPreferences {
-        val appContext = context.applicationContext
+        val appContext = context.applicationContext ?: context
         val prefName = appContext.packageName + "_preferences"
         return appContext.getSharedPreferences(prefName, Context.MODE_PRIVATE)
     }
 
     @JvmStatic
     fun isPrefsEnable(context: Context): Boolean = getPrefs(context).getBoolean(Constants.KEY_ENABLE_PUSH, true)
+
+    @JvmStatic
+    fun isFrameworkSelfRegistrationEnabled(context: Context): Boolean {
+        Utils.requireValidUserId(Utils.myUserId())
+        return shouldStartFrameworkSelfRegistration(
+            getPrefs(context).getBoolean(Constants.KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION, false),
+        )
+    }
+
+    @JvmStatic
+    fun setFrameworkSelfRegistrationEnabled(value: Boolean, context: Context) {
+        Utils.requireValidUserId(Utils.myUserId())
+        getPrefs(context).edit().putBoolean(Constants.KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION, value).apply()
+    }
 
     @JvmStatic
     fun setPrefsEnable(value: Boolean, context: Context) {
@@ -84,7 +99,7 @@ object PushControllerUtils {
         val startedAt = System.nanoTime()
         if (enable) {
             logD("Starting...")
-            if (isAppMainProc(context)) {
+            if (isAppMainProc(context) && isFrameworkSelfRegistrationEnabled(context)) {
                 runCatching {
                     val wrappedContext = wrapContext(context)
                     ScheduledJobManager.getInstance(wrappedContext)
@@ -92,6 +107,8 @@ object PushControllerUtils {
                 }.onFailure {
                     logE("ScheduledJobManager unavailable, skip FirstRegister scheduling", it)
                 }
+            } else if (isAppMainProc(context)) {
+                logI("framework self-registration disabled; skip FirstRegister scheduling")
             }
             try {
                 resolveClass("com.xiaomi.push.service.XMPushServiceCore")?.let { serviceClass ->
@@ -156,6 +173,8 @@ object PushControllerUtils {
     }
 
     internal fun shouldStartServiceFromPersistedPreference(pushEnabled: Boolean): Boolean = pushEnabled
+
+    internal fun shouldStartFrameworkSelfRegistration(enabled: Boolean): Boolean = enabled
 
     @SuppressLint("WrongConstant")
     private fun setBootReceiverEnable(enable: Boolean, context: Context) {

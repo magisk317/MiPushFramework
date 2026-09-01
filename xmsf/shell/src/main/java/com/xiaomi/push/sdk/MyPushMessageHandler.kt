@@ -34,7 +34,9 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
-import java.util.function.Consumer
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
@@ -107,6 +109,9 @@ class MyPushMessageHandler : Service() {
             payload.size.toLong(),
             "MyPushMessageHandler.onHandleIntent"
         )
+        if (tryDispatchWithBackgroundActivityStart(intent, container, payload)) {
+            return
+        }
         try {
             val dispatch = PushRuntime.dispatchDownstreamPayload(
                 packageName = container.packageName,
@@ -156,6 +161,57 @@ class MyPushMessageHandler : Service() {
         }
     }
 
+    private fun tryDispatchWithBackgroundActivityStart(
+        sourceIntent: Intent,
+        container: XmPushActionContainer,
+        payload: ByteArray,
+    ): Boolean {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) return false
+        if (!sourceIntent.getBooleanExtra(MIPushNotificationHelper.FROM_NOTIFICATION, false)) return false
+
+        val notificationId = sourceIntent.extras?.getInt(Constants.INTENT_NOTIFICATION_ID, 0) ?: 0
+        var dispatched = false
+        runWithAppStateElevatedToForeground(container.packageName) { elevated ->
+            if (!elevated) return@runWithAppStateElevatedToForeground
+            val pendingIntent = MyMIPushNotificationIntentSupport
+                .cloneTargetPendingIntentForBackgroundActivityStart(
+                    context = this,
+                    container = container,
+                    notificationId = notificationId,
+                ) ?: return@runWithAppStateElevatedToForeground
+            val deliveryIntent = Intent()
+                .putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+                .putExtra(com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION, true)
+            dispatched = runCatching {
+                pendingIntent.send(this, 0, deliveryIntent)
+                true
+            }.onFailure {
+                logW("background activity start PendingIntent failed", it)
+            }.getOrDefault(false)
+        }
+        if (!dispatched) return false
+
+        val extras = sourceIntent.extras ?: Bundle()
+        val resolvedNotificationId = extras.getInt(Constants.INTENT_NOTIFICATION_ID, 0)
+        val notificationGroup = extras.getString(Constants.INTENT_NOTIFICATION_GROUP)
+        if (resolvedNotificationId != 0 || !notificationGroup.isNullOrBlank()) {
+            PushRuntime.cancelNotificationForPayload(
+                packageName = container.packageName,
+                payload = payload,
+                notificationId = resolvedNotificationId,
+                notificationGroup = notificationGroup,
+                source = "MyPushMessageHandler.backgroundActivityStart",
+            )
+        }
+        emitMessageHandler(
+            result = "ok",
+            reason = "background_activity_start",
+            targetPackage = container.packageName,
+            payloadSize = payload.size,
+        )
+        return true
+    }
+
     private fun emitMessageHandler(
         result: String,
         reason: String,
@@ -189,35 +245,58 @@ class MyPushMessageHandler : Service() {
         scope.cancel()
     }
 
-    private fun runWithAppStateElevatedToForeground(pkg: String, task: Consumer<Boolean>) {
+    private fun runWithAppStateElevatedToForeground(
+        pkg: String,
+        task: (Boolean) -> Unit,
+    ) {
         val intent = Intent().setClassName(pkg, MyMIPushNotificationHelper.CLASS_NAME_PUSH_MESSAGE_HANDLER)
         val appContext = applicationContext
-        val successful = appContext.bindService(
-            intent,
-            object : ServiceConnection {
-                private fun runTaskAndUnbind() {
-                    task.accept(true)
-                    appContext.unbindService(this)
-                }
+        val completed = AtomicBoolean(false)
+        val completion = CountDownLatch(1)
+        lateinit var connection: ServiceConnection
 
-                override fun onNullBinding(name: ComponentName) {
-                    runTaskAndUnbind()
-                }
+        fun finish(elevated: Boolean) {
+            if (!completed.compareAndSet(false, true)) return
+            try {
+                task(elevated)
+            } finally {
+                runCatching { appContext.unbindService(connection) }
+                completion.countDown()
+            }
+        }
 
-                override fun onServiceConnected(name: ComponentName, service: IBinder) {
-                    runTaskAndUnbind()
-                }
+        connection = object : ServiceConnection {
+            override fun onNullBinding(name: ComponentName) {
+                finish(true)
+            }
 
-                override fun onServiceDisconnected(name: ComponentName) {}
-            },
-            BIND_AUTO_CREATE or BIND_IMPORTANT or BIND_ABOVE_CLIENT
-        )
+            override fun onServiceConnected(name: ComponentName, service: IBinder) {
+                finish(true)
+            }
+
+            override fun onServiceDisconnected(name: ComponentName) = Unit
+        }
+
+        val successful = runCatching {
+            appContext.bindService(
+                intent,
+                connection,
+                BIND_AUTO_CREATE or BIND_IMPORTANT or BIND_ABOVE_CLIENT,
+            )
+        }.getOrDefault(false)
         if (!successful) {
-            task.accept(false)
+            finish(false)
+            return
+        }
+        if (!completion.await(APP_STATE_ELEVATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            logW("timed out elevating target app $pkg")
+            finish(false)
         }
     }
 
     companion object {
+        private const val APP_STATE_ELEVATION_TIMEOUT_MS = 5_000L
+
 
         private fun getProcessor(context: Context): PushMessageProcessor {
             return AppDependencies.get<PushMessageProcessor>(context.applicationContext)

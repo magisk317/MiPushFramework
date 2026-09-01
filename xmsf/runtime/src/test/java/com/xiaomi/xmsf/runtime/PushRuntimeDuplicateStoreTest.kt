@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class PushRuntimeDuplicateStoreTest {
 
@@ -40,5 +41,12 @@ class PushRuntimeDuplicateStoreTest {
     fun `storage keys isolate cloned users while preserving primary key`() {
         assertEquals("com.example.app", PushRuntimeDuplicateStore.storageKey("com.example.app", 0))
         assertEquals("999:com.example.app", PushRuntimeDuplicateStore.storageKey("com.example.app", 999))
+    }
+
+    @Test
+    fun `storage key rejects invalid user ids instead of falling back to primary`() {
+        assertThrows<IllegalArgumentException> {
+            PushRuntimeDuplicateStore.storageKey("com.example.app", -1)
+        }
     }
 }

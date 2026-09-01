@@ -131,31 +131,16 @@ object PushServiceIntentRuntime {
         client: PushClientsManager.ClientLoginInfo?,
         connectionReadable: Boolean
     ): PushServiceResetConnectionPlan {
-        return when {
-            channelId.isNullOrBlank() -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Ignore,
-                reason = "missing_channel"
-            )
-            client == null -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Ignore,
-                reason = "missing_client"
-            )
-            client.security != requestedSecurity -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Ignore,
-                reason = "security_mismatch"
-            )
-            client.status != PushClientsManager.ClientStatus.binded -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Ignore,
-                reason = "client_not_bound"
-            )
-            connectionReadable -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Ignore,
-                reason = "connection_alive"
-            )
-            else -> PushServiceResetConnectionPlan(
-                action = PushServiceResetConnectionAction.Reset,
-                reason = "stale_connection"
-            )
-        }
+        val corePlan = io.github.magisk317.mipush.runtime.core.PushServiceResetConnectionPlanFactory.planReset(
+            hasChannelId = !channelId.isNullOrBlank(),
+            hasClient = client != null,
+            securityMatches = client?.security == requestedSecurity,
+            isClientBound = client?.status == PushClientsManager.ClientStatus.binded,
+            connectionReadable = connectionReadable,
+        )
+        return PushServiceResetConnectionPlan(
+            action = PushServiceResetConnectionAction.valueOf(corePlan.action.name),
+            reason = corePlan.reason,
+        )
     }
 }

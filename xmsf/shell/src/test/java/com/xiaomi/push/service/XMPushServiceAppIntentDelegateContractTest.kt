@@ -7,6 +7,14 @@ import java.io.File
 
 class XMPushServiceAppIntentDelegateContractTest {
     @Test
+    fun `raw packet account id keeps stock string parsing and primary fallback`() {
+        val source = resolveSource("XMPushServicePacketDelegate.kt").readText()
+
+        assertTrue(source.contains("intent.getStringExtra(PushConstants.EXTRA_USER_ID)?.toLongOrNull() ?: 0L"))
+        assertFalse(source.contains("getLongExtra(PushConstants.EXTRA_USER_ID"))
+    }
+
+    @Test
     fun `application requests do not write final registration state`() {
         val source = resolveSource("XMPushServiceAppIntentDelegate.kt").readText()
         val packetSource = resolveSource("XMPushServicePacketDelegate.kt").readText()

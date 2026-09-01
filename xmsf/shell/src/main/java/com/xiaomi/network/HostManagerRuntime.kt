@@ -15,16 +15,16 @@ data class HostRequestUrlsPlan(
 )
 
 object HostManagerRuntime {
-    private const val FAILURE_BACKOFF_WINDOW_MS = 60_000L
-
     @JvmStatic
     fun planRefreshTargets(
         allHosts: List<String>,
         hostsWithFallback: Set<String>
     ): HostRefreshTargetsPlan {
-        return HostRefreshTargetsPlan(
-            targetHosts = allHosts.filterNot { hostsWithFallback.contains(it) }
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.planRefreshTargets(
+            allHosts = allHosts,
+            hostsWithFallback = hostsWithFallback,
         )
+        return HostRefreshTargetsPlan(plan.targetHosts)
     }
 
     @JvmStatic
@@ -33,18 +33,15 @@ object HostManagerRuntime {
         lastRequestTimestampMs: Long,
         failureCount: Long
     ): HostRequestThrottlePlan {
-        val throttleWindowMs = failureCount * FAILURE_BACKOFF_WINDOW_MS
-        if (nowMs - lastRequestTimestampMs <= throttleWindowMs) {
-            return HostRequestThrottlePlan(
-                shouldRequest = false,
-                nextTimestampMs = lastRequestTimestampMs,
-                eventAction = "gslb_request_throttled"
-            )
-        }
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.planRemoteFallbackRequest(
+            nowMs = nowMs,
+            lastRequestTimestampMs = lastRequestTimestampMs,
+            failureCount = failureCount,
+        )
         return HostRequestThrottlePlan(
-            shouldRequest = true,
-            nextTimestampMs = nowMs,
-            eventAction = "gslb_request_allowed"
+            shouldRequest = plan.shouldRequest,
+            nextTimestampMs = plan.nextTimestampMs,
+            eventAction = plan.eventAction,
         )
     }
 
@@ -54,10 +51,11 @@ object HostManagerRuntime {
         localFallbackUrls: List<String>?,
         reservedHosts: List<String>
     ): HostRequestUrlsPlan {
-        val urls = localFallbackUrls?.takeIf { it.isNotEmpty() } ?: buildList {
-            add(defaultUrl)
-            reservedHosts.forEach { add(defaultUrl.replaceFirst("resolver.msg.xiaomi.net", it)) }
-        }
-        return HostRequestUrlsPlan(urls = urls.distinct())
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.planRequestUrls(
+            defaultUrl = defaultUrl,
+            localFallbackUrls = localFallbackUrls,
+            reservedHosts = reservedHosts,
+        )
+        return HostRequestUrlsPlan(plan.urls)
     }
 }

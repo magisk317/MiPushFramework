@@ -49,7 +49,8 @@ object NotificationIdentityBridge {
 
     private fun callingUserId(context: Context): Int = runCatching {
         Context::class.java.getMethod("getUserId").invoke(appContext(context)) as? Int
-    }.getOrNull() ?: 0
+    }.getOrNull()?.takeIf { it >= 0 }
+        ?: throw IllegalStateException("Invalid calling user id")
 
     private fun service(): Any? = runCatching {
         NotificationManager::class.java.getMethod("getService").invoke(null)

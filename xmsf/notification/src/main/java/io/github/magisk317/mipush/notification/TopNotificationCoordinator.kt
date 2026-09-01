@@ -91,7 +91,7 @@ object TopNotificationCoordinator {
         notificationId: Int,
         messageId: String?,
         notification: Notification,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): Boolean = postNotificationDetailed(
         context = context,
         packageName = packageName,
@@ -109,7 +109,7 @@ object TopNotificationCoordinator {
         notificationId: Int,
         messageId: String?,
         notification: Notification,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): NotificationPostResult {
         val slot = NotificationSlot(packageName, tag, notificationId, userId)
         val postedMessageId = resolveLifecycleMessageId(
@@ -209,7 +209,7 @@ object TopNotificationCoordinator {
         packageName: String,
         tag: String?,
         notificationId: Int,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         val slot = NotificationSlot(packageName, tag, notificationId, userId)
         val jobId = synchronized(stateLock) { removeSlotLocked(slot) }
@@ -310,7 +310,7 @@ object TopNotificationCoordinator {
     fun clearPackageState(
         context: Context,
         packageName: String,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         val jobIds = synchronized(stateLock) {
             activeJobs.entries
@@ -325,7 +325,7 @@ object TopNotificationCoordinator {
     internal fun jobId(
         notificationId: Int,
         messageId: String,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): String {
         val userPrefix = if (userId == 0) "" else "${userId}_"
         return ScheduledJobConstants.TOP_NOTIFICATION_UPDATE_JOB_ID + userPrefix + notificationId + "_" + messageId

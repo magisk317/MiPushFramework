@@ -23,6 +23,10 @@ import com.xiaomi.channel.commonutils.reflect.JavaCalls
 open class BuilderCompat(private val mContext: Context) {
     private val builder: Notification.Builder = createBuilder(mContext)
 
+    private fun callOptionalBuilderMethod(name: String, vararg args: Any?) {
+        runCatching { JavaCalls.callMethodOrThrow(builder, name, *args) }
+    }
+
     fun addExtras(bundle: Bundle): BuilderCompat {
         if (Build.VERSION.SDK_INT >= 20) {
             builder.addExtras(bundle)
@@ -31,7 +35,7 @@ open class BuilderCompat(private val mContext: Context) {
     }
 
     open fun addAction(i: Int, charSequence: CharSequence?, pendingIntent: PendingIntent?): BuilderCompat {
-        JavaCalls.callMethod(builder, "addAction", i, charSequence, pendingIntent)
+        callOptionalBuilderMethod( "addAction", i, charSequence, pendingIntent)
         return this
     }
 
@@ -66,7 +70,7 @@ open class BuilderCompat(private val mContext: Context) {
         if (Build.VERSION.SDK_INT >= 24) {
             builder.setCustomContentView(remoteViews)
         } else {
-            JavaCalls.callMethod(builder, "setContent", remoteViews)
+            callOptionalBuilderMethod( "setContent", remoteViews)
         }
         return this
     }
@@ -99,7 +103,7 @@ open class BuilderCompat(private val mContext: Context) {
     }
 
     fun setDefaults(i: Int): BuilderCompat {
-        JavaCalls.callMethod(builder, "setDefaults", i)
+        callOptionalBuilderMethod( "setDefaults", i)
         return this
     }
 
@@ -126,7 +130,7 @@ open class BuilderCompat(private val mContext: Context) {
     }
 
     fun setPriority(i: Int): BuilderCompat {
-        JavaCalls.callMethod(builder, "setPriority", i)
+        callOptionalBuilderMethod( "setPriority", i)
         return this
     }
 
@@ -148,7 +152,7 @@ open class BuilderCompat(private val mContext: Context) {
     }
 
     fun setSound(uri: Uri?): BuilderCompat {
-        JavaCalls.callMethod(builder, "setSound", uri)
+        callOptionalBuilderMethod( "setSound", uri)
         return this
     }
 

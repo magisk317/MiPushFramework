@@ -110,7 +110,12 @@ class PkgUninstallReceiver : BroadcastReceiver() {
 
     private fun resolveUserId(intent: Intent): Int {
         val uid = intent.getIntExtra(Intent.EXTRA_UID, -1)
-        return if (uid >= 0) (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
-        else io.github.magisk317.mipush.common.utils.Utils.myUserId().coerceAtLeast(0)
+        return if (uid >= 0) {
+            (uid.toLong() / 100_000L).toInt()
+        } else {
+            io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+                io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+            )
+        }
     }
 }

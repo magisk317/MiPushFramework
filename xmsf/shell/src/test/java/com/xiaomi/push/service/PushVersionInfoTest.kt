@@ -10,8 +10,8 @@ class PushVersionInfoTest {
     fun `stock baseline constants match pulled xmsf baseline`() {
         assertEquals("7.4.67-C", PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME)
         assertEquals(70004067, PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE)
-        assertEquals("7_8_2-C", PushVersionInfo.PUSH_SDK_VERSION_NAME)
-        assertEquals(70082, PushVersionInfo.PUSH_SDK_VERSION_CODE)
+        assertEquals("7_12_4-C", PushVersionInfo.PUSH_SDK_VERSION_NAME)
+        assertEquals(70124, PushVersionInfo.PUSH_SDK_VERSION_CODE)
     }
 
     @Test
@@ -50,10 +50,10 @@ class PushVersionInfoTest {
 
         assertEquals(
             linkedMapOf(
-                "push_sdk_vn" to "7_8_2-C",
-                "push_sdk_vc" to "70082",
-                "cpvn" to "7_8_2-C",
-                "cpvc" to "70082",
+                "push_sdk_vn" to "7_12_4-C",
+                "push_sdk_vc" to "70124",
+                "cpvn" to "7_12_4-C",
+                "cpvc" to "70124",
             ),
             extras,
         )
@@ -68,8 +68,8 @@ class PushVersionInfoTest {
         )
 
         assertEquals("41", clientExtra["sdk_ver"])
-        assertEquals("7_8_2-C", clientExtra["cpvn"])
-        assertEquals("70082", clientExtra["cpvc"])
+        assertEquals("7_12_4-C", clientExtra["cpvn"])
+        assertEquals("70124", clientExtra["cpvc"])
         assertEquals("com.example.app", clientExtra["aapn"])
         assertEquals("CN", clientExtra["country_code"])
         assertEquals("CN", clientExtra["region"])
@@ -86,7 +86,7 @@ class PushVersionInfoTest {
         )
 
         assertEquals("70004067", params["appversion"])
-        assertEquals("70082", params["sdkversion"])
+        assertEquals("70124", params["sdkversion"])
         assertEquals("com.example.app", params["packagename"])
         assertTrue(params.containsKey("sdkversion"))
     }

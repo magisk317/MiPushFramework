@@ -6,7 +6,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplication
 /** A persisted row copied into a read-only value object. */
 data class StoredApplicationSnapshot(
     val id: Long?,
-    val userId: Int = 0,
+    val userId: Int,
     val packageName: String,
     val type: Int,
     val notificationOnRegister: Boolean,
@@ -35,7 +35,7 @@ data class RegistrationEventSnapshot(
 )
 
 interface ManagerApplicationReadSource {
-    suspend fun currentUserId(): Int = 0
+    suspend fun currentUserId(): Int
 
     suspend fun readStoredApplications(): List<StoredApplicationSnapshot>
 
@@ -66,7 +66,7 @@ data class ManagerApplicationReadQuery(
     val includeSystemApps: Boolean = false,
     val pageSize: Int = DEFAULT_PAGE_SIZE,
     val pageToken: String? = null,
-    val userId: Int = 0,
+    val userId: Int,
 ) {
     companion object {
         const val FILTER_ALL = 0
@@ -131,13 +131,13 @@ fun StoredApplicationSnapshot.toManagerApplication(
 fun InstalledApplicationSnapshot.toTransientManagerApplication(
     locallyRegistered: Boolean,
     lastReceiveTimeMs: Long,
-    userId: Int = 0,
+    userId: Int,
     notificationOnRegister: Boolean = true,
     deriveAppNamePinYin: Boolean = true,
 ): ManagerApplication {
     val displayName = appName.take(MAX_APPLICATION_LABEL_LENGTH)
     return ManagerApplication(
-        userId = userId.coerceAtLeast(0),
+        userId = requireValidManagerApplicationUserId(userId),
         packageName = packageName,
         notificationOnRegister = notificationOnRegister,
         registeredType = if (locallyRegistered) {
@@ -165,5 +165,10 @@ fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplica
         registeredType = registeredType,
         appName = appName,
     )
+
+private fun requireValidManagerApplicationUserId(userId: Int): Int {
+    require(userId >= 0) { "Invalid Android user id: $userId" }
+    return userId
+}
 
 private const val MAX_APPLICATION_LABEL_LENGTH = 4_096

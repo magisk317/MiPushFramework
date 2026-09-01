@@ -319,8 +319,10 @@ class Property11KeepAliveGateConjunctionTest {
     fun `low battery without charging blocks bind`(
         @ForAll("environments") baseEnvConfig: EnvironmentConfig,
     ) {
-        // Set battery threshold above current level, ensure not charging
-        val batteryThreshold = (baseEnvConfig.batteryPercent + 5f).toInt().coerceIn(1, 100)
+        // Keep the generated case strictly below the integer threshold. Values near 100%
+        // cannot be made lower than a threshold capped at 100 without normalizing the fixture.
+        val batteryPercent = baseEnvConfig.batteryPercent.coerceAtMost(94f)
+        val batteryThreshold = (batteryPercent + 5f).toInt().coerceIn(1, 100)
         val strategyConfig = StrategyConfig(
             memoryStandardMb = 0,
             memoryUsageRate = 0,
@@ -334,6 +336,7 @@ class Property11KeepAliveGateConjunctionTest {
             isMonkey = false,
             chargingOrFull = false,
             powerSaveMode = false,
+            batteryPercent = batteryPercent,
         )
         val strategy = buildStrategy(strategyConfig)
         val environment = buildEnvironment(envConfig)

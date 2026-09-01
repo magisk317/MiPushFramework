@@ -1,13 +1,11 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
 import android.content.Context
-import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
-import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.utils.RegSecUtils
 
@@ -21,7 +19,6 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 class ManagerEventRuntimeReader(
     private val context: Context,
     private val eventRepository: EventRepository,
-    private val configCenter: ConfigCenter,
     private val maxPageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     private val maxPayloadBytes: Int = ManagerProtocol.MAX_EVENT_PAYLOAD_BYTES,
     private val maxPageWireBytes: Int = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
@@ -29,27 +26,16 @@ class ManagerEventRuntimeReader(
     constructor(context: Context) : this(
         context = context,
         eventRepository = AppDependencies.get(context),
-        configCenter = AppDependencies.get(context),
     )
 
     suspend fun readPage(query: ManagerEventReadQuery): ManagerEventReadPage {
+        require(query.userId >= 0) { "Invalid event query user id: ${query.userId}" }
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
-        val types: Set<Int>? = if (!configCenter.isShowAllEventsAsync()) {
-            setOf(
-                EventRowType.SendMessage,
-                EventRowType.Registration,
-                EventRowType.RegistrationResult,
-                EventRowType.UnRegistration,
-            )
-        } else {
-            null
-        }
-        val events = io.github.magisk317.mipush.runtime.store.db.EventDb.queryByIdAsync(
+        val events = eventRepository.getEventsById(
             lastId = query.lastId,
             size = pageSize,
-            types = types,
-            pkg = query.packageName.ifBlank { null },
-            text = query.query.ifBlank { null },
+            packetName = query.packageName.ifBlank { "" },
+            query = query.query.ifBlank { "" },
             userId = query.userId,
         )
         return ManagerEventReadPage(items = takeBoundedSummaries(events))

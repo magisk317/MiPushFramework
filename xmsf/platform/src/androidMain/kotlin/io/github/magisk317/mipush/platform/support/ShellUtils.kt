@@ -72,7 +72,7 @@ object ShellUtils {
     }
 
     private fun isEmpty(s: String?): Boolean {
-        return s == null || s.trim { it <= ' ' }.isEmpty()
+        return s == null || s.trim().isEmpty()
     }
 
 }

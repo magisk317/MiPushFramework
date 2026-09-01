@@ -47,6 +47,10 @@ abstract class PushMessageReceiver : BroadcastReceiver() {
     open fun onReceivePassThroughMessage(context: Context, miPushMessage: MiPushMessage) {
     }
 
+    /** 7.12.4-C: pass-through VoIP/call payloads use notification_style_type=6. */
+    open fun onCallMessage(callMessage: CallMessage) {
+    }
+
     open fun onReceiveRegisterResult(context: Context, miPushCommandMessage: MiPushCommandMessage) {
     }
 

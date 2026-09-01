@@ -4,6 +4,8 @@ import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.magisk317.mipush.manager.application.MockReplayOutcome
+import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import java.io.File
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -28,6 +30,16 @@ class MyMIPushNotificationHelperTest {
         assertFalse(source.contains("isTargetRunningForMessageArrived"))
         assertTrue(source.contains("PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED"))
         assertTrue(source.contains("queryBroadcastReceivers(intent, 0)"))
+    }
+
+    @Test
+    fun `policy-suppressed publish is treated as handled replay`() {
+        assertEquals(
+            MockReplayOutcome.Dispatched,
+            MyMIPushNotificationHelper.mapPublishResult(
+                NotificationController.PublishResult.SuppressedByPolicy,
+            ),
+        )
     }
 
     @Test

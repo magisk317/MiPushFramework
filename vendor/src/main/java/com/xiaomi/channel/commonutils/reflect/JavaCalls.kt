@@ -6,6 +6,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.util.HashSet
 
 object JavaCalls {
     private const val LOG_TAG = "JavaCalls"
@@ -126,17 +127,34 @@ object JavaCalls {
     }
 
     @Throws(NoSuchMethodException::class, SecurityException::class)
-    private fun getDeclaredMethod(cls: Class<*>, name: String, vararg paramTypes: Class<*>?): Method {
-        val method = findMethodByName(cls.declaredMethods, name, paramTypes)
-        if (method != null) {
+    private fun getDeclaredMethod(
+        cls: Class<*>,
+        name: String,
+        vararg paramTypes: Class<*>?,
+    ): Method = getDeclaredMethod(cls, name, paramTypes, HashSet())
+
+    private fun getDeclaredMethod(
+        cls: Class<*>,
+        name: String,
+        paramTypes: Array<out Class<*>?>,
+        visited: MutableSet<Class<*>>,
+    ): Method {
+        if (!visited.add(cls)) {
+            throw NoSuchMethodException("Method $name is not declared by ${cls.name}")
+        }
+        findMethodByName(cls.declaredMethods, name, paramTypes)?.let { method ->
             method.isAccessible = true
             return method
         }
-        val superCls = cls.superclass
-        if (superCls != null) {
-            return getDeclaredMethod(superCls, name, *paramTypes)
+        cls.interfaces.forEach { interfaceClass ->
+            runCatching {
+                return getDeclaredMethod(interfaceClass, name, paramTypes, visited)
+            }
         }
-        throw NoSuchMethodException()
+        cls.superclass?.let { superClass ->
+            return getDeclaredMethod(superClass, name, paramTypes, visited)
+        }
+        throw NoSuchMethodException("Method $name is not declared by ${cls.name}")
     }
 
     private fun getDefaultValue(cls: Class<*>): Any? {

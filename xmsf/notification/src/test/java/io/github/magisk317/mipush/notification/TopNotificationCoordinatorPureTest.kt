@@ -79,7 +79,7 @@ class TopNotificationCoordinatorPureTest {
 
     @Test
     fun `job id matches stock m2 contract`() {
-        assertEquals("n_top_update_42_message", TopNotificationCoordinator.jobId(42, "message"))
+        assertEquals("n_top_update_42_message", TopNotificationCoordinator.jobId(42, "message", userId = 0))
         assertEquals("n_top_update_999_42_message", TopNotificationCoordinator.jobId(42, "message", 999))
     }
 

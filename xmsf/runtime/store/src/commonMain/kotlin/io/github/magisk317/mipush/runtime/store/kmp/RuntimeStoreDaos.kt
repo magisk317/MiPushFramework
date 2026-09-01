@@ -14,7 +14,7 @@ import androidx.room.RoomRawQuery
 // Data classes used by aggregate queries
 // ───────────────────────────────────────────────────────────────────────────────
 
-/** Package-level last receive timestamp (type = 10 / Command). */
+/** Package-level last receive timestamp for push messages (type = SendMessage). */
 data class PackageLastTime(
     val pkg: String,
     val date: Long,
@@ -150,7 +150,7 @@ interface RuntimeEventDao {
     )
     suspend fun queryRegisteredStatus(userId: Int): List<RuntimeEventRow>
 
-    @Query("SELECT pkg, MAX(date) as date FROM EVENT WHERE user_id = :userId AND type = 10 GROUP BY pkg")
+    @Query("SELECT pkg, MAX(date) as date FROM EVENT WHERE user_id = :userId AND type = 0 GROUP BY pkg")
     suspend fun getAllLastReceiveTimes(userId: Int): List<PackageLastTime>
 
     // -- deleted event management (undo snapshot) -----------------------------

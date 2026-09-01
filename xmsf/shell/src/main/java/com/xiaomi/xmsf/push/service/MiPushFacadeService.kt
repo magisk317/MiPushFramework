@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
+import io.github.magisk317.mipush.service.ForegroundHelper
 import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.push.service.PushConstants
@@ -103,13 +104,23 @@ open class MiPushFacadeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isExternalIngress) {
+            ForegroundHelper(this).satisfyForegroundStartContract()
+        }
         PushHealthSnapshotLogger.log(
             this,
             "XMPushService.onStartCommand",
             "action=${intent?.action ?: "null"}"
         )
         intent?.let(::submitStartIntent)
-        return if (isExternalIngress) START_NOT_STICKY else START_STICKY
+        if (isExternalIngress) {
+            // System clients may invoke this compatibility facade with startForegroundService.
+            // It only dispatches to XMPushServiceCore, so clear its started state before Android's
+            // foreground-service deadline; bound Messenger clients remain bound independently.
+            stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? {

@@ -19,7 +19,8 @@ class PushRuntimeEvictionTest {
             AndroidPushRuntime.observeRegistrationResult(
                 packageName = "com.example.pkg$i",
                 success = true,
-                source = "test"
+                source = "test",
+                androidUserId = 0,
             )
         }
 
@@ -31,13 +32,13 @@ class PushRuntimeEvictionTest {
 
         // Oldest packages should have been evicted
         assertNull(
-            AndroidPushRuntime.getRegistrationRecord("com.example.pkg1"),
+            AndroidPushRuntime.getRegistrationRecord("com.example.pkg1", androidUserId = 0),
             "Oldest registration record should have been evicted"
         )
 
         // Most recent packages should still be present
         assertNotNull(
-            AndroidPushRuntime.getRegistrationRecord("com.example.pkg$count"),
+            AndroidPushRuntime.getRegistrationRecord("com.example.pkg$count", androidUserId = 0),
             "Most recent registration record should still be present"
         )
     }
@@ -55,7 +56,8 @@ class PushRuntimeEvictionTest {
                 userId = "user$i",
                 session = "s$i",
                 state = PushChannelState.Bound,
-                source = "test"
+                source = "test",
+                androidUserId = 0,
             )
         }
 
@@ -82,20 +84,21 @@ class PushRuntimeEvictionTest {
             AndroidPushRuntime.observeRegistrationResult(
                 packageName = "com.example.pkg$i",
                 success = true,
-                source = "test"
+                source = "test",
+                androidUserId = 0,
             )
         }
 
         // Packages 9..520 should survive (512 entries), packages 1..8 evicted
         for (i in 9..520) {
             assertNotNull(
-                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i"),
+                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i", androidUserId = 0),
                 "Package com.example.pkg$i should still be present"
             )
         }
         for (i in 1..8) {
             assertNull(
-                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i"),
+                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i", androidUserId = 0),
                 "Package com.example.pkg$i should have been evicted"
             )
         }

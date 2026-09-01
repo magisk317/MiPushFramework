@@ -79,7 +79,7 @@ class ConfigCenter constructor(
             )
             PushServiceStarter.start(appContext, intent)
         }
-        return configLoaded && iconLoaded
+        return directory == null || configLoaded && iconLoaded
     }
 
     private fun persistDirectoryPermission(treeUri: Uri) {

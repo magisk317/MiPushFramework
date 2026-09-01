@@ -27,6 +27,11 @@ object AppInfoUtils {
     private const val ANDROID_PERMISSION_PREF = "android.permission."
     private const val LEGACY_SECURITY_SERVICE = "security"
     private const val REQUESTED_PERMISSION_FLAGS = 4096
+    // AppOpsManager hides OP_POST_NOTIFICATION from the public Kotlin API surface.
+    // These values are the stable framework app-op contract and avoid reflective lookup.
+    private const val OP_POST_NOTIFICATION = 11
+    private const val MODE_ALLOWED = 0
+    private const val MODE_IGNORED = 1
     const val PATTERN = 100000
     const val SEPARATE_ITEM = "#"
     private const val TAG = "AppInfoUtils."
@@ -92,7 +97,7 @@ object AppInfoUtils {
                 (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
             } else {
                 val service = if (sdkInt >= 29) {
-                    JavaCalls.callMethod(context.getSystemService(Context.NOTIFICATION_SERVICE), "getService")
+                    JavaCalls.callMethodOrThrow(context.getSystemService(Context.NOTIFICATION_SERVICE), "getService")
                 } else {
                     context.getSystemService(LEGACY_SECURITY_SERVICE)
                 }
@@ -236,9 +241,7 @@ object AppInfoUtils {
         if (applicationInfo == null) {
             return AppNotificationOp.UNKNOWN
         }
-        val postNotificationOp =
-            coerceInteger(JavaCalls.getStaticField(AppOpsManager::class.java, "OP_POST_NOTIFICATION"))
-                ?: return AppNotificationOp.UNKNOWN
+        val postNotificationOp = OP_POST_NOTIFICATION
         val mode = coerceInteger(
             invokeCheckOpNoThrow(
                 context.getSystemService(Context.APP_OPS_SERVICE),
@@ -247,12 +250,8 @@ object AppInfoUtils {
                 str,
             )
         )
-        val modeAllowed = coerceInteger(
-            JavaCalls.getStaticField(AppOpsManager::class.java, "MODE_ALLOWED")
-        ) ?: 0
-        val modeIgnored = coerceInteger(
-            JavaCalls.getStaticField(AppOpsManager::class.java, "MODE_IGNORED")
-        ) ?: 1
+        val modeAllowed = MODE_ALLOWED
+        val modeIgnored = MODE_IGNORED
         MyLog.i(String.format("get app mode %s|%s|%s", mode, modeAllowed, modeIgnored))
         if (mode != null) {
             return if (z) {

@@ -126,6 +126,13 @@ internal object MiPushRuntimePolicyExecutionAdapter {
     fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan =
         PushSlimStreamRuntime.planHandshake(hasChallenge, hasConfigMessage)
 
+    fun planSlimPayloadDispatch(
+        payloadType: Int,
+        cmd: String?,
+        channelId: Int,
+        subcmd: String?,
+    ): PushSlimPayloadPlan = PushSlimStreamRuntime.planPayloadDispatch(payloadType, cmd, channelId, subcmd)
+
     fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan =
         PushSlimConnectionRuntime.planInboundBlob(channelId, cmd)
 
@@ -230,13 +237,8 @@ internal object MiPushRuntimePolicyExecutionAdapter {
     }
 
     fun resolveClientChangePlan(activeClientCount: Int, shouldUpdateAlarm: Boolean): PushClientChangePlan =
-        PushClientChangePlan(
+        com.xiaomi.push.service.PushConnectionPlanFactory.planClientChange(
+            activeClientCount = activeClientCount,
             shouldUpdateAlarm = shouldUpdateAlarm,
-            shouldDisconnect = false,
-            eventAction = if (activeClientCount <= 0) {
-                "client_change_keep_alive"
-            } else {
-                "client_change_update_alarm"
-            },
         )
 }

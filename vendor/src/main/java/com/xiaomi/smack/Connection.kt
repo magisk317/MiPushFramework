@@ -239,39 +239,38 @@ abstract class Connection(
             }
         }
 
-        when (status) {
-            ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> {
-                mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
-                if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
-                    Logger.w { "try set connected while not connecting." }
-                }
+        val statusPlan = io.github.magisk317.mipush.runtime.core.PushConnectionStatusPlanFactory.planStatusChange(
+            currentStatus = previousStatus,
+            newStatus = status,
+        )
+        statusPlan.warningMessage?.let { message -> Logger.w { message } }
+        if (statusPlan.shouldRemoveConnectingTimeout) {
+            mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
+        }
+        when (statusPlan.listenerEvent) {
+            io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionSuccessful -> {
                 connectStatus = status
                 connectionListeners.forEach { it.reconnectionSuccessful(this) }
             }
-
-            ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> {
-                if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_DISCONNECT) {
-                    Logger.w { "try set connecting while not disconnected." }
-                }
+            io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionStarted -> {
                 connectStatus = status
                 connectionListeners.forEach { it.connectionStarted(this) }
             }
-
-            ConnectionConfiguration.CONNECT_STATUS_DISCONNECT -> {
-                mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
-                when (previousStatus) {
-                    ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> {
-                        val failure = error
-                            ?: CancellationException("disconnect while connecting")
-                        connectionListeners.forEach { it.reconnectionFailed(this, failure) }
-                    }
-
-                    ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> {
-                        connectionListeners.forEach { it.connectionClosed(this, reason, error) }
-                    }
-                }
+            io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionFailed -> {
+                val failure = error ?: CancellationException("disconnect while connecting")
+                connectionListeners.forEach { it.reconnectionFailed(this, failure) }
                 connectStatus = status
             }
+            io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionClosed -> {
+                connectionListeners.forEach { it.connectionClosed(this, reason, error) }
+                connectStatus = status
+            }
+            io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.None -> {
+                if (status == ConnectionConfiguration.CONNECT_STATUS_DISCONNECT) {
+                    connectStatus = status
+                }
+            }
+            else -> Unit
         }
 
         errorCode = reason

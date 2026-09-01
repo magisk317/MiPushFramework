@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.runtime
 
 import android.content.Intent
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 
 object PushRuntime {
@@ -37,8 +38,17 @@ object PushRuntime {
         AndroidPushRuntime.requestFrameworkRegistration(source, reason)
 
     @JvmStatic
-    fun requestApplicationRegistration(packageName: String, source: String, reason: String? = null): Boolean =
-        AndroidPushRuntime.requestApplicationRegistration(packageName, source, reason)
+    fun requestApplicationRegistration(
+        packageName: String,
+        source: String,
+        reason: String? = null,
+        androidUserId: Int = currentUserId(),
+    ): Boolean = AndroidPushRuntime.requestApplicationRegistration(
+        packageName = packageName,
+        source = source,
+        reason = reason,
+        androidUserId = androidUserId,
+    )
 
     @JvmStatic
     fun handleBootCompleted(source: String): PushRuntimeRegistrationDispatchResult =
@@ -81,7 +91,10 @@ object PushRuntime {
         messageId: String?,
         payload: ByteArray,
         source: String,
-        launchApp: Boolean
+        launchApp: Boolean,
+        androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+            io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        ),
     ): PushRuntimeApplicationDispatchResult =
         AndroidPushRuntime.dispatchDownstreamPayload(
             packageName,
@@ -89,7 +102,8 @@ object PushRuntime {
             messageId,
             payload,
             source,
-            launchApp
+            launchApp,
+            androidUserId,
         )
 
     @JvmStatic
@@ -113,9 +127,12 @@ object PushRuntime {
         packageName: String,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+            io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        )
     ): PushRegistrationRecord =
-        AndroidPushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs)
+        AndroidPushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs, androidUserId)
 
     @JvmStatic
     fun observeRegistrationResult(
@@ -123,18 +140,24 @@ object PushRuntime {
         success: Boolean,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+            io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        )
     ): PushRegistrationRecord =
-        AndroidPushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
+        AndroidPushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs, androidUserId)
 
     @JvmStatic
     fun observeUnregistration(
         packageName: String,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+            io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        )
     ): PushRegistrationRecord =
-        AndroidPushRuntime.observeUnregistration(packageName, source, reason, nowMs)
+        AndroidPushRuntime.observeUnregistration(packageName, source, reason, nowMs, androidUserId)
 
     @JvmStatic
     fun observeRegistrationState(
@@ -142,13 +165,18 @@ object PushRuntime {
         state: PushRegistrationState,
         source: String,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+            io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+        )
     ): PushRegistrationRecord =
-        AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
+        AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs, androidUserId)
 
     @JvmStatic
-    fun getRegistrationRecord(packageName: String): PushRegistrationRecord? =
-        AndroidPushRuntime.getRegistrationRecord(packageName)
+    fun getRegistrationRecord(
+        packageName: String,
+        androidUserId: Int = currentUserId(),
+    ): PushRegistrationRecord? = AndroidPushRuntime.getRegistrationRecord(packageName, androidUserId)
 
     @JvmStatic
     fun getChannelRecords(): List<PushChannelRecord> =
@@ -161,9 +189,18 @@ object PushRuntime {
         messageId: String?,
         source: String,
         isAck: Boolean = false,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = currentUserId(),
     ): Boolean =
-        AndroidPushRuntime.observeInboundMessage(packageName, action, messageId, source, isAck, nowMs)
+        AndroidPushRuntime.observeInboundMessage(
+            packageName,
+            action,
+            messageId,
+            source,
+            isAck,
+            nowMs,
+            androidUserId,
+        )
 
     @JvmStatic
     fun observeTransferToApplication(
@@ -171,8 +208,16 @@ object PushRuntime {
         action: String,
         messageId: String?,
         source: String,
-        nowMs: Long = System.currentTimeMillis()
-    ) = AndroidPushRuntime.observeTransferToApplication(packageName, action, messageId, source, nowMs)
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = currentUserId(),
+    ) = AndroidPushRuntime.observeTransferToApplication(
+        packageName,
+        action,
+        messageId,
+        source,
+        nowMs,
+        androidUserId,
+    )
 
     @JvmStatic
     fun observeNotificationEvent(packageName: String?, action: String, source: String) =
@@ -203,7 +248,8 @@ object PushRuntime {
         source: String,
         reasonCode: Int? = null,
         reasonMessage: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = currentUserId(),
     ): PushChannelRecord =
         AndroidPushRuntime.observeChannelState(
             packageName,
@@ -214,7 +260,8 @@ object PushRuntime {
             source,
             reasonCode,
             reasonMessage,
-            nowMs
+            nowMs,
+            androidUserId,
         )
 
     @JvmStatic
@@ -223,8 +270,16 @@ object PushRuntime {
         host: String?,
         channels: List<PushChannelRecord>,
         source: String,
-        nowMs: Long = System.currentTimeMillis()
-    ) = AndroidPushRuntime.synchronizeChannels(connectionState, host, channels, source, nowMs)
+        nowMs: Long = System.currentTimeMillis(),
+        androidUserId: Int = currentUserId(),
+    ) = AndroidPushRuntime.synchronizeChannels(
+        connectionState,
+        host,
+        channels,
+        source,
+        nowMs,
+        androidUserId,
+    )
 
     @JvmStatic
     fun observeAccountEvent(action: String, source: String) =
@@ -235,8 +290,17 @@ object PushRuntime {
         AndroidPushRuntime.capabilities()
 
     @JvmStatic
-    fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean =
-        AndroidPushRuntime.forceTriggerRegistration(packageName, source, reason)
+    fun forceTriggerRegistration(
+        packageName: String,
+        source: String,
+        reason: String? = null,
+        androidUserId: Int = currentUserId(),
+    ): Boolean = AndroidPushRuntime.forceTriggerRegistration(
+        packageName,
+        source,
+        reason,
+        androidUserId,
+    )
 
     @JvmStatic
     fun clearPackageTransientState(packageName: String) =
@@ -245,6 +309,8 @@ object PushRuntime {
     @JvmStatic
     fun clearPackageTransientState(packageName: String, userId: Int) =
         AndroidPushRuntime.clearPackageTransientState(packageName, userId)
+
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     @JvmStatic
     fun clearStateForTests() =

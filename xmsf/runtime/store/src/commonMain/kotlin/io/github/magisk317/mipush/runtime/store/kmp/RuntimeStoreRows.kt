@@ -24,7 +24,7 @@ data class RuntimeEventRow(
     @ColumnInfo(name = "pkg")
     val pkg: String,
     @ColumnInfo(name = "user_id", defaultValue = "0")
-    val userId: Int = 0,
+    val userId: Int,
     val type: Int,
     val date: Long,
     val result: Int,
@@ -75,7 +75,7 @@ data class RuntimeRegisteredApplicationRow(
     @ColumnInfo(name = "pkg")
     val packageName: String,
     @ColumnInfo(name = "user_id", defaultValue = "0")
-    val userId: Int = 0,
+    val userId: Int,
     val type: Int,
     @ColumnInfo(name = "notification_on_register")
     val notificationOnRegister: Boolean,

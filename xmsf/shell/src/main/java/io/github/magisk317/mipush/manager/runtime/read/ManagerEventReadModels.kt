@@ -6,7 +6,7 @@ data class ManagerEventReadQuery(
     val pageSize: Int = 100,
     val packageName: String = "",
     val query: String = "",
-    val userId: Int = 0,
+    val userId: Int = -1,
 )
 
 data class ManagerEventReadSummary(

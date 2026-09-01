@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.notification
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import androidx.annotation.ChecksSdkIntAtLeast
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmpush.thrift.ConfigKey
 
@@ -29,6 +30,7 @@ object AndroidWGroupStrategy {
      * Whether the current device runs Android 16+ and this strategy is applicable.
      */
     @JvmStatic
+    @get:ChecksSdkIntAtLeast(api = Build.VERSION_CODES.BAKLAVA)
     val isApplicable: Boolean
         get() = Build.VERSION.SDK_INT >= 36
 

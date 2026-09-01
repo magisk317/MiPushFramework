@@ -7,20 +7,13 @@ import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
-import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
-import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
-import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
@@ -69,12 +62,6 @@ internal object ManagerRuntimePreferenceCommandSupport {
             ISLAND_PREF_SHOW_NOTIFICATION -> preferenceRepository.setIslandShowNotification(enabled)
             ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION -> preferenceRepository.setIslandShowOriginalNotification(enabled)
             ISLAND_PREF_FOCUS_NOTIF -> preferenceRepository.setIslandFocusNotification(enabled)
-            ISLAND_PREF_VISUAL_ENABLED -> preferenceRepository.setIslandVisualEnabled(enabled)
-            ISLAND_PREF_DYNAMIC_COLOR -> preferenceRepository.setIslandDynamicColor(enabled)
-            ISLAND_PREF_BLUR_ENABLED -> preferenceRepository.setIslandBlurEnabled(enabled)
-            ISLAND_PREF_GLASS_ENABLED -> preferenceRepository.setIslandGlassEnabled(enabled)
-            ISLAND_PREF_OUTER_GLOW_ENABLED -> preferenceRepository.setIslandOuterGlowEnabled(enabled)
-            ISLAND_PREF_ANIMATION_ENABLED -> preferenceRepository.setIslandAnimationEnabled(enabled)
             else -> error("unreachable runtime boolean key=$key")
         }
         runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
@@ -100,31 +87,6 @@ internal object ManagerRuntimePreferenceCommandSupport {
         runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
         logInfo("set_runtime_int key=$key value=$value")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_OK)
-    }
-
-    suspend fun setRuntimeString(
-        request: ManagerWriteRequestDto,
-        context: Context,
-        preferenceRepository: PreferenceRepository,
-        logInfo: (String) -> Unit,
-    ): ManagerWriteResultDto {
-        val encoded = request.argument.trim()
-        val separator = encoded.indexOf('=')
-        if (separator <= 0) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        val key = encoded.substring(0, separator).trim()
-        if (key !in allowedRuntimeStringKeys) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        val value = encoded.substring(separator + 1).trim().lowercase()
-        if (value !in setOf("auto", "mipush", "hyperisland")) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
-        }
-        preferenceRepository.setIslandRendererMode(value)
-        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
-        logInfo("set_runtime_string key=$key value=$value")
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_OK)
     }
 
     private suspend fun applyForegroundServicePolicy(
@@ -159,10 +121,7 @@ internal object ManagerRuntimePreferenceCommandSupport {
         "start_push_as_foreground_service", KEEPALIVE_PREF_OOM_ADJ, KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS, KEEPALIVE_PREF_DOZE_BYPASS, ISLAND_PREF_ENABLED,
         ISLAND_PREF_FIRST_FLOAT, ISLAND_PREF_ENABLE_FLOAT, ISLAND_PREF_SHOW_NOTIFICATION,
-        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, ISLAND_PREF_FOCUS_NOTIF, ISLAND_PREF_VISUAL_ENABLED,
-        ISLAND_PREF_DYNAMIC_COLOR, ISLAND_PREF_BLUR_ENABLED, ISLAND_PREF_GLASS_ENABLED,
-        ISLAND_PREF_OUTER_GLOW_ENABLED, ISLAND_PREF_ANIMATION_ENABLED,
+        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, ISLAND_PREF_FOCUS_NOTIF,
     )
     private val allowedRuntimeIntKeys = setOf(ISLAND_PREF_TIMEOUT)
-    private val allowedRuntimeStringKeys = setOf(ISLAND_PREF_RENDERER_MODE)
 }

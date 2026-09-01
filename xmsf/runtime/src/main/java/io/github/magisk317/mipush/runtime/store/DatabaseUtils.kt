@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.runtime.store
 
+import android.annotation.SuppressLint
 import android.content.Context
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventDao
@@ -44,7 +45,7 @@ object DatabaseUtils {
                 database = db
                 emitStoreEvent(
                     reason = "open",
-                    userId = Utils.myUserId().coerceAtLeast(0),
+                    userId = currentUserId(),
                     userScopeMigrationComplete = appContext
                         .getSharedPreferences(USER_SCOPE_MIGRATION_PREFS, Context.MODE_PRIVATE)
                         .getBoolean(USER_SCOPE_MIGRATION_KEY, false),
@@ -54,7 +55,7 @@ object DatabaseUtils {
             } catch (error: RuntimeException) {
                 emitStoreEvent(
                     reason = "open_failed",
-                    userId = runCatching { Utils.myUserId().coerceAtLeast(0) }.getOrDefault(-1),
+                    userId = runCatching { currentUserId() }.getOrDefault(-1),
                     userScopeMigrationComplete = false,
                     statusOk = false,
                     error = error,
@@ -68,12 +69,13 @@ object DatabaseUtils {
      * v7 stores old rows with the migration default user 0. The database is scoped by Android
      * user, so assign those legacy rows to the actual owner once before enforcing user filters.
      */
+    @SuppressLint("UseKtx")
     private fun migrateLegacyUserScope(context: Context, db: RuntimeStoreDatabase) {
         val preferences = context.getSharedPreferences(USER_SCOPE_MIGRATION_PREFS, Context.MODE_PRIVATE)
         if (preferences.getBoolean(USER_SCOPE_MIGRATION_KEY, false)) return
         synchronized(this) {
             if (preferences.getBoolean(USER_SCOPE_MIGRATION_KEY, false)) return
-            val userId = Utils.myUserId().coerceAtLeast(0)
+            val userId = currentUserId()
             if (userId != 0) {
                 runBlocking { db.eventDao().migrateLegacyUserScope(userId) }
             }
@@ -108,4 +110,9 @@ object DatabaseUtils {
             )
         }
     }
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
 }

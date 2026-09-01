@@ -6,7 +6,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 data class PendingPacketEntry(
     val packageName: String,
     val payload: ByteArray,
-    val userId: Int = 0,
+    val userId: Int,
 )
 
 data class DiscardedPendingPackets(
@@ -29,8 +29,12 @@ object PushRuntimePendingPacketStore {
     private var pendingMessages = ArrayList<PendingPacketEntry>()
 
     @JvmStatic
-    fun addPendingMessage(packageName: String, payload: ByteArray) {
-        val userId = currentUserId()
+    fun addPendingMessage(
+        packageName: String,
+        payload: ByteArray,
+        androidUserId: Int = currentUserId(),
+    ) {
+        val userId = Utils.requireValidUserId(androidUserId)
         val pendingCount = synchronized(lock) {
             pendingMessages.add(PendingPacketEntry(packageName, payload.copyOf(), userId))
             val userMessages = pendingMessages.count { it.userId == userId }
@@ -57,8 +61,12 @@ object PushRuntimePendingPacketStore {
     }
 
     @JvmStatic
-    fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
-        val userId = currentUserId()
+    fun cacheRegistrationRequest(
+        packageName: String,
+        payload: ByteArray,
+        androidUserId: Int = currentUserId(),
+    ) {
+        val userId = Utils.requireValidUserId(androidUserId)
         val pendingCount = synchronized(lock) {
             pendingRegistrationRequests[registrationKey(userId, packageName)] = payload.copyOf()
             pendingRegistrationRequests.keys.count { it.startsWith("$userId:") }
@@ -66,7 +74,8 @@ object PushRuntimePendingPacketStore {
         AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
             source = "PushRuntimePendingPacketStore.cacheRegistrationRequest",
-            reason = "awaiting_connection"
+            reason = "awaiting_connection",
+            androidUserId = userId,
         )
         MagiskOtel.event(
             name = "push.register",
@@ -87,9 +96,10 @@ object PushRuntimePendingPacketStore {
     @JvmStatic
     fun processPendingMessages(
         source: String,
-        sender: PendingPacketSender
+        sender: PendingPacketSender,
+        androidUserId: Int = currentUserId(),
     ): Int {
-        val userId = currentUserId()
+        val userId = Utils.requireValidUserId(androidUserId)
         val queued = synchronized(lock) {
             pendingMessages.filter { it.userId == userId }.also {
                 pendingMessages = ArrayList(pendingMessages.filterNot { it.userId == userId })
@@ -133,9 +143,10 @@ object PushRuntimePendingPacketStore {
     @JvmStatic
     fun processPendingRegistrationRequests(
         source: String,
-        sender: PendingPacketSender
+        sender: PendingPacketSender,
+        androidUserId: Int = currentUserId(),
     ): Int {
-        val userId = currentUserId()
+        val userId = Utils.requireValidUserId(androidUserId)
         val queued = synchronized(lock) {
             pendingRegistrationRequests
                 .filterKeys { it.startsWith("$userId:") }
@@ -181,9 +192,10 @@ object PushRuntimePendingPacketStore {
     fun notifyRegisterError(
         errorCode: Int,
         errorMessage: String,
-        notifier: PendingPacketErrorNotifier
+        notifier: PendingPacketErrorNotifier,
+        androidUserId: Int = currentUserId(),
     ): Int {
-        val userId = currentUserId()
+        val userId = Utils.requireValidUserId(androidUserId)
         val queued = synchronized(lock) {
             pendingRegistrationRequests
                 .filterKeys { it.startsWith("$userId:") }
@@ -199,7 +211,8 @@ object PushRuntimePendingPacketStore {
                     packageName = entry.packageName,
                     success = false,
                     source = "PushRuntimePendingPacketStore.notifyRegisterError",
-                    reason = errorMessage
+                    reason = errorMessage,
+                    androidUserId = userId,
                 )
             }
         } catch (t: Throwable) {
@@ -222,14 +235,14 @@ object PushRuntimePendingPacketStore {
     }
 
     @JvmStatic
-    fun pendingMessageCount(): Int {
-        val userId = currentUserId()
+    fun pendingMessageCount(androidUserId: Int = currentUserId()): Int {
+        val userId = Utils.requireValidUserId(androidUserId)
         return synchronized(lock) { pendingMessages.count { it.userId == userId } }
     }
 
     @JvmStatic
-    fun pendingRegistrationCount(): Int {
-        val userId = currentUserId()
+    fun pendingRegistrationCount(androidUserId: Int = currentUserId()): Int {
+        val userId = Utils.requireValidUserId(androidUserId)
         return synchronized(lock) { pendingRegistrationRequests.keys.count { it.startsWith("$userId:") } }
     }
 
@@ -240,11 +253,11 @@ object PushRuntimePendingPacketStore {
 
     @JvmStatic
     fun discardPackage(packageName: String, userId: Int): DiscardedPendingPackets {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val scopedUserId = requireValidUserId(userId)
         return synchronized(lock) {
-            val registrationRequests = if (pendingRegistrationRequests.remove(registrationKey(normalizedUserId, packageName)) != null) 1 else 0
-            val previousMessageCount = pendingMessages.count { it.userId == normalizedUserId && it.packageName == packageName }
-            pendingMessages = ArrayList(pendingMessages.filterNot { it.userId == normalizedUserId && it.packageName == packageName })
+            val registrationRequests = if (pendingRegistrationRequests.remove(registrationKey(scopedUserId, packageName)) != null) 1 else 0
+            val previousMessageCount = pendingMessages.count { it.userId == scopedUserId && it.packageName == packageName }
+            pendingMessages = ArrayList(pendingMessages.filterNot { it.userId == scopedUserId && it.packageName == packageName })
             DiscardedPendingPackets(
                 registrationRequests = registrationRequests,
                 messages = previousMessageCount,
@@ -291,7 +304,15 @@ object PushRuntimePendingPacketStore {
         }
     }
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 
     private fun registrationKey(userId: Int, packageName: String): String = "$userId:$packageName"
 }

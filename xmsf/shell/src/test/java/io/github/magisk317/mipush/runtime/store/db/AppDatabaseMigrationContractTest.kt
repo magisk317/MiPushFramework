@@ -149,6 +149,46 @@ class RuntimeStoreMigrationContractTest {
         assertTrue(repository.contains("EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId)"))
     }
 
+    @Test
+    fun `event database user resolution fails closed without changing legacy migration`() {
+        val eventDb = readSource(
+            "src/main/java/io/github/magisk317/mipush/runtime/store/db/EventDb.kt",
+        )
+        val database = readSource(
+            "../runtime/src/main/java/io/github/magisk317/mipush/runtime/store/DatabaseUtils.kt",
+        )
+        val queryPolicy = readSource(
+            "../runtime/store/src/commonMain/kotlin/" +
+                "io/github/magisk317/mipush/runtime/store/kmp/RuntimeEventQueryPolicy.kt",
+        )
+
+        assertFalse(eventDb.contains("Utils.myUserId().coerceAtLeast(0)"))
+        assertFalse(eventDb.contains("userId.coerceAtLeast(0)"))
+        assertTrue(eventDb.contains("eventDao.getById(id, requireValidUserId(userId))"))
+        assertTrue(eventDb.contains("Unable to resolve current Android user id"))
+        assertTrue(eventDb.contains("Invalid Android user id: \$userId"))
+        assertFalse(database.contains("Utils.myUserId().coerceAtLeast(0)"))
+        assertTrue(database.contains("private fun currentUserId(): Int = runCatching"))
+        assertTrue(database.contains("runBlocking { db.eventDao().migrateLegacyUserScope(userId) }"))
+        assertFalse(queryPolicy.contains("userId.coerceAtLeast(0)"))
+        assertTrue(queryPolicy.contains("RuntimeQueryArgument.IntValue(requireValidUserId(userId))"))
+    }
+
+    @Test
+    fun `registered application facade rejects invalid requested users`() {
+        val source = readSource(
+            "../runtime/src/main/java/" +
+                "io/github/magisk317/mipush/runtime/store/db/RegisteredApplicationDb.kt",
+        )
+
+        assertFalse(source.contains("requestedUserId?.takeIf { it >= 0 } ?: currentUserId()"))
+        assertFalse(source.contains("Utils.myUserId().coerceAtLeast(0)"))
+        assertTrue(source.contains("requestedUserId?.let(::requireValidUserId) ?: currentUserId()"))
+        assertTrue(source.contains("private fun currentUserId(): Int = runCatching"))
+        assertTrue(source.contains("private fun requireValidUserId(userId: Int): Int"))
+        assertTrue(source.contains("Invalid Android user id: \$userId"))
+    }
+
     private fun readSource(relativePath: String): String {
         val candidates = listOf(
             File(relativePath),

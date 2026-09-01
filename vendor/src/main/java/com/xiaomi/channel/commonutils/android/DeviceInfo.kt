@@ -52,6 +52,21 @@ object DeviceInfo {
     @Volatile
     private var sVirtDevIDChecked = false
 
+    /**
+     * Device/MIUI telephony methods are optional across Android releases. Keep the
+     * compatibility boundary silent for a missing class or method, but let access and
+     * invocation failures reach the caller's existing fail-safe handling.
+     */
+    private inline fun <T> callOptionalReflection(block: () -> T): T? {
+        return try {
+            block()
+        } catch (_: NoSuchMethodException) {
+            null
+        } catch (_: ClassNotFoundException) {
+            null
+        }
+    }
+
     @JvmStatic
     fun blockingGetIMEI(context: Context): String? {
         var imei = quicklyGetIMEI(context)
@@ -380,7 +395,14 @@ object DeviceInfo {
         if (!canReadPhoneState(context)) {
             return null
         }
-        return JavaCalls.callStaticMethod("android.os.Build", "getSerial", *(null as Array<Any?>? ?: emptyArray())) as? String
+        return try {
+            callOptionalReflection {
+                JavaCalls.callStaticMethodOrThrow("android.os.Build", "getSerial", *(null as Array<Any?>? ?: emptyArray()))
+            } as? String
+        } catch (e: Exception) {
+            MyLog.w("failure to get serial:$e")
+            null
+        }
     }
 
     @JvmStatic
@@ -407,7 +429,14 @@ object DeviceInfo {
     @JvmStatic
     fun getSpaceId(): Int {
         val myUserId = if (Build.VERSION.SDK_INT >= 17) {
-            JavaCalls.callStaticMethod("android.os.UserHandle", "myUserId")
+            try {
+                callOptionalReflection {
+                    JavaCalls.callStaticMethodOrThrow("android.os.UserHandle", "myUserId")
+                }
+            } catch (e: Exception) {
+                MyLog.w("failure to get space id:$e")
+                null
+            }
         } else {
             null
         }
@@ -498,8 +527,14 @@ object DeviceInfo {
             if (canReadPhoneState(context)) {
                 var miuiDeviceId: String? = null
                 if (MIUIUtils.isMIUI()) {
-                    val telephony = JavaCalls.callStaticMethod("miui.telephony.TelephonyManager", "getDefault")
-                    val result = if (telephony != null) JavaCalls.callMethod(telephony, "getMiuiDeviceId") else null
+                    val telephony = callOptionalReflection {
+                        JavaCalls.callStaticMethodOrThrow("miui.telephony.TelephonyManager", "getDefault")
+                    }
+                    val result = telephony?.let {
+                        callOptionalReflection {
+                            JavaCalls.callMethodOrThrow(it, "getMiuiDeviceId")
+                        }
+                    }
                     if (result is String) {
                         miuiDeviceId = result
                     }
@@ -509,8 +544,12 @@ object DeviceInfo {
                     val telephonyManager = context.getSystemService("phone") as TelephonyManager?
                     deviceId = when {
                         telephonyManager == null -> null
-                        telephonyManager.phoneType == 1 -> JavaCalls.callMethod(telephonyManager, "getImei") as? String
-                        telephonyManager.phoneType == 2 -> JavaCalls.callMethod(telephonyManager, "getMeid") as? String
+                        telephonyManager.phoneType == 1 -> callOptionalReflection {
+                            JavaCalls.callMethodOrThrow(telephonyManager, "getImei")
+                        } as? String
+                        telephonyManager.phoneType == 2 -> callOptionalReflection {
+                            JavaCalls.callMethodOrThrow(telephonyManager, "getMeid")
+                        } as? String
                         else -> miuiDeviceId
                     }
                 }
@@ -543,16 +582,24 @@ object DeviceInfo {
                 return ""
             }
             val telephonyManager = context.getSystemService("phone") as TelephonyManager
-            val phoneCount = JavaCalls.callMethod(telephonyManager, "getPhoneCount") as? Int
+            val phoneCount = callOptionalReflection {
+                JavaCalls.callMethodOrThrow(telephonyManager, "getPhoneCount")
+            } as? Int
             if (phoneCount == null || phoneCount <= 1) {
                 return ""
             }
             var subId: String?
             for (i in 0 until phoneCount) {
                 subId = when {
-                    Build.VERSION.SDK_INT < 26 -> JavaCalls.callMethod(telephonyManager, "getDeviceId", i) as? String
-                    telephonyManager.phoneType == 1 -> JavaCalls.callMethod(telephonyManager, "getImei", i) as? String
-                    telephonyManager.phoneType == 2 -> JavaCalls.callMethod(telephonyManager, "getMeid", i) as? String
+                    Build.VERSION.SDK_INT < 26 -> callOptionalReflection {
+                        JavaCalls.callMethodOrThrow(telephonyManager, "getDeviceId", i)
+                    } as? String
+                    telephonyManager.phoneType == 1 -> callOptionalReflection {
+                        JavaCalls.callMethodOrThrow(telephonyManager, "getImei", i)
+                    } as? String
+                    telephonyManager.phoneType == 2 -> callOptionalReflection {
+                        JavaCalls.callMethodOrThrow(telephonyManager, "getMeid", i)
+                    } as? String
                     else -> null
                 }
                 if (!TextUtils.isEmpty(subId) && !TextUtils.equals(sCachedIMEI, subId) && verifyImei(subId)) {

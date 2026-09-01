@@ -24,8 +24,9 @@ object RegistrationRecordDeduper {
         nowMs: Long = System.currentTimeMillis(),
         userId: Int = currentUserId(),
     ): Boolean {
+        val scopedUserId = requireValidUserId(userId)
         if (packageName.isNullOrBlank()) return false
-        val previous = lastRecordedAtMs.put(RegistrationKey(userId, packageName), nowMs)
+        val previous = lastRecordedAtMs.put(RegistrationKey(scopedUserId, packageName), nowMs)
         val skip = previous != null && nowMs - previous < DEDUP_WINDOW_MS
         MagiskOtel.event(
             name = "push.register",
@@ -50,8 +51,9 @@ object RegistrationRecordDeduper {
         nowMs: Long = System.currentTimeMillis(),
         userId: Int = currentUserId(),
     ) {
+        val scopedUserId = requireValidUserId(userId)
         if (packageName.isNullOrBlank()) return
-        lastRecordedAtMs[RegistrationKey(userId, packageName)] = nowMs
+        lastRecordedAtMs[RegistrationKey(scopedUserId, packageName)] = nowMs
     }
 
     @JvmStatic
@@ -61,8 +63,17 @@ object RegistrationRecordDeduper {
 
     @JvmStatic
     fun reset(packageName: String, userId: Int = currentUserId()) {
-        lastRecordedAtMs.remove(RegistrationKey(userId, packageName))
+        val scopedUserId = requireValidUserId(userId)
+        lastRecordedAtMs.remove(RegistrationKey(scopedUserId, packageName))
     }
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 }

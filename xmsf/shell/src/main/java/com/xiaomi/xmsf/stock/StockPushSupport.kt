@@ -9,7 +9,7 @@ import android.os.Parcel
 import androidx.core.content.edit
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.push.service.NotificationManagerHelper
-import com.xiaomi.push.service.NotificationManagerPlatformSupport
+import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
@@ -386,7 +386,7 @@ internal object StockPushSupport {
         extras: Bundle?,
     ): Bundle {
         if (extras == null) return code(CODE_INVALID_ARGUMENT)
-        if (!NotificationManagerPlatformSupport.isRomSupportNotificationBelongToApp(context)) {
+        if (!NotificationVendorAdapter.isRomNotificationBelongToAppSupported(context)) {
             return code(CODE_ROM_NOT_SUPPORTED)
         }
         if (!isNotificationBrokerAllowed(callingPackage)) return code(CODE_ACCESS_DENIED)
@@ -420,7 +420,7 @@ internal object StockPushSupport {
         extras: Bundle?,
     ): Bundle {
         if (extras == null) return code(CODE_INVALID_ARGUMENT)
-        if (!NotificationManagerPlatformSupport.isRomSupportNotificationBelongToApp(context)) {
+        if (!NotificationVendorAdapter.isRomNotificationBelongToAppSupported(context)) {
             return code(CODE_ROM_NOT_SUPPORTED)
         }
         if (!isNotificationBrokerAllowed(callingPackage)) return code(CODE_ACCESS_DENIED)

@@ -20,7 +20,7 @@ object StalePackagePushGuard {
         context: Context,
         packageName: String,
         source: String,
-        userId: Int = Utils.myUserId().coerceAtLeast(0),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         if (!shouldGuardPackage(context, packageName)) return
         markPackageAbsent(context, packageName, source, clearLastReceiveTime = true, userId = userId)
@@ -98,9 +98,9 @@ object StalePackagePushGuard {
         packageName: String,
         source: String,
         clearLastReceiveTime: Boolean,
-        userId: Int = Utils.myUserId().coerceAtLeast(0),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         fun cleanup(name: String, block: () -> Unit) {
             runCatching(block).onFailure {
                 Logger.withTag(TAG).w(it) {

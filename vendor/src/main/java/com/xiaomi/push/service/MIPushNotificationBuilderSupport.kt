@@ -285,7 +285,7 @@ internal object MIPushNotificationBuilderSupport {
 
     private fun setChannelDescription(channel: NotificationChannel, extra: Map<String, String>?) {
         extra?.get(NOTIFICATION_CHANNEL_DESCRIPTION)?.takeIf { it.isNotEmpty() }?.let {
-            JavaCalls.callMethod(channel, "setDescription", it)
+            runCatching { JavaCalls.callMethodOrThrow(channel, "setDescription", it) }
         }
     }
 }

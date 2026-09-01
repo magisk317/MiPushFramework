@@ -46,10 +46,10 @@ class VoipNotificationHelperTest {
 
     @Test
     fun `stale voip sequence is dropped per package`() {
-        assertFalse(VoipNotificationHelper.shouldDropStale(meta("msg_busi_type" to "voip", "sequence" to "20"), "pkg"))
-        assertTrue(VoipNotificationHelper.shouldDropStale(meta("msg_busi_type" to "voip", "sequence" to "10"), "pkg"))
-        assertFalse(VoipNotificationHelper.shouldDropStale(meta("msg_busi_type" to "voip", "sequence" to "20"), "pkg"))
-        assertFalse(VoipNotificationHelper.shouldDropStale(meta("msg_busi_type" to "voip", "sequence" to "10"), "other.pkg"))
+        assertFalse(shouldDropStaleForTest(meta("msg_busi_type" to "voip", "sequence" to "20"), "pkg"))
+        assertTrue(shouldDropStaleForTest(meta("msg_busi_type" to "voip", "sequence" to "10"), "pkg"))
+        assertFalse(shouldDropStaleForTest(meta("msg_busi_type" to "voip", "sequence" to "20"), "pkg"))
+        assertFalse(shouldDropStaleForTest(meta("msg_busi_type" to "voip", "sequence" to "10"), "other.pkg"))
     }
 
     @Test
@@ -65,14 +65,14 @@ class VoipNotificationHelperTest {
     @Test
     fun `stock sequence state is not evicted by other packages`() {
         assertFalse(
-            VoipNotificationHelper.shouldDropStale(
+            shouldDropStaleForTest(
                 meta("msg_busi_type" to "voip", "sequence" to "20"),
                 "original.pkg",
             ),
         )
         repeat(256) { index ->
             assertFalse(
-                VoipNotificationHelper.shouldDropStale(
+                shouldDropStaleForTest(
                     meta("msg_busi_type" to "voip", "sequence" to "1"),
                     "other.pkg.$index",
                 ),
@@ -80,7 +80,7 @@ class VoipNotificationHelperTest {
         }
 
         assertTrue(
-            VoipNotificationHelper.shouldDropStale(
+            shouldDropStaleForTest(
                 meta("msg_busi_type" to "voip", "sequence" to "10"),
                 "original.pkg",
             ),
@@ -89,19 +89,19 @@ class VoipNotificationHelperTest {
 
     @Test
     fun `non voip payload does not use sequence filter`() {
-        assertFalse(VoipNotificationHelper.shouldDropStale(meta("sequence" to "1"), "pkg"))
+        assertFalse(shouldDropStaleForTest(meta("sequence" to "1"), "pkg"))
     }
 
     @Test
     fun `style-only payload does not update business sequence cache`() {
         assertFalse(
-            VoipNotificationHelper.shouldDropStale(
+            shouldDropStaleForTest(
                 meta("notification_style_type" to "6", "sequence" to "20"),
                 "pkg",
             ),
         )
         assertFalse(
-            VoipNotificationHelper.shouldDropStale(
+            shouldDropStaleForTest(
                 meta("msg_busi_type" to "voip", "sequence" to "10"),
                 "pkg",
             ),
@@ -125,6 +125,11 @@ class VoipNotificationHelperTest {
         assertTrue(metadata["mipush_custom_extra"] == "opaque")
         assertFalse(metadata.containsKey("msg_busi_type"))
     }
+
+    private fun shouldDropStaleForTest(
+        metaInfo: PushMetaInfo,
+        packageName: String,
+    ): Boolean = VoipNotificationHelper.shouldDropStale(metaInfo, packageName, userId = 0)
 
     private fun meta(vararg extras: Pair<String, String>): PushMetaInfo {
         return PushMetaInfo().apply {

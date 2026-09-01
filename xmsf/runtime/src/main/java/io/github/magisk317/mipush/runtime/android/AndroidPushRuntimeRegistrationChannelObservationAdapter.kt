@@ -13,8 +13,9 @@ object AndroidPushRuntimeRegistrationChannelObservationAdapter :
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     ) {
-        AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
+        AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs, androidUserId)
     }
 
     override fun observeRegistrationResult(
@@ -23,8 +24,9 @@ object AndroidPushRuntimeRegistrationChannelObservationAdapter :
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     ) {
-        AndroidPushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
+        AndroidPushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs, androidUserId)
     }
 
     override fun observeUnregistration(
@@ -32,8 +34,9 @@ object AndroidPushRuntimeRegistrationChannelObservationAdapter :
         source: String,
         reason: String?,
         nowMs: Long,
+        androidUserId: Int,
     ) {
-        AndroidPushRuntime.observeUnregistration(packageName, source, reason, nowMs)
+        AndroidPushRuntime.observeUnregistration(packageName, source, reason, nowMs, androidUserId)
     }
 
     override fun observeChannelEvent(
@@ -54,6 +57,7 @@ object AndroidPushRuntimeRegistrationChannelObservationAdapter :
         reasonCode: Int?,
         reasonMessage: String?,
         nowMs: Long,
+        androidUserId: Int,
     ) {
         AndroidPushRuntime.observeChannelState(
             packageName,
@@ -65,6 +69,7 @@ object AndroidPushRuntimeRegistrationChannelObservationAdapter :
             reasonCode,
             reasonMessage,
             nowMs,
+            androidUserId,
         )
     }
 }

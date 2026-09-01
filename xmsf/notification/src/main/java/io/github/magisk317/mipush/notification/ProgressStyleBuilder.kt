@@ -219,7 +219,7 @@ object ProgressStyleBuilder {
     ) {
         val extras = builder.extras
         extras.putBoolean(EXTRA_LIVE_UPDATE, true)
-        extras.putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
+        extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
         extras.putString(EXTRA_LIVE_UPDATE_CATEGORY, result.category.label)
         extras.putString(
             EXTRA_LIVE_UPDATE_SHORT_TEXT,
@@ -233,7 +233,7 @@ object ProgressStyleBuilder {
     private fun liveUpdateExtras(source: Bundle): Bundle {
         return Bundle().apply {
             putBoolean(EXTRA_LIVE_UPDATE, true)
-            putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
+            putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
             source.getString(EXTRA_LIVE_UPDATE_CATEGORY)?.let {
                 putString(EXTRA_LIVE_UPDATE_CATEGORY, it)
             }
@@ -259,6 +259,9 @@ object ProgressStyleBuilder {
     internal const val EXTRA_LIVE_UPDATE_SHORT_TEXT = "xmsf.live_update.short_text"
     internal const val EXTRA_LIVE_UPDATE_PROGRESS = "xmsf.live_update.progress"
     internal const val EXTRA_LIVE_UPDATE_SEMANTIC_STYLE = "xmsf.live_update.semantic_style"
+    // Framework key introduced with Android 16. Keep the literal so minSdk builds do not inline
+    // a newer SDK field; the platform reads the same key on supported releases.
+    private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
     private const val NO_PROGRESS = -1
     private const val MAX_SHORT_CRITICAL_TEXT = 15
 }

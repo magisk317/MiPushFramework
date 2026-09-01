@@ -33,6 +33,7 @@ import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.notification.NotificationHookBridge
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 import io.github.magisk317.mipush.notification.NotificationAvailabilityShellBridge
 import io.github.magisk317.mipush.notification.NotificationPostOwner
@@ -113,8 +114,12 @@ open class MiPushFrameworkApp : Application() {
         ProactiveMiPushRegistrar.schedule(this)
 
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
-        Hooker.hook(this)
+        // HookPushNC probes system_server readiness immediately after installing the hooks.
+        // Initialize the XMSF-owned backend first so its HiddenApiBypass exemption is active
+        // before that probe runs in the app process.
+        NotificationHookBridge.init(applicationContext)
         NotificationManagerEx.init(applicationContext)
+        Hooker.hook(this)
         NotificationShellBridge.installStatusBarRefresh(NotificationManagerEx::triggerStatusBarRefresh)
         NotificationShellBridge.installNotificationOperations(
             getNotificationTag = MyMIPushNotificationHelper::getNotificationTag,

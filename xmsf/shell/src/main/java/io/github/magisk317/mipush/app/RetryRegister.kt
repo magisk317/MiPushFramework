@@ -7,7 +7,12 @@ import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-class RetryRegister(private val context: Context, private val tryRegisterCount: Int) : Runnable {
+class RetryRegister(
+    private val context: Context,
+    private val tryRegisterCount: Int,
+    private val frameworkSelfRegistrationEnabled: (Context) -> Boolean =
+        PushControllerUtils::isFrameworkSelfRegistrationEnabled,
+) : Runnable {
     override fun run() {
         if (pushRegistered(context)) {
             PushRuntime.observeRegistrationResult(
@@ -25,6 +30,22 @@ class RetryRegister(private val context: Context, private val tryRegisterCount: 
                     "process" to "main",
                     "stage" to "retry",
                     "reason" to "reg_id_present",
+                    "retry_index" to tryRegisterCount.toString(),
+                ),
+                statusOk = true,
+            )
+            return
+        }
+        if (!frameworkSelfRegistrationEnabled(context)) {
+            logI("framework self-registration disabled; skip retry index=$tryRegisterCount")
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "retry",
+                    "reason" to "framework_self_registration_disabled",
                     "retry_index" to tryRegisterCount.toString(),
                 ),
                 statusOk = true,

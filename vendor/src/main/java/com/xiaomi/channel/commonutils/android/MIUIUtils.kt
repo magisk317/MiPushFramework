@@ -12,7 +12,6 @@ import java.util.Locale
  * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/channel/commonutils/android/MIUIUtils.java
  */
 object MIUIUtils {
-    private const val ANDROID_SYSTEM_PROPERTIES = "android.os.SystemProperties"
     private const val XMSF_PACKAGE_NAME = "com.xiaomi.xmsf"
     const val IS_MIUI = 1
     private const val KEY_MIUI_VERSION_CODE = "ro.miui.ui.version.code"
@@ -120,16 +119,7 @@ object MIUIUtils {
 
     @JvmStatic
     fun getProperty(str: String): String? {
-        return try {
-            try {
-                JavaCalls.callStaticMethod(ANDROID_SYSTEM_PROPERTIES, "get", str, "") as? String
-            } catch (e: Exception) {
-                MyLog.e("fail to get property. $e")
-                null
-            }
-        } catch (_: Throwable) {
-            null
-        }
+        return SystemProperties.get(str, "")
     }
 
     @JvmStatic
@@ -208,7 +198,14 @@ object MIUIUtils {
     @JvmStatic
     fun isXMS(): Boolean {
         if (isInXMS < 0) {
-            val result = JavaCalls.callStaticMethod("miui.external.SdkHelper", "isMiuiSystem")
+            // HyperOS 3 no longer exposes the legacy SdkHelper class. Resolve this optional
+            // signal directly so a normal absence is not logged as a reflection warning.
+            val result = runCatching {
+                Class.forName("miui.external.SdkHelper")
+                    .getDeclaredMethod("isMiuiSystem")
+                    .apply { isAccessible = true }
+                    .invoke(null)
+            }.getOrNull()
             isInXMS = 0
             if (result is Boolean && !result) {
                 isInXMS = 1

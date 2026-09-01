@@ -41,6 +41,7 @@ class FirstRegisterTest {
             scheduleRetry = { _, _ ->
                 retryScheduled = true
             },
+            androidUserIdProvider = { 0 },
         ).run()
 
         assertFalse(requested)
@@ -67,10 +68,31 @@ class FirstRegisterTest {
             scheduleRetry = { _, retry ->
                 retryScheduled = retry == 0
             },
+            frameworkSelfRegistrationEnabled = { true },
         ).run()
 
         assertTrue(requested)
         assertTrue(retryScheduled)
+    }
+
+    @Test
+    fun `unregistered service does not request registration when self-registration is disabled`() {
+        var requested = false
+        var retryScheduled = false
+
+        FirstRegister(
+            context = context,
+            isRegistered = { false },
+            requestRegistration = { _, _ ->
+                requested = true
+                true
+            },
+            scheduleRetry = { _, _ -> retryScheduled = true },
+            frameworkSelfRegistrationEnabled = { false },
+        ).run()
+
+        assertFalse(requested)
+        assertFalse(retryScheduled)
     }
 
     private companion object {

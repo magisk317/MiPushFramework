@@ -10,9 +10,10 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import androidx.core.content.edit
 import co.touchlab.kermit.Logger
+import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmpush.thrift.ConfigKey
-import com.xiaomi.xmsf.services.IMainProcBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.KeepAliveTimingPolicy
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -71,16 +72,16 @@ object KeepAliveRuntimeAdapter {
         }
     }
 
-    fun refreshOnlineConfig(context: Context, bridge: IMainProcBridge?) {
-        val connectedBridge = bridge ?: return
+    fun refreshOnlineConfig(context: Context) {
+        val onlineConfig = OnlineConfig.getInstance(context.applicationContext)
         val keepAlive = runCatching {
-            connectedBridge.getOnlineBooleanConfig(ONLINE_CONFIG_KEY_KEEP_ALIVE, true)
+            onlineConfig.getBooleanValue(ONLINE_CONFIG_KEY_KEEP_ALIVE, true)
         }.getOrElse {
             Logger.withTag(TAG).w(it) { "Keep-alive online config unavailable" }
             return
         }
         val oneTrack = runCatching {
-            connectedBridge.getOnlineBooleanConfig(ONLINE_CONFIG_KEY_ONETRACK, true)
+            onlineConfig.getBooleanValue(ONLINE_CONFIG_KEY_ONETRACK, true)
         }.getOrElse {
             Logger.withTag(TAG).w(it) { "OneTrack online config unavailable" }
             snapshot().oneTrackEnabled
@@ -102,11 +103,10 @@ object KeepAliveRuntimeAdapter {
             active = keepAliveEnabled
             enabled = keepAliveEnabled
             this.oneTrackEnabled = oneTrackEnabled
-            requireNotNull(appContext).getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean(KEY_ENABLED, keepAliveEnabled)
-                .putBoolean(KEY_ONETRACK_ENABLED, oneTrackEnabled)
-                .apply()
+            requireNotNull(appContext).getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+                putBoolean(KEY_ENABLED, keepAliveEnabled)
+                putBoolean(KEY_ONETRACK_ENABLED, oneTrackEnabled)
+            }
         }
         handler.post {
             if (keepAliveEnabled) {
@@ -128,10 +128,9 @@ object KeepAliveRuntimeAdapter {
             } else {
                 strategies.remove(strategy.targetPackage)
             }
-            requireNotNull(appContext).getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putString(STRATEGY_PREFIX + strategy.targetPackage, configJson)
-                .apply()
+            requireNotNull(appContext).getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+                putString(STRATEGY_PREFIX + strategy.targetPackage, configJson)
+            }
             previous != null &&
                 (!strategy.supportedOnDevice || previous != strategy) &&
                 hasTargetStateLocked(strategy.targetPackage)
@@ -195,7 +194,7 @@ object KeepAliveRuntimeAdapter {
         userId: Int = currentUserId(),
     ) {
         if (targetPackage.isBlank()) return
-        val normalizedUserId = userId.coerceAtLeast(0)
+        val normalizedUserId = Utils.requireValidUserId(userId)
         val processUserId = currentUserId()
         // KeepAlive state is process-local. A package-data callback resolved for another user
         // must not clear a same-named target in this process.
@@ -211,10 +210,9 @@ object KeepAliveRuntimeAdapter {
                 pendingUnbinds.containsKey(targetPackage) ||
                 pendingRetries.containsKey(targetPackage)
         }
-        appContext?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            ?.edit()
-            ?.remove(STRATEGY_PREFIX + targetPackage)
-            ?.apply()
+        appContext?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)?.edit {
+            remove(STRATEGY_PREFIX + targetPackage)
+        }
         if (removed) {
             handler.post { unbindTarget(context.applicationContext, targetPackage) }
         }
@@ -854,9 +852,7 @@ object KeepAliveRuntimeAdapter {
             targetPackage in pendingUnbinds || targetPackage in pendingRetries
     }
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
-        .getOrDefault(0)
-        .coerceAtLeast(0)
+    private fun currentUserId(): Int = Utils.requireValidUserId(Utils.myUserId())
 
     private data class PendingAction(
         val ownerProcess: String,

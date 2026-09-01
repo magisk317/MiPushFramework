@@ -41,11 +41,15 @@ object ConvertUtils {
         if (container == null) {
             return JsonNull
         }
-        return toJson(container, RegSecUtils.getRegSec(container))
+        return toJson(container, RegSecUtils.getRegSec(container, userId = Utils.requireValidUserId(Utils.myUserId())))
     }
 
     @JvmStatic
-    fun toJson(container: XmPushActionContainer, regSec: String?): JsonElement {
+    fun toJson(
+        container: XmPushActionContainer,
+        regSec: String?,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
+    ): JsonElement {
         val root = buildJsonObject {
             put("action", container.action?.name ?: "UNKNOWN")
             put("isRequest", container.isRequest)
@@ -54,12 +58,12 @@ object ConvertUtils {
             container.target?.let {
                 put("target", thriftToJson(it))
             }
-            if (container.isEncryptAction && RegSecUtils.getCandidateRegSecs(container, regSec).isEmpty()) {
+            if (container.isEncryptAction && RegSecUtils.getCandidateRegSecs(container, regSec, userId).isEmpty()) {
                 put("pushActionUnavailable", "missing_reg_sec")
             }
 
             try {
-                val message = getResponseMessageBodyFromContainer(container, regSec)
+                val message = getResponseMessageBodyFromContainer(container, regSec, userId)
                 if (message != null) {
                     put("pushAction", thriftToJson(message))
                 } else if (container.getPushAction()?.isEmpty() == true) {
@@ -139,11 +143,15 @@ object ConvertUtils {
         NoSuchMethodException::class,
         IllegalAccessException::class
     )
-    fun getResponseMessageBodyFromContainer(container: XmPushActionContainer?, regSec: String?): TBase<*, *>? {
+    fun getResponseMessageBodyFromContainer(
+        container: XmPushActionContainer?,
+        regSec: String?,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
+    ): TBase<*, *>? {
         if (container == null) {
             return null
         }
-        val resolution = resolvePushActionBytes(container, regSec) ?: return null
+        val resolution = resolvePushActionBytes(container, regSec, userId) ?: return null
         val oriMsgBytes = resolution.payload ?: return null
         if (oriMsgBytes.isEmpty()) {
             return null
@@ -186,11 +194,15 @@ object ConvertUtils {
         }
     }
 
-    private fun resolvePushActionBytes(container: XmPushActionContainer, regSec: String?): PushActionResolution? {
+    private fun resolvePushActionBytes(
+        container: XmPushActionContainer,
+        regSec: String?,
+        userId: Int,
+    ): PushActionResolution? {
         if (!container.isEncryptAction) {
             return PushActionResolution(container.getPushAction(), null)
         }
-        val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
+        val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec, userId)
         logD(formatCandidateSummary(container.packageName, candidateRegSecs))
         if (candidateRegSecs.isEmpty()) {
             Logger.withTag(TAG).d { "resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}" }
@@ -200,7 +212,7 @@ object ConvertUtils {
             try {
                 val keyBytes = Base64Coder.decode(candidateRegSec)
                 val payload = DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction())
-                persistResolvedRegSec(container.packageName, candidateRegSec)
+                persistResolvedRegSec(container.packageName, candidateRegSec, userId)
                 logD("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
                 return PushActionResolution(payload, candidateRegSec)
             } catch (_: Exception) {
@@ -214,11 +226,11 @@ object ConvertUtils {
     internal fun formatCandidateSummary(packageName: String?, candidates: Collection<String>): String =
         "resolvePushActionBytes: pkg=$packageName candidateCount=${candidates.size}"
 
-    private fun persistResolvedRegSec(packageName: String?, regSec: String?) {
+    private fun persistResolvedRegSec(packageName: String?, regSec: String?, userId: Int) {
         if (packageName.isNullOrEmpty() || regSec.isNullOrEmpty()) {
             return
         }
-        Utils.setRegSec(packageName, regSec)
+        Utils.setRegSec(packageName, regSec, userId)
     }
 
     private fun fillPacket(packet: TBase<*, *>, bytes: ByteArray) {

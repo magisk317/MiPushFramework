@@ -27,13 +27,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
-import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
-import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
-import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 
 class IslandPreferenceProvider : ContentProvider() {
@@ -61,13 +54,6 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
-        ISLAND_PREF_RENDERER_MODE,
-        ISLAND_PREF_VISUAL_ENABLED,
-        ISLAND_PREF_DYNAMIC_COLOR,
-        ISLAND_PREF_BLUR_ENABLED,
-        ISLAND_PREF_GLASS_ENABLED,
-        ISLAND_PREF_OUTER_GLOW_ENABLED,
-        ISLAND_PREF_ANIMATION_ENABLED,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
         DUAL_APP_ENABLED_KEY,

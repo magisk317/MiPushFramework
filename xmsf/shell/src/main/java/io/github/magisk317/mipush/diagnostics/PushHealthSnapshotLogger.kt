@@ -91,29 +91,32 @@ object PushHealthSnapshotLogger {
     }
 
     internal fun format(snapshot: Snapshot): String {
-        val extraInfo = snapshot.extra?.takeIf { it.isNotBlank() }?.let { " extra=$it" }.orEmpty()
-        return "stage=${snapshot.stage}" +
-            " process=${snapshot.processName}" +
-            " pushEnabled=${snapshot.pushEnabled}" +
-            " regIdPresent=${snapshot.regIdPresent}" +
-            " debugMode=${snapshot.debugMode}" +
-            " lifecycleReady=${snapshot.lifecycleReady}" +
-            " lifecyclePending=${snapshot.lifecyclePendingCount}" +
-            " runtimeExecutionReady=${snapshot.runtimeExecutionReady}" +
-            " runtimeConnection=${snapshot.runtimeConnectionState}" +
-            " runtimeTrackedChannels=${snapshot.runtimeTrackedChannels}" +
-            " runtimeBoundChannels=${snapshot.runtimeBoundChannels}" +
-            " runtimeTrackedRegs=${snapshot.runtimeTrackedRegistrations}" +
-            " runtimeRegistered=${snapshot.runtimeRegisteredPackages}" +
-            " runtimeDownstream=${snapshot.runtimeDownstreamCount}" +
-            " runtimeDelivered=${snapshot.runtimeDeliveredCount}" +
-            " runtimeDuplicate=${snapshot.runtimeDuplicateCount}" +
-            " runtimeAck=${snapshot.runtimeAckCount}" +
-            " runtimeFallback=${snapshot.runtimeBroadcastFallbackCount}" +
-            " runtimeCancel=${snapshot.runtimeNotificationCancelCount}" +
-            " runtimeNotification=${snapshot.runtimeNotificationCount}" +
-            " runtimeChannel=${snapshot.runtimeChannelCount}" +
-            " runtimeAccount=${snapshot.runtimeAccountCount}" +
-            extraInfo
+        return PushHealthSnapshotFormatter.format(
+            PushHealthSnapshot(
+                stage = snapshot.stage,
+                processName = snapshot.processName,
+                pushEnabled = snapshot.pushEnabled,
+                regIdPresent = snapshot.regIdPresent,
+                debugMode = snapshot.debugMode,
+                lifecycleReady = snapshot.lifecycleReady,
+                lifecyclePendingCount = snapshot.lifecyclePendingCount,
+                runtimeExecutionReady = snapshot.runtimeExecutionReady,
+                runtimeConnectionState = snapshot.runtimeConnectionState,
+                runtimeTrackedChannels = snapshot.runtimeTrackedChannels,
+                runtimeBoundChannels = snapshot.runtimeBoundChannels,
+                runtimeTrackedRegistrations = snapshot.runtimeTrackedRegistrations,
+                runtimeRegisteredPackages = snapshot.runtimeRegisteredPackages,
+                runtimeDownstreamCount = snapshot.runtimeDownstreamCount,
+                runtimeDeliveredCount = snapshot.runtimeDeliveredCount,
+                runtimeDuplicateCount = snapshot.runtimeDuplicateCount,
+                runtimeAckCount = snapshot.runtimeAckCount,
+                runtimeBroadcastFallbackCount = snapshot.runtimeBroadcastFallbackCount,
+                runtimeNotificationCancelCount = snapshot.runtimeNotificationCancelCount,
+                runtimeNotificationCount = snapshot.runtimeNotificationCount,
+                runtimeChannelCount = snapshot.runtimeChannelCount,
+                runtimeAccountCount = snapshot.runtimeAccountCount,
+                extra = snapshot.extra,
+            ),
+        )
     }
 }

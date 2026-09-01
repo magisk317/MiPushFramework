@@ -24,6 +24,14 @@ object NotificationUtils {
     )
     private var bestBrowserPackage: String? = null
 
+    private fun extraNotificationOrNull(notification: Notification): Any? {
+        return try {
+            JavaCalls.getFieldOrThrow(Notification::class.java, notification, FIELD_EXTRA_NOTIFICATION)
+        } catch (_: NoSuchFieldException) {
+            null
+        }
+    }
+
     @JvmStatic
     fun getIdForSmallIconFromTargetPkg(context: Context, packageName: String): Int {
         return AppInfoUtils.getAppIconId(context, packageName)
@@ -37,9 +45,9 @@ object NotificationUtils {
                 targetPackage = notification.extras?.getString(MIPushNotificationHelper.NOTIFICATION_EXTRA_TARGET_PACKAGE_STRING)
             }
             if (TextUtils.isEmpty(targetPackage)) {
-                val extraNotification = JavaCalls.getField(notification, FIELD_EXTRA_NOTIFICATION)
+                val extraNotification = extraNotificationOrNull(notification)
                 if (extraNotification != null) {
-                    targetPackage = JavaCalls.callMethod(extraNotification, METHOD_GET_TARGET_PKG) as? String
+                    targetPackage = JavaCalls.callMethodOrThrow(extraNotification, METHOD_GET_TARGET_PKG) as? String
                 }
             }
             targetPackage
@@ -80,7 +88,11 @@ object NotificationUtils {
             return false
         }
         return MIUIUtils.isXMSF(statusBarNotification.packageName) ||
-            MIUIUtils.isXMSF(JavaCalls.callMethod(statusBarNotification, "getOpPkg")?.toString())
+            MIUIUtils.isXMSF(
+                runCatching {
+                    JavaCalls.callMethodOrThrow(statusBarNotification, "getOpPkg")
+                }.getOrNull()?.toString(),
+            )
     }
 
     @JvmStatic
@@ -108,9 +120,9 @@ object NotificationUtils {
                 notification.extras.putString(MIPushNotificationHelper.NOTIFICATION_EXTRA_TARGET_PACKAGE_STRING, packageName)
                 notification.extras.putString("miui.targetPkg", packageName)
             }
-            val extraNotification = JavaCalls.getField(notification, FIELD_EXTRA_NOTIFICATION)
+            val extraNotification = extraNotificationOrNull(notification)
             if (extraNotification != null) {
-                JavaCalls.callMethod(extraNotification, METHOD_SET_TARGET_PKG, packageName)
+                JavaCalls.callMethodOrThrow(extraNotification, METHOD_SET_TARGET_PKG, packageName)
             }
         } catch (_: Exception) {
         }

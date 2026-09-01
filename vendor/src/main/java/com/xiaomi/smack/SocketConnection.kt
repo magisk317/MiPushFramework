@@ -53,7 +53,11 @@ abstract class SocketConnection(
     protected fun connectInternal() {
         val targetHost = config.getHost()
         val fallback = getFallback(targetHost)
-        val candidateHosts = fallback?.getHosts(true).orEmpty().ifEmpty { arrayListOf(targetHost) }
+        val candidatePlan = mPushAction.runtimeObserver.resolveCandidateHosts(
+            targetHost = targetHost,
+            fallbackHosts = fallback?.getHosts(true).orEmpty(),
+        )
+        val candidateHosts = candidatePlan.candidateHosts
         val initialConnectionPoint = Network.getActiveConnPoint(mContext)
         val failures = StringBuilder()
         failedException = null
@@ -104,7 +108,11 @@ abstract class SocketConnection(
                     0L,
                     error,
                 )
-                if (initialConnectionPoint != Network.getActiveConnPoint(mContext)) {
+                val retryPlan = mPushAction.runtimeObserver.planFailureRetry(
+                    initialConnectionPoint,
+                    Network.getActiveConnPoint(mContext),
+                )
+                if (!retryPlan.shouldContinue) {
                     break
                 }
             }
@@ -214,15 +222,17 @@ abstract class SocketConnection(
     }
 
     private fun sinkDownHost(error: Exception?) {
-        if (SystemClock.elapsedRealtime() - lastConnectedTime >= SHORT_CONNECTION_THRESHOLD_MS) {
-            currentShortConnectionCount = 0
-            return
-        }
-        if (!Network.hasNetwork(mContext)) return
+        val plan = mPushAction.runtimeObserver.evaluateShortConnection(
+            nowElapsed = SystemClock.elapsedRealtime(),
+            lastConnectedTime = lastConnectedTime,
+            hasNetwork = Network.hasNetwork(mContext),
+            curShortConnCount = currentShortConnectionCount,
+            networkInterval = SHORT_CONNECTION_THRESHOLD_MS,
+            maxShortConnCount = MAX_SHORT_CONNECTION_COUNT,
+        )
+        currentShortConnectionCount = plan.nextShortConnCount
+        if (!plan.shouldSinkDown) return
         val failedHost = host ?: return
-
-        currentShortConnectionCount += 1
-        if (currentShortConnectionCount < MAX_SHORT_CONNECTION_COUNT) return
 
         Logger.w { "max short conn time reached, sink down current host:$failedHost" }
         runCatching {

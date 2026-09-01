@@ -146,7 +146,7 @@ class ColorfulBuilder(
             getRemoteViews()?.setViewVisibility(bgId, 8)
             try {
                 val clazz = SystemUtils.loadClass(getContext(), "android.app.Notification\$DecoratedCustomViewStyle")
-                JavaCalls.callMethod(
+                JavaCalls.callMethodOrThrow(
                     this, "setStyle",
                     clazz.getConstructor().newInstance()
                 )

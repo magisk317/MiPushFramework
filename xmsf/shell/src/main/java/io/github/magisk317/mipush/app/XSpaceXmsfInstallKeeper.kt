@@ -74,6 +74,13 @@ object XSpaceXmsfInstallKeeper {
                 while (true) {
                     attempt += 1
                     val isDualAppEnabled = readDualAppEnabled(appContext)
+                    if (isDualAppEnabled == null) {
+                        logW(
+                            "skip XSpace xmsf install keeper source=$source " +
+                                "reason=dual_app_state_unavailable",
+                        )
+                        return@launch
+                    }
                     result = repairNow(
                         hasRootAccess = { AppRootAccessFacade.refreshRootAccessIfGranted() },
                         runRootCommand = { command, timeoutMs ->
@@ -110,11 +117,11 @@ object XSpaceXmsfInstallKeeper {
         }
     }
 
-    private fun readDualAppEnabled(context: Context): Boolean {
+    private fun readDualAppEnabled(context: Context): Boolean? {
         return runCatching {
             val repository = PreferenceRepository(context.dataStore)
             runBlocking { repository.dualAppEnabled.first() }
-        }.getOrDefault(false)
+        }.getOrNull()
     }
 
     internal fun repairNow(

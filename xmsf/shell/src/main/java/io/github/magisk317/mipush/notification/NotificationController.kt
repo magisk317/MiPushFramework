@@ -22,7 +22,6 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
 import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
@@ -57,6 +56,20 @@ import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.runtime.PushRuntime
 
 object NotificationController {
+    enum class PublishResult {
+        Posted,
+        ChannelDisabled,
+        SuppressedByPolicy,
+        Failed,
+    }
+
+    private sealed interface NotifyResult {
+        data class Posted(val notification: Notification) : NotifyResult
+        data object SuppressedByPolicy : NotifyResult
+        data object ChannelDisabled : NotifyResult
+        data object Failed : NotifyResult
+    }
+
     private const val TAG = "NotificationController"
     private val iconPackResolver = IconPackResolver()
     private const val FOCUS_PARAM = "miui.focus.param"
@@ -81,8 +94,9 @@ object NotificationController {
         notificationId: Int,
         packageName: String,
         notificationBuilder: NotificationCompat.Builder
-    ): Boolean {
+    ): PublishResult {
         val startedAt = System.nanoTime()
+        val channelId = getExistsChannelId(context, metaInfo, packageName)
         fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
             val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
             val attrs = mutableMapOf(
@@ -90,6 +104,8 @@ object NotificationController {
                 "duration_ms" to durationMs.toString(),
                 "process" to "main",
                 "target_package" to packageName,
+                "channel_id" to channelId,
+                "source" to if (metaInfo.isMockReplay()) "mock_replay" else "server",
             )
             if (reason != null) {
                 attrs["reason"] = reason
@@ -101,7 +117,6 @@ object NotificationController {
             )
         }
 
-        val channelId = getExistsChannelId(context, metaInfo, packageName)
         notificationBuilder.setChannelId(channelId)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
@@ -109,16 +124,46 @@ object NotificationController {
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
         }
 
+        val channel = getNotificationManagerEx().getNotificationChannel(packageName, channelId)
+        when {
+            channel == null -> {
+                Logger.withTag(TAG).d {
+                    "publish skipped unavailable matched channel pkg=$packageName id=$notificationId " +
+                        "channel=$channelId source=${if (metaInfo.isMockReplay()) "mock_replay" else "server"}"
+                }
+                emit(result = "skip", reason = "matched_channel_unavailable")
+                return PublishResult.Failed
+            }
+            channel.importance == NotificationManager.IMPORTANCE_NONE -> {
+                Logger.withTag(TAG).d {
+                    "publish skipped disabled matched channel pkg=$packageName id=$notificationId " +
+                        "channel=$channelId importance=${channel.importance} " +
+                        "source=${if (metaInfo.isMockReplay()) "mock_replay" else "server"}"
+                }
+                emit(result = "skip", reason = "matched_channel_disabled")
+                return PublishResult.ChannelDisabled
+            }
+        }
+
         val description = metaInfo.description
         if (SweetTagHandler.containsFtTag(description)) {
             notificationBuilder.setContentText(SweetTagHandler.renderFtHtmlIfNeeded(description))
         }
 
-        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        val notifyResult = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        if (notifyResult === NotifyResult.SuppressedByPolicy) {
+            emit(result = "skip", reason = "original_notification_disabled")
+            return PublishResult.SuppressedByPolicy
+        }
+        if (notifyResult === NotifyResult.ChannelDisabled) {
+            emit(result = "skip", reason = "matched_channel_disabled")
+            return PublishResult.ChannelDisabled
+        }
+        val notification = (notifyResult as? NotifyResult.Posted)?.notification
         if (notification == null) {
             Logger.withTag(TAG).d { "publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)" }
             emit(result = "skip", reason = "notify_null")
-            return false
+            return PublishResult.Failed
         }
         Logger.withTag(TAG).d { "publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}" }
         if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context) && !metaInfo.isMockReplay()) {
@@ -129,7 +174,7 @@ object NotificationController {
             )
         }
         emit(result = "ok")
-        return true
+        return PublishResult.Posted
     }
 
     @JvmStatic
@@ -162,7 +207,7 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo,
         applyPayloadDecorations: Boolean = true,
-    ): Notification? {
+    ): NotifyResult {
         val userId = resolveNotificationUserId(context, packageName)
         val islandOptions = MiPushIslandPreferences.read(context, packageName, userId)
         val isMockReplay = metaInfo.isMockReplay()
@@ -317,25 +362,37 @@ object NotificationController {
         }
         val notification = NativeNotificationFeatureBuilder.buildNotification(context, notificationBuilder, nativeFeature)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
-        if (!NotificationChannelManager.isNotificationChannelEnabled(channel) ||
-            NotificationChannelManager.isAnyChannelDisabled(context, metaInfo, packageName)
-        ) {
-            logD("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
-            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
-            return null
+        when {
+            channel == null -> {
+                logD(
+                    "drop unavailable matched channel pkg=$packageName id=$notificationId " +
+                        "channel=${notification.channelId} source=${if (isMockReplay) "mock_replay" else "server"}"
+                )
+                NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
+                return NotifyResult.Failed
+            }
+            channel.importance == NotificationManager.IMPORTANCE_NONE -> {
+                logD(
+                    "drop disabled matched channel pkg=$packageName id=$notificationId " +
+                        "channel=${notification.channelId} importance=${channel.importance} " +
+                        "source=${if (isMockReplay) "mock_replay" else "server"}"
+                )
+                NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
+                return NotifyResult.ChannelDisabled
+            }
         }
         if (
             !NotificationContentSupport.hasMeaningfulVisibleContent(
                 context = context,
                 packageName = packageName,
                 notification = notification,
-                channelName = channel?.name,
-                channelDescription = channel?.description,
+                channelName = channel.name,
+                channelDescription = channel.description,
             )
         ) {
             logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
-            return null
+            return NotifyResult.Failed
         }
         val notificationToPost = if (focusPlan.allowIslandProxy &&
             generatedFocusBundle != null &&
@@ -384,7 +441,7 @@ object NotificationController {
                 "NotificationController.publish",
             )
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
-            return null
+            return NotifyResult.SuppressedByPolicy
         }
         val postResult = TopNotificationCoordinator.postNotificationDetailed(
             context = context,
@@ -402,7 +459,7 @@ object NotificationController {
             }
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
-            return null
+            return NotifyResult.Failed
         }
         if (postResult.owner == NotificationPostOwner.LOCAL_XMSF) {
             Logger.withTag(TAG).w {
@@ -434,7 +491,7 @@ object NotificationController {
             )
         }
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
-        return notificationToPost
+        return NotifyResult.Posted(notificationToPost)
     }
 
     private fun PushMetaInfo.isMockReplay(): Boolean =
@@ -561,93 +618,20 @@ object NotificationController {
             getNotificationManagerEx().cancel(
                 packageName,
                 MyMIPushNotificationHelper.getNotificationTag(container),
-                notificationGroup?.let { ("GroupSummary" + packageName + it).hashCode() } ?: 0
+                notificationGroup?.let { ("GroupSummary" + packageName + it).hashCode() } ?: 0,
+                userId = userId,
             )
         }
     }
 
     @JvmStatic
     fun getIconColor(ctx: Context, pkg: String): Int {
-        return Global.iconCache().getAppColor(
-            ctx,
-            pkg,
-            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, Int> {
-                override fun convert(ctx: Context, b: Bitmap): Int {
-                    val color = ColorUtil.getIconColor(b)
-                    if (color != Notification.COLOR_DEFAULT) {
-                        val hsl = FloatArray(3)
-                        ColorUtils.colorToHSL(color, hsl)
-                        hsl[1] = 0.94f
-                        hsl[2] = minOf(hsl[2] * 0.6f, 0.31f)
-                        return ColorUtils.HSLToColor(hsl)
-                    }
-                    return Notification.COLOR_DEFAULT
-                }
-            }
-        )
+        return NotificationIconRenderingSupport.getIconColor(ctx, pkg)
     }
 
     @JvmStatic
     fun processIcon(context: Context, packageName: String, notificationBuilder: NotificationCompat.Builder): Int {
-        var color = getIconColor(context, packageName)
-        notificationBuilder.setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
-        val pkgContext = XMPushUtils.getPackageContext(
-            context,
-            packageName,
-            Context.CONTEXT_IGNORE_SECURITY
-        )
-        if (pkgContext === context) {
-            // Means it failed or not hooked
-            setAppIconSmallIcon(context, packageName, notificationBuilder)
-            return color
-        }
-        val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
-        val smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON)
-        if (largeIconId > 0) {
-            notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.resources, largeIconId))
-        }
-        notificationBuilder.setColor(color)
-
-        run {
-            val iconConfig = Global.iconConfigurations().get(packageName)
-            if (iconConfig != null && iconConfig.isEnabled == true && iconConfig.isEnabledAll == true) {
-                val iconBitmap = iconConfig.bitmap()
-                if (iconBitmap != null) {
-                    notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
-                    color = iconConfig.color()
-                    notificationBuilder.setColor(color)
-                    return color
-                }
-            }
-            if (smallIconId > 0) {
-                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId))
-                return color
-            }
-            if (largeIconId > 0) {
-                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId))
-                return color
-            }
-            val iconBitmap = iconConfig?.bitmap()
-            if (iconBitmap != null && iconConfig.isEnabled == true) {
-                notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
-                color = iconConfig.color()
-                notificationBuilder.setColor(color)
-                return color
-            }
-            val iconCache = Global.iconCache().getIconCache(
-                context,
-                packageName,
-                object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
-                    override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
-                }
-            )
-            if (iconCache != null) {
-                notificationBuilder.setSmallIcon(iconCache)
-                return color
-            }
-            setAppIconSmallIcon(context, packageName, notificationBuilder)
-        }
-        return color
+        return NotificationIconRenderingSupport.processIcon(context, packageName, notificationBuilder)
     }
 
     internal fun applyStatusBarIcon(
@@ -803,18 +787,6 @@ object NotificationController {
         return color
     }
 
-    private fun setAppIconSmallIcon(
-        context: Context,
-        packageName: String,
-        notificationBuilder: NotificationCompat.Builder,
-    ): Boolean {
-        val iconBitmap = Global.iconCache().getRawIconBitmap(context, packageName)
-            ?: return false
-        notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
-        return true
-    }
-
-
     @JvmStatic
     fun buildExtraSubText(
         context: Context,
@@ -860,21 +832,6 @@ object NotificationController {
         applyStatusBarIcon = ::applyStatusBarIcon,
     )
 
-    private fun resolveNotificationUid(context: Context, packageName: String): Int {
-        return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0)).uid
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getApplicationInfo(packageName, 0).uid
-            }
-        }.getOrElse { error ->
-            val fallback = if (packageName == context.packageName) android.os.Process.myUid() else 0
-            Logger.withTag(TAG).w(error) { "failed to resolve uid for focus notification pkg=$packageName fallback=$fallback" }
-            fallback
-        }
-    }
-
     internal fun resolveNotificationUserId(context: Context, packageName: String): Int {
         return runCatching {
             val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -886,10 +843,9 @@ object NotificationController {
                 @Suppress("DEPRECATION")
                 context.packageManager.getApplicationInfo(packageName, 0).uid
             }
-            (uid.toLong() / PER_USER_RANGE).toInt().coerceAtLeast(0)
-        }.getOrElse {
-            Utils.myUserId().coerceAtLeast(0)
-        }
+            require(uid >= 0) { "Invalid target package uid: $uid" }
+            (uid.toLong() / PER_USER_RANGE).toInt()
+        }.getOrElse { error("Unable to resolve notification user for $packageName: ${it.message}") }
     }
 
 

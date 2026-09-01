@@ -109,7 +109,7 @@ object MiPushRuntimeBridge {
         val actionName = resolvedContainer?.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(resolvedContainer)
         val isMockReplay = MockMessageRegistry.isMarked(resolvedContainer)
-        val userId = Utils.myUserId().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(Utils.myUserId())
         if (resolvedContainer != null &&
             PushShellBridgeHolder.policy().shouldDropNotification(
                 context,
@@ -200,7 +200,7 @@ object MiPushRuntimeBridge {
         val isMockReplay = MockMessageRegistry.isMarked(container)
         val actionName = container.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(container)
-        val userId = Utils.myUserId().coerceAtLeast(0)
+        val userId = Utils.requireValidUserId(Utils.myUserId())
         val shouldProcess = shouldProcessPayloadIdentity(
             packageName = container.packageName,
             actionName = actionName,
@@ -208,7 +208,8 @@ object MiPushRuntimeBridge {
             source = source,
             isAck = container.action == ActionType.AckMessage,
             isMockReplay = isMockReplay,
-            payloadSize = payload.size
+            payloadSize = payload.size,
+            androidUserId = userId,
         )
         if (!shouldProcess) {
             return false
@@ -275,6 +276,7 @@ object MiPushRuntimeBridge {
         isAck: Boolean,
         isMockReplay: Boolean,
         payloadSize: Int? = null,
+        androidUserId: Int,
     ): Boolean {
         if (packageName in diagnosticPackages) {
             logI(
@@ -288,6 +290,7 @@ object MiPushRuntimeBridge {
             messageId = messageId,
             source = source,
             isAck = isAck,
+            androidUserId = androidUserId,
         )
         if (!shouldProcess) {
             if (packageName in diagnosticPackages) {
@@ -303,7 +306,7 @@ object MiPushRuntimeBridge {
     /** Drops notification dispatch grants that were issued for a package whose data was cleared. */
     fun clearPackageTransientState(packageName: String, userId: Int) {
         if (packageName.isBlank()) return
-        val prefix = "${userId.coerceAtLeast(0)}|$packageName|"
+        val prefix = "${Utils.requireValidUserId(userId)}|$packageName|"
         synchronized(notificationDispatchLock) {
             notificationDispatchAllowances.keys.removeIf { it.startsWith(prefix) }
         }

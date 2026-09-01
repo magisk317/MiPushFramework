@@ -69,7 +69,12 @@ internal object NotificationMockReplaySupport {
         val userId = resolveUserId(context, packageName)
         val effectiveColorStatusBarIcon = colorStatusBarIcon
             ?: MiPushIslandPreferences.read(context, packageName, userId).colorStatusBarIcon
-        if (!NotificationManagerEx.canNotifyForUser(userId, io.github.magisk317.mipush.common.utils.Utils.myUserId())) {
+        if (!NotificationManagerEx.canNotifyForUser(
+                userId,
+                io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
+                    io.github.magisk317.mipush.common.utils.Utils.myUserId(),
+                ),
+            )) {
             Logger.withTag(TAG).w { "skip mock replay receipt for foreign user=$userId pkg=$packageName" }
             return false
         }

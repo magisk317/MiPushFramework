@@ -4,25 +4,29 @@ import io.github.magisk317.mipush.runtime.core.PushChannelRecord
 import io.github.magisk317.mipush.runtime.core.PushChannelState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class RuntimeDeterministicCoordinatorTest {
     @Test
-    fun `package scopes normalize explicit user ids`() {
-        assertEquals("0:com.example.app", RuntimeDeterministicCoordinator.packageScope("com.example.app", -7))
+    fun `package scopes reject invalid user ids`() {
+        assertThrows<IllegalArgumentException> {
+            RuntimeDeterministicCoordinator.packageScope("com.example.app", -7)
+        }
+        assertEquals("0:com.example.app", RuntimeDeterministicCoordinator.packageScope("com.example.app", 0))
         assertEquals("12:com.example.app", RuntimeDeterministicCoordinator.packageScope("com.example.app", 12))
     }
 
     @Test
     fun `message and action scopes use the current user`() {
-        val userId = RuntimeDeterministicCoordinator.currentUserId()
+        val userId = 0
 
         assertEquals(
             "$userId:com.example.app:message-1",
-            RuntimeDeterministicCoordinator.messageScope("com.example.app", "message-1")
+            RuntimeDeterministicCoordinator.messageScope("com.example.app", "message-1", userId)
         )
         assertEquals(
             "$userId:com.example.app:SendMessage",
-            RuntimeDeterministicCoordinator.actionScope("com.example.app", "SendMessage")
+            RuntimeDeterministicCoordinator.actionScope("com.example.app", "SendMessage", userId)
         )
     }
 
@@ -34,7 +38,7 @@ class RuntimeDeterministicCoordinatorTest {
     }
 
     @Test
-    fun `channel identity includes normalized user and channel dimensions`() {
+    fun `channel identity rejects invalid user and includes channel dimensions`() {
         val record = PushChannelRecord(
             packageName = "com.example.app",
             channelId = "5",
@@ -45,10 +49,9 @@ class RuntimeDeterministicCoordinatorTest {
             source = "test",
         )
 
-        assertEquals(
-            "0:5:com.example.app:user@example.com:session-1",
+        assertThrows<IllegalArgumentException> {
             RuntimeDeterministicCoordinator.channelIdentity(record, -1)
-        )
+        }
         assertEquals(
             "7:5:com.example.app:user@example.com:session-1",
             RuntimeDeterministicCoordinator.channelIdentity(record.copy(androidUserId = 7))

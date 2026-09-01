@@ -17,8 +17,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.service.NotificationUtils
-import com.xiaomi.push.service.NotificationIdentityBridge
-import com.xiaomi.push.service.NotificationManagerPlatformSupport
+import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.PermissionUtils
@@ -102,7 +101,7 @@ object NotificationManagerEx {
         if (!diagnosticsLogged.add(key)) {
             return
         }
-        val message = "$reason ${NotificationIdentityBridge.dumpDiagnostics(appContext, packageName, channelId, groupId)}"
+        val message = "$reason ${NotificationVendorAdapter.dumpIdentityDiagnostics(appContext, packageName, channelId, groupId)}"
         if (throwable != null) {
             logE(message, throwable)
         } else {
@@ -113,8 +112,9 @@ object NotificationManagerEx {
     private fun filterLocalActiveNotifications(
         packageName: String,
         activeNotifications: Array<StatusBarNotification>,
+        userId: Int,
     ): Array<StatusBarNotification?> =
-        NotificationLocalStateSupport.filterActive(packageName, activeNotifications)
+        NotificationLocalStateSupport.filterActive(packageName, activeNotifications, userId)
 
     private fun hasLocalTargetNotification(
         packageName: String,
@@ -145,7 +145,7 @@ object NotificationManagerEx {
             return true
         }
         return if (shouldUseModernIdentityStrategy(packageName)) {
-            NotificationIdentityBridge.canCreateTargetChannels(appContext, packageName)
+            NotificationVendorAdapter.canCreateTargetChannels(appContext, packageName)
         } else {
             canUseLegacyPackageScopedApis()
         }
@@ -166,7 +166,7 @@ object NotificationManagerEx {
             return notificationManager.getNotificationChannel(preferredChannelId)
         }
         return if (shouldUseModernIdentityStrategy(packageName)) {
-            NotificationIdentityBridge.getPreferredTargetNotificationChannel(appContext, packageName, preferredChannelId)
+            NotificationVendorAdapter.getPreferredTargetChannel(appContext, packageName, preferredChannelId)
         } else {
             null
         }
@@ -186,14 +186,14 @@ object NotificationManagerEx {
     ): Boolean {
         val channelId = notification.channelId
         if (shouldUseModernIdentityStrategy(packageName)) {
-            val strategy = NotificationIdentityBridge.resolveStrategy(appContext, packageName)
-            val compatAttempt = strategy == NotificationIdentityBridge.Strategy.UNSUPPORTED &&
-                NotificationIdentityBridge.shouldAttemptCompatTargetPost(appContext, packageName)
+            val strategy = NotificationVendorAdapter.resolveIdentityStrategy(appContext, packageName)
+            val compatAttempt = strategy == NotificationVendorAdapter.IdentityStrategy.UNSUPPORTED &&
+                NotificationVendorAdapter.shouldAttemptCompatTargetPost(appContext, packageName)
             val visible = when (strategy) {
-                NotificationIdentityBridge.Strategy.FRAMEWORK -> true
-                NotificationIdentityBridge.Strategy.DELEGATED ->
-                    isHooked || NotificationIdentityBridge.getTargetNotificationChannel(appContext, packageName, channelId) != null
-                NotificationIdentityBridge.Strategy.UNSUPPORTED -> compatAttempt
+                NotificationVendorAdapter.IdentityStrategy.FRAMEWORK -> true
+                NotificationVendorAdapter.IdentityStrategy.DELEGATED ->
+                    isHooked || NotificationVendorAdapter.getTargetChannel(appContext, packageName, channelId) != null
+                NotificationVendorAdapter.IdentityStrategy.UNSUPPORTED -> compatAttempt
             }
             if (!visible) {
                 maybeLogDiagnosticsOnce("identity-precheck-failed", packageName, channelId, notification.group)
@@ -207,17 +207,17 @@ object NotificationManagerEx {
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): Boolean = notifyDetailed(packageName, tag, id, notification, userId).posted
 
     fun notifyDetailed(
         packageName: String,
         tag: String?, id: Int, notification: Notification,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): NotifyResult {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Logger.withTag(TAG).d { "notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}" }
-        val currentUserId = Utils.myUserId().coerceAtLeast(0)
+        val currentUserId = Utils.myUserId()
         if (!canNotifyForUser(userId, currentUserId)) {
             logW(
                 "skip notification publish for foreign user=$userId currentUser=$currentUserId " +
@@ -237,7 +237,7 @@ object NotificationManagerEx {
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
-                if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
+                if (NotificationVendorAdapter.notifyAsTarget(appContext, packageName, tag, id, notification)) {
                     emitNotify(result = "ok", reason = "identity_target", packageName = packageName)
                     return NotifyResult(true, NotifyOwner.TARGET, "identity_target")
                 }
@@ -324,7 +324,7 @@ object NotificationManagerEx {
             logD("live-update identity retry skipped: silent grant failed pkg=$packageName id=$id")
             return false
         }
-        val ok = NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)
+        val ok = NotificationVendorAdapter.notifyAsTarget(appContext, packageName, tag, id, notification)
         logD("live-update identity retry after appops grant pkg=$packageName id=$id ok=$ok")
         return ok
     }
@@ -338,14 +338,27 @@ object NotificationManagerEx {
         }.getOrDefault(false)
     }
 
+    internal fun cancelLocallySafely(
+        tag: String?,
+        id: Int,
+        cancel: () -> Unit,
+    ): Boolean = runCatching {
+        cancel()
+        true
+    }.onFailure {
+        // Notification ownership can change between activeNotifications and cancel().
+        // A rejected cleanup must never take down the XMSF process.
+        logW("Skipped local notification cancel after system rejection tag=$tag id=$id: ${it.message}")
+    }.getOrDefault(false)
+
     fun cancel(
         packageName: String,
         tag: String?, id: Int,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Logger.withTag(TAG).d { "cancel() called with: packageName = $packageName, tag = $tag, id = $id" }
-        val currentUserId = Utils.myUserId().coerceAtLeast(0)
+        val currentUserId = Utils.myUserId()
         if (!canCancelForUser(userId, currentUserId)) {
             logW(
                 "skip notification cancel for foreign user=$userId currentUser=$currentUserId " +
@@ -354,14 +367,14 @@ object NotificationManagerEx {
             return
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
-            if (NotificationIdentityBridge.cancelAsTargetPackage(appContext, packageName, tag, id)) {
+            if (NotificationVendorAdapter.cancelAsTarget(appContext, packageName, tag, id)) {
                 logD("cancel() completed via target identity pkg=$packageName tag=$tag id=$id")
                 return
             }
             maybeLogDiagnosticsOnce("identity-cancel-fallback", packageName, null, null)
             if (hasLocalTargetNotification(packageName, tag, id, userId)) {
-                notificationManager.cancel(tag, id)
-                logD("cancel() completed locally after identity fallback pkg=$packageName tag=$tag id=$id")
+                val cancelled = cancelLocallySafely(tag, id) { notificationManager.cancel(tag, id) }
+                logD("cancel() completed locally after identity fallback pkg=$packageName tag=$tag id=$id cancelled=$cancelled")
             } else {
                 logW("skip local cancel for foreign target without matching local marker pkg=$packageName tag=$tag id=$id")
             }
@@ -388,7 +401,8 @@ object NotificationManagerEx {
             hasLocalTargetNotification(packageName, tag, id, userId)
         }
         if (canCancelLocal) {
-            notificationManager.cancel(tag, id)
+            val cancelled = cancelLocallySafely(tag, id) { notificationManager.cancel(tag, id) }
+            logD("cancel() local owner cleanup pkg=$packageName tag=$tag id=$id cancelled=$cancelled")
         }
         logD(
             "cancel() completed locally pkg=$packageName tag=$tag id=$id " +
@@ -466,7 +480,7 @@ object NotificationManagerEx {
             maybeLogDiagnosticsOnce("target-notification-state-unavailable", packageName, null, null)
             false
         }
-        
+
         if (!systemEnabled) {
             logD("System notifications disabled for $packageName")
             return false
@@ -474,39 +488,47 @@ object NotificationManagerEx {
 
         // 2. Check if identity strategy is supported for this package
         if (shouldUseModernIdentityStrategy(packageName)) {
-            val strategy = NotificationIdentityBridge.resolveStrategy(appContext, packageName)
-            val strategySupported = strategy != NotificationIdentityBridge.Strategy.UNSUPPORTED
+            val strategy = NotificationVendorAdapter.resolveIdentityStrategy(appContext, packageName)
+            val strategySupported = strategy != NotificationVendorAdapter.IdentityStrategy.UNSUPPORTED
             if (!strategySupported) {
                 maybeLogDiagnosticsOnce("identity-unsupported", packageName, null, null)
             }
             return strategySupported
         }
-        
+
         return true
     }
 
+    @Suppress("DEPRECATION") // StatusBarNotification.userId is the only API available in the compile SDK.
     fun getActiveNotifications(
         packageName: String
     ): Array<StatusBarNotification?>? {
         logD("getActiveNotifications() called with: packageName = $packageName")
+        val userId = Utils.myUserId()
+        if (userId < 0) {
+            logW("getActiveNotifications() rejected invalid current userId=$userId pkg=$packageName")
+            return emptyArray()
+        }
         if (shouldUseModernIdentityStrategy(packageName)) {
             // Framework/delegated identity posts are owned by the target package. Query that
             // package first; looking only at XMSF-local markers misses real ongoing notifications
             // and prevents lifecycle code from cancelling them on timeout.
             val targetActive = runCatching {
-                NotificationManagerPlatformSupport.getActiveNotifications(packageName)
+                NotificationVendorAdapter.getPlatformActiveNotifications(packageName, userId)
             }.onFailure {
                 maybeLogDiagnosticsOnce("target-active-unavailable", packageName, null, null, it)
             }.getOrNull()
             if (!targetActive.isNullOrEmpty()) {
                 return targetActive.map { it as StatusBarNotification? }.toTypedArray()
             }
-            return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
+            return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications(), userId)
         } else if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     return packageNotificationManager.activeNotifications
+                        .filter { it.userId == userId }
+                        .toTypedArray()
                 } catch (e: Exception) {
                     logE("Failed to query active notifications via package context for $packageName", e)
                 }
@@ -515,7 +537,7 @@ object NotificationManagerEx {
         // Legacy package-scoped APIs are unavailable on these paths, so the host
         // NotificationManager can contain delegated records for several target apps.
         // Keep the same target marker fence used by the modern compatibility path.
-        return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
+        return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications(), userId)
     }
 
     /**
@@ -536,7 +558,7 @@ object NotificationManagerEx {
             )
             notificationManager.createNotificationChannels(listOf(channel))
             notificationManager.notify(null, dummyId, builder.build())
-            notificationManager.cancel(null, dummyId)
+            cancelLocallySafely(null, dummyId) { notificationManager.cancel(null, dummyId) }
             notificationManager.deleteNotificationChannel("xmsf_trigger")
         }.onFailure {
             logE("triggerStatusBarRefresh failed", it)

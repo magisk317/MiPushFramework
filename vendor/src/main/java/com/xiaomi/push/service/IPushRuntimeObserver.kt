@@ -123,6 +123,7 @@ interface IPushRuntimeObserver {
     fun evaluateShortConnection(nowElapsed: Long, lastConnectedTime: Long, hasNetwork: Boolean, curShortConnCount: Int, networkInterval: Long, maxShortConnCount: Int): PushShortConnectionPlan
     
     fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan
+    fun planSlimPayloadDispatch(payloadType: Int, cmd: String?, channelId: Int, subcmd: String?): PushSlimPayloadPlan
     fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan
     fun planSlimPayload(packageName: String?, chid: String?, chidStatus: String?, binderStatus: String?): PushSlimPayloadPlan
     fun resolveSlimSendPingPlan(): PushSlimPingPlan

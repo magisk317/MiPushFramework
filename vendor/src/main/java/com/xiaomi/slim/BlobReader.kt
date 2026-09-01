@@ -32,43 +32,60 @@ internal class BlobReader(
 
     private fun loop() {
         mDone = false
-        var valid = false
         val blob = read()
-        if (Blob.CMD_CONN == blob.cmd) {
-            val from = ChannelMessage.XMMsgConnResp.parseFrom(blob.payload)
-            val hasChallenge = from.hasChallenge() && from.challenge.isNotEmpty()
-            if (hasChallenge) {
-                mConnection.onChallengeReceived(from.challenge, "BlobReader.loop")
-                valid = true
-            }
-            if (from.hasPsc()) {
-                val psc = from.psc
-                val blob2 = Blob().apply {
-                    setCmd(Blob.CMD_SYNC, Blob.SUBCMD_CONF)
-                    setPayload(psc.toByteArray(), null)
-                }
-                mConnection.notifyDataArrived(blob2)
-            }
-            Logger.w { "[Slim] CONN: host = ${from.host}" }
+        val connectionResponse = if (Blob.CMD_CONN == blob.cmd) {
+            ChannelMessage.XMMsgConnResp.parseFrom(blob.payload)
+        } else {
+            null
         }
-        if (!valid) {
+        val hasChallenge = connectionResponse?.let { response ->
+            response.hasChallenge() && response.challenge.isNotEmpty()
+        } == true
+        val hasConfigMessage = connectionResponse?.hasPsc() == true
+        val observer = XMPushServiceProxy.get()?.runtimeObserver
+        val handshakePlan = observer?.planSlimHandshake(hasChallenge, hasConfigMessage)
+            ?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planHandshake(
+                hasChallenge,
+                hasConfigMessage,
+            )
+        if (handshakePlan.valid) {
+            mConnection.onChallengeReceived(connectionResponse!!.challenge, "BlobReader.loop")
+        }
+        if (handshakePlan.shouldEmitConfigBlob && connectionResponse?.hasPsc() == true) {
+            val blob2 = Blob().apply {
+                setCmd(Blob.CMD_SYNC, Blob.SUBCMD_CONF)
+                setPayload(connectionResponse.psc.toByteArray(), null)
+            }
+            mConnection.notifyDataArrived(blob2)
+        }
+        connectionResponse?.let { response -> Logger.w { "[Slim] CONN: host = ${response.host}" } }
+        if (!handshakePlan.valid) {
             Logger.w { "[Slim] Invalid CONN" }
-            throw IOException("Invalid Connection")
+            throw IOException(handshakePlan.failureReason ?: "Invalid Connection")
         }
         mKey = mConnection.key
         while (!mDone) {
             val blob3 = read()
             mConnection.setReadAlive()
-            val observer = XMPushServiceProxy.get()?.runtimeObserver
-            val payloadPlan = observer?.resolveSlimInboundPlan(blob3.channelId, blob3.cmd) ?: PushSlimInboundPlan(PushSlimInboundAction.None)
-            
+            val payloadPlan = observer?.planSlimPayloadDispatch(
+                payloadType = blob3.payloadType.toInt(),
+                cmd = blob3.cmd,
+                channelId = blob3.channelId,
+                subcmd = blob3.subcmd,
+            ) ?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planPayloadDispatch(
+                payloadType = blob3.payloadType.toInt(),
+                command = mapSlimCommand(blob3.cmd),
+                channelId = blob3.channelId,
+                hasSubcommand = blob3.subcmd.isNotEmpty(),
+            )
+
             payloadPlan.eventAction?.let { Logger.w { "[slim] $it" } }
-            
+
             when (payloadPlan.action) {
-                PushSlimInboundAction.DeliverBlob -> {
+                PushSlimPayloadAction.DeliverBlob -> {
                     mConnection.notifyDataArrived(blob3)
                 }
-                PushSlimInboundAction.ParseSecurePacket -> {
+                PushSlimPayloadAction.ParseSecurePacket -> {
                     try {
                         val clientLoginInfo = PushClientsManager.getInstance()
                             .getClientLoginInfoByChidAndUserId(
@@ -82,7 +99,7 @@ internal class BlobReader(
                         Logger.w(e) { "[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}" }
                     }
                 }
-                PushSlimInboundAction.ParsePacket -> {
+                PushSlimPayloadAction.ParsePacket -> {
                     try {
                         mConnection.notifyDataArrived(mPacketParser.parse(blob3.payload, mConnection))
                     } catch (e: Exception) {
@@ -174,6 +191,14 @@ internal class BlobReader(
             Logger.w(e) { "[Slim] read Blob [${DebugUtils.bytes2Hex(mBuffer.array(), 0, len)}] Err:${e.message}" }
             throw e
         }
+    }
+
+    private fun mapSlimCommand(cmd: String?): io.github.magisk317.mipush.runtime.core.PushSlimCommand = when (cmd) {
+        Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
+        Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
+        Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
+        Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
+        else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
     }
 
     fun shutdown() {

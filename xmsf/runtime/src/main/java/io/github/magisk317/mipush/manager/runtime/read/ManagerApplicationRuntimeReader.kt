@@ -10,7 +10,7 @@ class ManagerApplicationRuntimeReader(
 ) {
     suspend fun readPage(query: ManagerApplicationReadQuery): ManagerApplicationReadPage {
         validateQuery(query)
-        val userId = source.currentUserId().coerceAtLeast(0)
+        val userId = currentUserId()
         require(query.userId == userId) { "Application query user mismatch" }
         val stored = source.readStoredApplications()
             .asCurrentUser(userId)
@@ -65,7 +65,7 @@ class ManagerApplicationRuntimeReader(
 
     suspend fun readDetail(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         require(isValidPackageName(packageName)) { "Invalid application package name" }
-        val userId = source.currentUserId().coerceAtLeast(0)
+        val userId = currentUserId()
         val stored = source.readStoredApplications()
             .asCurrentUser(userId)
             .firstOrNull { it.packageName == packageName }
@@ -100,7 +100,7 @@ class ManagerApplicationRuntimeReader(
         require(registeredType in ManagerApplication.RegisteredType.NOT_REGISTERED..ManagerApplication.RegisteredType.UNREGISTERED) {
             "Invalid registered type"
         }
-        val userId = source.currentUserId().coerceAtLeast(0)
+        val userId = currentUserId()
         val latestEvent = source.readLatestRegistrationEvent(packageName)
         val hasLocalRegistration = source.hasLocalRegistration(packageName)
         val regSecCount = source.readRegSecCount(packageName)
@@ -119,6 +119,11 @@ class ManagerApplicationRuntimeReader(
             ),
         )
     }
+
+    private suspend fun currentUserId(): Int =
+        source.currentUserId().also { userId ->
+            require(userId >= 0) { "Unable to resolve a valid Android user id: $userId" }
+        }
 
     private fun validateQuery(query: ManagerApplicationReadQuery) {
         require(query.schemaVersion >= 1) { "Invalid application query schema" }
@@ -188,7 +193,7 @@ class ManagerApplicationRuntimeReader(
 }
 
 private fun List<StoredApplicationSnapshot>.asCurrentUser(userId: Int): List<StoredApplicationSnapshot> =
-    filter { it.userId.coerceAtLeast(0) == userId }
+    filter { it.userId == userId }
 
 data class ManagerApplicationReadDiagnostics(
     val hasLocalRegistration: Boolean,
@@ -196,5 +201,5 @@ data class ManagerApplicationReadDiagnostics(
     val latestRegistrationEventResult: Int?,
     val registeredType: Int,
     val inferenceReason: String,
-    val userId: Int = 0,
+    val userId: Int,
 )

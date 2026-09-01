@@ -50,7 +50,8 @@ class RuntimeEventDeletionRepository(
         packageName: String,
         requestedUserId: Int = userId,
     ): Boolean {
-        val scopedUserId = requestedUserId.coerceAtLeast(0)
+        if (requestedUserId < 0) return false
+        val scopedUserId = requestedUserId
         val deleted = store.deleteByIdWithUndoSnapshotForPackage(
             id = id,
             userId = scopedUserId,
@@ -70,11 +71,14 @@ class RuntimeEventDeletionRepository(
         id: Long,
         packageName: String,
         requestedUserId: Int = userId,
-    ): Long? = store.restoreDeletedEventForPackage(
-        id = id,
-        userId = requestedUserId.coerceAtLeast(0),
-        packageName = packageName,
-    )
+    ): Long? {
+        if (requestedUserId < 0) return null
+        return store.restoreDeletedEventForPackage(
+            id = id,
+            userId = requestedUserId,
+            packageName = packageName,
+        )
+    }
 
     suspend fun countEventsByDay(): List<DayCount> =
         store.countEventsByDay(userId)

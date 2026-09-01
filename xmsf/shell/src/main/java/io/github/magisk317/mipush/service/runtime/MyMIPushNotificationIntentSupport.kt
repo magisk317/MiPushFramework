@@ -109,6 +109,33 @@ internal object MyMIPushNotificationIntentSupport {
         builder.extras.putParcelable("mipush.target", pendingIntent)
     }
 
+    /**
+     * Retrieves the target service PendingIntent created with the notification and clones it
+     * through the captured active notification so Android can carry the notification's temporary
+     * background-start authorization into the target service.
+     */
+    internal fun cloneTargetPendingIntentForBackgroundActivityStart(
+        context: Context,
+        container: XmPushActionContainer,
+        notificationId: Int,
+    ): PendingIntent? {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) return null
+        val metaInfo = container.metaInfo ?: return null
+        val targetIntent = MyMIPushNotificationHelper.buildTargetIntentWithoutExtras(
+            container.packageName,
+            metaInfo,
+        ).apply {
+            data = pendingIntentIdentity(container.packageName, notificationId, 0)
+        }
+        val pendingIntent = PendingIntent.getService(
+            context,
+            pendingIntentRequestCode(container.packageName, notificationId, 0),
+            targetIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return null
+        return BackgroundActivityStartEnabler.clonePendingIntentForBackgroundActivityStart(pendingIntent)
+    }
+
     fun buildClickedPendingIntent(
         context: Context,
         container: XmPushActionContainer,

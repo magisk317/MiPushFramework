@@ -41,13 +41,13 @@ object NotificationManagerPlatformSupport {
         }
         val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val fakeSupported = runCatching {
-            JavaCalls.callMethod(nm, "isSystemConditionProviderEnabled", XMSF_FAKE_CONDITION_PROVIDER_PATH) as? Boolean
+            JavaCalls.callMethodOrThrow(nm, "isSystemConditionProviderEnabled", XMSF_FAKE_CONDITION_PROVIDER_PATH) as? Boolean
         }.getOrNull() ?: false
         val hookReady = runCatching {
-            JavaCalls.callMethod(nm, "isSystemConditionProviderEnabled", IS_SYSTEM_HOOK_READY) as? Boolean
+            JavaCalls.callMethodOrThrow(nm, "isSystemConditionProviderEnabled", IS_SYSTEM_HOOK_READY) as? Boolean
         }.getOrNull() ?: false
         val service = runCatching {
-            JavaCalls.callMethod(nm, "getService")
+            JavaCalls.callMethodOrThrow(nm, "getService")
         }.getOrNull()
         val supported = fakeSupported || hookReady || service != null
         val changed = supported != supportFwk || (service != null && nms == null)
@@ -120,33 +120,73 @@ object NotificationManagerPlatformSupport {
     }
 
     @JvmStatic
+    internal fun shouldFallbackNotificationCancel(error: Throwable): Boolean =
+        error is NoSuchMethodException
+
+    @JvmStatic
     @Throws(Exception::class)
     fun cancel(packageName: String, notificationId: Int) {
         val service = nms ?: throw IllegalStateException("NotificationManager service unavailable")
         val userId = DeviceInfo.getSpaceId()
-        if (Build.VERSION.SDK_INT >= 30) {
-            // Stock 7.4.67-C g1.a uses the API 30+ five-argument signature. The
-            // posting package is opPkg; omitting it can miss the delegated record.
-            val operationPackage = appContext?.packageName
-                ?: throw IllegalStateException("NotificationManagerPlatformSupport.init must be called first")
-            JavaCalls.callMethodOrThrow(
-                service,
-                "cancelNotificationWithTag",
-                packageName,
-                operationPackage,
-                null,
-                notificationId,
-                userId,
-            )
-        } else {
-            JavaCalls.callMethodOrThrow(
-                service,
-                "cancelNotificationWithTag",
-                packageName,
-                null,
-                notificationId,
-                userId,
-            )
+        try {
+            if (Build.VERSION.SDK_INT >= 30) {
+                // Stock 7.4.67-C g1.a uses the API 30+ five-argument signature. The
+                // posting package is opPkg; omitting it can miss the delegated record.
+                val operationPackage = appContext?.packageName
+                    ?: throw IllegalStateException("NotificationManagerPlatformSupport.init must be called first")
+                JavaCalls.callMethodOrThrow(
+                    service,
+                    "cancelNotificationWithTag",
+                    packageName,
+                    operationPackage,
+                    null,
+                    notificationId,
+                    userId,
+                )
+            } else {
+                JavaCalls.callMethodOrThrow(
+                    service,
+                    "cancelNotificationWithTag",
+                    packageName,
+                    null,
+                    notificationId,
+                    userId,
+                )
+            }
+        } catch (error: Exception) {
+            if (!shouldFallbackNotificationCancel(error)) {
+                throw error
+            }
+            // Android 17/ROM variants may remove the hidden cancel method. The host cancel
+            // API is safe only after matching the delegated target marker, concrete user and
+            // null tag; never cancel an arbitrary host record with the same numeric id.
+            if (userId < 0) {
+                return
+            }
+            @Suppress("DEPRECATION")
+            val owned = filterLocalActiveNotifications(packageName, getNm().activeNotifications)
+                .any { it.userId == userId && it.tag == null && it.id == notificationId }
+            if (owned) {
+                val notificationManager = getNm()
+                var cancelledAsTarget = false
+                try {
+                    val method = NotificationManager::class.java.getMethod(
+                        "cancelAsPackage",
+                        String::class.java,
+                        String::class.java,
+                        Int::class.javaPrimitiveType,
+                    )
+                    method.invoke(notificationManager, packageName, null, notificationId)
+                    cancelledAsTarget = true
+                } catch (error: NoSuchMethodException) {
+                    NotificationManagerHelper.outLog(
+                        "cancelAsPackage unavailable for $packageName/$notificationId: ${error.message}"
+                    )
+                }
+                if (!cancelledAsTarget) {
+                    notificationManager.cancel(notificationId)
+                }
+            }
         }
     }
 
@@ -217,13 +257,37 @@ object NotificationManagerPlatformSupport {
     @JvmStatic
     @Throws(Exception::class)
     fun getActiveNotifications(packageName: String): List<StatusBarNotification>? {
-        val spaceId = DeviceInfo.getSpaceId()
-        if (spaceId == -1) {
+        // Retain the stock/runtime facade for callers that do not carry an explicit user.
+        // Product-owned XMSF paths must use the overload below instead of silently inheriting
+        // the process' current space.
+        return getActiveNotifications(packageName, DeviceInfo.getSpaceId())
+    }
+
+    @JvmStatic
+    internal fun shouldFallbackActiveNotifications(error: Throwable): Boolean =
+        error is NoSuchMethodException
+
+    @JvmStatic
+    @Suppress("DEPRECATION") // StatusBarNotification.userId is the only API available in the compile SDK.
+    @Throws(Exception::class)
+    fun getActiveNotifications(packageName: String, userId: Int): List<StatusBarNotification>? {
+        if (userId < 0) {
             return null
         }
-        val slice = JavaCalls.callMethod(nms, "getAppActiveNotifications", packageName, spaceId)
+        val slice = runCatching {
+            JavaCalls.callMethodOrThrow(nms, "getAppActiveNotifications", packageName, userId)
+        }.getOrElse { error ->
+            if (!shouldFallbackActiveNotifications(error)) {
+                throw error
+            }
+            // Android 17/ROM variants may remove the hidden package-scoped method. The
+            // host API is already used by the shell compatibility path; keep the same
+            // target marker fence and explicit user scope instead of widening the result.
+            return filterLocalActiveNotifications(packageName, getNm().activeNotifications)
+                .filter { it.userId == userId }
+        }
         val items = getListFromParceledListSlice(slice) ?: return null
-        return items.map { it as StatusBarNotification }
+        return items.mapNotNull { it as? StatusBarNotification }
     }
 
     @JvmStatic
@@ -233,7 +297,13 @@ object NotificationManagerPlatformSupport {
         if (pkgUid == -1) {
             return null
         }
-        return JavaCalls.callMethod(nms, "getNotificationChannelGroupForPackage", groupId, packageName, pkgUid) as? NotificationChannelGroup
+        return JavaCalls.callMethodOrThrow(
+            nms,
+            "getNotificationChannelGroupForPackage",
+            groupId,
+            packageName,
+            pkgUid,
+        ) as? NotificationChannelGroup
     }
 
     @JvmStatic
@@ -250,7 +320,13 @@ object NotificationManagerPlatformSupport {
             NotificationManagerHelper.outLog("getNotificationChannels nms=null pkg=$packageName uid=$pkgUid")
             return null
         }
-        val slice = JavaCalls.callMethod(service, "getNotificationChannelsForPackage", packageName, pkgUid, false)
+        val method = service.javaClass.getMethod(
+            "getNotificationChannelsForPackage",
+            String::class.java,
+            Int::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType,
+        )
+        val slice = method.invoke(service, packageName, pkgUid, false)
         val items = getListFromParceledListSlice(slice) ?: return null
         return items.map { it as NotificationChannel }
     }
@@ -270,9 +346,9 @@ object NotificationManagerPlatformSupport {
             return null
         }
         val slice = runCatching {
-            JavaCalls.callMethod(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid, false)
+            JavaCalls.callMethodOrThrow(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid, false)
         }.getOrElse {
-            JavaCalls.callMethod(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid)
+            JavaCalls.callMethodOrThrow(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid)
         }
         val items = getListFromParceledListSlice(slice) ?: return null
         return items.map { it as NotificationChannelGroup }

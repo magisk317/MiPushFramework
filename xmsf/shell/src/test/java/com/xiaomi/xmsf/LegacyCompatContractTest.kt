@@ -43,8 +43,8 @@ class LegacyCompatContractTest {
     @Test
     fun `runtime app packaging keeps thin compatibility aliases for legacy component names`() {
         val document = parseManifest(
-            "../../app/src/main/AndroidManifest.xml",
-            "../../app/src/main/AndroidManifest.xml",
+            "../src/main/AndroidManifest.xml",
+            "../src/main/AndroidManifest.xml",
         )
         val aliases = findApplicationNodes(document, "activity-alias")
             .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }

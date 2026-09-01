@@ -15,7 +15,6 @@ import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
-import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.notification.BuilderCompat
 import com.xiaomi.xmpush.thrift.ConfigKey
 
@@ -198,7 +197,7 @@ object NotificationGroupHelper {
         if (notification == null) {
             return false
         }
-        return (JavaCalls.callMethod(notification, "isGroupSummary") as? Boolean) ?: false
+        return notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
     }
 
     private fun isMaskGroup(notification: Notification): Boolean {
@@ -284,7 +283,7 @@ object NotificationGroupHelper {
 
     private fun suppressNotificationEffects(builder: Notification.Builder, summary: Boolean): Boolean {
         return if (Build.VERSION.SDK_INT >= 26) {
-            JavaCalls.callMethod(builder, "setGroupAlertBehavior", if (summary) 2 else 1)
+            builder.setGroupAlertBehavior(if (summary) 2 else 1)
             true
         } else {
             MyLog.i("not support setGroupAlertBehavior")

@@ -111,18 +111,6 @@ object NotificationChannelManager {
     }
 
     @JvmStatic
-    fun isAnyChannelDisabled(context: Context, metaInfo: PushMetaInfo, packageName: String): Boolean {
-        val candidates = getCandidateChannelIds(context, metaInfo, packageName)
-        for (candId in candidates) {
-            val channel = NotificationManagerEx.getNotificationChannel(packageName, candId)
-            if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) {
-                return true
-            }
-        }
-        return false
-    }
-
-    @JvmStatic
     fun registerChannelIfNeeded(
         context: Context,
         metaInfo: PushMetaInfo,

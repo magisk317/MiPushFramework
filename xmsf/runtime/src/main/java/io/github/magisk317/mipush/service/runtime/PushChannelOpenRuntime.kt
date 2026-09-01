@@ -49,23 +49,24 @@ object PushChannelOpenRuntime {
         existingSecurity: String?,
         requestedSecurity: String?
     ): Boolean {
-        if (channelId.isNullOrBlank()) {
-            return false
-        }
-        var shouldRebind = false
-        if (!existingSession.isNullOrEmpty() && existingSession != requestedSession) {
+        val plan = io.github.magisk317.mipush.runtime.core.PushChannelOpenPlanFactory.planRebind(
+            channelId = channelId,
+            existingSession = existingSession,
+            requestedSession = requestedSession,
+            existingSecurity = existingSecurity,
+            requestedSecurity = requestedSecurity,
+        )
+        if (plan.sessionChanged) {
             safeWarn(
                 "session changed. old hash=${MD5.MD5_32(existingSession.orEmpty())}, new hash=${MD5.MD5_32(requestedSession.orEmpty())} chid = $channelId"
             )
-            shouldRebind = true
         }
-        if (requestedSecurity != existingSecurity) {
+        if (plan.securityChanged) {
             safeWarn(
                 "security changed. chid = $channelId sechash = ${MD5.MD5_32(requestedSecurity ?: "")}"
             )
-            shouldRebind = true
         }
-        return shouldRebind
+        return plan.shouldRebind
     }
 
     @JvmStatic
@@ -75,46 +76,24 @@ object PushChannelOpenRuntime {
         clientStatus: PushClientsManager.ClientStatus?,
         shouldRebind: Boolean
     ): PushChannelOpenPlan {
-        val effectiveStatus = clientStatus ?: PushClientsManager.ClientStatus.unbind
-        val plan = when {
-            !hasNetwork -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.OpenFailedNoNetwork,
-                state = PushChannelState.OpenFailed,
-                sourceSuffix = "no_network",
-                reasonCode = 2,
-                reasonMessage = "network_unavailable"
-            )
-            !isConnected -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.ScheduleConnect,
-                state = PushChannelState.Binding,
-                sourceSuffix = "schedule_connect"
-            )
-            effectiveStatus == PushClientsManager.ClientStatus.unbind -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.Bind,
-                state = PushChannelState.Binding,
-                sourceSuffix = "bind"
-            )
-            shouldRebind -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.Rebind,
-                state = PushChannelState.Binding,
-                sourceSuffix = "rebind"
-            )
-            effectiveStatus == PushClientsManager.ClientStatus.binding -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.AlreadyBinding,
-                state = PushChannelState.Binding,
-                sourceSuffix = "already_binding"
-            )
-            effectiveStatus == PushClientsManager.ClientStatus.binded -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.AlreadyBound,
-                state = PushChannelState.Bound,
-                sourceSuffix = "already_bound"
-            )
-            else -> PushChannelOpenPlan(
-                action = PushChannelOpenAction.NoAction,
-                state = PushChannelState.Unbound,
-                sourceSuffix = "noop"
-            )
+        val bindingState = when (clientStatus ?: PushClientsManager.ClientStatus.unbind) {
+            PushClientsManager.ClientStatus.unbind -> io.github.magisk317.mipush.runtime.core.PushBindingState.Unbound
+            PushClientsManager.ClientStatus.binding -> io.github.magisk317.mipush.runtime.core.PushBindingState.Binding
+            PushClientsManager.ClientStatus.binded -> io.github.magisk317.mipush.runtime.core.PushBindingState.Bound
         }
+        val corePlan = io.github.magisk317.mipush.runtime.core.PushChannelOpenPlanFactory.planOpen(
+            hasNetwork = hasNetwork,
+            isConnected = isConnected,
+            bindingState = bindingState,
+            shouldRebind = shouldRebind,
+        )
+        val plan = PushChannelOpenPlan(
+            action = PushChannelOpenAction.valueOf(corePlan.action.name),
+            state = corePlan.state,
+            sourceSuffix = corePlan.sourceSuffix,
+            reasonCode = corePlan.reasonCode,
+            reasonMessage = corePlan.reasonMessage,
+        )
         MagiskOtel.event(
             name = "push.lifecycle",
             attributes = mapOf(

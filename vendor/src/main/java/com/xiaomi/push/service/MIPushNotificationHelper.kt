@@ -156,9 +156,6 @@ object MIPushNotificationHelper {
 
     @JvmStatic
     fun notifyPushMessage(context: Context, pushAction: IPushServiceAction?, container: XmPushActionContainer, payload: ByteArray): NotifyPushMessageInfo {
-        if (shouldUseLegacyPublishChain(context, container)) {
-            return MIPushNotificationPublishSupport.notifyPushMessage(context, container, payload)
-        }
         return NotifyPushMessageInfo().apply {
             targetPkgName = getTargetPackage(container)
             try {
@@ -206,12 +203,4 @@ object MIPushNotificationHelper {
             MESSAGE_TYPE_INDEX.indexOf(id[0]) >= 0
     }
 
-    /**
-     * Display notifications now route through [MyMIPushNotificationHelper] by default.
-     * The legacy publish chain is intentionally retained in source for quick rollback, but it is
-     * no longer active unless this guard is flipped during troubleshooting.
-     */
-    private fun shouldUseLegacyPublishChain(context: Context, container: XmPushActionContainer): Boolean {
-        return false
-    }
 }

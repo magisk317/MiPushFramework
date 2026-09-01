@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.notification
 
-import android.graphics.Color
 import android.text.Editable
 import android.text.Html
 import android.text.Spannable
 import android.text.Spanned
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
+import androidx.core.graphics.toColorInt
 import org.xml.sax.XMLReader
 
 /**
@@ -52,7 +52,7 @@ class SweetTagHandler : Html.TagHandler {
             props.color?.let { colorStr ->
                 try {
                     output.setSpan(
-                        ForegroundColorSpan(Color.parseColor(colorStr)),
+                        ForegroundColorSpan(colorStr.toColorInt()),
                         start, end,
                         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                     )

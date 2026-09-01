@@ -13,6 +13,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.view.Display
 import androidx.core.app.NotificationCompat
+import androidx.core.content.edit
 import androidx.core.content.ContextCompat
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -126,7 +127,7 @@ object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         nowMs: Long = System.currentTimeMillis(),
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): Boolean {
         if (!isEligibleEnvironment(context)) return false
         val extras = metaInfo.extra ?: return false
@@ -172,7 +173,7 @@ object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         builder: NotificationCompat.Builder,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): Boolean {
         if (!isEligibleEnvironment(context)) return false
         val extras = metaInfo.extra ?: return false
@@ -200,7 +201,7 @@ object SweetNotificationCoordinator {
         notificationId: Int,
         metaInfo: PushMetaInfo,
         notification: Notification,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         if (!isEligibleEnvironment(context)) return
         val source = metaInfo.extra ?: emptyMap()
@@ -254,7 +255,7 @@ object SweetNotificationCoordinator {
         notificationId: Int,
         notification: Notification,
         nowMs: Long = System.currentTimeMillis(),
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         if (!isEligibleEnvironment(context)) return
         val extras = notification.extras ?: return
@@ -332,7 +333,7 @@ object SweetNotificationCoordinator {
         context: Context,
         packageName: String,
         notificationId: Int,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         cancelTimeout(context, packageName, notificationId, userId)
     }
@@ -340,7 +341,7 @@ object SweetNotificationCoordinator {
     fun clearPackageState(
         context: Context,
         packageName: String,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         val jobIds = synchronized(jobLock) {
             activeJobs.entries
@@ -493,7 +494,7 @@ object SweetNotificationCoordinator {
     internal fun jobId(
         packageName: String,
         notificationId: Int,
-        userId: Int = Utils.myUserId(),
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): String {
         val userPrefix = if (userId == 0) "" else "${userId}_"
         return "n_sweet_timeout_${userPrefix}${notificationId}_$packageName"
@@ -746,10 +747,9 @@ object SweetNotificationCoordinator {
             PREF_CLICKED_STATUS -> memoryClicked[key] = value
             PREF_SEQUENCE -> memorySequence[key] = value
         }
-        context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
-            .edit()
-            .putString(key, value)
-            .apply()
+        context.getSharedPreferences(preferences, Context.MODE_PRIVATE).edit {
+            putString(key, value)
+        }
     }
 
     private fun removeString(context: Context, preferences: String, key: String) {
@@ -759,10 +759,9 @@ object SweetNotificationCoordinator {
             PREF_CLICKED_STATUS -> memoryClicked.remove(key)
             PREF_SEQUENCE -> memorySequence.remove(key)
         }
-        context.getSharedPreferences(preferences, Context.MODE_PRIVATE)
-            .edit()
-            .remove(key)
-            .apply()
+        context.getSharedPreferences(preferences, Context.MODE_PRIVATE).edit {
+            remove(key)
+        }
     }
 
     private fun targetPackage(notification: Notification): String? {
@@ -787,7 +786,7 @@ object SweetNotificationCoordinator {
         }
         val packageName = packagePart.substringAfter('|').takeIf(String::isNotBlank) ?: return null
         val notificationId = key.substring(separator + 1).toIntOrNull() ?: return null
-        return TrackedNotification(packageName, notificationId, userId.coerceAtLeast(0))
+        return TrackedNotification(packageName, notificationId, Utils.requireValidUserId(userId))
     }
 
     private fun isEligibleEnvironment(context: Context): Boolean {

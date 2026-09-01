@@ -184,6 +184,7 @@ tasks.configureEach {
 dependencies {
     implementation(project(":xmsf:platform"))
     implementation(project(":manager:contract"))
+    implementation(project(":manager:port"))
     implementation(project(":manager:application"))
     implementation(project(":magisk-xposed-kit:diagnostics"))
     implementation(project(":diagnostics"))
@@ -209,6 +210,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     implementation(libs.libsu.core)
+    implementation(libs.hiddenapibypass)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)

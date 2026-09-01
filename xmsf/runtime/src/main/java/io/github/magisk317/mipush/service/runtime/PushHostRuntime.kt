@@ -15,24 +15,23 @@ object PushHostRuntime {
         incremental: String,
         miuiType: Int
     ): PushGslbRequest {
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.planGslbRequest(
+            sdkVersion = sdkVersion,
+            droidVersion = droidVersion,
+            model = model,
+            incremental = incremental,
+            miuiType = miuiType,
+        )
         val separator = when {
             baseUrl.contains("?").not() -> "?"
             baseUrl.endsWith("?") || baseUrl.endsWith("&") -> ""
             else -> "&"
         }
-        val requestUrl = buildString {
-            append(baseUrl)
-            append(separator)
-            append(query("sdkver", sdkVersion.toString()))
-            append('&')
-            append(query("osver", droidVersion.toString()))
-            append('&')
-            append(query("os", "$model:$incremental"))
-            append('&')
-            append(query("mi", miuiType.toString()))
+        val requestUrl = baseUrl + separator + plan.queryFields.joinToString("&") { field ->
+            query(field.name, field.value)
         }
         val url = URL(requestUrl)
-        val port = if (url.port == -1) 80 else url.port
+        val port = if (url.port == -1) plan.defaultStatsPort else url.port
         return PushGslbRequest(
             requestUrl = requestUrl,
             statsHostPort = "${url.host}:$port"
@@ -50,21 +49,15 @@ object PushHostRuntime {
         nowMs: Long,
         minBucketFetchDurationMs: Long
     ): PushBucketFetchPlan {
-        if (!fetchBucketRequested) {
-            return PushBucketFetchPlan(
-                shouldRefresh = false,
-                eventAction = "gslb_fetch_not_requested"
-            )
-        }
-        if (nowMs - lastFetchTimeMs <= minBucketFetchDurationMs) {
-            return PushBucketFetchPlan(
-                shouldRefresh = false,
-                eventAction = "gslb_fetch_throttled"
-            )
-        }
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.decideBucketFetch(
+            fetchBucketRequested = fetchBucketRequested,
+            lastFetchTimeMs = lastFetchTimeMs,
+            nowMs = nowMs,
+            minBucketFetchDurationMs = minBucketFetchDurationMs,
+        )
         return PushBucketFetchPlan(
-            shouldRefresh = true,
-            eventAction = "gslb_fetch_refresh"
+            shouldRefresh = plan.shouldRefresh,
+            eventAction = plan.eventAction,
         )
     }
 
@@ -74,37 +67,15 @@ object PushHostRuntime {
         currentHost: String?,
         candidateHosts: List<String>
     ): PushBucketReconnectPlan {
-        if (!hasConnection) {
-            return PushBucketReconnectPlan(
-                shouldReconnect = false,
-                eventAction = "gslb_refresh_no_connection"
-            )
-        }
-        if (currentHost.isNullOrBlank()) {
-            return PushBucketReconnectPlan(
-                shouldReconnect = false,
-                eventAction = "gslb_refresh_no_current_host"
-            )
-        }
-        val effectiveHosts = candidateHosts
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-        if (effectiveHosts.isEmpty()) {
-            return PushBucketReconnectPlan(
-                shouldReconnect = false,
-                eventAction = "gslb_refresh_no_hosts"
-            )
-        }
-        if (effectiveHosts.any { it == currentHost }) {
-            return PushBucketReconnectPlan(
-                shouldReconnect = false,
-                eventAction = "gslb_hosts_unchanged"
-            )
-        }
+        val plan = io.github.magisk317.mipush.runtime.core.PushHostPlanFactory.decideBucketReconnect(
+            hasConnection = hasConnection,
+            currentHost = currentHost,
+            candidateHosts = candidateHosts,
+        )
         return PushBucketReconnectPlan(
-            shouldReconnect = true,
-            eventAction = "gslb_hosts_changed",
-            connectionStateReason = "bucket_changed"
+            shouldReconnect = plan.shouldReconnect,
+            eventAction = plan.eventAction,
+            connectionStateReason = plan.connectionStateReason,
         )
     }
 

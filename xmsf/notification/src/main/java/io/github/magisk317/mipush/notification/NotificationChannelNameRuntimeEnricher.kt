@@ -3,7 +3,6 @@ package io.github.magisk317.mipush.notification
 import android.app.Notification
 import android.app.NotificationChannel
 import android.content.Context
-import android.os.Build
 import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
 import io.github.magisk317.mipush.notification.policy.NotificationDumpCommandContract
 import io.github.magisk317.mipush.common.utils.Utils
@@ -58,7 +57,10 @@ internal class NotificationChannelNameRuntimeEnricher private constructor(
         val probed = runCatching {
             // Android app UIDs are allocated in PER_USER_RANGE blocks; packageUid is already
             // the target package UID returned by the runtime reader.
-            val targetUserId = packageUid?.div(100_000) ?: Utils.myUserId()
+            val targetUserId = packageUid
+                ?.takeIf { it >= 0 }
+                ?.div(100_000)
+                ?: return@runCatching false
             prober.probe(packageName, remaining.mapNotNull { it.id }, targetUserId)
         }.onFailure {
             logW("channel name probe failed pkg=$packageName: ${it.message}")
@@ -126,7 +128,7 @@ internal fun interface ChannelNameProber {
     fun probe(packageName: String, channelIds: List<String>, userId: Int): Boolean
 
     fun probe(packageName: String, channelIds: List<String>): Boolean =
-        probe(packageName, channelIds, Utils.myUserId())
+        probe(packageName, channelIds, Utils.requireValidUserId(Utils.myUserId()))
 }
 
 /**
@@ -176,12 +178,7 @@ internal class NotificationManagerChannelNameProber(
 
     private fun buildProbeNotification(context: Context, channelId: String): Notification? {
         return runCatching {
-            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Notification.Builder(context, channelId)
-            } else {
-                @Suppress("DEPRECATION")
-                Notification.Builder(context)
-            }
+            val builder = Notification.Builder(context, channelId)
             builder
                 .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
                 .setContentTitle(" ")
@@ -190,23 +187,17 @@ internal class NotificationManagerChannelNameProber(
                 .setLocalOnly(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setVisibility(Notification.VISIBILITY_SECRET)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
-                builder.setGroup(PROBE_GROUP)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                builder.setTimeoutAfter(1_500L)
-            }
+            builder.setGroup(PROBE_GROUP)
+            builder.setTimeoutAfter(1_500L)
             @Suppress("DEPRECATION")
             builder.setPriority(Notification.PRIORITY_MIN)
             @Suppress("DEPRECATION")
             builder.setSound(null)
             @Suppress("DEPRECATION")
             builder.setVibrate(longArrayOf(0L))
-            if (Build.VERSION.SDK_INT >= 29) {
-                runCatching {
-                    val method = builder.javaClass.getMethod("setSilent", Boolean::class.javaPrimitiveType)
-                    method.invoke(builder, true)
-                }
+            runCatching {
+                val method = builder.javaClass.getMethod("setSilent", Boolean::class.javaPrimitiveType)
+                method.invoke(builder, true)
             }
             val notification = builder.build()
             notification.flags = notification.flags or Notification.FLAG_LOCAL_ONLY

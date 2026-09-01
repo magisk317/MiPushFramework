@@ -70,9 +70,9 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
 
     fun processPendingMessages(source: String, sender: com.xiaomi.push.service.IPendingPacketSender) {
         val pushAction = XMPushServiceProxy.get() ?: return
-        PushRuntimePendingPacketStore.processPendingMessages(source) { packageName, payload ->
+        PushRuntimePendingPacketStore.processPendingMessages(source, sender = { packageName, payload ->
             com.xiaomi.push.service.MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
-        }
+        })
     }
 
     fun packToContainer(payload: ByteArray): Any? = XMPushUtils.packToContainer(payload)

@@ -1,10 +1,16 @@
 package io.github.magisk317.mipush.runtime.android
 
 import android.content.Context
+import androidx.core.content.edit
 import java.util.LinkedHashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.Utils
 
+/**
+ * Legacy persistent duplicate store retained behind [io.github.magisk317.mipush.runtime.RuntimeAliases].
+ * Current inbound delivery uses the stock intent gate, runtime observation window, and hook-owned
+ * message policy; this compatibility facade must not become a second active delivery gate.
+ */
 object PushRuntimeDuplicateStore {
     private const val PREF_NAME = "push_message_ids"
     const val MAX_MSG_CACHE_COUNT = 200
@@ -35,13 +41,13 @@ object PushRuntimeDuplicateStore {
         nowMs: Long = System.currentTimeMillis(),
         userId: Int = currentUserId(),
     ): Boolean {
+        val scopedUserId = requireValidUserId(userId)
         if (messageId.isNullOrBlank()) {
             return false
         }
         synchronized(lock) {
             val sharedPreferences = context.getSharedPreferences(PREF_NAME, 0)
-            val normalizedUserId = userId.coerceAtLeast(0)
-            val storageKey = storageKey(packageName, normalizedUserId)
+            val storageKey = storageKey(packageName, scopedUserId)
             val entries = cachedIds.getOrPut(storageKey) {
                 parseStoredEntries(sharedPreferences.getString(storageKey, null), nowMs)
             }
@@ -65,9 +71,9 @@ object PushRuntimeDuplicateStore {
                 ),
                 statusOk = true,
             )
-            sharedPreferences.edit()
-                .putString(storageKey, serializeStoredEntries(entries))
-                .apply()
+            sharedPreferences.edit {
+                putString(storageKey, serializeStoredEntries(entries))
+            }
             return duplicated
         }
     }
@@ -140,8 +146,18 @@ object PushRuntimeDuplicateStore {
         }
     }
 
-    internal fun storageKey(packageName: String, userId: Int): String =
-        if (userId == 0) packageName else "$userId:$packageName"
+    internal fun storageKey(packageName: String, userId: Int): String {
+        val scopedUserId = requireValidUserId(userId)
+        return if (scopedUserId == 0) packageName else "$scopedUserId:$packageName"
+    }
 
-    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0)
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+        ?: error("Unable to resolve current Android user id")
+
+    private fun requireValidUserId(userId: Int): Int {
+        require(userId >= 0) { "Invalid Android user id: $userId" }
+        return userId
+    }
 }

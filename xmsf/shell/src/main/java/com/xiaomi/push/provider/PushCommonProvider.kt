@@ -9,8 +9,8 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 
 class PushCommonProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
-        // Stock XMSF 7.4.67-C ignores arg and unrelated extras. The older project rejected both,
-        // which changed the public capability-probe contract without protecting mutable state.
+        // This provider currently exposes only the stock capability probe. Unsupported methods
+        // return an empty Bundle until their backing feature is implemented.
         return StockSurfaceSupport.handlePushCommonCall(method, extras)
     }
 

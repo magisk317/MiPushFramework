@@ -6,7 +6,7 @@
 # Singleton.instance() creates these via reflection with no-arg constructors.
 -keepclassmembers class io.github.magisk317.mipush.push.hook.ModernHookHandler { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.MiPushEventListener { <init>(); }
--keepclassmembers class io.github.magisk317.mipush.service.RegistrationRecorder { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.service.RegisterRecorder { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.utils.ConfigValueConverter { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.utils.IconConfigurations { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.app.ConfigCenter { <init>(); }

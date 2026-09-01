@@ -12,6 +12,7 @@ class ManagerApplicationPageTokenTest {
             filterMode = ManagerApplicationReadQuery.FILTER_REGISTERED,
             includeSystemApps = true,
             pageSize = 25,
+            userId = 0,
         )
 
         val token = ManagerApplicationPageToken.encode(query, "com.example.client", 0)
@@ -30,7 +31,7 @@ class ManagerApplicationPageTokenTest {
 
     @Test
     fun `malformed and unsupported tokens are rejected`() {
-        val query = ManagerApplicationReadQuery()
+        val query = ManagerApplicationReadQuery(userId = 0)
 
         assertThrows(IllegalArgumentException::class.java) {
             ManagerApplicationPageToken.decode(query, "not-base64!", 0)

@@ -326,25 +326,23 @@ internal class XMPushServiceIntentDelegate(
         existingClient: PushClientsManager.ClientLoginInfo?,
         request: PushChannelOpenRequest
     ): Boolean {
-        val channelId = request.channelId
-        val existingSession = existingClient?.session
-        val requestedSession = request.session
-        val existingSecurity = existingClient?.security
-        val requestedSecurity = request.security
-
-        if (channelId.isNullOrBlank()) {
-            return false
+        val plan = io.github.magisk317.mipush.runtime.core.PushChannelOpenPlanFactory.planRebind(
+            channelId = request.channelId,
+            existingSession = existingClient?.session,
+            requestedSession = request.session,
+            existingSecurity = existingClient?.security,
+            requestedSecurity = request.security,
+        )
+        if (plan.sessionChanged) {
+            MyLog.w(
+                "session changed. old session=${existingClient?.session}, " +
+                    "new session=${request.session} chid = ${request.channelId}"
+            )
         }
-        var shouldRebind = false
-        if (!existingSession.isNullOrEmpty() && existingSession != requestedSession) {
-            MyLog.w("session changed. old session=$existingSession, new session=$requestedSession chid = $channelId")
-            shouldRebind = true
+        if (plan.securityChanged) {
+            MyLog.w("security changed. chid = ${request.channelId}")
         }
-        if (requestedSecurity != existingSecurity) {
-            MyLog.w("security changed. chid = $channelId")
-            shouldRebind = true
-        }
-        return shouldRebind
+        return plan.shouldRebind
     }
 
     private fun applyClientUpdate(
