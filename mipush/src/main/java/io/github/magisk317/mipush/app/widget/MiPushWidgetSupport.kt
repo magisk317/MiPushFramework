@@ -18,6 +18,8 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withSave
 import io.github.magisk317.mipush.app.R
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerEvent
@@ -187,8 +189,9 @@ internal object ConnectionStatusWidgetRenderer {
         )
         views.setTextViewText(
             R.id.widget_messages_value,
-            context.getString(
-                R.string.widget_connection_message_counts,
+            context.resources.getQuantityString(
+                R.plurals.widget_connection_message_counts,
+                snapshot.downstreamMessageCount.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
                 snapshot.downstreamMessageCount,
                 snapshot.deliveredToAppCount,
             ),
@@ -338,7 +341,7 @@ private object MiPushWidgetCanvas {
     }
 
     fun drawRecentEvents(context: Context, widthPx: Int, heightPx: Int, events: List<ManagerEvent>): Bitmap {
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(widthPx, heightPx)
         val canvas = Canvas(bitmap)
         val density = context.resources.displayMetrics.density
         val displayMetrics = context.resources.displayMetrics
@@ -463,19 +466,19 @@ private object MiPushWidgetCanvas {
             return
         }
 
-        val saveCount = canvas.save()
         val path = Path().apply {
             addRoundRect(iconRect, radius, radius, Path.Direction.CW)
         }
-        canvas.clipPath(path)
-        icon.setBounds(
-            iconRect.left.toInt(),
-            iconRect.top.toInt(),
-            iconRect.right.toInt(),
-            iconRect.bottom.toInt(),
-        )
-        icon.draw(canvas)
-        canvas.restoreToCount(saveCount)
+        canvas.withSave {
+            clipPath(path)
+            icon.setBounds(
+                iconRect.left.toInt(),
+                iconRect.top.toInt(),
+                iconRect.right.toInt(),
+                iconRect.bottom.toInt(),
+            )
+            icon.draw(this)
+        }
     }
 
     private fun drawIconPlaceholder(canvas: Canvas, iconRect: RectF, event: ManagerEvent) {

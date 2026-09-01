@@ -28,7 +28,6 @@
         
         <activity
             android:name="io.github.magisk317.mipush.app.ManagerLauncherActivity"
-            android:excludeFromRecents="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_xmsf"
             android:noHistory="true"
@@ -52,26 +51,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
-
-        <activity-alias
-            android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityLegacy"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_legacy"
-            android:label="@string/app_name"
-            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <!-- Legacy third alias retained only so apply() can force-disable it after upgrades. -->
-        <activity-alias
-            android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityXmsf"
-            android:enabled="false"
-            android:exported="false"
-            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity" />
 
 
         <activity

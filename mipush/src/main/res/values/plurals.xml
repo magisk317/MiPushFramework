@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="widget_connection_message_counts">
+        <item quantity="one">%1$d in / %2$d delivered</item>
+        <item quantity="other">%1$d in / %2$d delivered</item>
+    </plurals>
+</resources>

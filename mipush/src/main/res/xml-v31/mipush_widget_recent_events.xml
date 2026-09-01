@@ -4,6 +4,9 @@
     android:initialLayout="@layout/mipush_widget_recent_events"
     android:minWidth="250dp"
     android:minHeight="180dp"
+    android:previewLayout="@layout/mipush_widget_recent_events"
     android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

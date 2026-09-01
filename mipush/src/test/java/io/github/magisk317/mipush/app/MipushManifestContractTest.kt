@@ -32,7 +32,7 @@ class MipushManifestContractTest {
             }
 
         assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "exported").nodeValue)
-        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "excludeFromRecents").nodeValue)
+        assertTrue(launcher.attributes.getNamedItemNS(ANDROID_NS, "excludeFromRecents") == null)
         assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "noHistory").nodeValue)
 
         val activityFilters = launcher.childNodes.let { children ->
@@ -92,7 +92,7 @@ class MipushManifestContractTest {
         val launcherSource = resolveFile(
             "src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt",
         ).readText()
-        assertTrue("Intent.FLAG_ACTIVITY_NEW_TASK" in launcherSource)
+        assertFalse("Intent.FLAG_ACTIVITY_NEW_TASK" in launcherSource)
         assertTrue("WelcomeActivity" in launcherSource)
         assertFalse("LegacyComponentNames.SERVICE_PACKAGE" in launcherSource)
     }
@@ -244,6 +244,14 @@ class MipushManifestContractTest {
             }
         }
         assertFalse("io.github.magisk317.mipush.app.EventListCacheUpdatedReceiver" in receiverNames)
+    }
+
+    @Test
+    fun `event cache provider validates the Android user before writing`() {
+        val source = resolveFile("src/main/java/io/github/magisk317/mipush/app/EventListCacheProvider.kt").readText()
+
+        assertTrue(source.contains("Utils.requireValidUserId(Utils.myUserId())"))
+        assertTrue(source.contains("validateEventCacheHandoff(events, userId)"))
     }
 
     private fun parseManifest() = DocumentBuilderFactory.newInstance()

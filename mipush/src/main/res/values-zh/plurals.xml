@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="widget_connection_message_counts">
+        <item quantity="other">%1$d 下行 / %2$d 投递</item>
+    </plurals>
+</resources>

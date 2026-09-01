@@ -5,12 +5,14 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import io.github.magisk317.mipush.manager.events.EventListCacheStoreRegistry
 import io.github.magisk317.mipush.manager.events.EventListCacheSync
+import io.github.magisk317.mipush.manager.events.validateEventCacheHandoff
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.util.Date
@@ -30,6 +32,9 @@ class EventListCacheProvider : ContentProvider() {
         val events = runCatching { EventListCacheSync.decode(raw) }
             .getOrElse { return failure("invalid_payload") }
         if (events.size > EventListCacheSync.MAX_CACHE_EVENTS) return failure("too_many_events")
+        val userId = runCatching { Utils.requireValidUserId(Utils.myUserId()) }
+            .getOrElse { return failure("invalid_user") }
+        validateEventCacheHandoff(events, userId)?.let { error -> return failure(error) }
 
         val appContext = context ?: return failure("context_unavailable")
         return runCatching {

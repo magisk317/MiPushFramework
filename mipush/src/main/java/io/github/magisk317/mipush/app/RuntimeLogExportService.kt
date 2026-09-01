@@ -49,7 +49,6 @@ class RuntimeLogExportService : Service() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.runtime_log_export_notification_channel),
@@ -64,11 +63,7 @@ class RuntimeLogExportService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, RuntimeLogExportService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {

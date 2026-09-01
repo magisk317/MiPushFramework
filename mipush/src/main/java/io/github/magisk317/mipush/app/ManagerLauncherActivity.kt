@@ -10,9 +10,10 @@ import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 /**
  * Launcher / LSPosed module-settings entry for the standalone manager host.
  *
- * This trampoline is excludeFromRecents/noHistory so the multi-task switcher shows the real
- * Welcome/Main task instead of an empty launcher shell. It is the only exported Activity that
- * XMSF compatibility aliases may start across package boundaries.
+ * This trampoline is noHistory only. It immediately hands the current task to the real
+ * Welcome/Main activity, so the multi-task switcher keeps a stable MainActivity root instead of
+ * inheriting an excluded launcher shell. It is the only exported Activity that XMSF compatibility
+ * aliases may start across package boundaries.
  */
 class ManagerLauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +33,6 @@ class ManagerLauncherActivity : Activity() {
         }
         return Intent(this, component)
             .putExtras(intent)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     private companion object {
