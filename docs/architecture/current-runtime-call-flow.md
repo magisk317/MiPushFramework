@@ -30,7 +30,7 @@ Activity, launcher trampoline, or widget.
 
 Key source:
 
-- `app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
 
 ### 1b. Manager package (`io.github.magisk317.mipush`)
@@ -41,7 +41,7 @@ Key source:
 - Talks to XMSF only through signature-permission Binder (`ManagerRuntimeService`)
 - `ManagerLauncherActivity`, manager Activities, and widgets consume the Application-owned Koin
   host; they do not create or repair it.
-- Xposed module is packaged with `:mipush`, not with `:app`
+- Xposed module is packaged with `:mipush`, not with `:xmsf`
 - Connection status uses `ConnectionStatusViewModel` -> `RemoteConnectionSnapshotSource` ->
   `ManagerRuntimeClient`; the XMSF service assembles counters, timing, heartbeat, host and socket
   state from `RuntimeSettingsAdapter` / `PushRuntime.connectionSnapshot()`.
@@ -88,7 +88,7 @@ Key source:
   - receive XMSF-facing intents
   - record routing state into `PushRuntime`
   - refresh config state when required
-  - forward business intents into vendored `com.xiaomi.push.service.XMPushService`
+  - forward business intents into the shell ABI facade and private vendor `XMPushServiceCore`
 
 Key source:
 
@@ -134,8 +134,8 @@ before changing the exported route.
 
 Key source:
 
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/PushRuntime.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/android/AndroidPushRuntime.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/PushRuntime.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/android/AndroidPushRuntime.kt`
 
 ### Package data-clear lifecycle
 
@@ -164,8 +164,8 @@ Key source:
 Key source:
 
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/receiver/PkgUninstallReceiver.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/push/pipeline/PackageDataClearedCoordinator.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntimePendingPacketStore.kt`
+- `xmsf/push/src/main/java/io/github/magisk317/mipush/push/pipeline/PackageDataClearedCoordinator.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntimePendingPacketStore.kt`
 
 ## 4. Execution Host
 
@@ -182,9 +182,10 @@ Key source:
 
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
 
-## 5. Vendored Long Connection
+## 5. Long Connection Host
 
-- Entry point: vendored `com.xiaomi.push.service.XMPushService`
+- Entry point: shell `com.xiaomi.push.service.XMPushService` facade, forwarding to private vendor
+  `XMPushServiceCore`
 - Main work:
   - own the long-lived connection stack
   - run reconnect, packet sync, and intent delegates
@@ -192,7 +193,8 @@ Key source:
 
 Key source:
 
-- `vendor/src/main/java/com/xiaomi/push/service/XMPushService.kt`
+- `xmsf/shell/src/main/java/com/xiaomi/push/service/XMPushService.kt`
+- `vendor/src/main/java/com/xiaomi/push/service/XMPushServiceCore.kt`
 
 ## 6. Downstream Delivery
 
@@ -210,7 +212,8 @@ Key source:
 
 - Entry point: `MyMIPushNotificationHelper`
 - Main work:
-  - unpack and dedupe payload
+  - unpack the payload; the external-intent, runtime-observation, hook, and SDK dedupe layers
+    remain separate and are applied at their respective call sites
   - apply package-config operations
   - align stock notification behavior for focus, VoIP, SweetTag, grouping, click, and action intents
   - intercept eligible `hyper_type=1` notifications through the target application's stock extension
@@ -359,15 +362,15 @@ Application arrival callbacks are independent of XMSF's display result:
 Stored-event replay contract:
 
 - The manager calls `ManagerEventGateway.mockMessage(...)` as a suspend operation and receives one
-  of `BlockedByPermission`, `Dispatched`, `Posted`, or `Failed` from the shared `MockReplayOutcome`
-  contract.
+  of `BlockedByPermission`, `Dispatched`, `Posted`, `FailedChannelDisabled`, or `Failed` from the port-owned
+  `MockReplayOutcome` contract.
 - Modern mock replay runs the notification policy/publish path synchronously on the manager's IO
   coroutine. `Posted` is returned only after `NotificationController.publish(...)` receives a
   successful notification-manager post.
 - A blocked application, denied notification operation, or focus filter returns
   `BlockedByPermission`. A legacy reflection path whose final post cannot be observed returns
   `Dispatched`; payload/service/publish failures return `Failed`.
-- Runtime observation logs use the same outcome names, and the manager event page presents all four
+- Runtime observation logs use the same outcome names, and the manager event page presents all five
   results explicitly. Do not restore the old Boolean contract, which only proved that a payload was
   parseable and a replay attempt was started.
 
@@ -392,7 +395,6 @@ Key sources:
   - `com.xiaomi.push.provider.PushSupportProvider`
   - `com.xiaomi.xmsf.pushcontrol.PushControlProvider`
   - `com.xiaomi.xmsf.provider.MiCloudSettingsProvider`
-  - `com.xiaomi.xmsf.services.MainProcBridgeService`
   - `com.xiaomi.xmsf.services.ServiceBoxService`
   - `com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService`
   - `com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener`
@@ -457,9 +459,9 @@ Key source:
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockChannelSupport.kt`
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockNotificationMetadataBridge.kt`
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveEnvironment.kt`
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/ProcessObserverCompat.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveEnvironment.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/ProcessObserverCompat.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/telemetry/TelemetryDisabler.kt`
 - `vendor/src/main/java/com/xiaomi/smack/util/TrafficUtils.kt`
 
@@ -472,7 +474,7 @@ Evidence rules:
 - Device dumps remain reference inputs outside the Gradle graph; missing raw artifacts must remain
   explicit evidence gaps.
 - Final notification identity, channel, focus, island, XSpace and keep-alive behavior requires an
-  installed `:app` build plus hook logs and relevant `dumpsys` output.
+  installed `:xmsf` build plus hook logs and relevant `dumpsys` output.
 
 ## 9. Account / Cloud Boundary
 
@@ -519,5 +521,5 @@ transport/protocol classes.
 
 Settings/runtime actions such as foregrounding the push service, resetting the XMPP connection, and
 reading the current stock XMPP host are routed through `RuntimeSettingsAdapter`. Root and shell
-actions are routed through `RootAccessFacade`, with hook-side root probes kept in the xposed module's
+actions are routed through `AppRootAccessFacade`, with hook-side root probes kept in the xposed module's
 bounded runner.

@@ -5,9 +5,9 @@
 MiPushFramework is a system-package-compatible app split into explicit Gradle modules:
 
 1. **xmsf**
-   - Product-owned `com.xiaomi.xmsf` runtime library, manifest entrypoints, UI, settings, stock
-     compatibility surfaces, notification publish, runtime adapters, and Xposed-facing bridges.
-     It is packaged into the device-installable application by `app`, not installed by itself.
+   - Product-owned `:xmsf` Android application that produces the installable `com.xiaomi.xmsf`
+     runtime. Its `:xmsf:shell` library owns manifest entrypoints, stock compatibility surfaces,
+     notification publish, runtime adapters, and Xposed-facing bridges.
    - Compatibility-sensitive package/component names are preserved here when external callers expect
      stock XMSF names.
 
@@ -16,7 +16,7 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `PushRuntimeComponents`, `RegistrationThrottle`). It must stay free of Android framework
      dependencies so it can hold the shared routing/registration/notification-accounting types
      without depending on app UI code.
-   - The Android-coupled runtime spine (`PushRuntime` and its stores) lives in `xmsf` under the
+   - The Android-coupled runtime spine (`PushRuntime` and its stores) lives in `:xmsf:runtime` under the
      `io.github.magisk317.mipush.runtime.android` package, depends on `core`, and uses `android.*`
      APIs. (It previously lived in a dedicated `runtime-android-core` module; that module had a
      single consumer — `xmsf` — and was folded back into `xmsf`. `core` keeps the
@@ -56,20 +56,20 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      state belongs to manager-level navigation behavior rather than ui-kit. Keep route-reset policy
      in `manager/ui/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
 
-6. **app / manager / mipush**
-   - `app` is the thin application shell that produces the device-installable `com.xiaomi.xmsf`
+6. **xmsf / manager / mipush**
+   - `:xmsf` is the thin application shell that produces the device-installable `com.xiaomi.xmsf`
      runtime APK. It deliberately depends on `:manager:ui`: after `MiPushFrameworkApp` starts runtime
      Koin, `MiPushHostApp.onAppDependenciesStarted()` loads manager definitions in the main process.
    - `mipush` is the standalone manager host package. Its `Application` owns manager UI process
      startup via `ManagerDependencies.startAsRemoteHost(...)`.
      Manager reaches XMSF only through signature-authenticated Binder (`:manager:contract` / `ManagerRuntimeClient`).
-   - `:manager:contract` is the frozen Binder/AIDL/Parcelable wire boundary. `:manager:application` owns non-Binder Manager application ports, shared models, mock-replay result, runtime actions, and JSON formatting; it directly exposes the neutral DTOs owned by `:core`, and must not depend on `common`, `vendor`, `pinned`, or `xmsf` implementations. Its ports are grouped by application/notification, configuration, events, diagnostics, permissions, and Zygisk domains. Diagnostics returns an archive path, while the Manager UI host validates that path and constructs the Android `FileProvider` share intent; `File` and `Intent` are not application-port API types. `:manager:ui` is a UI/library surface available to both hosts. Real manager Activities remain
-     declared by `:mipush`; `:app` keeps only legacy redirects. Activity/launcher/widget entrypoints
+   - `:manager:contract` is the frozen Binder/AIDL/Parcelable wire boundary. `:manager:application` owns non-Binder Manager application ports, shared models, mock-replay result, runtime actions, and manager event-detail debug JSON formatting (`EventDebugJson`); generic JSONL encoding, redaction, and quota decisions are owned by `:core`. It directly exposes the neutral DTOs owned by `:core`, and must not depend on `common`, `vendor`, `pinned`, or `xmsf` implementations. Its ports are grouped by application/notification, configuration, events, diagnostics, permissions, and Zygisk domains. Diagnostics returns an archive path, while the Manager UI host validates that path and constructs the Android `FileProvider` share intent; `File` and `Intent` are not application-port API types. `:manager:ui` is a UI/library surface available to both hosts. Real manager Activities remain
+     declared by `:mipush`; `:xmsf` keeps only legacy redirects. Activity/launcher/widget entrypoints
      never own bootstrap.
    - Do not move manager bindings into `xmsf` Koin modules. `xmsf` exposes runtime gateways and the
      post-dependency hook; the app shell chooses what to load through that hook.
-   - :xmsf:shell remains the installable Android runtime library module. Prefer `:app:assembleNormalDebug` when validating the
-     installable runtime; `:xmsf:shell:assembleNormalDebug` only packages the library surface.
+   - `:xmsf:shell` remains the Android runtime library module. Use `:xmsf:assembleNormalDebug` for
+     the installable runtime; `:xmsf:shell:assembleNormalDebug` only packages the library surface.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
 graph.
@@ -104,7 +104,7 @@ graph.
 - `vendor` is frozen compatibility/runtime source. Existing product-owned imports under
   `vendor/src/main` are retained as migration debt and must not be expanded with new product
   behavior. New MiPush policy, notification handling, user configuration, and HyperIsland-related
-  behavior belong in `xmsf`, `app`, `xposed`, or an explicit adapter/bridge layer; the boundary
+  behavior belong in `:xmsf`, `xposed`, or an explicit adapter/bridge layer; the boundary
   verifier records the existing vendor imports and rejects additions.
 - Stock ABI and Provider adaptation belongs in product-owned `xmsf` surfaces such as
   `com.xiaomi.xmsf.stock` and named Binder facades. Keep raw dump sources out of the build graph,
@@ -138,14 +138,16 @@ graph.
 
 ## Root, Shell, And Logs
 
-- App-process root execution goes through `RootAccessFacade` and `BoundedShellRunner`. Callers must
+- App-process root execution goes through `AppRootAccessFacade` and `BoundedShellRunner`. Callers must
   choose cached refresh versus explicit authorization request instead of letting incidental shell
   commands trigger a root prompt.
 - Hook-process root execution stays independent and uses its own bounded runner in `xposed`; it must
   not depend on app-process singletons.
-- `xmsf/.../utils/LogBundleExporter` is the canonical app log exporter. It owns app-specific JSONL
-  selection, old text-log cleanup, redaction, and optional root-only LSPosed collection; it produces
-  an archive for a caller-owned destination.
+- `xmsf/shell/.../utils/LogBundleExporter` is the canonical app log exporter. It owns app-specific
+  JSONL selection, old text-log cleanup, archive staging, and optional root-only LSPosed collection;
+  shared JSONL encoding/redaction/quota policies remain in `:core` and sanitization of collected
+  non-runtime files remains in the diagnostics adapter. It produces an archive for a caller-owned
+  destination.
 - The former `common/.../utils/LogBundleExporter` facade was removed. Reusable archive and
   sanitization primitives live in the shared diagnostics/Xposed kits; app-specific file selection
   and optional root-only LSPosed collection stay in the xmsf exporter. The Manager UI host opens a
@@ -154,9 +156,9 @@ graph.
 
 ## Public Interfaces
 
-- **`RootAccessFacade`**: Query cached state, request authorization explicitly, refresh only when
-  already authorized, execute root shell commands. Located at
-  `xmsf/shell/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
+- **`AppRootAccessFacade`**: Query cached state, request authorization explicitly, refresh only
+  when already authorized, execute root shell commands. It is defined in
+  `xmsf/platform/src/androidMain/kotlin/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
 - **`BoundedShellRunner`**: Execute ordinary or root shell with unified timeout and result structure.
 - **`RuntimeSettingsAdapter`**: Route UI/settings operations for XMPP host, forced registration,
   service foregrounding, manager environment snapshots, and similar runtime actions through an
@@ -226,14 +228,7 @@ graph.
   application, registration, and event data paths already carry user-scoped identities. Do not
   describe static LSPosed scope support as independent per-user registration/configuration.
 
-- The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
-  `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that
-  previously sat under `common/.../configurations` were removed. The shared `ConfigJson*`
-  abstraction now lives in `:core` `commonMain` under its original package; Android/JVM consumers
-  keep source compatibility through `common`'s public `:core` dependency. `Lisp` remains in
-  `:common` because URI/Base64 decoding and `Callable` are still JVM-specific. Island renderer,
-  visual, options, and preference wire contracts follow the same `:core` ownership model. Do not
-  reintroduce a second copy of either parser or wire policy in Android modules.
+- The configuration stack lives only in `xmsf/shell/.../utils` (`Configurations`, `ConfigurationsLoader`, `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that previously sat under `common/.../configurations` were removed. The shared `ConfigJson*`, platform-neutral Lisp evaluator, and match/placeholder replacement plans now live in `:core` `commonMain` under compatible packages; Android/JVM consumers keep source compatibility through `common`'s public `:core` dependency. `common` retains only the JVM URI/Base64 codec facade. Thrift reflection, field access/conversion, mutation, and configuration loading remain in Android/JVM adapters. Island renderer, visual, options, and preference wire contracts follow the same `:core` ownership model. Do not reintroduce a second copy of either parser or wire policy in Android modules.
   Runtime behavior must be covered by contract tests that load JSON through the active xmsf parser
   and then apply it to an `XmPushActionContainer`.
 - Configuration activation is a suspend gateway operation for UI callers; runtime-owned code uses
@@ -267,7 +262,8 @@ graph.
   route-time state reset (`animateToTop()`) and non-negative padding guards in the scaffold.
 - The following routes are treated as resolved traps and should not be reintroduced:
   - do not copy manager bindings (`SettingsManager`, manager ViewModels, manager Koin module
-    contents) into `xmsfCoreKoinModule`; `xmsf` must not depend on `manager`
+    contents) into `xmsfCoreKoinModule`; only the `:xmsf` application shell may depend on
+    `:manager:ui` for the post-runtime bootstrap hook, while `:xmsf:shell` remains an adapter layer
   - do not make `MainActivity` or other manager UI entrypoints create a second Koin host or own
     manager bootstrap; startup belongs to the package `Application`
   - do not remove or bypass the `MiPushHostApp` post-runtime startup hook
@@ -296,9 +292,12 @@ The boundary baseline file is maintained at `scripts/module_boundary_baseline.tx
 remain.
 
 Kover is intentionally loaded only for explicit `qualityGateKover*` tasks, direct Kover tasks, or
-when `-PenableKover=true` is supplied. The ordinary `check` path stays on Detekt, unit tests, Android
-checks, and `verifyModuleBoundaries`; this keeps Kover's current Gradle 10 deprecation warning out of
-the default verification path while still preserving an opt-in coverage gate.
+when `-PenableKover=true` is supplied. The coverage gate measures `:common`, `:core`, `:xposed`,
+and `:xmsf:shell` at 10%, 10%, 10%, and 7% line coverage respectively. The packaging-only
+`:xmsf` application is excluded because it contains only entrypoint wrappers and has no independent
+unit-test surface; its implementation is tested through `:xmsf:shell` and the installable APK build.
+The ordinary `check` path stays on Detekt, unit tests, Android checks, and boundary checks, while
+the explicit Kover gate remains available to CI without a stale zero-coverage packaging target.
 
 ## Data-plane idiom (authoritative)
 

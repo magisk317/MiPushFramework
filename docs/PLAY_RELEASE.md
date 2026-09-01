@@ -6,7 +6,7 @@ Only MiPush Manager (`io.github.magisk317.mipush`) is distributed through Google
 
 - GitHub APK: `:mipush:assembleGithubRelease`
 - Play App Bundle: `:mipush:bundlePlayRelease`
-- XMSF APK: `:app:assembleRelease`
+- XMSF APK: `:xmsf:assembleRelease`
 
 The Play variant includes Google Play Billing. The GitHub variant registers a no-op billing provider and does not package the Billing dependency.
 

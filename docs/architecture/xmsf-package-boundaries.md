@@ -1,14 +1,14 @@
 # XMSF Package Boundaries
 
-`:xmsf:shell` remains the installable Android library surface, while `:xmsf:runtime` owns
-the independently compilable runtime core. The shell still packages the manifest and stock-compatible
-entrypoints for `app`. That does not mean every product concern may depend on every
-other concern inside the library.
+`:xmsf` is the installable Android application for `com.xiaomi.xmsf`; `:xmsf:shell` is its runtime
+library surface, while `:xmsf:runtime` owns the independently compilable runtime core. The
+application module packages the shell manifest and stock-compatible entrypoints. That does not
+mean every product concern may depend on every other concern inside the application.
 
 ## Current layers
 
 ```text
-common contracts and models
+core policies and contracts  <-  common compatibility/adapters
         ^
 runtime/data and runtime/store  <-  push/pipeline/runtime execution
         ^                         \
@@ -23,9 +23,12 @@ not import concrete notification classes.
 
 ## Protocol ownership
 
-`common` contains manager DTOs, configuration primitives, and notification contracts, but it does
-not contain Thrift types or depend on `pinned`. Protocol serialization, registration-secret
-resolution, and payload decoding are XMSF runtime concerns under `platform/support` and `utils`.
+`common` contains shared infrastructure, compatibility facades, and notification contracts;
+platform-neutral configuration and notification policies live in `:core`. Manager application values
+live in `:manager:port` and Binder DTOs live in `:manager:contract`.
+`common` does not contain Thrift types or depend on `pinned`. Protocol serialization,
+registration-secret resolution, and payload decoding are XMSF runtime concerns under
+`platform/support` and `utils`.
 The manager debug formatter emits payload metadata only as a local fallback. When the runtime
 gateway is available, manager requests decoded JSON through the Binder write protocol; the XMSF
 runtime remains the authoritative detail decoder.
@@ -63,4 +66,4 @@ unchanged.
 Do not move `NotificationController`, stock providers, or manager Binder entrypoints into a new
 module merely because their package names look separable. Those classes carry Android ABI and
 manifest obligations. A Gradle split is justified only after the package contract is explicit and
-the installable `app` artifact still owns the external surface.
+the installable `:xmsf` artifact still owns the external surface.

@@ -1,107 +1,65 @@
-# Vendor/XMSF Boundary Compliance Audit
+# Vendor–XMSF Boundary Compliance
 
-Status: active — source audit refreshed 2026-08-11 at `d8e4cf2d0`; residual platform and policy
-work remains.
+## Final status
 
-## Layering Contract
+源码边界合规。`vendor` 保持冻结的兼容/runtime 层，`:core` 负责可复用的中立策略，`xmsf`
+负责运行时组合和副作用；代码、
+边界检查和构建检查已通过，仍有必须在真机上触发的行为门禁。
 
-```
-vendor 层（传输/平台适配）
-  ├── 检测系统事件（网络变化、屏幕状态、连接关闭…）
-  ├── 执行 xmsf 返回的 plan（调度 job、启停 alarm…）
-  └── 不做任何"是否执行"的判断
+## Ownership result
 
-xmsf 层（运行时策略）
-  ├── 通过 IPushRuntimeObserver 接收事件
-  ├── 通过 resolveXxxPlan() 返回决策 plan
-  └── 拥有所有"是否/何时/如何"的判断权
-```
+- `vendor` 负责系统事件采集、传输实现和 plan 执行。
+- `:core` 负责可复用的连接、重连、断线、入站 blob 和精确 alarm 决策；`xmsf` 通过 observer
+  组合这些 plan 并执行 Android/runtime 副作用。
+- 上述路径均已通过 observer/plan 边界；vendor 不再直接持有产品策略。
+- `vendor` 内保留 stock transport、heartbeat、timeout 和兼容谓词，属于冻结实现，不等同于新增产品策略。
 
-## Compliant Paths (already using plan pattern)
+## Notification boundary result
 
-| Path | Vendor calls | xmsf decides |
-|------|-------------|-------------|
-| Connection attempt | `resolveConnectionAttemptPlan()` | skip / how to connect |
-| Check alive | `resolveCheckAlivePlan()` | ping / scheduleConnect / disconnect |
-| Connection closed (falldown+fault) | `planConnectionClosed()` | force reconnect in falldown |
-| Reconnect scheduling | `resolveReconnectAttemptPlan()` | backoff strategy / skip |
-| Blob inbound | `planInboundBlob()` | ping/close/challenge classification |
-| Exact alarm | `AlarmManagerTimer` override | canScheduleExactAlarms policy |
+- `NotificationManagerPlatformSupport` 提供显式的
+  `getActiveNotifications(packageName, userId)` 接口。
+- 负 `userId` fail-closed；无效列表元素不会进入产品层结果。
+- 无用户参数的旧接口继续保留，仅用于 stock/runtime 兼容，并委托当前空间。
+- `NotificationVendorAdapter` 直接向 vendor 传递目标 `userId`，不会先读取隐式当前用户再过滤。
+- active notification、channel、group、local fallback 和 delegated identity 均保持目标包/用户隔离。
+- 通知反射和 ROM 兼容异常处理有明确失败日志、fallback 和安全异常传播；没有使用 detekt 文件级抑制掩盖问题。
 
-## Resolved Since The Original Audit
+## Duplicate ownership
 
-The original inventory is not a current violation list. The observer-plan refactor now makes the
-vendor lifecycle delegate notify the runtime observer for `connectionClosed`, `reconnectionFailed`,
-and `reconnectionSuccessful`; the observer bridge evaluates the corresponding plans and executes
-the resulting reconnect/alarm action. The old Category A entries and the old "dead xmsf plan"
-claims are therefore closed at source level.
+去重入口按调用时机分层，不能把不同层的窗口合并成一个全局缓存：
 
-The relevant source anchors are:
+- `StockMiPushPayloadDeduper` 位于 `:xmsf:runtime`，由 `MiPushFacadeService` 在外部 SDK intent 转发前调用。它只处理 `SEND_MESSAGE`/`UNREGISTER_APP` 的完整 payload digest，并保持 stock 的过期命中顺序。
+- `AndroidPushRuntimeWindowSupport` 位于 `:xmsf:runtime`，由 `PushRuntime.observeInboundMessage` 调用。它只记录 runtime 入站观测、user/package/message identity 和 action burst 窗口，同时更新诊断计数。
+- `DuplicateMessagePolicy` 位于 `:core`，由 `xmsf/push` 的 `ExplicitHookBridge` 在 hook duplicate 回调中调用，按 user/package/message ID 处理实际 hook 点的重复消息。
+- `com.xiaomi.mipush.sdk.PushMessageProcessor` 保留 stock SDK 的 25-ID app-facing cache；`RegistrationRecordDeduper` 只合并本地注册历史，不能阻断注册 intent 到 core。
+- `PushRuntimeDuplicateStore` 和 `MiPushMessageDuplicate` 仅保留兼容 facade/adapter；前者不再是当前入站 delivery gate，后者不拥有独立 cache。
 
-- `vendor/.../XMPushServiceLifecycleDelegate.kt`
-- `xmsf/.../MiPushRuntimeObserverBridge.kt`
-- `vendor/.../PushRuntimeModels.kt`
+## Retained compatibility
 
-These are still source-level results. A connected device is required to prove timing, alarm,
-falldown, and network behavior.
+以下内容是有意保留的冻结兼容面：
 
-## Residual Inventory
+- `PING_TIMEOUT_MS = 10s`
+- `CONNECTING_TIMEOUT = 15s`
+- stable heartbeat 的 `235s` 短间隔和 `600s` 默认长间隔
+- `shouldReconnect`、`shouldFalldown` 等 vendor 兼容谓词
+- observer adapter 对 vendor 连接动作的最小调用
 
-### Category A: Vendor-owned compatibility policy remains
+现有 `io.github.magisk317.*` product imports 已记录在
+`scripts/vendor_boundary_baseline.txt`；本次没有新增边界债务。
 
-| # | Path | File | Impact |
-|---|------|------|--------|
-| 1 | `networkChanged()` / screen / timer / power observers | `vendor/.../XMPushService*` | Observer plans exist for several paths, but target-ROM behavior is not device-proven |
-| 2 | `shouldReconnect()` and `shouldFalldown()` | `vendor/.../XMPushServiceStateSupport.kt`, `XMPushServiceCore.kt` | Compatibility gates remain vendor-facing inputs to runtime decisions |
-| 3 | Connecting and ping timeout constants | `vendor/.../Connection.kt`, `SocketConnection.kt` | Frozen transport timing remains vendor-owned |
+## Evidence
 
-### Category B: Intentionally retained vendor implementation
+- shell Kotlin 编译通过。
+- `./gradlew check --warning-mode=all --console=plain` 通过，未产生 Kotlin 编译警告或 lint findings。
+- 受影响模块的 vendor、shell、manager:port 测试通过。
+- `verifyModuleBoundaries` 通过。
+- `device_dumps` 索引覆盖率为 `87 raw / 86 unique / 0 errors`。
 
-| # | Path | File | Impact |
-|---|------|------|--------|
-| 4 | Heartbeat strategy | `heartbeat/StableIntelligentHeartbeatStrategy.kt` | Stock-derived transport strategy; focused tests exist, device learning/network evidence remains open |
-| 5 | Ping timeout disconnect | `SocketConnection.kt` | Stock transport behavior; reason-specific runtime policy must stay in the adapter |
+## Open gates
 
-### Category C: Hardcoded stock compatibility constants
-
-| # | Constant | File | Value |
-|---|----------|------|-------|
-| 6 | `PING_TIMEOUT_MS` | `SocketConnection.kt` | 10s |
-| 7 | `CONNECTING_TIMEOUT` | `XMPushServiceConnectionDelegate.kt` | 15s |
-| 8 | `SHORT_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 235s |
-| 9 | `DEFAULT_LONG_INTERVAL_MS` | `StableIntelligentHeartbeatStrategy.kt` | 600s |
-
-### Category D: Explicit adapter calls into vendor actions
-
-| # | Path | File | Impact |
-|---|------|------|--------|
-| 10 | `service.shouldFalldown()` | `MiPushRuntimeObserverBridge.kt` | Runtime needs a vendor compatibility predicate while translating observer events |
-| 11 | `service.scheduleConnect(...)` | `MiPushRuntimeObserverBridge.kt`, `PushRuntimeExecutionBridge.kt` | Action execution remains an adapter responsibility; do not spread this call into product policy |
-
-## Cross-Module Consistency Issues
-
-| # | Issue | Severity |
-|---|-------|----------|
-| 1 | Three independent dedup mechanisms (common/xmsf/vendor) | High |
-| 2 | `APP_ID`/`APP_KEY` hardcoded as mutable `var` in common/Constants | High |
-| 3 | `"com.xiaomi.xmsf"` duplicated across 6+ modules, 21+ literal usages | Medium |
-| 4 | `PushVersionInfo` vendor wrapper is pure delegation facade | Low |
-| 5 | `PushRuntimeComponents` xmsf wrapper is pure re-export | Low |
-| 6 | 7 deprecated typealiases in configuration module | Low |
-
-## Fix Roadmap
-
-### Batch 1: Preserve the resolved ownership boundary
-- Keep vendor lifecycle callbacks notification-only for observer-owned decisions.
-- Add regression coverage when a new callback or direct scheduling path is introduced.
-- Keep deduplication changes separate from lifecycle ownership changes.
-
-### Batch 2: Architecture convergence
-- Add device evidence for network, screen, timer, power-mode, and client-count transitions.
-- Decide separately whether remaining vendor gates need observer plans; do not infer that from
-  the presence of a source callback alone.
-
-### Batch 3: Code quality
-- Unify `"com.xiaomi.xmsf"` constant to single definition in `common/Constant.kt`
-- Convert PushVersionInfo/PushRuntimeComponents wrappers to typealiases
-- Clean up deprecated typealiases and dead code
+- 真机 heartbeat 学习、网络切换、timeout 和 alarm 重注册。
+- 真机 KeepAlive observer/polling、绑定、转移和解绑。
+- 真机跨 UID/跨用户 active notification、delegated lifecycle、provider、XSpace、self-update 和 SDK ingress。
+- 兼容 wrapper/typealias 保留在明确的 ABI 适配边界，不是可删除的死代码。`StockMiPushPayloadDeduper`、
+  `AndroidPushRuntimeWindowSupport`、`DuplicateMessagePolicy`、stock SDK 的 25-ID cache 和注册历史
+  coalescer 各自服务不同调用时机；后续变更必须先证明范围重叠。

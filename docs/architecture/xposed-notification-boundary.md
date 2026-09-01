@@ -5,16 +5,23 @@ module is active. It replaces the old workspace-level review note.
 
 ## Runtime Ownership
 
-When the Xposed module is active, notification identity and permission work is split across two
-processes:
+When the Xposed module is active, notification identity and permission work is split across three
+runtime surfaces. The Xposed APK is only the adaptation-plane carrier; it must not own the privileged
+notification implementation.
 
 | Process | Owner | Responsibility |
 |---|---|---|
-| `com.xiaomi.xmsf` | `HookPushNC` | Sets hook flags and replaces the XMSF-side notification bridge methods. |
+| `com.xiaomi.xmsf` | `NotificationHookBackend` / `NotificationHookBridge` | Owns NMS hidden-API access, icon mutation, channel/group operations, root fallback, active-notification reads, and notification owner decisions. |
+| `com.xiaomi.xmsf` | `HookPushNC` (loaded from the Xposed APK) | Installs hooks and reflectively dispatches to `NotificationHookBridge` through the target classloader. It contains no notification backend implementation. |
 | `android` / system_server | `NmsPermissionHooker` | Resolves the delegated target package in the target user and permits the selected XMSF calls without rewriting the delegated operation package. |
 
-The practical result is that many `NotificationManagerEx` and `NotificationIdentityBridge` methods
-inside the app process are fallback code while the hook is installed.
+The target-side bridge has its own `HOOK_API_VERSION = 1`. The existing `NotificationManagerEx` and
+`NotificationIdentityBridge` hook contract remains at version `2`; these versions are checked
+independently so a stale manager/Xposed APK cannot silently call a mismatched runtime backend.
+
+`hiddenapibypass` is intentionally a dependency of `:xmsf:shell`, not `:xposed`. Therefore the
+unpublished `com.xiaomi.xmsf` runtime contains the privileged implementation while the Play manager
+AAB does not contain the backend or the HiddenApiBypass class.
 
 ## Covered Paths
 
@@ -95,11 +102,15 @@ selection, and app/runtime logging.
   it fails closed instead of looking up a primary-user icon.
 - `SecurityCoreAdd.apk` has not been re-captured in the curated archive. Its behavior is historical
   live-device evidence, not a reproducible raw-artifact claim.
-- Static scope reachability is not full multi-user ownership. Current registration, event and UI
-  models do not consistently carry `userId`; package-name-only registration, event, and UI state
-  can therefore still conflate owner and cloned instances until a dedicated identity migration
-  lands. Island package policy is the current exception: SystemUI passes the notification user ID
-  to the provider and keys its package cache by `(userId, packageName)`.
+- `MiPushZygisk` native hook remains an external source/ref/NDK ABI dependency. Native registration
+  or ABI compatibility must be validated in that source and release pipeline; Xposed/Kotlin source
+  inspection cannot establish it.
+- Static scope reachability is not full multi-user device proof. Runtime registration, event,
+  notification, and manager contracts now carry an explicit `userId`; package-scoped caches and
+  provider handoffs validate that identity before reading or writing. Island package policy also
+  receives the SystemUI notification user ID and keys its package cache by `(userId, packageName)`.
+  Cross-profile registration, cleanup, and delegated-notification behavior still require live
+  device evidence and are not established by static scope inspection alone.
 
 ## Verification
 
@@ -109,7 +120,7 @@ Useful checks for this boundary:
 ./gradlew :xposed:compileDebugKotlin
 ./gradlew :xposed:testDebugUnitTest
 ./gradlew :xmsf:shell:testNormalDebugUnitTest
-./gradlew :app:assembleNormalDebug
+./gradlew :xmsf:assembleNormalDebug
 ```
 
 For device validation, also confirm hook installation logs and the actual posted notification state

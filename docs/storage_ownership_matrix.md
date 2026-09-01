@@ -1,7 +1,8 @@
 # Storage Ownership Matrix
 
 > 创建日期：2026-08-22
-> 对应文档：modernization_and_architecture_recommendations_refined.md § 阶段 2
+> 更新日期：2026-08-31
+> 对应文档：`docs/architecture/boundary-model.md`、`docs/architecture/current-runtime-call-flow.md`
 > 用途：记录每个存储键/表的所有者、进程、用户、读写 API、迁移版本和清除条件
 
 ## 1. DataStore Preferences（产品设置）
@@ -34,15 +35,16 @@
 | `mipush_profile_id` | stock SDK | xmsf | per-package | getSharedPreferences | SharedPreferences.Editor | Cannot migrate (stock key) | **Yes** |
 | `pref_registered_pkg_names` | stock SDK | xmsf | N/A | getSharedPreferences | SharedPreferences.Editor | Cannot migrate (stock key) | **Yes** |
 | `stock_surface` | stock SDK | xmsf | N/A | getSharedPreferences | SharedPreferences.Editor | Cannot migrate (stock key) | **Yes** |
-| `last_receive_time` | common Utils | xmsf | per-package | getSharedPreferences | SharedPreferences.Editor | Evaluate migration to Room | No (internal) |
-| `KeepAlive` prefs | KeepAliveRuntimeAdapter | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `SweetNotificationCoordinator` | notification | xmsf | N/A | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `PREF_MILEPOST_STATUS` | notification | xmsf | N/A | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `PushControllerUtils` prefs | xmsf control | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `ModuleLogProvider` prefs | logging | xmsf | N/A | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `AnonymousInstallationId` | logging | xposed | current | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `WelcomeIslandNotifier` | manager | manager | current | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
-| `LauncherIconController` | manager | manager | current | getSharedPreferences | SharedPreferences.Editor | Migrate to DataStore | No (internal) |
+| `last_receive_time` | common Utils | xmsf | per-package | getSharedPreferences | SharedPreferences.Editor | Retain until a Room schema/reader migration is proven | No (internal) |
+| `stock_keepalive_runtime` | KeepAliveRuntimeAdapter | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Retain: subprocess/strategy compatibility state | No (internal) |
+| `SweetNotificationCoordinator` state | notification | xmsf | current package/user key | getSharedPreferences + memory mirror | SharedPreferences.Editor | Retain: stock-compatible lifecycle key format | No (internal) |
+| `PREF_MILEPOST_STATUS` | notification | xmsf | current package/user key | getSharedPreferences + memory mirror | SharedPreferences.Editor | Retain with Sweet state; no unproven rewrite | No (internal) |
+| `PushControllerUtils` prefs | xmsf control | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Retain: legacy control keys and explicit opt-in | No (internal) |
+| `push_message_ids` | `PushRuntimeDuplicateStore` | xmsf runtime | `(user_id, pkg)` | SharedPreferences legacy facade | SharedPreferences.Editor | Retain only for compatibility; not the active inbound delivery gate | No (internal) |
+| `ModuleLogProvider` prefs | logging | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Retain: provider compatibility state | No (internal) |
+| `AnonymousInstallationId` | logging | xposed | current | getSharedPreferences | SharedPreferences.Editor | Retain: hook-process identity boundary | No (internal) |
+| `WelcomeIslandNotifier` | manager | manager | current | PreferenceRepository/DataStore | DataStore edit | Completed | No (internal) |
+| `LauncherIconController` | manager | manager | current | PreferenceRepository/DataStore + memory | DataStore edit | Completed | No (internal) |
 | `LEGACY_SETTINGS_FILE_NAME` | MiCloudSettings | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Read-only migration | **Yes** (read) |
 
 ## 4. ContentProvider（跨进程边界）
@@ -70,19 +72,24 @@
 | `EventListCacheStore` | manager | manager process | DataStore Flow emission | DataStore transactional |
 | `ApplicationListCacheStore` | manager | manager process | DataStore Flow emission | DataStore transactional |
 | `ConnectionSnapshotSources` | manager | manager process | Binder callback | Mutex |
+| `StockMiPushPayloadDeduper` | xmsf runtime | `(user_id, package, payload_digest)` | package data clear / process reset / 60s stock window | synchronized map |
+| `AndroidPushRuntimeWindowSupport` | xmsf runtime | `(user_id, package, message/action)` | runtime state reset / bounded TTL window | runtime state lock |
+| `DuplicateMessagePolicy` | core via xmsf push hook | `(user_id, package, message_id)` | class-loader/process reset / 60s policy window | policy lock |
+| `RegistrationRecordDeduper` | xmsf runtime | `(user_id, package)` | package data clear / process reset / 30s record window | concurrent map |
 
-## 6. Migration Priorities
+## 6. Migration Status
 
-### Immediate（已完成迁移）
+### Completed
 - `SweetNotificationCoordinator` → DataStore / Memory Cache（已完成迁移与 SP 兼容导入）
 - `PREF_MILEPOST_STATUS` → DataStore / Memory Cache（已完成迁移）
 - `WelcomeIslandNotifier` → DataStore / PreferenceRepository（已完成迁移）
 - `LauncherIconController` → DataStore / Memory State（已完成）
 
-### Medium（需兼容性验证）
-- `KeepAliveRuntimeAdapter` → DataStore（需验证 Xposed 读取路径）
-- `PushControllerUtils` prefs → DataStore（需验证 stock 行为）
-- `last_receive_time` → Room（需验证跨包读取）
+### Intentionally retained
+- `stock_keepalive_runtime` — ServiceBox/strategy subprocess state and Xposed-compatible runtime reads
+- `SweetNotificationCoordinator` / `PREF_MILEPOST_STATUS` — stock-compatible package/user key lifecycle state
+- `PushControllerUtils` prefs — legacy control keys and explicit framework-registration opt-in
+- `last_receive_time` — legacy reader remains in `common`; a Room migration needs a separate schema and cross-package read proof
 
 ### Frozen（不可迁移）
 - `mipush_profile_id` — stock key

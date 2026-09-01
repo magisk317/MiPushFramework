@@ -18,14 +18,14 @@ MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让
 
 本 fork 仍以非 MIUI 设备上的系统级小米推送为核心目标，但从代码形态看，已经不是在原仓库上做少量补丁的维护分支，而是把早期单体推送代理改造成分层的 XMSF 兼容运行时：
 
-- **XMSF 外部契约由产品代码托管**：`xmsf/shell/` 继续发布为 `com.xiaomi.xmsf`，保留外部应用会访问的包名、组件名、Provider、Service、Intent 和桥接入口；stock-facing 行为通过 `xmsf/shell` 自有适配层承接，而不是把新业务直接堆进 Xiaomi runtime。
+- **XMSF 外部契约由产品代码托管**：根 `:xmsf` application 将 `xmsf/shell/` 打包为 `com.xiaomi.xmsf`，由 shell 保留外部应用会访问的包名、组件名、Provider、Service、Intent 和桥接入口；stock-facing 行为通过 shell 自有适配层承接，而不是把新业务直接堆进 Xiaomi runtime。
 - **长连接、协议和业务层分离**：`vendor/` 保留仍在工作的 Xiaomi 长连接、网络和运行时栈，`pinned/` 固定 thrift/protobuf 等协议序列化表面，`core/` 放平台无关的运行时契约与统计模型；新增业务优先走 `xmsf` 适配器或 `core` facade。
-- **运行时管线重建**：推送入口从 `MiPushFacadeService` 进入 `PushRuntime` 和 `PushRuntimeExecutionBridge`，再衔接 vendored `XMPushService`、下游 `PushMessageProcessor` 与通知发布层；这里已经包含注册重放、待处理队列、连接状态、下游投递、通知计数和兼容降级等状态管理。
-- **管理端和配置代码现代化**：`app/` 只作为外壳，`manager/ui/` 承担 Compose 管理界面和设置入口，运行时依赖 Koin、Room、DataStore 等组件；应用注册、事件、通知记录、配置加载和运行时操作都有明确的 UI/adapter 边界。
+- **运行时管线重建**：推送入口从 `MiPushFacadeService` 进入 `PushRuntime` 和 `PushRuntimeExecutionBridge`，再衔接 shell 的 `XMPushService` ABI facade、私有 vendor `XMPushServiceCore`、下游 `PushMessageProcessor` 与通知发布层；这里已经包含注册重放、待处理队列、连接状态、下游投递、通知计数和兼容降级等状态管理。
+- **管理端和配置代码现代化**：`xmsf/` 只作为外壳，`manager/ui/` 承担 Compose 管理界面和设置入口，运行时依赖 Koin、Room、DataStore 等组件；应用注册、事件、通知记录、配置加载和运行时操作都有明确的 UI/adapter 边界。
 - **通知发布不再只是简单转发**：`MyMIPushNotificationHelper`、`NotificationController`、`NotificationManagerEx` 等代码对齐 stock XMSF 的分组、点击、按钮、VoIP、SweetTag、focus 删除和渠道兼容行为，并把普通通知、配置显式焦点通知、生成式超级岛代理区分为不同路径。
 - **Hook 与超级岛是独立运行面**：`xposed/` 维护 libxposed/LSPosed 入口、SystemUI `MiPushIslandHook`、XMSF `UnlockFocusAuthHook` 和 provider 同步的 `IslandPreferences`；生成的 HyperIsland 代理通知不会和原始通知栏通知混成同一分支，也会避让独立 HyperIsland 模块。
 - **面向新平台通知语义**：进度类推送会通过 `ProgressStyleBuilder` 在 Android 16+ 使用 `Notification.ProgressStyle` 和 promoted ongoing，低版本保留常规进度通知；非 MIUI/AOSP 路径会避免泄漏 `miui.focus.param`、`miui.focus.pics` 等 MIUI 私有 extras。
-- **诊断和可观测性落在代码里**：`LogBundleExporter` 负责 JSONL 日志选择、旧文本日志清理、敏感字段脱敏、可选 LSPosed 日志采集和分享流程；root/shell 行为通过 `RootAccessFacade`、`BoundedShellRunner` 等受控入口执行。
+- **诊断和可观测性落在代码里**：`LogBundleExporter` 负责 JSONL 日志选择、旧文本日志清理、敏感字段脱敏、可选 LSPosed 日志采集和分享流程；root/shell 行为通过 `AppRootAccessFacade`、`BoundedShellRunner` 等受控入口执行。
 
 ## 项目定位
 
@@ -92,7 +92,7 @@ Release 页面通常提供 `normal` 和 `vc105` 两类构建，核心区别是�
 
 Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用、分身应用或 999 用户应用，可以在 LSPosed 中手动勾选对应作用域。
 
-当前运行时配置和注册状态仍以包名为主键，部分本地注册探测也只覆盖主用户数据，因此 999 用户应用属于实验性兼容：可以尝试手动勾选并观察注册/收发链路，但尚未提供完整的多用户隔离配置模型。
+当前运行时配置、注册状态、通知和事件数据均按 Android user scope 隔离，999 用户应用在源码和协议层有独立路径。完整的分身注册、收发、通知和清理链路仍需要真实设备验证，不能仅凭构建或 JVM 测试宣称完成。
 
 ### 配置文件有什么用？
 
@@ -150,7 +150,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 ./gradlew :core:jvmTest
 ./gradlew :xmsf:shell:testNormalDebugUnitTest
 ./gradlew :xposed:compileDebugKotlin
-./gradlew :app:assembleNormalDebug
+./gradlew :xmsf:assembleNormalDebug
 ./gradlew :mipush:assembleDebug
 ./gradlew verifyModuleBoundaries
 ```
