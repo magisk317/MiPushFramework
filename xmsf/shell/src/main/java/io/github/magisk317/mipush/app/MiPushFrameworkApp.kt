@@ -260,12 +260,40 @@ open class MiPushFrameworkApp : Application() {
         }
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        trimCaches(level)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onLowMemory() {
+        super.onLowMemory()
+        trimCaches(android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL)
+    }
+
+    private fun trimCaches(level: Int) {
+        val action = MemoryTrimPolicy.actionFor(level)
+        when (action) {
+            MemoryTrimPolicy.Action.NONE -> return
+            MemoryTrimPolicy.Action.CLEAR_BITMAPS -> {
+                Global.iconCache().clearBitmapCaches()
+                NotificationController.clearIconPackCache()
+            }
+            MemoryTrimPolicy.Action.CLEAR_ALL -> {
+                Global.iconCache().clearAll()
+                Global.applicationNameCache().clear()
+                NotificationController.clearIconPackCache()
+            }
+        }
+        logD("Trimmed memory accelerators level=$level action=${action.name}")
+    }
+
     private fun logRecentProcessExit() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         val activityManager = getSystemService(ActivityManager::class.java) ?: return
         val latestExit = activityManager
             .getHistoricalProcessExitReasons(packageName, 4, 0)
-            .firstOrNull { MemoryLimitDiagnostics.isMemoryRelatedExitReason(it.reason) }
+            .firstOrNull { MemoryLimitDiagnostics.isMemoryRelatedExit(it) }
             ?: return
         logW("Recent memory-related process exit: ${MemoryLimitDiagnostics.describeExit(latestExit)}")
     }

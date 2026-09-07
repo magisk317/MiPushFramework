@@ -14,6 +14,10 @@ import androidx.collection.LruCache
 object ApplicationNameCache {
     private val cacheInstance = LruCache<String, CharSequence>(100)
 
+    fun clear() {
+        cacheInstance.evictAll()
+    }
+
     fun getAppName(ctx: Context, pkg: String): CharSequence? {
         return object : AbstractCacheAspect<CharSequence>(cacheInstance) {
             override fun gen(): CharSequence {

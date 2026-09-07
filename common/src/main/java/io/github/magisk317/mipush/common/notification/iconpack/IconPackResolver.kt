@@ -180,6 +180,11 @@ class IconPackResolver(
     private val cache: IconPackResultCache = InMemoryIconPackResultCache(),
     private val observationLogger: IconPackObservationLogger = DefaultIconPackObservationLogger,
 ) {
+    /** Release bitmap-backed resolver results; the next lookup will query the protocol again. */
+    fun clearCache() {
+        cache.clear()
+    }
+
     fun resolve(targetPackage: String, userId: Int?, context: Context): ResolveResult {
         val normalizedPackage = targetPackage.trim()
         if (normalizedPackage.isEmpty()) {

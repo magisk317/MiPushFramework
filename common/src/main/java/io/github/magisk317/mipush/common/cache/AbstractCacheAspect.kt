@@ -17,6 +17,11 @@ internal abstract class AbstractCacheAspect<T : Any>(private val cache: LruCache
         return cached
     }
 
+    /** Evict cached values without touching the resources still held by active callers. */
+    fun clear() {
+        cache.evictAll()
+    }
+
     /**
      * @return from DataSource
      */

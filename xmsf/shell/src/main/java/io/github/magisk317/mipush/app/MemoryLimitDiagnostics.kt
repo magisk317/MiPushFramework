@@ -13,6 +13,16 @@ internal object MemoryLimitDiagnostics {
         reason == ApplicationExitInfo.REASON_LOW_MEMORY ||
             reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE
 
+    @RequiresApi(Build.VERSION_CODES.R)
+    fun isMemoryRelatedExit(reason: Int, description: String?): Boolean =
+        isMemoryRelatedExitReason(reason) ||
+            reason == ApplicationExitInfo.REASON_OTHER &&
+            description?.contains(MEMORY_LIMITER_ANON_SWAP_MARKER) == true
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    fun isMemoryRelatedExit(info: ApplicationExitInfo): Boolean =
+        isMemoryRelatedExit(info.reason, info.description)
+
     fun isHighMemoryUsage(usedBytes: Long, maxBytes: Long): Boolean {
         if (usedBytes < 0L || maxBytes <= 0L) return false
         if (usedBytes >= maxBytes) return true
@@ -36,4 +46,6 @@ internal object MemoryLimitDiagnostics {
         append(" description=")
         append(info.description.orEmpty())
     }
+
+    private const val MEMORY_LIMITER_ANON_SWAP_MARKER = "MemoryLimiter:AnonSwap"
 }

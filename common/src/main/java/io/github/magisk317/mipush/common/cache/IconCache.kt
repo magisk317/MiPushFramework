@@ -19,6 +19,19 @@ object IconCache {
     private val appColorCache = LruCache<String, Int>(100)
     private val bitmapCache = LruCache<String, Bitmap>(100)
 
+    /** Release bitmap-backed accelerators; in-flight loaders are intentionally left untouched. */
+    fun clearBitmapCaches() {
+        bitmapLruCache.evictAll()
+        mIconMemoryCaches.evictAll()
+        bitmapCache.evictAll()
+    }
+
+    /** Release all icon-derived accelerators, including the small color metadata cache. */
+    fun clearAll() {
+        clearBitmapCaches()
+        appColorCache.evictAll()
+    }
+
     fun getRawIconBitmapWithoutLoader(ctx: Context, pkg: String): Bitmap? {
         return bitmapLruCache["raw_$pkg"]
     }

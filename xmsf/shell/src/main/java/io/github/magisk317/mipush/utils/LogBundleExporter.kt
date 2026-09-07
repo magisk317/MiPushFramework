@@ -577,7 +577,7 @@ object LogBundleExporter {
             appendLine("# Memory-related rows are marked for Android 17 limiter diagnosis.")
             appendLine("count=${exits.size}")
             exits.forEachIndexed { index, info ->
-                val memoryRelated = MemoryLimitDiagnostics.isMemoryRelatedExitReason(info.reason)
+                val memoryRelated = MemoryLimitDiagnostics.isMemoryRelatedExit(info)
                 appendLine()
                 appendLine("[$index]")
                 appendLine("memoryRelated=$memoryRelated")

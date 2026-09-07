@@ -26,6 +26,28 @@ class MemoryLimitDiagnosticsTest {
     }
 
     @Test
+    fun `android memory limiter description is classified even with generic exit reason`() {
+        assertTrue(
+            MemoryLimitDiagnostics.isMemoryRelatedExit(
+                ApplicationExitInfo.REASON_OTHER,
+                "MemoryLimiter:AnonSwap",
+            ),
+        )
+        assertTrue(
+            MemoryLimitDiagnostics.isMemoryRelatedExit(
+                ApplicationExitInfo.REASON_OTHER,
+                "prefix MemoryLimiter:AnonSwap suffix",
+            ),
+        )
+        assertFalse(
+            MemoryLimitDiagnostics.isMemoryRelatedExit(
+                ApplicationExitInfo.REASON_OTHER,
+                "unrelated process exit",
+            ),
+        )
+    }
+
+    @Test
     fun `high memory usage keeps the strict eighty percent boundary`() {
         assertFalse(MemoryLimitDiagnostics.isHighMemoryUsage(80L, 100L))
         assertTrue(MemoryLimitDiagnostics.isHighMemoryUsage(81L, 100L))
