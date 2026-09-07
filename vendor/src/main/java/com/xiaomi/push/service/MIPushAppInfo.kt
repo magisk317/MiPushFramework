@@ -31,11 +31,8 @@ class MIPushAppInfo private constructor(context: Context) {
         val sharedPreferences = appContext.getSharedPreferences(PREF_NAME, 0)
         sharedPreferences.getString(PREF_KEY_UNREGISTERED_PKGS, "")
             ?.split(",")
-            ?.forEach { pkg ->
-                if (pkg.isEmpty()) {
-                    unRegisteredPkg.add(pkg)
-                }
-            }
+            ?.filter(String::isNotEmpty)
+            ?.forEach(unRegisteredPkg::add)
         sharedPreferences.getString(PREF_KEY_DISABLE_PUSH_PKGS, "")
             ?.split(",")
             ?.forEach { pkg ->

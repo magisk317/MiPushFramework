@@ -7,6 +7,7 @@ import com.xiaomi.network.Fallback
 import com.xiaomi.network.Host
 import com.xiaomi.network.HostManager
 import com.xiaomi.push.service.IPushServiceAction
+import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMPushServiceJob
 import com.xiaomi.push.service.heartbeat.HeartbeatStrategyManager
 import com.xiaomi.slim.Blob
@@ -42,7 +43,21 @@ abstract class SocketConnection(
                 return
             }
             setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_CONNECTING, 0, null)
-            connectInternal()
+            try {
+                connectInternal()
+            } catch (error: XMPPException) {
+                // A reused SlimConnection may still carry the previous shutdown guard. Publish
+                // the failed attempt here so the caller cannot leave the connection stuck in
+                // CONNECTING when the subclass cleanup is skipped by that guard.
+                if (isConnecting) {
+                    setConnectionStatus(
+                        ConnectionConfiguration.CONNECT_STATUS_DISCONNECT,
+                        PushConstants.ERROR_NETWORK_FAILED,
+                        error,
+                    )
+                }
+                throw error
+            }
         }
     }
 

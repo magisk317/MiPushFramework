@@ -8,6 +8,7 @@ import io.github.magisk317.mipush.runtime.core.PushConnectionState
 import io.github.magisk317.mipush.runtime.core.PushRegistrationRecord
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
+import io.github.magisk317.mipush.runtime.core.NetworkRegistrationThrottlePolicy
 
 /**
  * The sole synchronization and mutable-record owner for [AndroidPushRuntime].
@@ -22,6 +23,7 @@ internal class AndroidPushRuntimeState {
     internal val recentPackageActions = LinkedHashMap<String, Long>()
     internal val recentRegistrationReplays = LinkedHashMap<String, Long>()
     internal val activeRegistrationDispatches = mutableSetOf<String>()
+    internal val networkRegistrationThrottle = NetworkRegistrationThrottlePolicy()
     internal val registrationRecords = LinkedHashMap<String, PushRegistrationRecord>()
     internal val channelRecords = LinkedHashMap<String, PushChannelRecord>()
     internal var bridgeHost: PushRuntimeBridgeHost? = null

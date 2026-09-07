@@ -16,7 +16,9 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.net.Socket
@@ -66,6 +68,26 @@ class SocketConnectionPolicyWiringTest {
     }
 
     @Test
+    fun `failed connection resets state so a reused connection can retry`() {
+        every { observer.resolveCandidateHosts(any(), any()) } returns
+            PushSocketHostSelectionPlan(listOf("planned.example"), "socket_connect_fallback_hosts")
+        every { observer.planFailureRetry(any(), any()) } returns
+            PushSocketFailurePlan(false, "socket_connect_abort_network_changed")
+        val connection = TestSocketConnection(action, context, socketFails = true)
+
+        assertThrows(XMPPException::class.java) { connection.connect() }
+
+        assertEquals(ConnectionConfiguration.CONNECT_STATUS_DISCONNECT, connection.connectStatus)
+        assertFalse(connection.isConnecting)
+
+        connection.allowConnections()
+        connection.connect()
+
+        assertEquals(2, connection.createdSocketCount)
+        assertTrue(connection.isConnecting)
+    }
+
+    @Test
     fun `disconnect evaluates short connection through observer`() {
         every { observer.resolveCandidateHosts(any(), any()) } returns
             PushSocketHostSelectionPlan(listOf("planned.example"), "socket_connect_fallback_hosts")
@@ -92,7 +114,7 @@ class SocketConnectionPolicyWiringTest {
     private class TestSocketConnection(
         action: IPushServiceAction,
         context: Context,
-        private val socketFails: Boolean,
+        private var socketFails: Boolean,
     ) : SocketConnection(
         action,
         context,
@@ -107,6 +129,10 @@ class SocketConnectionPolicyWiringTest {
                     every { connect(any(), any()) } throws java.io.IOException("connect failed")
                 }
             }
+        }
+
+        fun allowConnections() {
+            socketFails = false
         }
 
         override fun initConnection() = Unit
