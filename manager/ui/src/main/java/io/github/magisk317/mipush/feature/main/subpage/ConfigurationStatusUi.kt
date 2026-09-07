@@ -2,7 +2,6 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -22,6 +21,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -58,7 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -156,11 +159,11 @@ internal fun statusColor(status: ConfigSyncStatus): Color {
     }
 }
 
-internal fun statusIcon(status: ConfigSyncStatus): Int {
+internal fun statusIcon(status: ConfigSyncStatus): ImageVector {
     return when (status) {
-        ConfigSyncStatus.IN_SYNC -> CommonR.drawable.ic_check_circle_black_24dp
-        ConfigSyncStatus.INVALID_LOCAL -> CommonR.drawable.ic_error_outline_black_24dp
-        else -> CommonR.drawable.ic_tune_24dp
+        ConfigSyncStatus.IN_SYNC -> Icons.Default.CheckCircle
+        ConfigSyncStatus.INVALID_LOCAL -> Icons.Default.ErrorOutline
+        else -> Icons.Default.Tune
     }
 }
 

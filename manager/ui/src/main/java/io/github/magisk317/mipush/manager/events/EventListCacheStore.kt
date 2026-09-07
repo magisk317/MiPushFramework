@@ -52,13 +52,13 @@ class EventListCacheStore(
         readCached(queryKey)
     }
 
-    private suspend fun readCached(queryKey: String): List<EventInfoForDisplay>? {
+    private suspend fun readCached(queryKey: String): List<EventInfoForDisplay>? = withContext(Dispatchers.IO) {
         val userId = currentUserIdProvider()
         val currentKey = stringPreferencesKey(buildEventListCacheKey(userId, queryKey))
         val legacyKey = legacyEventListCacheKey(userId, queryKey)?.let(::stringPreferencesKey)
         val preferences = dataStore.data.first()
         val raw = preferences[currentKey] ?: legacyKey?.let { preferences[it] }
-            ?: return null
+            ?: return@withContext null
         val cached = runCatching {
             json.decodeFromString<List<ManagerEvent>>(raw)
                 .takeIf { eventsBelongToUser(it, userId) }
@@ -72,7 +72,7 @@ class EventListCacheStore(
                     legacyKey?.let(values::remove)
                 }
             }
-            return null
+            return@withContext null
         }
         // Migrate the pre-user-scoped bucket only for primary user; it has no owner identity.
         if (preferences[currentKey] == null && legacyKey != null) {
@@ -83,7 +83,7 @@ class EventListCacheStore(
                 }
             }
         }
-        return cached
+        cached
     }
 
     /** Persist events for a query key. Only serializable fields are stored. */
@@ -150,7 +150,7 @@ internal fun legacyEventListCacheKey(userId: Int, queryKey: String): String? {
 
 internal fun eventsBelongToUser(events: List<ManagerEvent>, userId: Int): Boolean {
     require(userId >= 0) { "Invalid event cache user id: $userId" }
-    return events.all { it.userId == userId }
+    return events.all { it.userId == userId || (userId == 0 && it.userId == 0) }
 }
 
 private val Context.eventListCacheDataStore by preferencesDataStore(name = "event_list_cache")
@@ -164,4 +164,5 @@ private fun ManagerEvent.toEventInfoForDisplay(): EventInfoForDisplay = EventInf
     title = title,
     content = content,
     appName = appName,
+    event = this,
 )

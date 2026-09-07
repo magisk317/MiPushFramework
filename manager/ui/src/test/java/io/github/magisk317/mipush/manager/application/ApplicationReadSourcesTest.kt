@@ -116,9 +116,11 @@ class ApplicationReadSourcesTest {
             ),
         )
         val seenTokens = mutableListOf<String?>()
+        val seenQueries = mutableListOf<String>()
         val source = RemoteApplicationListSource(
             pageLoader = { query: ManagerApplicationQueryDto ->
                 seenTokens += query.pageToken
+                seenQueries += query.query
                 ManagerRuntimeResult.Success(pages[seenTokens.lastIndex])
             },
             pageSizeProvider = { 2 },
@@ -144,6 +146,7 @@ class ApplicationReadSourcesTest {
             result,
         )
         assertEquals(listOf(null, "next"), seenTokens)
+        assertEquals(listOf("example", "example"), seenQueries)
     }
 
     @Test

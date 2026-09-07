@@ -274,11 +274,6 @@ private fun TimingSection(data: ManagerConnectionSnapshot, currentTimeMs: Long) 
                 summary = stringResource(R.string.connection_status_session_duration_summary),
             )
         }
-        InfoRow(
-            label = stringResource(R.string.connection_status_last_disconnected),
-            value = formatTimestamp(data.lastDisconnectedAtMs, na),
-            summary = stringResource(R.string.connection_status_last_disconnected_summary),
-        )
     }
 }
 

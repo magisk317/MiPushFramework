@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.feature.main
 
-import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -18,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +34,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
@@ -311,7 +310,7 @@ fun MainScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Icon(
-                        painter = painterResource(CommonR.drawable.ic_notifications_black_24dp),
+                        imageVector = Icons.Default.Notifications,
                         contentDescription = null,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
@@ -400,7 +399,7 @@ fun MainScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
                         Icon(
-                            painter = painterResource(CommonR.drawable.ic_notifications_black_24dp),
+                            imageVector = Icons.Default.Notifications,
                             contentDescription = null,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )

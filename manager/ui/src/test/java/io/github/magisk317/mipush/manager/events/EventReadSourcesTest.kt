@@ -16,9 +16,11 @@ class EventReadSourcesTest {
     @Test
     fun `remote event source maps success pages`() = runBlocking {
         var requestedUserId: Int? = null
+        var requestedQuery: String? = null
         val source = RemoteEventListSource(
             pageLoader = { query ->
                 requestedUserId = query.userId
+                requestedQuery = query.query
                 ManagerRuntimeResult.Success(
                     ManagerEventPageDto(
                         items = listOf(
@@ -36,7 +38,7 @@ class EventReadSourcesTest {
             },
             userIdProvider = { 999 },
         )
-        val result = source.load(EventListRequest(pageSize = 20))
+        val result = source.load(EventListRequest(pageSize = 20, query = "mail"))
         assertTrue(result is EventReadResult.Available)
         val events = (result as EventReadResult.Available).value
         assertEquals(1, events.size)
@@ -44,6 +46,7 @@ class EventReadSourcesTest {
         assertEquals(999, events.single().userId)
         assertEquals(setOf("disable"), events.single().configOptions)
         assertEquals(999, requestedUserId)
+        assertEquals("mail", requestedQuery)
     }
 
     @Test

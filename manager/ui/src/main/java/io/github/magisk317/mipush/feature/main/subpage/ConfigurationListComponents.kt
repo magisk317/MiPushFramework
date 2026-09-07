@@ -58,7 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -234,7 +233,7 @@ internal fun ConfigListEntry(
         onClick = onClick,
         leadingContent = {
             Icon(
-                painter = painterResource(statusIcon(item.status)),
+                imageVector = statusIcon(item.status),
                 contentDescription = null,
                 tint = statusColor(item.status),
             )

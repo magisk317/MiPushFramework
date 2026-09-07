@@ -2,13 +2,13 @@
 
 package io.github.magisk317.mipush.feature.wizard
 
-import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,7 +84,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import io.github.magisk317.mipush.manager.R
@@ -110,6 +111,10 @@ open class RequestPermissionPage : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val recheckOnly = intent?.getBooleanExtra(EXTRA_RECHECK_ONLY, false) ?: false
         setContent {
@@ -362,13 +367,11 @@ private fun RootSubjectItem(
         },
         leadingContent = {
             Icon(
-                painter = painterResource(
-                    if (granted) {
-                        CommonR.drawable.ic_check_circle_black_24dp
-                    } else {
-                        CommonR.drawable.ic_radio_button_unchecked_black_24dp
-                    },
-                ),
+                imageVector = if (granted) {
+                    Icons.Default.CheckCircle
+                } else {
+                    Icons.Default.RadioButtonUnchecked
+                },
                 contentDescription = statusText,
                 tint = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.outline,
                 modifier = Modifier.size(24.dp),
@@ -411,13 +414,13 @@ fun PermissionItem(
         leadingContent = {
             if (isGranted) {
                 Icon(
-                    painter = painterResource(CommonR.drawable.ic_check_circle_black_24dp),
+                    imageVector = Icons.Default.CheckCircle,
                     contentDescription = stringResource(id = R.string.status_granted),
                     tint = COLOR_GRANTED
                 )
             } else {
                 Icon(
-                    painter = painterResource(CommonR.drawable.ic_radio_button_unchecked_black_24dp),
+                    imageVector = Icons.Default.RadioButtonUnchecked,
                     contentDescription = stringResource(id = R.string.status_pending),
                     tint = MaterialTheme.colorScheme.outline
                 )

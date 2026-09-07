@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.feature.main.RecentEventListPage
 import android.content.Intent
 import android.net.Uri
@@ -34,6 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.WrapText
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -71,7 +71,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -229,7 +228,7 @@ internal fun EventDetailsDialog(
                 }
                 IconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
                     Icon(
-                        painter = painterResource(id = CommonR.drawable.ic_info_outline_black_24dp),
+                        imageVector = Icons.Outlined.Info,
                         contentDescription = stringResource(R.string.action_app_info),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )

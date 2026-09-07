@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.feature.main.RecentEventListPage
 import android.content.Intent
 import android.content.Context
@@ -33,6 +32,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.WrapText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -70,7 +70,6 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
@@ -356,7 +355,7 @@ internal fun EventGroupList(
                     },
                     trailingContent = {
                         Icon(
-                            painter = painterResource(CommonR.drawable.ic_keyboard_arrow_right_black_24dp),
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

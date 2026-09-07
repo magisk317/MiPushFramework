@@ -2,12 +2,12 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.feature.main.RecentEventListPage
 
 import android.content.Intent
 import android.net.Uri
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +36,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.outlined.WrapText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -59,6 +61,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,7 +77,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
@@ -147,7 +149,8 @@ fun EventList(
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
         var preferenceRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
-        val effectiveRefreshSignal = refreshSignal + preferenceRefreshSignal
+        var searchRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
+        val effectiveRefreshSignal = refreshSignal + preferenceRefreshSignal + searchRefreshSignal
         var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
@@ -176,8 +179,25 @@ fun EventList(
             }
         }
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val searchActive = searchExpanded || currentQuery.isNotBlank()
-        val topOverlayHeight = topInset + if (searchActive) 152.dp else 64.dp
+        val searchActive = searchExpanded
+        val topOverlayHeight = topInset + if (searchActive) 64.dp else 64.dp
+
+        fun closeSearch() {
+            searchExpanded = false
+            currentQuery = ""
+            searchRefreshSignal++
+        }
+
+        BackHandler(enabled = searchExpanded) {
+            closeSearch()
+        }
+
+        LaunchedEffect(isActive) {
+            if (!isActive) {
+                searchExpanded = false
+                currentQuery = ""
+            }
+        }
 
         clickedEvent?.let {
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
@@ -191,7 +211,8 @@ fun EventList(
             overlayModifier = Modifier
                 .fillMaxWidth(),
             content = { listPadding ->
-                if (showGroupedByApp) {
+                key(currentQuery, packageName, effectiveRefreshSignal, showGroupedByApp) {
+                    if (showGroupedByApp) {
                     EventGroupList(
                         query = currentQuery,
                         refreshSignal = effectiveRefreshSignal,
@@ -237,6 +258,7 @@ fun EventList(
                         listState = listState,
                     )
                 }
+                }
             },
             overlay = {
                 WorkspaceTopBarSearchOverlay(
@@ -249,19 +271,28 @@ fun EventList(
                     searchPlaceholder = stringResource(android.R.string.search_go),
                     searchVisible = searchActive,
                     searchActionContentDescription = stringResource(R.string.action_search),
-                    onSearchActionClick = { searchExpanded = !searchExpanded },
+                    onSearchActionClick = {
+                        if (searchExpanded) {
+                            closeSearch()
+                        } else {
+                            searchExpanded = true
+                        }
+                    },
                     actions = {
                         if (packageName.isEmpty()) {
                             IconButton(onClick = { showListSettingsSheet = true }) {
                                 Icon(
-                                    painter = painterResource(CommonR.drawable.ic_settings_black_24dp),
+                                    imageVector = Icons.Default.Settings,
                                     contentDescription = stringResource(R.string.action_list_settings),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     },
-                    onSearchChange = { currentQuery = it },
+                    onSearchChange = {
+                        currentQuery = it
+                        searchRefreshSignal++
+                    },
                 )
             }
         )
@@ -280,7 +311,7 @@ fun EventList(
             ScrollToTopFAB(
                 listState = listState,
                 visible = snackbarHostState.currentSnackbarData == null && scrollChromeState?.isChromeVisible != true,
-                extraBottomPadding = 80.dp,
+                extraBottomPadding = contentPadding.calculateBottomPadding(),
             )
 
             // 列表设置：与 xinyi / xsmscode 记录页拉齐，收进一个设置图标 → 底部 sheet。
@@ -457,7 +488,7 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
         modifier = modifier,
         icon = {
             Icon(
-                painter = painterResource(id = CommonR.drawable.ic_event_note_black_24dp),
+                imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
@@ -498,7 +529,7 @@ internal fun EventLoadFailedState(modifier: Modifier = Modifier) {
         modifier = modifier.heightIn(min = 300.dp),
         icon = {
             Icon(
-                painter = painterResource(id = CommonR.drawable.ic_event_note_black_24dp),
+                imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),

@@ -1,19 +1,19 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 849fb490d96bf447e2fb89624cd2dcfab1ca828a
+    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 849fb490d96bf447e2fb89624cd2dcfab1ca828a
+    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 849fb490d96bf447e2fb89624cd2dcfab1ca828a
+    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 849fb490d96bf447e2fb89624cd2dcfab1ca828a
+    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 849fb490d96bf447e2fb89624cd2dcfab1ca828a
+    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -43,7 +43,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "849fb490d96bf447e2fb89624cd2dcfab1ca828a"
+  MAGISK_CI_TOOLKIT_REF: "23cba532842894a4706671e8fbe29fe460be0d6e"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -60,7 +60,7 @@ variables:
   MAGISK_PLAY_INITIAL_VERSION_CODE: "1569"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
-  # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
+  # Pin the external source so an old tag cannot change when MiPushZygisk/beta advances.
   MIPUSH_ZYGISK_REF: "77b23b5dfdae8b63b484dc7bf35f4d6951b00733"
   MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
@@ -284,6 +284,7 @@ zygisk:build:arm:
   rules:
     - if: '$CI_COMMIT_TAG'
       when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - !reference [.mipush_package_rules, rules]
   variables:
     MIPUSH_ZYGISK_RUNNER_GROUP: "arm"
@@ -312,7 +313,13 @@ telegram:ci:
   stage: notify
   allow_failure: true
   rules:
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\// && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: on_success
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: on_success
     - when: never
   tags:
     - magisk-arm64-linux
@@ -326,9 +333,6 @@ telegram:ci:
   needs:
     - job: android:build
       artifacts: true
-      optional: true
-    - job: android:ci:play-beta
-      artifacts: false
       optional: true
     - job: zygisk:build:arm
       artifacts: true
@@ -619,24 +623,7 @@ android:release:play:
     - when: never
   variables:
     MAGISK_PLAY_TRACK_OVERRIDE: "production"
-  before_script:
-    - !reference [.magisk_linux_base, before_script]
-    - |
-      set -euo pipefail
-      output_root="$CI_PROJECT_DIR/xmsf/build/outputs"
-      mkdir -p "$output_root"
-
-      # The inherited publisher searches xmsf/build with find, which does not
-      # traverse a symlink used as its starting path. Materialize the needed
-      # artifact directories instead of linking mipush outputs into app.
-      rm -rf "$output_root/bundle" "$output_root/mapping" "$output_root/native-debug-symbols"
-      cp -a "$CI_PROJECT_DIR/mipush/build/outputs/bundle" "$output_root/bundle"
-      if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/mapping" ]; then
-        cp -a "$CI_PROJECT_DIR/mipush/build/outputs/mapping" "$output_root/mapping"
-      fi
-      if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" ]; then
-        cp -a "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" "$output_root/native-debug-symbols"
-      fi
+    MAGISK_ANDROID_APP_MODULE: "mipush"
   needs:
     - job: android:release:play-bundle
       artifacts: true
@@ -656,6 +643,8 @@ android:ci:play-beta-bundle:
     - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+      when: on_success
     - when: never
   script:
     - |
@@ -675,7 +664,7 @@ android:ci:play-beta-bundle:
           :mipush:bundlePlayRelease -PversionName="$MAGISK_PLAY_VERSION_NAME" -PversionCode="$MAGISK_PLAY_VERSION_CODE"
   artifacts:
     when: always
-    expire_in: 1 day
+    expire_in: 7 days
     paths:
       - mipush/build/outputs/bundle/**/*.aab
       - mipush/build/outputs/mapping/**/mapping.txt
@@ -690,6 +679,10 @@ android:ci:play-beta:
     - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+      when: on_success
     - when: never
   needs:
     - job: android:ci:play-beta-bundle
@@ -744,7 +737,7 @@ telegram:release:
 
 renovate:gitlab:
   extends: .magisk_renovate_gitlab
-  interruptible: true
+  interruptible: false
   stage: maintenance
   tags:
     - magisk-arm64-linux

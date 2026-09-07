@@ -159,7 +159,11 @@ internal fun EventList(
     val recentActivityRestoreFailedMessage = stringResource(R.string.recent_activity_restore_failed)
     val actionUndoLabel = stringResource(R.string.action_undo)
     val items = remember {
-        mutableStateListOf<EventInfoForDisplay>()
+        val snap = viewModel.getEventListSnapshot(query, packageName, refreshSignal)
+        val initialList = snap?.events.orEmpty()
+        mutableStateListOf<EventInfoForDisplay>().apply {
+            addAll(initialList)
+        }
     }
 
     val refreshScope = rememberCoroutineScope()
@@ -177,63 +181,6 @@ internal fun EventList(
             lastId = items.lastOrNull()?.id,
             hasMore = hasMore,
         )
-    }
-
-    // Cache-first: on open / tab re-enter, restore from the persistent store
-    // (or in-memory snapshot) and paint immediately. Older pages are loaded only
-    // when the user scrolls.
-    var restoredListKey by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(isActive, query, packageName, refreshSignal) {
-        if (!isActive) return@LaunchedEffect
-        val listKey = EventListViewModel.eventListRestoreKey(query, packageName, refreshSignal)
-        if (restoredListKey == listKey) return@LaunchedEffect
-        if (viewModel.loadFromCacheIfPresent(query, packageName, refreshSignal)) {
-            val cached = viewModel.getEventListSnapshot(
-                query = query,
-                packageName = packageName,
-                refreshSignal = refreshSignal,
-            )
-            if (cached != null) {
-                items.clear()
-                items.appendDistinct(cached.events)
-                hasMore = cached.hasMore
-                initialLoadFailed = false
-                isNeedRefresh = false
-                restoredListKey = listKey
-                return@LaunchedEffect
-            }
-        }
-        val snap = viewModel.getEventListSnapshot(
-            query = query,
-            packageName = packageName,
-            refreshSignal = refreshSignal,
-        )
-        if (snap != null) {
-            items.clear()
-            items.appendDistinct(snap.events)
-            hasMore = snap.hasMore
-            initialLoadFailed = false
-            isNeedRefresh = false
-        } else {
-            items.clear()
-            hasMore = true
-            initialLoadFailed = false
-            isNeedRefresh = true
-        }
-        restoredListKey = listKey
-    }
-
-    LaunchedEffect(isActive, query, packageName, refreshSignal) {
-        if (!isActive) return@LaunchedEffect
-        viewModel.cacheUpdates.collect { key ->
-            if (key != viewModel.cacheKey(query, packageName, refreshSignal)) return@collect
-            val cached = viewModel.reloadFromCache(query, packageName, refreshSignal) ?: return@collect
-            items.clear()
-            items.appendDistinct(cached.events)
-            hasMore = cached.hasMore
-            initialLoadFailed = false
-            isNeedRefresh = false
-        }
     }
 
     val doLoadMore: (onRefreshed: () -> Unit) -> Unit = doLoadMore@{ onRefreshed ->
@@ -292,6 +239,45 @@ internal fun EventList(
                     onRefreshed()
                 }
             }
+        }
+    }
+
+    LaunchedEffect(isActive, query, packageName, refreshSignal) {
+        val snap = viewModel.reloadFromCache(
+            query = query,
+            packageName = packageName,
+            refreshSignal = refreshSignal,
+        ) ?: viewModel.getEventListSnapshot(
+            query = query,
+            packageName = packageName,
+            refreshSignal = refreshSignal,
+        )
+        if (snap != null && snap.events.isNotEmpty()) {
+            items.clear()
+            items.addAll(snap.events)
+            hasMore = snap.hasMore
+            initialLoadFailed = false
+            isNeedRefresh = false
+        } else if (items.isEmpty() && (isActive || query.isNotBlank())) {
+            // A newly typed query must fetch immediately. Search input is only exposed by
+            // the active page, but page activation can briefly lag behind recomposition.
+            // Keep the isActive guard for the unfiltered cold start so adjacent pager pages
+            // do not start remote reads just because they were precomposed.
+            isNeedRefresh = true
+            doRefresh {}
+        }
+    }
+
+    LaunchedEffect(isActive, query, packageName, refreshSignal) {
+        if (!isActive) return@LaunchedEffect
+        viewModel.cacheUpdates.collect { key ->
+            if (key != viewModel.cacheKey(query, packageName, refreshSignal)) return@collect
+            val cached = viewModel.reloadFromCache(query, packageName, refreshSignal) ?: return@collect
+            items.clear()
+            items.appendDistinct(cached.events)
+            hasMore = cached.hasMore
+            initialLoadFailed = false
+            isNeedRefresh = false
         }
     }
 

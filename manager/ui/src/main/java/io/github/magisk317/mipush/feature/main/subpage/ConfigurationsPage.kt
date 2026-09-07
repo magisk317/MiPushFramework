@@ -2,7 +2,6 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,6 +32,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -58,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -258,7 +258,7 @@ fun Configurations(
                         onBack?.let { back ->
                             IconButton(onClick = back) {
                                 Icon(
-                                    painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = stringResource(android.R.string.cancel),
                                 )
                             }
@@ -326,7 +326,7 @@ fun Configurations(
                                 onClick = { expandedCategory = null },
                                 leadingContent = {
                                     Icon(
-                                        painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = "返回"
                                     )
                                 }
@@ -366,7 +366,7 @@ fun Configurations(
                 }
             },
         )
-        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
+        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = contentPadding.calculateBottomPadding())
         }
     }
 }
@@ -414,7 +414,7 @@ fun ConfigurationEditor(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(android.R.string.cancel),
                         )
                     }
