@@ -3,9 +3,16 @@
 本日志记录了项目近期的主要变更。
 
 ---
-## [v1.0.2] - WIP
+## [v1.0.2] - 2026-09-07
 - 版本：`versionCode 13` / `versionName 1.0.2`。
-- `[TODO]` 准备下一阶段开发。
+- `[freeze]` 新增冻结应用点通知自动解冻，支持锁屏/定时/任务移除三种回冻策略。
+- `[hook]` 修复 Samsung Android 16 上系统钩子就绪探测被隐藏 API 拦截的问题。
+- `[notification]` 本地 XMSF fallback 路径注入目标应用图标。
+- `[runtime]` 同步持久化注册状态，修复重启后注册丢失。
+- `[runtime]` 默认启用 framework self-registration。
+- `[manager]` 刷新应用注册状态显示。
+- `[vendor]` 忽略空包名，防止注册异常。
+- `[deps]` 更新 markdown、coil3 依赖。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.1...v1.0.2
 

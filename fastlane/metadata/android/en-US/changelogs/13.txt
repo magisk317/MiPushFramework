@@ -1,3 +1,5 @@
-- Updated to 1.0.2 (13).
-- Preparing the next development cycle.
-- https://gitlab.com/magisk3171/MiPushFramework/-/releases
+- Auto-unfreeze frozen apps on notification tap with re-freeze policies.
+- Fix system hook readiness probe blocked on Samsung Android 16.
+- Inject target app icon in local XMSF notification fallback.
+- Sync persisted registration state across restarts.
+- Enable framework self-registration by default.
