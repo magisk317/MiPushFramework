@@ -17,6 +17,7 @@ import io.github.magisk317.mipush.configuration.ConfigSyncRepository
 import io.github.magisk317.mipush.configuration.ConfigSyncStateStore
 import io.github.magisk317.mipush.configuration.LocalConfigRepository
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
+import io.github.magisk317.mipush.freeze.FrozenAppCoordinator
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
@@ -62,7 +63,8 @@ val xmsfCoreKoinModule = module {
     single { ConfigValueConverter() }
     single { ModernHookHandler() }
     single { MiPushEventListener() }
-    single { RuntimeProcessorBindings.createPushMessageProcessor(get()) }
+    single { FrozenAppCoordinator(androidContext(), get()) }
+    single { RuntimeProcessorBindings.createPushMessageProcessor(get(), get()) }
     single { RuntimeSettingsAdapter(androidContext(), get(), get()) }
     single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get()) }
     single<ConfigSyncObserver> {

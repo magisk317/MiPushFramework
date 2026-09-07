@@ -22,6 +22,19 @@ const val KEEPALIVE_PREF_ANTI_KILL = "pref_keepalive_anti_kill"
 const val KEEPALIVE_PREF_STANDBY_BYPASS = "pref_keepalive_standby_bypass"
 const val KEEPALIVE_PREF_DOZE_BYPASS = "pref_keepalive_doze_bypass"
 
+// Frozen-app push: unfreeze on notification click, then refreeze by policy.
+const val FREEZE_PREF_ENABLED = "pref_freeze_enabled"
+const val FREEZE_PREF_REFREEZE_POLICY = "pref_freeze_refreeze_policy"
+const val FREEZE_PREF_REFREEZE_DELAY_MINUTES = "pref_freeze_refreeze_delay_minutes"
+const val FREEZE_REFREEZE_POLICY_NEVER = 0
+const val FREEZE_REFREEZE_POLICY_SCREEN_OFF = 1
+const val FREEZE_REFREEZE_POLICY_TIMED = 2
+const val FREEZE_REFREEZE_POLICY_TASK_REMOVED = 3
+
+const val ACTION_FREEZE_LAUNCH_ACTIVATED = "io.github.magisk317.mipush.action.FREEZE_LAUNCH_ACTIVATED"
+const val EXTRA_FREEZE_PACKAGE = "freeze_package"
+const val EXTRA_FREEZE_USER_ID = "freeze_user_id"
+
 const val ICON_PACK_PREF_AUTHORITY = "com.xiaomi.xmsf.iconpack"
 const val ICON_PACK_PREF_READ_PERMISSION = "com.xiaomi.xmsf.permission.READ_ICON_PACK"
 const val ICON_PACK_PREF_PATH_ICON = "icon"

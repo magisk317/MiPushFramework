@@ -10,10 +10,15 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
+import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
@@ -53,12 +58,21 @@ data class KeepAliveSettingsSnapshot(
     val dozeBypass: Boolean,
 )
 
+data class FreezeSettingsSnapshot(
+    val enabled: Boolean,
+    val refreezePolicy: Int,
+    val refreezeDelayMinutes: Int,
+)
+
 data class OwnedPreferenceValue(
     val key: String,
     val type: String,
     val value: String,
     val owner: PreferenceOwner,
 )
+
+private const val DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES = 10
+private const val MAX_FREEZE_REFREEZE_DELAY_MINUTES = 120
 
 class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
@@ -81,6 +95,10 @@ class PreferenceRepository constructor(
     private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
     private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
     private val KEEPALIVE_DOZE_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_DOZE_BYPASS)
+    private val FREEZE_ENABLED = booleanPreferencesKey(FREEZE_PREF_ENABLED)
+    private val FREEZE_REFREEZE_POLICY = intPreferencesKey(FREEZE_PREF_REFREEZE_POLICY)
+    private val FREEZE_REFREEZE_DELAY_MINUTES = intPreferencesKey(FREEZE_PREF_REFREEZE_DELAY_MINUTES)
+    private val FREEZE_PENDING_REFREEZE_PACKAGES = stringSetPreferencesKey("freeze_pending_refreeze_packages")
     private val ISLAND_ENABLED = booleanPreferencesKey(ISLAND_PREF_ENABLED)
     private val ISLAND_TIMEOUT = intPreferencesKey(ISLAND_PREF_TIMEOUT)
     private val ISLAND_FIRST_FLOAT = booleanPreferencesKey(ISLAND_PREF_FIRST_FLOAT)
@@ -124,6 +142,13 @@ class PreferenceRepository constructor(
     val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
     val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
     val keepAliveDozeBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DOZE_BYPASS] ?: false }
+    val freezeEnabled: Flow<Boolean> = dataStore.data.map { it[FREEZE_ENABLED] ?: true }
+    val freezeRefreezePolicy: Flow<Int> =
+        dataStore.data.map { it[FREEZE_REFREEZE_POLICY] ?: FREEZE_REFREEZE_POLICY_SCREEN_OFF }
+    val freezeRefreezeDelayMinutes: Flow<Int> = dataStore.data.map {
+        (it[FREEZE_REFREEZE_DELAY_MINUTES] ?: DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES)
+            .coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES)
+    }
     val islandEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_ENABLED] ?: true }
     val islandTimeout: Flow<Int> = dataStore.data.map { (it[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1) }
     val islandFirstFloat: Flow<Boolean> = dataStore.data.map { it[ISLAND_FIRST_FLOAT] ?: true }
@@ -142,6 +167,17 @@ class PreferenceRepository constructor(
             antiKill = preferences[KEEPALIVE_ANTI_KILL] ?: false,
             standbyBypass = preferences[KEEPALIVE_STANDBY_BYPASS] ?: false,
             dozeBypass = preferences[KEEPALIVE_DOZE_BYPASS] ?: false,
+        )
+    }
+
+    suspend fun freezeSettingsSnapshot(): FreezeSettingsSnapshot {
+        val preferences = dataStore.data.first()
+        return FreezeSettingsSnapshot(
+            enabled = preferences[FREEZE_ENABLED] ?: true,
+            refreezePolicy = preferences[FREEZE_REFREEZE_POLICY] ?: FREEZE_REFREEZE_POLICY_SCREEN_OFF,
+            refreezeDelayMinutes = (preferences[FREEZE_REFREEZE_DELAY_MINUTES]
+                ?: DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES)
+                .coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES),
         )
     }
 
@@ -234,6 +270,37 @@ class PreferenceRepository constructor(
 
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
+    }
+
+    suspend fun setFreezeEnabled(enable: Boolean) {
+        dataStore.edit { it[FREEZE_ENABLED] = enable }
+    }
+
+    suspend fun setFreezeRefreezePolicy(policy: Int) {
+        dataStore.edit { it[FREEZE_REFREEZE_POLICY] = policy }
+    }
+
+    suspend fun setFreezeRefreezeDelayMinutes(minutes: Int) {
+        dataStore.edit {
+            it[FREEZE_REFREEZE_DELAY_MINUTES] = minutes.coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES)
+        }
+    }
+
+    // Pending refreeze set is runtime-internal bookkeeping (like the welcome-update marker, it is
+    // intentionally not a PreferenceOwnership entry) and is only read or written by the XMSF
+    // process FreezeCoordinator.
+    suspend fun pendingRefreezePackages(): Set<String> =
+        dataStore.data.first()[FREEZE_PENDING_REFREEZE_PACKAGES] ?: emptySet()
+
+    suspend fun addPendingRefreezePackage(packageName: String) {
+        dataStore.edit { preferences ->
+            preferences[FREEZE_PENDING_REFREEZE_PACKAGES] =
+                (preferences[FREEZE_PENDING_REFREEZE_PACKAGES] ?: emptySet()) + packageName
+        }
+    }
+
+    suspend fun clearPendingRefreezePackages() {
+        dataStore.edit { it.remove(FREEZE_PENDING_REFREEZE_PACKAGES) }
     }
 
     suspend fun setIslandEnabled(enable: Boolean) {

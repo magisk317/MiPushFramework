@@ -7,6 +7,10 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
+import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
+import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
@@ -97,6 +101,15 @@ class SettingsViewModel constructor(
 
     val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val freezeEnabled: StateFlow<Boolean> = preferenceRepository.freezeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val freezeRefreezePolicy: StateFlow<Int> = preferenceRepository.freezeRefreezePolicy
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FREEZE_REFREEZE_POLICY_SCREEN_OFF)
+
+    val freezeRefreezeDelayMinutes: StateFlow<Int> = preferenceRepository.freezeRefreezeDelayMinutes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
 
     val islandEnabled: StateFlow<Boolean> = preferenceRepository.islandEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -198,6 +211,15 @@ class SettingsViewModel constructor(
 
     fun setKeepAliveDozeBypass(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(KEEPALIVE_PREF_DOZE_BYPASS, value, onResult)
+
+    fun setFreezeEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(FREEZE_PREF_ENABLED, value, onResult)
+
+    fun setFreezeRefreezePolicy(value: Int, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeInt(FREEZE_PREF_REFREEZE_POLICY, value, onResult)
+
+    fun setFreezeRefreezeDelayMinutes(value: Int, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeInt(FREEZE_PREF_REFREEZE_DELAY_MINUTES, value.coerceAtLeast(1), onResult)
 
     fun setIslandEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_ENABLED, value, onResult)

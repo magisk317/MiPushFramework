@@ -19,7 +19,9 @@ import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.push.service.ResetConnectJob
 import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.control.PushControllerUtils
+import io.github.magisk317.mipush.freeze.FrozenAppCoordinator
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -39,6 +41,18 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     fun attach(context: Context) {
         appContext = context.applicationContext ?: context
         PushRuntime.attachExecutionHost(this)
+        runCatching {
+            AppDependencies.get<FrozenAppCoordinator>(context.applicationContext).ensureStarted()
+        }.onFailure {
+            logW("frozen app coordinator start failed", it)
+        }
+        runCatching {
+            PushRuntime.synchronizePersistedRegistrationState(
+                androidUserId = Utils.requireValidUserId(Utils.myUserId()),
+            )
+        }.onFailure {
+            logW("persisted registration state restore failed", it)
+        }
     }
 
     @JvmStatic

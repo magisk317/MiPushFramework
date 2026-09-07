@@ -155,7 +155,7 @@ fun Settings(
                 hostState = snackbarHostState,
                 bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
             )
-            ScrollToTopFAB(scrollState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
+            ScrollToTopFAB(scrollState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = contentPadding.calculateBottomPadding())
         }
     }
 }
@@ -235,6 +235,7 @@ private fun SettingsScreen(
                     onExpandedChange = { toggleSection(SettingsViewModel.SectionId.KEEP_ALIVE) },
                 ) {
                     KeepAliveBlock(viewModel, snackbarHostState)
+                    FreezeBlock(viewModel, snackbarHostState)
                 }
 
                 SettingsSectionCard(

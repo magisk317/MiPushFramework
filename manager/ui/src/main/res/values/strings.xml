@@ -308,8 +308,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="connection_status_connected_at_summary">When this connection was established</string>
     <string name="connection_status_session_duration">Session duration</string>
     <string name="connection_status_session_duration_summary">How long the current connection has been alive</string>
-    <string name="connection_status_last_disconnected">Last disconnected</string>
-    <string name="connection_status_last_disconnected_summary">When the previous connection was lost</string>
     <string name="connection_status_section_heartbeat">Heartbeat</string>
     <string name="connection_status_keepalive_interval">Keep-alive interval</string>
     <string name="connection_status_keepalive_interval_summary">TCP keep-alive packet interval to prevent NAT timeout</string>
@@ -644,6 +642,17 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_dedicated_service_summary">Enable an empty accessibility service that system will auto-restart when app dies.</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">Enabled in system Accessibility settings.</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>
+    <string name="pref_freeze_enabled_title">Unfreeze frozen apps</string>
+    <string name="pref_freeze_enabled_summary">Frozen apps still receive notifications. Tapping a notification unfreezes and launches the app.</string>
+    <string name="pref_freeze_refreeze_policy_title">Refreeze policy</string>
+    <string name="pref_freeze_refreeze_delay_title">Refreeze delay</string>
+    <string name="pref_freeze_refreeze_delay_summary">Refreeze %1$d minutes after launch</string>
+    <string name="pref_freeze_refreeze_delay_hint">Between 1 and 120 minutes</string>
+    <string name="pref_freeze_refreeze_delay_error">Enter a delay between 1 and 120 minutes</string>
+    <string name="pref_freeze_policy_never">Never refreeze</string>
+    <string name="pref_freeze_policy_screen_off">Refreeze when the screen turns off</string>
+    <string name="pref_freeze_policy_timed">Refreeze after the delay</string>
+    <string name="pref_freeze_policy_task_removed">Refreeze when the task is removed from Recents</string>
     <string name="pref_island_enabled_title">MiPush island focus display</string>
     <string name="pref_island_enabled_summary">Generate and inject MiPush-owned focus payloads for notifications.</string>
     <string name="pref_island_timeout_title">Island timeout</string>

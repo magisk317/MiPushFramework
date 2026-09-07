@@ -14,6 +14,10 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
+import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 
 /**
@@ -70,6 +74,17 @@ object PreferenceOwnership {
             KEEPALIVE_PREF_DOZE_BYPASS,
             "Keepalive doze bypass",
             false,
+        ),
+        runtimeBoolean(FREEZE_PREF_ENABLED, "Frozen app push unfreeze", true),
+        runtimeInt(
+            FREEZE_PREF_REFREEZE_POLICY,
+            "Frozen app refreeze policy",
+            FREEZE_REFREEZE_POLICY_SCREEN_OFF,
+        ),
+        runtimeInt(
+            FREEZE_PREF_REFREEZE_DELAY_MINUTES,
+            "Frozen app refreeze delay minutes",
+            10,
         ),
         runtimeBoolean(ISLAND_PREF_ENABLED, "Island master switch", true),
         runtimeInt(ISLAND_PREF_TIMEOUT, "Island timeout", 5),

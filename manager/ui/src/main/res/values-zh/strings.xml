@@ -267,8 +267,6 @@
     <string name="connection_status_connected_at_summary">本次连接建立的时间点</string>
     <string name="connection_status_session_duration">会话时长</string>
     <string name="connection_status_session_duration_summary">本次连接已持续的时间</string>
-    <string name="connection_status_last_disconnected">上次断开</string>
-    <string name="connection_status_last_disconnected_summary">上次断开连接的时间点</string>
     <string name="connection_status_section_heartbeat">心跳</string>
     <string name="connection_status_keepalive_interval">保活间隔</string>
     <string name="connection_status_keepalive_interval_summary">TCP 保活心跳间隔，防止 NAT 超时断连</string>
@@ -633,6 +631,17 @@
     <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
+    <string name="pref_freeze_enabled_title">解冻冻结的应用</string>
+    <string name="pref_freeze_enabled_summary">冻结的应用仍可接收通知，点击通知将自动解冻并打开应用。</string>
+    <string name="pref_freeze_refreeze_policy_title">重新冻结策略</string>
+    <string name="pref_freeze_refreeze_delay_title">重新冻结延迟</string>
+    <string name="pref_freeze_refreeze_delay_summary">启动 %1$d 分钟后重新冻结</string>
+    <string name="pref_freeze_refreeze_delay_hint">1 到 120 分钟之间</string>
+    <string name="pref_freeze_refreeze_delay_error">请输入 1 到 120 之间的分钟数</string>
+    <string name="pref_freeze_policy_never">不自动重新冻结</string>
+    <string name="pref_freeze_policy_screen_off">熄屏时重新冻结</string>
+    <string name="pref_freeze_policy_timed">延迟后重新冻结</string>
+    <string name="pref_freeze_policy_task_removed">从最近任务中移除后重新冻结</string>
     <string name="pref_island_enabled_title">MiPush 超级岛焦点展示</string>
     <string name="pref_island_enabled_summary">为通知生成并注入 MiPush 内置焦点通知参数。</string>
     <string name="pref_island_timeout_title">超级岛超时</string>

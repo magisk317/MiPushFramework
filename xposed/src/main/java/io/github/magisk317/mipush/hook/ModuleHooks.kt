@@ -24,6 +24,7 @@ import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
+import io.github.magisk317.mipush.hook.freeze.FreezeTaskRemovedHook
 import io.github.magisk317.mipush.hook.xmsf.UnlockFocusAuthHook
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.BaseLibXposedEntry
@@ -56,6 +57,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         DocumentsUiXSpaceHook(),
         AmapNavigationLiveViewHook(),
         HookXmsf(),
+        FreezeTaskRemovedHook(),
         FakeDeviceHook(),
     )
 
@@ -90,6 +92,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         // Stop its threads, executor and registered receiver while this old module ClassLoader is
         // still reachable; otherwise autoHotReload retains every loaded module DEX generation.
         IslandPreferences.stopRefreshLoop()
+        XLog.resetForLifecycle()
         ForceMiPushRegister.resetForHotReload()
         synchronized(LibXposedEntry::class.java) {
             // These fallback hooks are installed outside the BaseHook list. Allow the next

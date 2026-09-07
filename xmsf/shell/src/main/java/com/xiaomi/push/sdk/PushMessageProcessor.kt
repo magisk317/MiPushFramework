@@ -13,6 +13,8 @@ import android.os.Bundle
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
+import io.github.magisk317.mipush.freeze.FrozenAppCoordinator
+import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -25,7 +27,8 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 class PushMessageProcessor constructor(
-    private val configurations: Configurations
+    private val configurations: Configurations,
+    private val frozenAppCoordinator: FrozenAppCoordinator? = null,
 ) {
     private val tag = "PushMessageProcessor"
 
@@ -222,6 +225,13 @@ class PushMessageProcessor constructor(
     }
 
     private fun activeApp(targetPackage: String) {
+        val coordinator = frozenAppCoordinator
+        if (coordinator != null) {
+            // Block the click route until the package is enabled and ready so the
+            // subsequent pull-up resolves a launch intent (upstream behavior).
+            runBlocking { coordinator.handleLaunchActivation(targetPackage) }
+            return
+        }
         runCatching {
             AppRootAccessFacade.runRootCommand("pm enable $targetPackage")
         }.onFailure {

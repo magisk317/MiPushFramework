@@ -18,6 +18,9 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
+import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -56,6 +59,7 @@ internal object ManagerRuntimePreferenceCommandSupport {
             KEEPALIVE_PREF_ANTI_KILL -> preferenceRepository.setKeepAliveAntiKill(enabled)
             KEEPALIVE_PREF_STANDBY_BYPASS -> preferenceRepository.setKeepAliveStandbyBypass(enabled)
             KEEPALIVE_PREF_DOZE_BYPASS -> preferenceRepository.setKeepAliveDozeBypass(enabled)
+            FREEZE_PREF_ENABLED -> preferenceRepository.setFreezeEnabled(enabled)
             ISLAND_PREF_ENABLED -> preferenceRepository.setIslandEnabled(enabled)
             ISLAND_PREF_FIRST_FLOAT -> preferenceRepository.setIslandFirstFloat(enabled)
             ISLAND_PREF_ENABLE_FLOAT -> preferenceRepository.setIslandEnableFloat(enabled)
@@ -82,6 +86,8 @@ internal object ManagerRuntimePreferenceCommandSupport {
         val value = request.intArgument
         when (key) {
             ISLAND_PREF_TIMEOUT -> preferenceRepository.setIslandTimeout(value)
+            FREEZE_PREF_REFREEZE_POLICY -> preferenceRepository.setFreezeRefreezePolicy(value)
+            FREEZE_PREF_REFREEZE_DELAY_MINUTES -> preferenceRepository.setFreezeRefreezeDelayMinutes(value)
             else -> error("unreachable runtime int key=$key")
         }
         runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
@@ -121,7 +127,11 @@ internal object ManagerRuntimePreferenceCommandSupport {
         "start_push_as_foreground_service", KEEPALIVE_PREF_OOM_ADJ, KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS, KEEPALIVE_PREF_DOZE_BYPASS, ISLAND_PREF_ENABLED,
         ISLAND_PREF_FIRST_FLOAT, ISLAND_PREF_ENABLE_FLOAT, ISLAND_PREF_SHOW_NOTIFICATION,
-        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, ISLAND_PREF_FOCUS_NOTIF,
+        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, ISLAND_PREF_FOCUS_NOTIF, FREEZE_PREF_ENABLED,
     )
-    private val allowedRuntimeIntKeys = setOf(ISLAND_PREF_TIMEOUT)
+    private val allowedRuntimeIntKeys = setOf(
+        ISLAND_PREF_TIMEOUT,
+        FREEZE_PREF_REFREEZE_POLICY,
+        FREEZE_PREF_REFREEZE_DELAY_MINUTES,
+    )
 }
