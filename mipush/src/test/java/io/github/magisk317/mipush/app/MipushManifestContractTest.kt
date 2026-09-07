@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.w3c.dom.Element
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -21,80 +22,51 @@ class MipushManifestContractTest {
     }
 
     @Test
-    fun `manager launcher is exported for LSPosed and launcher entrypoints`() {
+    fun `desktop entry targets MainActivity and first-start wizard stays in MainActivity`() {
         val document = parseManifest()
         val activities = document.getElementsByTagName("activity")
-        val launcher = (0 until activities.length)
-            .map { activities.item(it) }
-            .first { node ->
-                node.attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
-                    "io.github.magisk317.mipush.app.ManagerLauncherActivity"
+        val activityNames = (0 until activities.length)
+            .mapNotNull { index ->
+                activities.item(index).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue
             }
+            .toSet()
 
-        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "exported").nodeValue)
-        assertTrue(launcher.attributes.getNamedItemNS(ANDROID_NS, "excludeFromRecents") == null)
-        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "noHistory").nodeValue)
-
-        val activityFilters = launcher.childNodes.let { children ->
-            (0 until children.length)
-                .map(children::item)
-                .filter { it.nodeName == "intent-filter" }
-        }
-        val activityDeclarations = activityFilters.map { intentFilter ->
-            (0 until intentFilter.childNodes.length)
-                .map(intentFilter.childNodes::item)
-                .filter { it.nodeName == "action" || it.nodeName == "category" }
-                .associate { node ->
-                    node.nodeName to node.attributes.getNamedItemNS(ANDROID_NS, "name").nodeValue
-                }
-        }
-        assertTrue(
-            activityDeclarations.any { filter ->
-                filter["action"] == "android.intent.action.MAIN" &&
-                    filter["category"] == "de.robv.android.xposed.category.MODULE_SETTINGS"
-            },
-        )
-        assertFalse(
-            activityDeclarations.any { filter ->
-                filter["category"] == "android.intent.category.LAUNCHER"
-            },
-            "LAUNCHER must live on activity-aliases so desktop icons can be switched",
-        )
+        assertTrue("io.github.magisk317.mipush.feature.main.MainActivity" in activityNames)
+        assertTrue("io.github.magisk317.mipush.feature.wizard.RequestPermissionPage" in activityNames)
+        assertFalse("io.github.magisk317.mipush.app.ManagerLauncherActivity" in activityNames)
+        assertFalse("io.github.magisk317.mipush.feature.wizard.WelcomeActivity" in activityNames)
 
         val aliases = document.getElementsByTagName("activity-alias")
-        val launcherAliases = (0 until aliases.length)
-            .map { aliases.item(it) }
-            .filter { node ->
-                node.attributes.getNamedItemNS(ANDROID_NS, "targetActivity")?.nodeValue ==
-                    "io.github.magisk317.mipush.app.ManagerLauncherActivity"
+        val desktopAliases = (0 until aliases.length)
+            .map { aliases.item(it) as Element }
+            .filter { alias ->
+                alias.attributes.getNamedItemNS(ANDROID_NS, "targetActivity")?.nodeValue ==
+                    "io.github.magisk317.mipush.feature.main.MainActivity"
             }
-        val aliasDeclarations = launcherAliases.flatMap { alias ->
-            (0 until alias.childNodes.length)
-                .map(alias.childNodes::item)
-                .filter { it.nodeName == "intent-filter" }
-                .map { intentFilter ->
-                    (0 until intentFilter.childNodes.length)
-                        .map(intentFilter.childNodes::item)
-                        .filter { it.nodeName == "action" || it.nodeName == "category" }
-                        .associate { node ->
-                            node.nodeName to node.attributes.getNamedItemNS(ANDROID_NS, "name").nodeValue
-                        }
-                }
-        }
         assertTrue(
-            aliasDeclarations.any { filter ->
-                filter["action"] == "android.intent.action.MAIN" &&
-                    filter["category"] == "android.intent.category.LAUNCHER"
+            desktopAliases.any { alias ->
+                val filters = alias.getElementsByTagName("intent-filter")
+                (0 until filters.length).any { index ->
+                    val filter = filters.item(index) as Element
+                    val actions = filter.getElementsByTagName("action")
+                    val categories = filter.getElementsByTagName("category")
+                    (0 until actions.length).any {
+                        actions.item(it).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
+                            "android.intent.action.MAIN"
+                    } && (0 until categories.length).any {
+                        categories.item(it).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
+                            "android.intent.category.LAUNCHER"
+                    }
+                }
             },
-            "At least one ManagerLauncherActivity alias must declare LAUNCHER",
+            "The desktop alias must target MainActivity directly",
         )
 
-        val launcherSource = resolveFile(
-            "src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt",
+        val mainActivitySource = resolveProjectFile(
+            "manager/ui/src/main/java/io/github/magisk317/mipush/feature/main/MainActivity.kt",
         ).readText()
-        assertFalse("Intent.FLAG_ACTIVITY_NEW_TASK" in launcherSource)
-        assertTrue("WelcomeActivity" in launcherSource)
-        assertFalse("LegacyComponentNames.SERVICE_PACKAGE" in launcherSource)
+        assertTrue("preferenceRepository.showWizard.first()" in mainActivitySource)
+        assertFalse("LEGACY_TARGET_CLASS" in mainActivitySource)
     }
 
     @Test
@@ -104,7 +76,6 @@ class MipushManifestContractTest {
                 activities.item(index).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue
             }.toSet()
         }
-        assertTrue("io.github.magisk317.mipush.feature.wizard.WelcomeActivity" in names)
         assertTrue("io.github.magisk317.mipush.feature.main.MainActivity" in names)
         assertTrue("io.github.magisk317.mipush.feature.main.ApplicationInfoPage" in names)
         assertTrue("io.github.magisk317.mipush.feature.wizard.RequestPermissionPage" in names)

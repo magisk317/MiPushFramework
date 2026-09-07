@@ -63,9 +63,9 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
    - `mipush` is the standalone manager host package. Its `Application` owns manager UI process
      startup via `ManagerDependencies.startAsRemoteHost(...)`.
      Manager reaches XMSF only through signature-authenticated Binder (`:manager:contract` / `ManagerRuntimeClient`).
-   - `:manager:contract` is the frozen Binder/AIDL/Parcelable wire boundary. `:manager:application` owns non-Binder Manager application ports, shared models, mock-replay result, runtime actions, and manager event-detail debug JSON formatting (`EventDebugJson`); generic JSONL encoding, redaction, and quota decisions are owned by `:core`. It directly exposes the neutral DTOs owned by `:core`, and must not depend on `common`, `vendor`, `pinned`, or `xmsf` implementations. Its ports are grouped by application/notification, configuration, events, diagnostics, permissions, and Zygisk domains. Diagnostics returns an archive path, while the Manager UI host validates that path and constructs the Android `FileProvider` share intent; `File` and `Intent` are not application-port API types. `:manager:ui` is a UI/library surface available to both hosts. Real manager Activities remain
-     declared by `:mipush`; `:xmsf` keeps only legacy redirects. Activity/launcher/widget entrypoints
-     never own bootstrap.
+   - `:manager:contract` is the frozen Binder/AIDL/Parcelable wire boundary. `:manager:application` owns non-Binder Manager application ports, shared models, mock-replay result, runtime actions, and manager event-detail debug JSON formatting (`EventDebugJson`); generic JSONL encoding, redaction, and quota decisions are owned by `:core`. It directly exposes the neutral DTOs owned by `:core`, and must not depend on `common`, `vendor`, `pinned`, or `xmsf` implementations. Its ports are grouped by application/notification, configuration, events, diagnostics, permissions, and Zygisk domains. Diagnostics returns an archive path, while the Manager UI host validates that path and constructs the Android `FileProvider` share intent; `File` and `Intent` are not application-port API types. `:manager:ui` is a UI/library surface available to both hosts. Real manager Activities and the
+     direct desktop launcher alias are declared by `:mipush`; `:xmsf` declares no manager activities,
+     aliases, or redirect trampoline. Activity/launcher-alias/widget entrypoints never own bootstrap.
    - Do not move manager bindings into `xmsf` Koin modules. `xmsf` exposes runtime gateways and the
      post-dependency hook; the app shell chooses what to load through that hook.
    - `:xmsf:shell` remains the Android runtime library module. Use `:xmsf:assembleNormalDebug` for
@@ -240,8 +240,7 @@ graph.
   `ManagerRuntimeEnvironmentSnapshot` instead of reflective `com.xiaomi.*` lookups.
 - Bootstrap has exactly two Application-owned modes. `MiPushHostApp` calls
   `startFromAppShell()` after XMSF Koin exists; standalone `:mipush` `App` calls
-  `startAsRemoteHost(...)`. The modes reject same-process mixing. Manager Activities, launcher
-  trampoline, and widgets only consume their package host and do not contain fallback startup.
+  `startAsRemoteHost(...)`. The modes reject same-process mixing. Manager Activities, launcher aliases, and widgets only consume their package host and do not contain fallback startup.
 - Manager data plane **is** remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
   fake `InProcess*` wrappers are migration scaffolding and should not be re-expanded.
 - Notification-channel reads cross Binder as wire DTOs and are mapped once into manager-owned

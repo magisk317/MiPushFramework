@@ -6,34 +6,5 @@
             android:hasFragileUserData="true"
             tools:targetApi="q"
             tools:replace="android:name">
-        <activity
-            android:name="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
-        <!-- Component-name compatibility aliases only. No LAUNCHER: desktop icon lives on manager package. -->
-        <!-- Welcome exported=true is legacy deep-link/compat only; not a desktop launcher entry. -->
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
-            android:exported="true"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
-            android:exported="false"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.main.MainActivity"
-            android:exported="false"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
-            android:exported="false"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
-            android:exported="false"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
     </application>
 </manifest>

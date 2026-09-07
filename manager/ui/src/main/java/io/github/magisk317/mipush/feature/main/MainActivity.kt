@@ -2,7 +2,9 @@
 package io.github.magisk317.mipush.feature.main
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.core.graphics.createBitmap
@@ -98,10 +100,13 @@ import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -119,6 +124,7 @@ open class MainActivity : ComponentActivity() {
     private val configGateway: ManagerConfigGateway by inject()
 
     private val settingsViewModel: SettingsViewModel by viewModel()
+    private val preferenceRepository: PreferenceRepository by inject()
     private val settingsManager: SettingsManager by inject()
     private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
@@ -149,7 +155,25 @@ open class MainActivity : ComponentActivity() {
 
             else -> AppDestinations.Overview.ROUTE
         }
-        setContent {
+        lifecycleScope.launch {
+            if (preferenceRepository.showWizard.first()) {
+                startActivity(
+                    Intent(this@MainActivity, RequestPermissionPage::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
+                )
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(0, 0)
+                }
+                finish()
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(0, 0)
+                }
+                return@launch
+            }
+
+            setContent {
             val runtimeAvailability by runtimeClient.availability.collectAsStateWithLifecycle()
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
 
@@ -244,6 +268,7 @@ open class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
         }
     }
 

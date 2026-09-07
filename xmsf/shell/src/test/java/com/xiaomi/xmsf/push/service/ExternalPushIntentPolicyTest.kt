@@ -95,9 +95,6 @@ class ExternalPushIntentPolicyTest {
             (sourceExtras[firstArg()] as? Boolean) ?: secondArg()
         }
         every { source.hasExtra(any()) } answers { sourceExtras.containsKey(firstArg()) }
-        val sourceBundle = mockk<Bundle>()
-        every { sourceBundle.get(any<String>()) } answers { sourceExtras[firstArg()] }
-        every { source.extras } returns sourceBundle
 
         val targetExtras = mutableMapOf<String, Any?>()
         val target = mockk<Intent>(relaxed = true)

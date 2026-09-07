@@ -229,10 +229,6 @@ internal object ExternalPushIntentPolicy {
 
     private fun clearNotificationRejectionReason(intent: Intent, packageName: String): String? {
         localPackageRejectionReason(intent, packageName)?.let { return it }
-        if (intent.hasExtra(PushConstants.EXTRA_NOTIFY_ID)) {
-            typedExtra<Int>(intent, PushConstants.EXTRA_NOTIFY_ID)
-                ?: return "invalid_notification_id"
-        }
         return null
     }
 
@@ -240,8 +236,7 @@ internal object ExternalPushIntentPolicy {
         localPackageRejectionReason(intent, packageName)?.let { return it }
         val signature = runCatching { intent.getStringExtra(PushConstants.EXTRA_SIG) }.getOrNull()
         val expected = if (intent.hasExtra(PushConstants.EXTRA_NOTIFY_TYPE)) {
-            val notificationType = typedExtra<Int>(intent, PushConstants.EXTRA_NOTIFY_TYPE)
-                ?: return "invalid_notification_type"
+            val notificationType = intent.getIntExtra(PushConstants.EXTRA_NOTIFY_TYPE, 0)
             MD5.MD5_16(packageName + notificationType)
         } else {
             MD5.MD5_16(packageName)
@@ -254,8 +249,7 @@ internal object ExternalPushIntentPolicy {
         if (!intent.hasExtra(EXTRA_MESSAGE_CACHE_COLLECTION)) {
             return CACHE_COLLECTION_DEFAULT == CACHE_COLLECTION_NOTIFICATION_EXPOSURE
         }
-        val collection = typedExtra<Int>(intent, EXTRA_MESSAGE_CACHE_COLLECTION)
-            ?: CACHE_COLLECTION_NOTIFICATION_EXPOSURE
+        val collection = intent.getIntExtra(EXTRA_MESSAGE_CACHE_COLLECTION, CACHE_COLLECTION_NOTIFICATION_EXPOSURE)
         // Stock 7.4.67-C currently defines 0=normal and 1=notification exposure. Treat unknown
         // future collection values as disabled too, so they cannot fall through as ordinary uplink.
         return collection != CACHE_COLLECTION_DEFAULT
@@ -346,29 +340,23 @@ internal object ExternalPushIntentPolicy {
             ?.let { target.putExtra(key, it) }
     }
 
-    private fun copyByteArrayExtra(source: Intent, target: Intent, key: String) {
-        typedExtra<ByteArray>(source, key)
-            ?.copyOf()
-            ?.let { target.putExtra(key, it) }
-    }
-
     private fun copyBooleanExtra(source: Intent, target: Intent, key: String) {
         if (source.hasExtra(key)) {
-            typedExtra<Boolean>(source, key)
-                ?.let { target.putExtra(key, it) }
+            target.putExtra(key, source.getBooleanExtra(key, false))
         }
     }
 
     private fun copyIntExtra(source: Intent, target: Intent, key: String) {
         if (source.hasExtra(key)) {
-            typedExtra<Int>(source, key)
-                ?.let { target.putExtra(key, it) }
+            target.putExtra(key, source.getIntExtra(key, 0))
         }
     }
 
-    @Suppress("DEPRECATION")
-    private inline fun <reified T> typedExtra(source: Intent, key: String): T? {
-        return runCatching { source.extras?.get(key) as? T }.getOrNull()
+    private fun copyByteArrayExtra(source: Intent, target: Intent, key: String) {
+        runCatching { source.getByteArrayExtra(key) }
+            .getOrNull()
+            ?.copyOf()
+            ?.let { target.putExtra(key, it) }
     }
 
     private fun rejected(reason: String): ValidationResult = ValidationResult(rejectionReason = reason)

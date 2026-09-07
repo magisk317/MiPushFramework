@@ -53,7 +53,7 @@ import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.platform.support.ManagerUiEntryPoints
 import io.github.magisk317.mipush.runtime.PushRuntime
 
 internal object NotificationMockTestSupport {
@@ -101,7 +101,7 @@ fun testMock(
     )
     Logger.withTag(TAG).d { "mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag" }
 
-    val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
+    val notifyIntent = ManagerUiEntryPoints.mainActivityIntent(
         context = context,
         startRoute = "events",
     ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }

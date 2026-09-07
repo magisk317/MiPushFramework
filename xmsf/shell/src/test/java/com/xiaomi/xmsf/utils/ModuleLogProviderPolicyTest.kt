@@ -34,9 +34,11 @@ class ModuleLogProviderPolicyTest {
     }
 
     @Test
-    fun `module log route is fixed regardless of caller supplied source`() {
-        assertEquals("MiPush", ModuleLogIngressPolicy.resolveRoute("MiPush"))
-        assertEquals("MiPush", ModuleLogIngressPolicy.resolveRoute("attacker-controlled-route"))
+    fun `module log route preserves allowlisted caller route and rejects unknown values`() {
+        assertEquals("xmsf_hook", ModuleLogIngressPolicy.resolveRoute("xmsf_hook"))
+        assertEquals("nms_hook", ModuleLogIngressPolicy.resolveRoute("nms_hook"))
+        assertEquals("app", ModuleLogIngressPolicy.resolveRoute("attacker-controlled-route"))
+        assertEquals("app", ModuleLogIngressPolicy.resolveRoute(null))
     }
 
     @Test

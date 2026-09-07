@@ -58,9 +58,11 @@ class PreferenceOwnershipTest {
         PreferenceOwnership.entries
             .filter { it.defaultValue?.type == "boolean" }
             .forEach { entry ->
+                val defaultValue = entry.defaultValue
+                requireNotNull(defaultValue)
                 assertTrue(
-                    entry.defaultValue!!.value == "true" || entry.defaultValue!!.value == "false",
-                    "Invalid boolean default for '${entry.key}': ${entry.defaultValue.value}",
+                    defaultValue.value == "true" || defaultValue.value == "false",
+                    "Invalid boolean default for '${entry.key}': ${defaultValue.value}",
                 )
             }
     }
@@ -70,7 +72,7 @@ class PreferenceOwnershipTest {
         PreferenceOwnership.entries
             .filter { it.defaultValue?.type == "int" }
             .forEach { entry ->
-                entry.defaultValue!!.value.toIntOrNull()
+                entry.defaultValue?.value?.toIntOrNull()
                     ?: throw AssertionError("Invalid int default for '${entry.key}'")
             }
     }

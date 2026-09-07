@@ -18,7 +18,13 @@
 | Config directory (SAF) | `PreferenceRepository` | manager | current | `configDirectory` Flow | setters | N/A | app data clear | No |
 | Config sync state | `ConfigSyncRepository` | xmsf | current | DataStore | DataStore edit | N/A | app data clear | No |
 | Application list cache | `ApplicationListCacheStore` | manager | current | DataStore | DataStore edit | N/A | app data clear | No |
-| Event list cache | `EventListCacheStore` | manager | current | DataStore | DataStore edit | N/A | app data clear | No |
+| Event list cache | `EventListCacheStore` | manager | current user-scoped key | DataStore cache-first read | DataStore edit/merge | N/A | app data clear | No |
+
+事件列表缓存是 manager 侧的显示镜像，不是 XMSF `EVENT` 表的第二个事实来源。页面打开时
+先恢复缓存；XMSF maintenance/background refresh 读取 runtime 第一页后与原始缓存合并；显式
+刷新仍通过 `RemoteEventListSource` 查询 runtime。成功但为空的 runtime 页和临时 unavailable
+读取不会自动删除已有缓存，因此 UI 可能继续显示较早的历史事件，而同一时刻的
+`getEventPage items=0` 只代表本次 live query 没有返回行。
 
 ## 2. Room Database（运行时存储）
 

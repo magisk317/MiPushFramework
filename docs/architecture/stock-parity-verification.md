@@ -29,7 +29,7 @@
 | 模块边界检查 | 通过 |
 | device dump index | 87 raw / 86 unique / 0 errors |
 
-当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleDebug --warning-mode=all --console=plain`，1362 actionable tasks 通过。此前两份 APK 已传输到 MBP、校验并安装；以下设备证据只覆盖明确列出的 smoke 范围，不覆盖 2026-09-01 尚未安装的 policy refactor。
+当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleGithubDebug --warning-mode=all --console=plain`，1362 actionable tasks 通过。此前两份 APK 已传输到 MBP、校验并安装；以下设备证据只覆盖明确列出的 smoke 范围，不覆盖 2026-09-01 尚未安装的 policy refactor。
 
 ## Last build and device evidence
 

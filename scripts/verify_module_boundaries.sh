@@ -744,7 +744,6 @@ require_bootstrap_contract \
 forbidden_entrypoint_bootstrap="$({
   rg -n 'ManagerDependencies\.(ensureStarted|startAsRemoteHost|startFromAppShell)' \
     "manager/ui/src/main/java/io/github/magisk317/mipush/feature" \
-    "mipush/src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt" \
     "mipush/src/main/java/io/github/magisk317/mipush/app/widget" || true
 })"
 if [ -n "$forbidden_entrypoint_bootstrap" ]; then

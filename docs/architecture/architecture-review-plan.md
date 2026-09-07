@@ -52,7 +52,7 @@
 
 - 当前受影响模块验证使用 `:core:jvmTest`（KMP JVM target），以及 manager contract/client/UI、notification、XMSF shell 和 Xposed 的对应测试/编译任务；捕获日志无 Kotlin compiler warning。
 - `./gradlew qualityGateKoverVerify --warning-mode=all --console=plain` 通过；目标为 `common/core/xposed/xmsf:shell`，门槛分别为 10%/10%/10%/7%，不再把仅用于打包的 `:xmsf` 根应用误作为 0% 实现模块。
-- 当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleDebug --warning-mode=all --console=plain`，1362 actionable tasks 全部通过；Kover 只应用于四个明确门禁模块，不让零测试的 packaging/vendor 模块污染普通 `check`。
+- 当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleGithubDebug --warning-mode=all --console=plain`，1362 actionable tasks 全部通过；Kover 只应用于四个明确门禁模块，不让零测试的 packaging/vendor 模块污染普通 `check`。
 - `manager:port` JSON 序列化/default/未知字段兼容测试通过；CallMessage、PushCommonProvider、regSec 缺失目标偏好文件和 xmsf runtime regression tests 通过。
 - `verifyGodFileLimits`、`verifyModuleBoundaries`、ShellCheck、CI shard 脚本测试和 `git diff --check` 通过。
 - `.kiro` 下的历史规格保留原始任务上下文；当前架构归属、验证命令和开放项以本文、`xmsf-decomposition-roadmap.md` 及仓库根/模块 `AGENTS.md` 为准。
@@ -101,7 +101,7 @@ device, so it does not extend these runtime claims.
 ## Manager background and framework identity registration audit (2026-08-30)
 
 - `KeepAliveHook` 的 `desiredOomAdj`、standby/doze bypass、`killLocked` 和 package-kill guard 均严格匹配 `com.xiaomi.xmsf`；`io.github.magisk317.mipush` 不属于 anti-kill 保护目标，也不会被该 hook 主动杀死。对应 manager package negative-control 已加入 `KeepAlivePolicyTest`。
-- manager 的 `finishAndRemoveTask()`/`Process.killProcess()` 仅存在于用户明确切换 launcher icon 的 `LauncherIconController.applyAndRelaunch()/exitOnly()` 流程；普通 Home、Binder reconnect、runtime recovery 均不调用它们。trampoline `ManagerLauncherActivity` 的 `noHistory`/`excludeFromRecents` 只作用于入口，实际 manager task 由 `WelcomeActivity`/`MainActivity` 持有。
+- manager 的 `finishAndRemoveTask()`/`Process.killProcess()` 仅存在于用户明确切换 launcher icon 的 `LauncherIconController.applyAndRelaunch()/exitOnly()` 流程；普通 Home、Binder reconnect、runtime recovery 均不调用它们。桌面 launcher alias 直接指向 `MainActivity`，首次使用由 `MainActivity` 路由到 `RequestPermissionPage`；不再存在 `WelcomeActivity`、`ManagerLauncherActivity` 或 XMSF 侧 redirect trampoline。
 - 受控普通后台复现中，user 0 与 user 999 的 manager 进程在启动后按 Home 仍存活，对应任务也保留；未观察到当前测试窗口的 `finishAndRemoveTask`、manager `force-stop` 或 manager kill。历史 exit-info 的 manager 记录来自 ROM/第三方策略：`LockScreenClean` force-stop，以及 `umms_selfcheck` 的 `OTHER KILLS BY SYSTEM`。因此不能把该问题归因于 xmsf anti-kill，也不应为 manager UI 扩大常驻 anti-kill；ROM 的后台/任务清理策略仍是设备侧开放项。
 - application detail/diagnostics 入口在 user 0 触发了 `ManagerRuntime application_detail`、`application_diagnostics` 和 registration read；日志明确携带 `userId=0`。user 999 的 application list 使用 `userId=999`，仍为 `items=1 using=1 total=2`；本次 `com.xiaomi.xmsf` 详情没有形成独立 user 999 detail 调用，不能宣称 user 999 registration-specific detail 已完成。
 - xmsf self-registration 与第三方 app force-register 已明确分离。`ProactiveMiPushRegistrar` 只扫描带 credentials/legacy service 的第三方 app；`FirstRegister`、`RetryRegister`、boot/network runtime dispatch 才是 xmsf 使用固定 `Constants.APP_ID/APP_KEY` 调用 `MiPushClient.registerPush()` 的路径。

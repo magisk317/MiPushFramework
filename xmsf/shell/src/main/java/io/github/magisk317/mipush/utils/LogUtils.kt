@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import com.xiaomi.xmsf.R
 import co.touchlab.kermit.Logger
@@ -10,6 +11,7 @@ import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
 import io.github.magisk317.mipush.diagnostics.StructuredLogCore
 import io.github.magisk317.xposed.logging.LogSink
 import io.github.magisk317.xposed.logging.LoggingKit
+import io.github.magisk317.xposed.logging.XLog as SharedXLog
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -33,6 +35,14 @@ object LogUtils {
     private val legacyTextLogPattern = Regex("""^(logs_\d{4}-\d{2}-\d{2}|runtime(?:\.[A-Za-z0-9_.-]+)?)\.(txt|log)$""")
     private val legacyModuleTextLogPattern = Regex("""^[A-Za-z0-9_.-]+_\d{4}-\d{2}-\d{2}\.txt$""")
     private const val FULL_PRUNE_INTERVAL_MS = 30L * 60L * 1000L
+
+    private fun Severity.toAndroidPriority(): Int = when (this) {
+        Severity.Verbose -> Log.VERBOSE
+        Severity.Debug -> Log.DEBUG
+        Severity.Info -> Log.INFO
+        Severity.Warn -> Log.WARN
+        Severity.Error, Severity.Assert -> Log.ERROR
+    }
 
     @Volatile
     private var lastFullPruneAtMs: Long = 0L
@@ -105,14 +115,21 @@ object LogUtils {
         runCatching {
             deleteLegacyTextLogFiles(resolved)
             pruneAllLogArtifacts(resolved, Date(), force = true)
+            val sink = fileLogSink(resolved)
             LoggingKit.init(
-                defaultTag = "MiPush",
+                defaultTag = "xmsf",
                 minSeverity = minLogLevel,
-                sink = fileLogSink(resolved),
+                sink = sink,
+            )
+            SharedXLog.configure(
+                tag = "xmsf",
+                logLevel = minLogLevel.toAndroidPriority(),
+                logToXposed = false,
+                sink = sink,
             )
         }.onFailure {
             // 文件日志初始化失败时不回退到会泄露日志的默认 writer。
-            android.util.Log.e("MiPushFramework", "Kermit file log init failed, logs will be discarded", it)
+            android.util.Log.e("xmsf", "Kermit file log init failed, logs will be discarded", it)
         }
     }
 
@@ -120,6 +137,7 @@ object LogUtils {
     fun setMinLogLevel(level: Severity) {
         minLogLevel = level
         Logger.setMinSeverity(level)
+        SharedXLog.setLogLevel(level.toAndroidPriority())
     }
 
     fun setRetentionDays(days: Int) {
@@ -140,6 +158,7 @@ object LogUtils {
         }
         Logger.setLogWriters(emptyList())
         Logger.setMinSeverity(Severity.Verbose)
+        SharedXLog.resetForTest()
     }
 
     private fun fileLogSink(context: Context): LogSink = LogSink { event ->
@@ -149,7 +168,7 @@ object LogUtils {
             tag = event.tag,
             message = event.message,
             throwable = event.throwableText.orEmpty(),
-            route = "app",
+            route = event.route ?: DEFAULT_ROUTE,
             packageName = context.packageName,
             processName = currentProcessName(),
             alreadySanitized = true,

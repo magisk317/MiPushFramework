@@ -6,7 +6,7 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.platform.support.LegacyComponentNames
+import io.github.magisk317.mipush.platform.support.XmsfComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
@@ -148,7 +148,7 @@ object ProactiveMiPushRegistrar {
 
     private fun hasXMPushService(pkgInfo: android.content.pm.PackageInfo): Boolean {
         return pkgInfo.services?.any { service ->
-            service.name == LegacyComponentNames.LEGACY_COMPAT_SERVICE_CLASS
+            service.name == XmsfComponentNames.COMPAT_SERVICE_CLASS
         } == true
     }
 

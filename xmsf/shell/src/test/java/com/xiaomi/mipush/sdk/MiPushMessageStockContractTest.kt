@@ -49,12 +49,14 @@ class MiPushMessageStockContractTest {
         every { anyConstructed<Bundle>().putSerializable(any(), any()) } answers {
             bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<java.io.Serializable?>()
         }
+        @Suppress("DEPRECATION")
         every { anyConstructed<Bundle>().getSerializable(any()) } answers {
             bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? java.io.Serializable
         }
         every { anyConstructed<Bundle>().putStringArrayList(any(), any()) } answers {
             bundleStores.getOrPut(System.identityHashCode(self)) { HashMap() }[firstArg()] = secondArg<ArrayList<String>?>()
         }
+        @Suppress("UNCHECKED_CAST")
         every { anyConstructed<Bundle>().getStringArrayList(any()) } answers {
             bundleStores[System.identityHashCode(self)]?.get(firstArg()) as? ArrayList<String>
         }

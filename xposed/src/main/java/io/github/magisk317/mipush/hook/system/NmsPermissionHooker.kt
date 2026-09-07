@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
+import io.github.magisk317.mipush.common.logging.LogRoute
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.HookCallback
 import io.github.magisk317.xposed.HookContext
@@ -89,7 +90,7 @@ object NmsPermissionHooker {
     private fun hookCanNotifyAsPackage(): HookCallback = {
         doBefore {
             if (fromXmsf()) {
-                XLog.d(TAG, "force canNotifyAsPackage(callingPkg=${args[0]}, targetPkg=${args[1]}, userId=${args[2]}) = true")
+                XLog.dLimited(LogRoute.NMS_HOOK, TAG, "force canNotifyAsPackage(callingPkg=${args[0]}, targetPkg=${args[1]}, userId=${args[2]}) = true")
                 result = true
             }
         }
@@ -167,10 +168,11 @@ object NmsPermissionHooker {
                     result = getPackageUidAsUser.invoke(packageManager, targetPackage, userId) as Int
                 }
             }
-            XLog.i(TAG, "notification delegate resolver hook installed; preserving XMSF opPkg")
+            XLog.i(LogRoute.NMS_HOOK, TAG, "notification delegate resolver hook installed; preserving XMSF opPkg")
             true
         }.getOrElse { throwable ->
             XLog.w(
+                LogRoute.NMS_HOOK,
                 TAG,
                 "notification delegate resolver unavailable; keep system-identity fallback: ${throwable.message}",
             )
@@ -179,7 +181,7 @@ object NmsPermissionHooker {
     }
 
     fun hook(classINotificationManager: Class<*>) {
-        XLog.i(TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
+        XLog.i(LogRoute.NMS_HOOK, TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
         try {
         val preserveNotificationDelegateIdentity =
             installNotificationDelegateResolver(classINotificationManager.classLoader)
@@ -251,7 +253,7 @@ object NmsPermissionHooker {
                     )
             } catch (e: NoSuchMethodError) {
                 //Samsung One UI 7 delete this method
-                XLog.d(TAG, "hook deleteNotificationChannel error, NoSuchMethodError")
+                XLog.d(LogRoute.NMS_HOOK, TAG, "hook deleteNotificationChannel error, NoSuchMethodError")
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
@@ -290,7 +292,7 @@ object NmsPermissionHooker {
                 .hook {
                     replace {
                         if (fromXmsf()) {
-                            XLog.d(TAG, "checkCallerIsSystem bypassed for xmsf")
+                            XLog.d(LogRoute.NMS_HOOK, TAG, "checkCallerIsSystem bypassed for xmsf")
                             return@replace null
                         }
                         // buzzBeepBlinkForNotification calls checkCallerIsSystem after
@@ -303,12 +305,12 @@ object NmsPermissionHooker {
                         }
                     }
                 }
-            XLog.i(TAG, "checkCallerIsSystem hook installed")
+            XLog.i(LogRoute.NMS_HOOK, TAG, "checkCallerIsSystem hook installed")
         }.onFailure {
-            XLog.e(TAG, "failed to hook checkCallerIsSystem", it)
+            XLog.e(LogRoute.NMS_HOOK, TAG, "failed to hook checkCallerIsSystem", it)
         }
 
-        XLog.i(TAG, "NMS permission hooks installed")
+        XLog.i(LogRoute.NMS_HOOK, TAG, "NMS permission hooks installed")
         MagiskOtel.event(
             name = "hook.load",
             attributes = mapOf(
@@ -321,7 +323,7 @@ object NmsPermissionHooker {
             statusOk = true,
         )
         } catch (error: Throwable) {
-            XLog.e(TAG, "NMS permission hooks install failed", error)
+            XLog.e(LogRoute.NMS_HOOK, TAG, "NMS permission hooks install failed", error)
             MagiskOtel.event(
                 name = "hook.load",
                 attributes = mapOf(

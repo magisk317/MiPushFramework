@@ -169,7 +169,7 @@ notification-feature state, moved to
 ## Current verification
 
 The current worktree passes `check`, `qualityGateKoverVerify`, `:xmsf:assembleNormalDebug`, and
-`:mipush:assembleDebug` together, plus `verify_module_boundaries.sh`, ShellCheck, and
+`:mipush:assembleGithubDebug` together, plus `verify_module_boundaries.sh`, ShellCheck, and
 `git diff --check`. The navigation performance specification's device checkpoint remains a separate
 unclosed benchmark gate; code refactoring completion does not claim a new device performance result.
 

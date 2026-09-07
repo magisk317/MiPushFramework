@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.configuration.ConfigSyncRepository
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.platform.support.ManagerUiEntryPoints
 
 class ConfigNavigationHelper constructor(
     private val context: Context,
@@ -20,7 +20,7 @@ class ConfigNavigationHelper constructor(
         } else {
             "configs_search/${java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())}"
         }
-        return LegacyUiEntryPoints.mainActivityIntent(
+        return ManagerUiEntryPoints.mainActivityIntent(
             context = context,
             startRoute = route,
         )

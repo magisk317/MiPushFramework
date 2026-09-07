@@ -31,7 +31,7 @@ class FallbackParityTest {
 
         val context = mockk<Context> {
             every { packageName } returns "com.xiaomi.network.test"
-            every { filesDir } returns File(System.getProperty("java.io.tmpdir"))
+            every { filesDir } returns File(System.getProperty("java.io.tmpdir") ?: "/tmp")
         }
         val fallback = HostManager(context).getFallbacksByHost("missing.example", false)
 

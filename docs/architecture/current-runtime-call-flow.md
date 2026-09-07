@@ -7,7 +7,7 @@ It is the reference for future stock-XMSF ports: new compatibility features shou
 ## 1. App Init (dual package)
 
 Shipping shape is **two APKs**. Bootstrap belongs to each package's `Application`, never to an
-Activity, launcher trampoline, or widget.
+Activity, launcher alias, or widget.
 
 ### 1a. XMSF runtime package (`com.xiaomi.xmsf`)
 
@@ -39,8 +39,13 @@ Key source:
 - Bootstrap: **`ManagerDependencies.startAsRemoteHost(...)`**
 - Loads manager Koin with **remote-primary** data plane (`Remote*Source` / `ManagerRuntimeClient`)
 - Talks to XMSF only through signature-permission Binder (`ManagerRuntimeService`)
-- `ManagerLauncherActivity`, manager Activities, and widgets consume the Application-owned Koin
-  host; they do not create or repair it.
+- `MainActivity`, manager Activities, and widgets consume the Application-owned Koin host; they
+  do not create or repair it.
+- The desktop launcher alias `MainActivityDefault` targets `MainActivity` directly. There is no
+  `WelcomeActivity` or `ManagerLauncherActivity` trampoline; `MainActivity` checks
+  `PreferenceRepository.showWizard` and routes first-run users directly to `RequestPermissionPage`.
+- Runtime-to-manager navigation uses `ManagerUiEntryPoints`; XMSF keeps runtime service/provider
+  contracts only and does not declare manager activity aliases or `ManagerUiRedirectActivity`.
 - Xposed module is packaged with `:mipush`, not with `:xmsf`
 - Connection status uses `ConnectionStatusViewModel` -> `RemoteConnectionSnapshotSource` ->
   `ManagerRuntimeClient`; the XMSF service assembles counters, timing, heartbeat, host and socket
@@ -69,14 +74,28 @@ Key source:
 
 - `mipush/src/main/java/io/github/magisk317/mipush/app/App.kt`
 - `manager/.../di/ManagerKoinModules.kt`
-- `common/.../LegacyComponentNames.kt` (cross-package component names / redirects)
+- `common/.../ManagerComponentNames.kt` and `common/.../ManagerUiEntryPoints.kt`
+- `common/.../XmsfComponentNames.kt` (runtime service component names)
+
+#### Manager event reads and cache
+
+The manager event page is deliberately cache-first. `EventListCacheStore` persists a raw,
+user-scoped event snapshot in manager DataStore. Opening or re-entering the page restores that
+snapshot without synchronously calling runtime; background maintenance refreshes the first page and
+merges new rows into the cache. Explicit pull-to-refresh also uses the remote runtime source, while
+preserving the cache when the remote page is empty or temporarily unavailable. Consequently,
+`ManagerRuntime getEventPage items=0` means that particular runtime query returned no rows; it does
+not prove that the manager has no historical event rows or that the visible page must immediately be
+empty. The cache is a UI mirror, not the authoritative XMSF event store.
 
 ### 1c. Explicit non-goals / regressions to avoid
 
 - Do **not** remove the app-shell hook or move it into an `xmsf` Koin module
 - Do **not** start manager dependencies from UI/launcher/widget entrypoints
 - Do **not** mix app-shell and remote-host modes within one process
-- Legacy XMSF activity names resolve through thin aliases → `ManagerUiRedirectActivity` → manager package
+- Do not reintroduce XMSF-side manager activity aliases, `ManagerUiRedirectActivity`,
+  `WelcomeActivity`, or launcher trampolines; cross-process manager navigation must use
+  `ManagerUiEntryPoints` and the direct `:mipush` activities.
 
 ## 2. Bridge Entry
 

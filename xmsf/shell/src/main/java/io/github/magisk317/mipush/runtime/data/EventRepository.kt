@@ -41,7 +41,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventVisibilityPolicy
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.platform.support.ManagerUiEntryPoints
 import io.github.magisk317.mipush.service.PushServiceStarter
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
@@ -440,7 +440,7 @@ class EventRepository constructor(
     }
 
     fun startManagePermissions(packageName: String, IGNORE_NOT_REGISTERED: Boolean = false) {
-        val intent = LegacyUiEntryPoints.applicationInfoIntent(
+        val intent = ManagerUiEntryPoints.applicationInfoIntent(
             context = context,
             packageName = packageName,
             ignoreNotRegistered = IGNORE_NOT_REGISTERED,

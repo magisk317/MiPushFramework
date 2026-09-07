@@ -14,5 +14,5 @@ object KermitLoggerCompat {
         tag: String?,
         throwable: Throwable?,
         block: (String) -> Unit,
-    ) = block(tag ?: "MiPush")
+    ) = block(tag ?: "xmsf")
 }

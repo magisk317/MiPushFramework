@@ -3,12 +3,12 @@ package com.xiaomi.xmsf.utils
 import android.content.Context
 import android.content.ContentValues
 import android.net.Uri
-import android.os.Binder
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
-import io.github.magisk317.xposed.logging.BaseXposedLogProvider
 import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
-import io.github.magisk317.xposed.logging.FixedWindowIngressLimiter
+import io.github.magisk317.xposed.logging.BaseXposedLogProvider
+import io.github.magisk317.xposed.logging.LogProviderQuotaConfig
+import io.github.magisk317.xposed.logging.LogProviderQuotaPolicy
 import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.xposed.logging.XposedLogEvent
 import java.io.File
@@ -16,6 +16,15 @@ import java.io.File
 class ModuleLogProvider : BaseXposedLogProvider() {
 
     override val authority: String = AUTHORITY
+
+    override val ingressPolicy: LogProviderQuotaPolicy = LogProviderQuotaPolicy(
+        LogProviderQuotaConfig(
+            maxEventsPerWindow = 600,
+            windowMs = 60_000L,
+            maxBytesPerDay = Long.MAX_VALUE,
+            maxEventsPerDay = Long.MAX_VALUE,
+        ),
+    )
 
     private val writeLock = Any()
 
@@ -26,8 +35,6 @@ class ModuleLogProvider : BaseXposedLogProvider() {
         val context = context?.applicationContext ?: return null
         if (uri.authority != AUTHORITY || uri.pathSegments != listOf(ENTRY_PATH)) return null
         if (values == null || !isCallerAllowed(context)) return null
-        val callingUid = Binder.getCallingUid()
-        if (!ingressLimiter.tryAcquire(callingUid, System.currentTimeMillis())) return null
         return synchronized(writeLock) {
             super.insert(uri, values)
         }
@@ -36,7 +43,7 @@ class ModuleLogProvider : BaseXposedLogProvider() {
     override fun appendLog(event: XposedLogEvent) {
         val ctx = context?.applicationContext ?: return
         synchronized(writeLock) {
-            val route = ModuleLogIngressPolicy.resolveRoute(event.source)
+            val route = ModuleLogIngressPolicy.resolveRoute(event.route)
             val estimatedBytes = event.message.toByteArray(Charsets.UTF_8).size.toLong() +
                 event.throwable.toByteArray(Charsets.UTF_8).size.toLong() + 1024L
             if (!ModuleLogIngressPolicy.ensurePersistentQuota(
@@ -64,7 +71,6 @@ class ModuleLogProvider : BaseXposedLogProvider() {
     companion object {
         private const val AUTHORITY = "com.xiaomi.xmsf.module.log"
         private const val ENTRY_PATH = "entry"
-        private val ingressLimiter = FixedWindowIngressLimiter(maxEvents = 600, windowMs = 60_000L)
 
         fun entryUri() = XposedLogEvent.appendUri(AUTHORITY)
 
@@ -75,7 +81,15 @@ class ModuleLogProvider : BaseXposedLogProvider() {
 internal object ModuleLogIngressPolicy {
     const val MAX_PERSISTED_LOG_BYTES = DailyRouteLogQuota.DEFAULT_MAX_BYTES
     internal const val MAX_EVENT_BYTES = 192L * 1024L
-    private const val MODULE_ROUTE = "MiPush"
+    private const val DEFAULT_ROUTE = "app"
+    private val allowedRoutes = setOf(
+        "app",
+        "hook",
+        "xmsf_hook",
+        "nms_hook",
+        "notification",
+        "manager",
+    )
 
     private val trustedHookPackages = setOf(
         "com.android.systemui",
@@ -86,7 +100,8 @@ internal object ModuleLogIngressPolicy {
 
     fun isCallerAllowed(context: Context): Boolean = callerGuard.isCallerAllowed(context)
 
-    internal fun resolveRoute(@Suppress("UNUSED_PARAMETER") source: String): String = MODULE_ROUTE
+    internal fun resolveRoute(route: String?): String =
+        route?.trim()?.takeIf(allowedRoutes::contains) ?: DEFAULT_ROUTE
 
     fun ensurePersistentQuota(
         logDir: File?,

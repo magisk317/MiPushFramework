@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.app
 import android.content.Context
 import android.net.Uri
 import co.touchlab.kermit.Logger
-import io.github.magisk317.mipush.platform.support.LegacyComponentNames
+import io.github.magisk317.mipush.platform.support.ManagerComponentNames
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.control.PushControllerUtils
@@ -95,7 +95,7 @@ class ConfigCenter constructor(
         }
         runCatching {
             context.grantUriPermission(
-                LegacyComponentNames.MANAGER_PACKAGE,
+                ManagerComponentNames.PACKAGE,
                 treeUri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
