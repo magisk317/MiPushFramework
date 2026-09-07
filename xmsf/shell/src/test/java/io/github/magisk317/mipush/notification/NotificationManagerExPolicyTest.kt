@@ -40,11 +40,11 @@ class NotificationManagerExPolicyTest {
     }
 
     @Test
-    fun `unrelated target group cannot use local compatibility fallback`() {
-        assertFalse(
+    fun `foreign arbitrary group may use local compatibility fallback`() {
+        assertTrue(
             NotificationManagerEx.shouldUseLocalGroupFallback(
                 packageName = targetPackage,
-                groupId = "gp_unrelated",
+                groupId = "unrelated-group",
                 hostPackageName = hostPackage,
             ),
         )
@@ -73,22 +73,22 @@ class NotificationManagerExPolicyTest {
     }
 
     @Test
-    fun `foreign arbitrary channel cannot fall back to host notification manager`() {
-        assertFalse(
+    fun `foreign arbitrary channel may use local compatibility fallback`() {
+        assertTrue(
             NotificationManagerEx.shouldUseLocalChannelFallback(
                 packageName = targetPackage,
-                channelId = "foreign-channel",
+                channelId = "mipush|$targetPackage|contact_chat",
                 hostPackageName = hostPackage,
             ),
         )
     }
 
     @Test
-    fun `mipush managed target channel may use local compatibility fallback`() {
+    fun `foreign stock-namespaced group may use local compatibility fallback`() {
         assertTrue(
-            NotificationManagerEx.shouldUseLocalChannelFallback(
+            NotificationManagerEx.shouldUseLocalGroupFallback(
                 packageName = targetPackage,
-                channelId = "ch_$targetPackage",
+                groupId = "mipush_${targetPackage}_contact_chat",
                 hostPackageName = hostPackage,
             ),
         )

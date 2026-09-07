@@ -44,6 +44,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
 import io.github.magisk317.mipush.notification.policy.NotificationStyle
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -52,7 +53,7 @@ import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.platform.support.ManagerUiEntryPoints
 import io.github.magisk317.mipush.runtime.PushRuntime
 
 object NotificationController {
@@ -106,6 +107,7 @@ object NotificationController {
                 "target_package" to packageName,
                 "channel_id" to channelId,
                 "source" to if (metaInfo.isMockReplay()) "mock_replay" else "server",
+                "commit" to BuildConfig.GIT_COMMIT,
             )
             if (reason != null) {
                 attrs["reason"] = reason
@@ -556,6 +558,10 @@ object NotificationController {
     @JvmStatic
     fun getLargeIcon(context: Context, metaInfo: PushMetaInfo, iconUri: String?): Bitmap? =
         NotificationLargeIconSupport.getLargeIcon(context, metaInfo, iconUri)
+
+    internal fun clearIconPackCache() {
+        iconPackResolver.clearCache()
+    }
 
     @JvmStatic
     fun roundLargeIconIfConfigured(metaInfo: PushMetaInfo, largeIcon: Bitmap): Bitmap =

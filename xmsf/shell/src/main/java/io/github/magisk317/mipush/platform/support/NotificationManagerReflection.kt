@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.platform.support
 
 import java.lang.reflect.Method
+import java.util.HashSet
 
 /** Reflection helpers for the XMSF-owned hidden notification backend. */
 object NotificationManagerReflection {
@@ -16,18 +17,37 @@ object NotificationManagerReflection {
     )
 
     fun findMethod(type: Class<*>, name: String, vararg parameterTypes: Class<*>): Method {
-        var current: Class<*>? = type
-        while (current != null) {
-            current.declaredMethods.firstOrNull { method ->
-                method.name == name && method.parameterTypes.size == parameterTypes.size &&
-                    method.parameterTypes.zip(parameterTypes).all { (actual, requested) ->
-                        actual == requested || primitiveAliases[requested] == actual ||
-                            primitiveAliases[actual] == requested
-                    }
-            }?.let { return it.apply { isAccessible = true } }
-            current = current.superclass
+        return findMethod(type, name, parameterTypes, HashSet()).apply {
+            isAccessible = true
         }
-        throw NoSuchMethodException("$name(${parameterTypes.joinToString()}) on $type")
+    }
+
+    private fun findMethod(
+        type: Class<*>,
+        name: String,
+        parameterTypes: Array<out Class<*>>,
+        visited: MutableSet<Class<*>>,
+    ): Method {
+        if (!visited.add(type)) {
+            throw NoSuchMethodException("$name(${parameterTypes.joinToString()}) on $type")
+        }
+        type.declaredMethods.firstOrNull { method ->
+            method.name == name && method.parameterTypes.size == parameterTypes.size &&
+                method.parameterTypes.zip(parameterTypes).all { (actual, requested) ->
+                    actual == requested || primitiveAliases[requested] == actual ||
+                        primitiveAliases[actual] == requested
+                }
+        }?.let { return it }
+
+        type.interfaces.forEach { interfaceType ->
+            runCatching {
+                return findMethod(interfaceType, name, parameterTypes, visited)
+            }
+        }
+        type.superclass?.let { superclass ->
+            return findMethod(superclass, name, parameterTypes, visited)
+        }
+        throw NoSuchMethodException("$name(${parameterTypes.joinToString()}) on ${type.name}")
     }
 
     fun newParceledListSlice(list: List<*>): Any =

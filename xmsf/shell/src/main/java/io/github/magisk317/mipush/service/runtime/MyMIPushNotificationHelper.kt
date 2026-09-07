@@ -74,14 +74,23 @@ class MyMIPushNotificationHelper {
         private const val NOTIFICATION_MESSAGE_ID = "message_id"
         private const val NON_DISPLAY_DISPATCH_WINDOW_MS = 30_000L
         private const val CONFIGURATION_RETRY_DELAY_MS = 30_000L
+        private const val NOTIFICATION_QUEUE_CAPACITY = 16
 
         @Volatile
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
         private val configurationLoadGate = ConfigurationLoadGate(CONFIGURATION_RETRY_DELAY_MS)
-        private val notificationDispatcher: ExecutorCoroutineDispatcher =
-            Executors.newFixedThreadPool(3).asCoroutineDispatcher()
+        private val notificationExecutor = Executors.newFixedThreadPool(3)
+        private val notificationCoroutineDispatcher: ExecutorCoroutineDispatcher =
+            notificationExecutor.asCoroutineDispatcher()
         private val notificationScope: CoroutineScope =
-            CoroutineScope(SupervisorJob() + notificationDispatcher)
+            CoroutineScope(SupervisorJob() + notificationCoroutineDispatcher)
+        private val notificationDispatcher = KeyedSerialDispatcher<NotificationDispatchKey>(
+            delegate = notificationExecutor,
+            maxQueuedCommands = NOTIFICATION_QUEUE_CAPACITY,
+            failureHandler = { key, error ->
+                logE("Notification task failed key=$key", error)
+            },
+        )
         private val nonDisplayDispatchLock = Any()
         private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
         @JvmStatic
@@ -304,7 +313,7 @@ class MyMIPushNotificationHelper {
                         )
                         doNotifyPushMessage(context, container, decryptedContent)
                     } else {
-                        notificationScope.launch {
+                        notificationDispatcher.execute(notificationDispatchKeyFor(context, container)) {
                             val notificationOutcome = try {
                                 logD(
                                     "policy_notify dispatch start pkg=$packageName action=${container.action} " +
@@ -369,6 +378,20 @@ class MyMIPushNotificationHelper {
                 logE("handleNotificationByConfigurations encountered error", e)
                 MockReplayOutcome.Failed
             }
+        }
+
+        /** Build the same identity tuple used by the final notification publication path. */
+        private fun notificationDispatchKeyFor(
+            context: Context,
+            container: XmPushActionContainer,
+        ): NotificationDispatchKey {
+            val packageName = MIPushNotificationHelper.getTargetPackage(container)
+            return NotificationDispatchKey(
+                userId = NotificationController.resolveNotificationUserId(context, packageName),
+                packageName = packageName,
+                notificationId = getNotificationId(container),
+                tag = getNotificationTag(packageName),
+            )
         }
 
         private fun loadConfigurationsOnce(context: Context) {

@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -14,14 +15,20 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
+import com.xiaomi.push.service.NotificationIdentityBridge
 import com.xiaomi.push.service.NotificationUtils
 import io.github.magisk317.mipush.platform.support.NotificationVendorAdapter
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import io.github.magisk317.mipush.common.logging.LogRoute
+import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
+import io.github.magisk317.xposed.logging.XLog as SharedXLog
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.PermissionUtils
-import java.util.Collections
+import java.util.LinkedHashMap
 
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
@@ -29,9 +36,16 @@ object NotificationManagerEx {
     private const val EXTRA_XMSF_TARGET_PACKAGE = "xmsf_target_package"
     private const val EXTRA_MIUI_TARGET_PACKAGE = "miui.targetPkg"
     private const val EXTRA_SUBSTITUTE_APP_NAME = "android.substName"
+    private const val MAX_DIAGNOSTIC_KEYS = 256
     @JvmField
     val HOOK_API_VERSION = 2
-    private val diagnosticsLogged = Collections.synchronizedSet(mutableSetOf<String>())
+    private val diagnosticsLock = Any()
+    private val diagnosticsLogged = LinkedHashMap<String, Unit>(MAX_DIAGNOSTIC_KEYS, 0.75f, true)
+    private val diagnosticLimiter = FixedWindowLogLimiter(
+        maxEvents = 12,
+        windowMs = 30_000L,
+        maxTrackedKeys = 64,
+    )
 
     private lateinit var appContext: Context
     private lateinit var notificationManager: NotificationManager
@@ -64,6 +78,7 @@ object NotificationManagerEx {
 
     @JvmStatic
     fun init(context: Context) {
+        resetDiagnosticState()
         appContext = context.applicationContext
         notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     }
@@ -87,6 +102,26 @@ object NotificationManagerEx {
             MIUIUtils.isXMSF(appContext)
     }
 
+    private fun logNotificationDiagnostic(
+        priority: Int,
+        message: String,
+        throwable: Throwable? = null,
+    ) {
+        if (priority == Log.DEBUG &&
+            (SharedXLog.getLogLevel() > Log.DEBUG || !allowDiagnosticDebug())
+        ) {
+            return
+        }
+        val detail = if (throwable == null) message else "$message: ${throwable.message}"
+        SharedXLog.log(
+            priority = priority,
+            route = LogRoute.NOTIFICATION.id,
+            force = priority >= Log.WARN,
+            sensitive = true,
+            message = "[$TAG] $detail",
+        )
+    }
+
     private fun maybeLogDiagnosticsOnce(
         reason: String,
         packageName: String,
@@ -98,16 +133,40 @@ object NotificationManagerEx {
             return
         }
         val key = listOf(reason, packageName, channelId, groupId).joinToString("|")
-        if (!diagnosticsLogged.add(key)) {
+        if (!markDiagnosticKey(key)) {
             return
         }
-        val message = "$reason ${NotificationVendorAdapter.dumpIdentityDiagnostics(appContext, packageName, channelId, groupId)}"
+        val message = "$reason commit=${BuildConfig.GIT_COMMIT} " +
+            NotificationVendorAdapter.dumpIdentityDiagnostics(appContext, packageName, channelId, groupId)
         if (throwable != null) {
-            logE(message, throwable)
+            logNotificationDiagnostic(Log.ERROR, message, throwable)
         } else {
-            logD(message)
+            logNotificationDiagnostic(Log.DEBUG, message)
         }
     }
+
+    private fun resetDiagnosticState() {
+        diagnosticLimiter.reset()
+        synchronized(diagnosticsLock) {
+            diagnosticsLogged.clear()
+        }
+    }
+
+    private fun markDiagnosticKey(key: String): Boolean {
+        synchronized(diagnosticsLock) {
+            if (diagnosticsLogged[key] != null) {
+                return false
+            }
+            if (diagnosticsLogged.size >= MAX_DIAGNOSTIC_KEYS) {
+                diagnosticsLogged.entries.firstOrNull()?.let { diagnosticsLogged.remove(it.key) }
+            }
+            diagnosticsLogged[key] = Unit
+            return true
+        }
+    }
+
+    private fun allowDiagnosticDebug(): Boolean =
+        diagnosticLimiter.tryAcquire(TAG, SystemClock.elapsedRealtime()).allowed
 
     private fun filterLocalActiveNotifications(
         packageName: String,
@@ -195,6 +254,12 @@ object NotificationManagerEx {
                     isHooked || NotificationVendorAdapter.getTargetChannel(appContext, packageName, channelId) != null
                 NotificationVendorAdapter.IdentityStrategy.UNSUPPORTED -> compatAttempt
             }
+            logNotificationDiagnostic(
+                Log.DEBUG,
+                "identity decision pkg=$packageName channel=$channelId strategy=$strategy " +
+                    "identityHooked=${NotificationIdentityBridge.isHooked} managerHooked=$isHooked " +
+                    "visible=$visible commit=${BuildConfig.GIT_COMMIT}",
+            )
             if (!visible) {
                 maybeLogDiagnosticsOnce("identity-precheck-failed", packageName, channelId, notification.group)
             }
@@ -228,7 +293,19 @@ object NotificationManagerEx {
         // Attribution marker: when isHooked is true the system NMS hook owns publishing and this
         // app-process body is normally bypassed. Seeing this line run with isHooked=true means the
         // hook did not intercept and we are about to publish as a local (non-owned) fallback.
-        logD("notify() attribution pkg=$packageName isHooked=$isHooked id=$id channel=${notification.channelId}")
+        val identityStrategy = runCatching {
+            if (shouldUseModernIdentityStrategy(packageName)) {
+                NotificationVendorAdapter.resolveIdentityStrategy(appContext, packageName).name
+            } else {
+                "LEGACY"
+            }
+        }.getOrDefault("ERROR")
+        logNotificationDiagnostic(
+            Log.DEBUG,
+            "notify() attribution pkg=$packageName isHooked=$isHooked " +
+                "identityHooked=${NotificationIdentityBridge.isHooked} strategy=$identityStrategy " +
+                "id=$id channel=${notification.channelId} commit=${BuildConfig.GIT_COMMIT}",
+        )
         if (!isTargetPackageAvailable(packageName)) {
             logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
             emitNotify(result = "skip", reason = "target_absent", packageName = packageName)
@@ -247,6 +324,7 @@ object NotificationManagerEx {
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
+            injectTargetAppIconsIfNeeded(packageName, notification)
             val local = notifyLocally(tag, id, notification)
             emitNotify(
                 result = if (local) "ok" else "error",
@@ -272,6 +350,7 @@ object NotificationManagerEx {
                 logE("Failed to invoke notifyAsPackage", e)
             }
         }
+        injectTargetAppIconsIfNeeded(packageName, notification)
         val local = notifyLocally(tag, id, notification)
         emitNotify(
             result = if (local) "ok" else "error",
@@ -297,6 +376,9 @@ object NotificationManagerEx {
                 "stage" to "notify_publish",
                 "reason" to reason,
                 "target_package" to packageName,
+                "commit" to BuildConfig.GIT_COMMIT,
+                "manager_hooked" to isHooked.toString(),
+                "identity_hooked" to NotificationIdentityBridge.isHooked.toString(),
             ),
             statusOk = statusOk,
         )
@@ -321,12 +403,34 @@ object NotificationManagerEx {
             PermissionUtils.grantSilentPermissions(packageName = packageName)
         }.getOrDefault(false)
         if (!granted) {
-            logD("live-update identity retry skipped: silent grant failed pkg=$packageName id=$id")
+            logNotificationDiagnostic(
+                Log.DEBUG,
+                "live-update identity retry skipped: silent grant failed pkg=$packageName id=$id",
+            )
             return false
         }
         val ok = NotificationVendorAdapter.notifyAsTarget(appContext, packageName, tag, id, notification)
-        logD("live-update identity retry after appops grant pkg=$packageName id=$id ok=$ok")
+        logNotificationDiagnostic(
+            Log.DEBUG,
+            "live-update identity retry after appops grant pkg=$packageName id=$id ok=$ok",
+        )
         return ok
+    }
+
+    /**
+     * Injects target app icon into notification extras when the Xposed hook is not active.
+     * This ensures the correct app icon appears in system UI on non-MIUI devices where
+     * notifications fall back to local XMSF posting.
+     */
+    private fun injectTargetAppIconsIfNeeded(packageName: String, notification: Notification) {
+        if (isHooked) return
+        if (packageName == appContext.packageName) return
+        val colorStatusBarIcon = runCatching {
+            MiPushIslandPreferences.read(appContext).colorStatusBarIcon
+        }.getOrDefault(false)
+        NotificationIconRenderingSupport.injectTargetAppIcons(
+            appContext, packageName, notification, colorStatusBarIcon,
+        )
     }
 
     private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {

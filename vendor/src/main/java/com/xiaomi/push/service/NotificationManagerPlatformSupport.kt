@@ -119,6 +119,18 @@ object NotificationManagerPlatformSupport {
             .newInstance(list)
     }
 
+    private fun invokeNotificationService(
+        name: String,
+        parameterTypes: Array<Class<*>>,
+        vararg args: Any?,
+    ): Any? {
+        val service = nms ?: throw IllegalStateException("NotificationManager service unavailable")
+        val method = service.javaClass.getMethod(name, *parameterTypes).apply {
+            isAccessible = true
+        }
+        return method.invoke(service, *args)
+    }
+
     @JvmStatic
     internal fun shouldFallbackNotificationCancel(error: Throwable): Boolean =
         error is NoSuchMethodException
@@ -195,12 +207,13 @@ object NotificationManagerPlatformSupport {
     fun createNotificationChannel(packageName: String, notificationChannel: NotificationChannel) {
         val pkgUid = getPkgUid(packageName)
         if (pkgUid != -1) {
-            JavaCalls.callMethodOrThrow(
-                nms,
+            val channels = newParceledListSlice(listOf(notificationChannel))
+            invokeNotificationService(
                 "createNotificationChannelsForPackage",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!, channels.javaClass),
                 packageName,
                 pkgUid,
-                newParceledListSlice(listOf(notificationChannel)),
+                channels,
             )
         }
     }
@@ -210,7 +223,13 @@ object NotificationManagerPlatformSupport {
     fun createNotificationChannelGroup(packageName: String, notificationChannelGroup: NotificationChannelGroup) {
         val pkgUid = getPkgUid(packageName)
         if (pkgUid != -1) {
-            JavaCalls.callMethodOrThrow(nms, "updateNotificationChannelGroupForPackage", packageName, pkgUid, notificationChannelGroup)
+            invokeNotificationService(
+                "updateNotificationChannelGroupForPackage",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!, NotificationChannelGroup::class.java),
+                packageName,
+                pkgUid,
+                notificationChannelGroup,
+            )
         }
     }
 
@@ -230,19 +249,36 @@ object NotificationManagerPlatformSupport {
         val errors = mutableListOf<Throwable>()
         // AOSP binder: deleteNotificationChannel(String pkg, String channelId)
         runCatching {
-            JavaCalls.callMethodOrThrow(service, "deleteNotificationChannel", packageName, channelId)
+            invokeNotificationService(
+                "deleteNotificationChannel",
+                arrayOf(String::class.java, String::class.java),
+                packageName,
+                channelId,
+            )
             return
         }.onFailure(errors::add)
         // Some ROMs: deleteNotificationChannel(String pkg, int uid, String channelId)
         runCatching {
-            JavaCalls.callMethodOrThrow(service, "deleteNotificationChannel", packageName, pkgUid, channelId)
+            invokeNotificationService(
+                "deleteNotificationChannel",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!, String::class.java),
+                packageName,
+                pkgUid,
+                channelId,
+            )
             return
         }.onFailure(errors::add)
         // MIUI-ish: deleteNotificationChannel(String pkg, int uid, String channelId, int callingUid, boolean fromSystemOrSystemUi)
         runCatching {
-            JavaCalls.callMethodOrThrow(
-                service,
+            invokeNotificationService(
                 "deleteNotificationChannel",
+                arrayOf(
+                    String::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    String::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    Boolean::class.javaPrimitiveType!!,
+                ),
                 packageName,
                 pkgUid,
                 channelId,
@@ -275,7 +311,12 @@ object NotificationManagerPlatformSupport {
             return null
         }
         val slice = runCatching {
-            JavaCalls.callMethodOrThrow(nms, "getAppActiveNotifications", packageName, userId)
+            invokeNotificationService(
+                "getAppActiveNotifications",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!),
+                packageName,
+                userId,
+            )
         }.getOrElse { error ->
             if (!shouldFallbackActiveNotifications(error)) {
                 throw error
@@ -297,9 +338,9 @@ object NotificationManagerPlatformSupport {
         if (pkgUid == -1) {
             return null
         }
-        return JavaCalls.callMethodOrThrow(
-            nms,
+        return invokeNotificationService(
             "getNotificationChannelGroupForPackage",
+            arrayOf(String::class.java, String::class.java, Int::class.javaPrimitiveType!!),
             groupId,
             packageName,
             pkgUid,
@@ -346,9 +387,20 @@ object NotificationManagerPlatformSupport {
             return null
         }
         val slice = runCatching {
-            JavaCalls.callMethodOrThrow(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid, false)
+            invokeNotificationService(
+                "getNotificationChannelGroupsForPackage",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!, Boolean::class.javaPrimitiveType!!),
+                packageName,
+                pkgUid,
+                false,
+            )
         }.getOrElse {
-            JavaCalls.callMethodOrThrow(service, "getNotificationChannelGroupsForPackage", packageName, pkgUid)
+            invokeNotificationService(
+                "getNotificationChannelGroupsForPackage",
+                arrayOf(String::class.java, Int::class.javaPrimitiveType!!),
+                packageName,
+                pkgUid,
+            )
         }
         val items = getListFromParceledListSlice(slice) ?: return null
         return items.map { it as NotificationChannelGroup }

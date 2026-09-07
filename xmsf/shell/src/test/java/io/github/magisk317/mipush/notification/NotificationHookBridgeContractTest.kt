@@ -31,6 +31,8 @@ class NotificationHookBridgeContractTest {
 
         assertTrue("JavaCalls.callStaticMethodOrThrow" in source)
         assertTrue("JavaCalls.callMethodOrThrow" in source)
+        assertTrue("NotificationManagerReflection.findMethod" in source)
+        assertTrue("createNotificationChannelsForPackage" in source)
         assertTrue("JavaCalls.callStaticMethod(" !in source)
         assertTrue("JavaCalls.callMethod(" !in source)
     }

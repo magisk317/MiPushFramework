@@ -112,6 +112,26 @@ internal class NotificationChannelRegistrySupport(
         if (groups.isNotEmpty()) notificationManager.createNotificationChannelGroups(groups)
     }
 
+    private fun createLocalFallbackChannels(packageName: String, channels: List<NotificationChannel>) {
+        val fallbackChannels = channels.filter {
+            shouldUseLocalChannelFallback(packageName, it.id)
+        }
+        if (fallbackChannels.isNotEmpty()) {
+            createLocalNotificationChannels(fallbackChannels)
+            logD("created local channel shadow pkg=$packageName ids=${fallbackChannels.map { it.id }}")
+        }
+    }
+
+    private fun createLocalFallbackGroups(packageName: String, groups: List<NotificationChannelGroup>) {
+        val fallbackGroups = groups.filter {
+            shouldUseLocalGroupFallback(packageName, it.id)
+        }
+        if (fallbackGroups.isNotEmpty()) {
+            createLocalNotificationChannelGroups(fallbackGroups)
+            logD("created local group shadow pkg=$packageName ids=${fallbackGroups.map { it.id }}")
+        }
+    }
+
     private fun shouldUseLocalChannelFallback(packageName: String, channelId: String?): Boolean =
         NotificationOwnershipPolicy.shouldUseLocalChannel(packageName, channelId, context.packageName)
 
@@ -142,13 +162,7 @@ internal class NotificationChannelRegistrySupport(
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationVendorAdapter.createTargetChannels(context, packageName, nonNullChannels)) {
-                if (!isHooked) {
-                    createLocalNotificationChannels(
-                        nonNullChannels.filter {
-                            shouldUseLocalChannelFallback(packageName, it.id, context.packageName)
-                        },
-                    )
-                }
+                createLocalFallbackChannels(packageName, nonNullChannels)
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -157,13 +171,7 @@ internal class NotificationChannelRegistrySupport(
                 nonNullChannels.firstOrNull()?.id,
                 nonNullChannels.firstOrNull()?.group
             )
-            if (!isHooked) {
-                createLocalNotificationChannels(
-                    nonNullChannels.filter {
-                        shouldUseLocalChannelFallback(packageName, it.id, context.packageName)
-                    },
-                )
-            }
+            createLocalFallbackChannels(packageName, nonNullChannels)
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -190,13 +198,7 @@ internal class NotificationChannelRegistrySupport(
                 logE("Failed to invoke createNotificationChannelsForPackage", e)
             }
         }
-        if (!isHooked) {
-            notificationManager.createNotificationChannels(
-                nonNullChannels.filter {
-                    shouldUseLocalChannelFallback(packageName, it.id, context.packageName)
-                },
-            )
-        }
+        createLocalFallbackChannels(packageName, nonNullChannels)
     }
 
     fun getNotificationChannel(
@@ -207,13 +209,13 @@ internal class NotificationChannelRegistrySupport(
         if (directChannel != null) {
             return directChannel
         }
-        // Only fall back to XMSF-local lookup for this process package or MiPush-managed ids.
-        if (packageName == context.packageName ||
-            io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId)
-        ) {
-            return notificationManager.getNotificationChannel(channelId)
+        val localFallback = channelId?.takeIf { it.isNotBlank() }?.let { id ->
+            notificationManager.getNotificationChannel(id)
         }
-        return null
+        if (localFallback != null) {
+            logI("getNotificationChannel local fallback pkg=$packageName channel=$channelId")
+        }
+        return localFallback
     }
 
     fun getNotificationChannels(
@@ -404,13 +406,7 @@ internal class NotificationChannelRegistrySupport(
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationVendorAdapter.createTargetGroups(context, packageName, nonNullGroups)) {
-                if (!isHooked) {
-                    createLocalNotificationChannelGroups(
-                        nonNullGroups.filter {
-                            shouldUseLocalGroupFallback(packageName, it.id, context.packageName)
-                        },
-                    )
-                }
+                createLocalFallbackGroups(packageName, nonNullGroups)
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -419,13 +415,7 @@ internal class NotificationChannelRegistrySupport(
                 null,
                 nonNullGroups.firstOrNull()?.id
             )
-            if (!isHooked) {
-                createLocalNotificationChannelGroups(
-                    nonNullGroups.filter {
-                        shouldUseLocalGroupFallback(packageName, it.id, context.packageName)
-                    },
-                )
-            }
+            createLocalFallbackGroups(packageName, nonNullGroups)
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -455,12 +445,13 @@ internal class NotificationChannelRegistrySupport(
         if (directGroup != null) {
             return directGroup
         }
-        if (packageName == context.packageName ||
-            io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedGroupId(packageName, groupId)
-        ) {
-            return notificationManager.getNotificationChannelGroup(groupId)
+        val localFallback = groupId?.takeIf { it.isNotBlank() }?.let { id ->
+            notificationManager.getNotificationChannelGroup(id)
         }
-        return null
+        if (localFallback != null) {
+            logI("getNotificationChannelGroup local fallback pkg=$packageName group=$groupId")
+        }
+        return localFallback
     }
 
     fun getNotificationChannelGroups(

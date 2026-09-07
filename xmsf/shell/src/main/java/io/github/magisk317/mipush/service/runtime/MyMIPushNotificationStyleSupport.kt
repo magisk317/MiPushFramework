@@ -443,7 +443,10 @@ internal object MyMIPushNotificationStyleSupport {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val conversation = custom.conversationTitle(null)
         val conversationId = custom.conversationId(null)
-        val conversationIcon = custom.conversationIcon(null)
+        val conversationIcon = selectConversationIconUri(
+            primary = custom.conversationIcon(null),
+            fallback = custom.notificationLargeIconUri(null),
+        )
         val groupConversation = isGroupConversation(metaInfo)
 
         if (!groupConversation) {
@@ -460,7 +463,11 @@ internal object MyMIPushNotificationStyleSupport {
             personBuilder.setKey(conversationId)
         }
         val largeIcon = getLargeIcon(context, metaInfo, conversationIcon)
-            ?: getAppLogo(context, metaInfo, packageName)
+            ?: if (shouldUseApplicationIconFallback(conversationIcon)) {
+                getAppLogo(context, metaInfo, packageName)
+            } else {
+                null
+            }
         if (largeIcon != null) {
             personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon))
         }
@@ -475,7 +482,10 @@ internal object MyMIPushNotificationStyleSupport {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val sender = custom.conversationSender(null)
         val senderId = custom.conversationSenderId(null)
-        val senderIcon = custom.conversationSenderIcon(null)
+        val senderIcon = selectConversationIconUri(
+            primary = custom.conversationSenderIcon(null),
+            fallback = custom.notificationLargeIconUri(null),
+        )
 
         val personBuilder = Person.Builder().setName(sender)
         personBuilder.setImportant(custom.conversationImportant(false))
@@ -483,7 +493,11 @@ internal object MyMIPushNotificationStyleSupport {
             personBuilder.setKey(senderId)
         }
         val largeIcon = getLargeIcon(context, metaInfo, senderIcon)
-            ?: getAppLogo(context, metaInfo, packageName)
+            ?: if (shouldUseApplicationIconFallback(senderIcon)) {
+                getAppLogo(context, metaInfo, packageName)
+            } else {
+                null
+            }
         if (largeIcon != null) {
             personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon))
         }
@@ -491,9 +505,19 @@ internal object MyMIPushNotificationStyleSupport {
     }
 
     private fun getAppLogo(context: Context, metaInfo: PushMetaInfo, packageName: String): Bitmap? {
-        val logo = Global.iconCache().getRawIconBitmap(context, packageName) ?: return null
-        return roundLargeIconIfConfigured(metaInfo, logo)
+        return runCatching {
+            val logo = Global.iconCache().getRawIconBitmap(context, packageName)
+                ?.takeUnless { it.isRecycled }
+                ?: return@runCatching null
+            roundLargeIconIfConfigured(metaInfo, logo)
+        }.getOrNull()
     }
+
+    /** A configured URI remains authoritative even when its payload cannot be decoded. */
+    internal fun selectConversationIconUri(primary: String?, fallback: String?): String? =
+        primary?.takeIf { it.isNotBlank() } ?: fallback?.takeIf { it.isNotBlank() }
+
+    internal fun shouldUseApplicationIconFallback(iconUri: String?): Boolean = iconUri.isNullOrBlank()
 
     private fun getMessagingUser(pkgCtx: Context, packageName: String): Person {
         val label = runCatching {

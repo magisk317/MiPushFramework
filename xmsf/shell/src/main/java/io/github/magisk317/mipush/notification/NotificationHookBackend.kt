@@ -5,10 +5,8 @@ import android.app.*
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.os.UserHandle
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
@@ -32,9 +30,6 @@ private object BackendLog {
 
 object NotificationHookBackend {
     private const val TAG = "SystemNotificationManager"
-    private const val EXTRA_LARGE_ICON = "android.largeIcon"
-    private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
-    private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
     private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     // 某些系统 API（如 getNotificationChannelsForPackage）需要 STATUS_BAR_SERVICE 权限，
@@ -68,6 +63,19 @@ object NotificationHookBackend {
 
     private fun requireNotificationManager(): Any {
         return notificationManager ?: throw IllegalStateException("NotificationManager service not available")
+    }
+
+    private fun invokeNotificationManager(
+        name: String,
+        parameterTypes: Array<Class<*>>,
+        vararg args: Any?,
+    ): Any? {
+        val service = requireNotificationManager()
+        return NotificationManagerReflection.findMethod(
+            service.javaClass,
+            name,
+            *parameterTypes,
+        ).invoke(service, *args)
     }
 
     private fun getUid(packageName: String): Int {
@@ -142,51 +150,6 @@ object NotificationHookBackend {
         }.getOrDefault(false)
     }
 
-    private fun createAppIconBitmap(
-        packageManager: PackageManager,
-        appInfo: ApplicationInfo,
-    ): Bitmap? {
-        return runCatching {
-            ImgUtils.drawableToBitmap(appInfo.loadIcon(packageManager))
-        }.onFailure {
-            BackendLog.e(TAG, "Failed to create app icon bitmap", it)
-        }.getOrNull()
-    }
-
-    private fun createUserBadgedAppIconBitmap(
-        packageManager: PackageManager,
-        appInfo: ApplicationInfo,
-    ): Bitmap? {
-        return runCatching {
-            val rawIcon = appInfo.loadIcon(packageManager)
-            val userHandle = resolveUserHandle(getUserId())
-            val iconForUser = if (userHandle != null) {
-                packageManager.getUserBadgedIcon(rawIcon, userHandle)
-            } else {
-                rawIcon
-            }
-            ImgUtils.drawableToBitmap(iconForUser)
-        }.onFailure {
-            BackendLog.e(TAG, "Failed to create user-badged app icon", it)
-        }.getOrNull()
-    }
-
-    private fun resolveUserHandle(userId: Int): UserHandle? {
-        return runCatching {
-            val method = UserHandle::class.java.getDeclaredMethod("of", Integer.TYPE)
-            method.isAccessible = true
-            method.invoke(null, userId) as UserHandle
-        }.onFailure {
-            BackendLog.e(TAG, "Failed to resolve UserHandle for userId=$userId", it)
-        }.getOrNull()
-    }
-
-    private fun hasLargeIcon(notification: Notification): Boolean {
-        val reflectedLargeIcon = runCatching { notification.getLargeIcon() }.getOrNull()
-        if (reflectedLargeIcon != null) return true
-        return notification.extras?.containsKey(EXTRA_LARGE_ICON) == true
-    }
-
     private fun ensureExtras(notification: Notification): Bundle? {
         notification.extras?.let { return it }
         return runCatching {
@@ -200,50 +163,11 @@ object NotificationHookBackend {
         }.getOrNull()
     }
 
-    @SuppressLint("DiscouragedPrivateApi")
     private fun injectAppIcons(packageName: String, notification: Notification) {
         val colorMode = MiPushIslandPreferences.read(appContext).colorStatusBarIcon
-        BackendLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
-        runCatching {
-            val pm = appContext.packageManager
-            val appInfo = pm.getApplicationInfo(packageName, 0)
-            if (appInfo.icon == 0) return
-
-            val appIconBitmap = createAppIconBitmap(pm, appInfo)
-            if (appIconBitmap != null) {
-                notification.extras?.putParcelable(EXTRA_MIUI_APP_ICON, Icon.createWithBitmap(appIconBitmap))
-                notification.extras?.putString(EXTRA_MIUI_OP_PKG, XMSF_PACKAGE_NAME)
-                BackendLog.d(TAG, "Successfully injected MIUI custom app icon extras userId=${getUserId()}")
-            }
-
-            // Android 17 SystemUI accepts XMSF in config_canCustomNotificationAppIcon and uses
-            // these extras for the header icon. In monochrome mode only publish the custom header
-            // source; keep Notification.smallIcon for the status-bar monochrome hook.
-            if (!colorMode) {
-                BackendLog.d(TAG, "Kept original smallIcon and retained MIUI custom app icon extras userId=${getUserId()}")
-                return
-            }
-
-            val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-            fieldSmallIcon.isAccessible = true
-
-            val badgedBitmap = createUserBadgedAppIconBitmap(pm, appInfo)
-            if (badgedBitmap != null) {
-                fieldSmallIcon.set(notification, Icon.createWithBitmap(badgedBitmap))
-                BackendLog.d(TAG, "Successfully injected mSmallIcon with user-badged app icon userId=${getUserId()}")
-                if (!hasLargeIcon(notification)) {
-                    @Suppress("DEPRECATION")
-                    notification.largeIcon = badgedBitmap
-                    notification.extras?.putParcelable(EXTRA_LARGE_ICON, badgedBitmap)
-                    BackendLog.d(TAG, "Successfully injected fallback largeIcon with user-badged app icon userId=${getUserId()}")
-                }
-            } else {
-                fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
-                BackendLog.d(TAG, "Successfully injected mSmallIcon with app launcher icon")
-            }
-        }.onFailure {
-            BackendLog.e(TAG, "Failed to inject app icons", it)
-        }
+        NotificationIconRenderingSupport.injectTargetAppIcons(
+            appContext, packageName, notification, colorMode,
+        )
     }
 
     private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {
@@ -431,7 +355,13 @@ object NotificationHookBackend {
             false
         }) {
             val channelsList = NotificationManagerReflection.newParceledListSlice(channels)
-            JavaCalls.callMethodOrThrow(requireNotificationManager(), "createNotificationChannelsForPackage", packageName, uid, channelsList)
+            invokeNotificationManager(
+                "createNotificationChannelsForPackage",
+                arrayOf(String::class.java, Int::class.java, channelsList.javaClass),
+                packageName,
+                uid,
+                channelsList,
+            )
             val missing = channels.filter { getNotificationChannel(packageName, it.id) == null }
             if (missing.isNotEmpty()) {
                 BackendLog.w(
@@ -620,7 +550,12 @@ object NotificationHookBackend {
                 BackendLog.e(TAG, "deleteNotificationChannel: local fallback failed", it)
             }
         }) {
-            JavaCalls.callMethodOrThrow(requireNotificationManager(), "deleteNotificationChannel", packageName, channelId)
+            invokeNotificationManager(
+                "deleteNotificationChannel",
+                arrayOf(String::class.java, String::class.java),
+                packageName,
+                channelId,
+            )
         }
     }
 
@@ -660,9 +595,9 @@ object NotificationHookBackend {
                 runCatching {
                     // void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
                     // 因 createNotificationChannelGroup 的 fromApp 为 false，首次创建会产生 NullPointerException
-                    JavaCalls.callMethodOrThrow(
-                        requireNotificationManager(),
+                    invokeNotificationManager(
                         "updateNotificationChannelGroupForPackage",
+                        arrayOf(String::class.java, Int::class.java, NotificationChannelGroup::class.java),
                         packageName,
                         uid,
                         it,
@@ -700,7 +635,13 @@ object NotificationHookBackend {
                     null
                 }
         }) {
-            JavaCalls.callMethodOrThrow(requireNotificationManager(), "getNotificationChannelGroupForPackage", groupId, packageName, uid) as NotificationChannelGroup?
+            invokeNotificationManager(
+                "getNotificationChannelGroupForPackage",
+                arrayOf(String::class.java, String::class.java, Int::class.java),
+                groupId,
+                packageName,
+                uid,
+            ) as NotificationChannelGroup?
         }
     }
 
@@ -752,7 +693,12 @@ object NotificationHookBackend {
                 BackendLog.e(TAG, "deleteNotificationChannelGroup: local fallback failed", it)
             }
         }) {
-            JavaCalls.callMethodOrThrow(requireNotificationManager(), "deleteNotificationChannelGroup", packageName, groupId)
+            invokeNotificationManager(
+                "deleteNotificationChannelGroup",
+                arrayOf(String::class.java, String::class.java),
+                packageName,
+                groupId,
+            )
         }
     }
 
@@ -777,7 +723,12 @@ object NotificationHookBackend {
                     true
                 }
         }) {
-            JavaCalls.callMethodOrThrow(requireNotificationManager(), "areNotificationsEnabledForPackage", packageName, uid) as Boolean
+            invokeNotificationManager(
+                "areNotificationsEnabledForPackage",
+                arrayOf(String::class.java, Int::class.java),
+                packageName,
+                uid,
+            ) as Boolean
         }
     }
 
@@ -791,9 +742,9 @@ object NotificationHookBackend {
         }) {
             val userId = getUserId()
             val parceledListSlice = try {
-                JavaCalls.callMethodOrThrow(
-                    requireNotificationManager(),
+                invokeNotificationManager(
                     "getAppActiveNotifications",
+                    arrayOf(String::class.java, Int::class.java),
                     packageName,
                     userId,
                 )

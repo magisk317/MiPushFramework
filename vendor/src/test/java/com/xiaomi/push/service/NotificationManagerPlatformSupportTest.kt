@@ -40,6 +40,8 @@ class NotificationManagerPlatformSupportTest {
     fun `channel optional probes preserve missing method for fallback`() {
         val source = resolveSource().readText()
         assertTrue("JavaCalls.callMethodOrThrow" in source)
+        assertTrue("invokeNotificationService" in source)
+        assertTrue("createNotificationChannelsForPackage" in source)
         assertFalse("JavaCalls.callMethod(" in source)
     }
 
