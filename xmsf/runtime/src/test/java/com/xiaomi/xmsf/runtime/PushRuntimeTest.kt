@@ -8,6 +8,8 @@ import io.github.magisk317.mipush.runtime.core.PushConnectionState
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import io.github.magisk317.mipush.runtime.core.PushRuntimeApplicationDispatchResult
 import io.github.magisk317.mipush.runtime.core.PushRuntimeCapability
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -50,6 +52,58 @@ class PushRuntimeTest {
             assertTrue(result.connectionEnsureTriggered)
             assertTrue(host.frameworkRegistrationReasons.isEmpty())
             assertEquals(null, AndroidPushRuntime.snapshot().lastRegistrationPackage)
+        } finally {
+            AndroidPushRuntime.detachExecutionHost(host)
+        }
+    }
+
+    @Test
+    fun `network burst throttles only pending registration processing`() {
+        AndroidPushRuntime.clearStateForTests()
+        val host = TestExecutionHost()
+        AndroidPushRuntime.attachExecutionHost(host)
+        try {
+            val first = AndroidPushRuntime.handleNetworkAvailableForUser(
+                source = "first",
+                androidUserId = 0,
+                nowElapsedMs = 1_000L,
+            )
+            val second = AndroidPushRuntime.handleNetworkAvailableForUser(
+                source = "burst",
+                androidUserId = 0,
+                nowElapsedMs = 1_001L,
+            )
+
+            assertTrue(first.processRegisterTaskTriggered)
+            assertFalse(second.processRegisterTaskTriggered)
+            assertEquals(1, host.processRegisterTaskReasons.size)
+            assertEquals(2, host.frameworkRegistrationReasons.size)
+            assertEquals(2, host.connectionEnsureReasons.size)
+        } finally {
+            AndroidPushRuntime.detachExecutionHost(host)
+        }
+    }
+
+    @Test
+    fun `network registration throttle is scoped per Android user`() {
+        AndroidPushRuntime.clearStateForTests()
+        val host = TestExecutionHost()
+        AndroidPushRuntime.attachExecutionHost(host)
+        try {
+            val primary = AndroidPushRuntime.handleNetworkAvailableForUser(
+                source = "primary",
+                androidUserId = 0,
+                nowElapsedMs = 2_000L,
+            )
+            val cloned = AndroidPushRuntime.handleNetworkAvailableForUser(
+                source = "cloned",
+                androidUserId = 999,
+                nowElapsedMs = 2_001L,
+            )
+
+            assertTrue(primary.processRegisterTaskTriggered)
+            assertTrue(cloned.processRegisterTaskTriggered)
+            assertEquals(2, host.processRegisterTaskReasons.size)
         } finally {
             AndroidPushRuntime.detachExecutionHost(host)
         }
@@ -331,6 +385,66 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `persisted terminal registration state is restored without creating pending records`() {
+        AndroidPushRuntime.clearStateForTests()
+
+        val restored = AndroidPushRuntime.applyPersistedRegistrationState(
+            applications = listOf(
+                registeredApplication("com.example.registered", RegisteredAppRegisteredType.Registered, 0),
+                registeredApplication("com.example.unregistered", RegisteredAppRegisteredType.Unregistered, 0),
+                registeredApplication("com.example.pending", RegisteredAppRegisteredType.NotRegistered, 0),
+                registeredApplication("com.example.other-user", RegisteredAppRegisteredType.Registered, 999),
+            ),
+            androidUserId = 0,
+            nowMs = 1234L,
+        )
+
+        val snapshot = AndroidPushRuntime.snapshot()
+        assertEquals(2, restored)
+        assertEquals(2, snapshot.trackedRegistrationCount)
+        assertEquals(1, snapshot.registeredPackageCount)
+        assertEquals(PushRegistrationState.Registered, AndroidPushRuntime.getRegistrationRecord(
+            "com.example.registered",
+            androidUserId = 0,
+        )?.state)
+        assertEquals(PushRegistrationState.Unregistered, AndroidPushRuntime.getRegistrationRecord(
+            "com.example.unregistered",
+            androidUserId = 0,
+        )?.state)
+        assertEquals(null, AndroidPushRuntime.getRegistrationRecord("com.example.pending", androidUserId = 0))
+        assertEquals(null, AndroidPushRuntime.getRegistrationRecord("com.example.other-user", androidUserId = 0))
+
+        AndroidPushRuntime.applyPersistedRegistrationState(
+            applications = listOf(
+                registeredApplication("com.example.pending", RegisteredAppRegisteredType.NotRegistered, 0),
+            ),
+            androidUserId = 0,
+            nowMs = 2345L,
+        )
+        assertEquals(null, AndroidPushRuntime.getRegistrationRecord("com.example.registered", androidUserId = 0))
+        assertEquals(null, AndroidPushRuntime.getRegistrationRecord("com.example.unregistered", androidUserId = 0))
+    }
+
+    @Test
+    fun `persisted restore does not replace a live registration observation`() {
+        AndroidPushRuntime.clearStateForTests()
+        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "live", androidUserId = 0)
+
+        AndroidPushRuntime.applyPersistedRegistrationState(
+            applications = listOf(
+                registeredApplication("com.example.app", RegisteredAppRegisteredType.Registered, 0),
+            ),
+            androidUserId = 0,
+            nowMs = 1234L,
+        )
+
+        assertEquals(
+            PushRegistrationState.Registering,
+            AndroidPushRuntime.getRegistrationRecord("com.example.app", androidUserId = 0)?.state,
+        )
+    }
+
+    @Test
     fun `attachBridgeHost drains queued bridge intents`() {
         AndroidPushRuntime.clearStateForTests()
         val processedIntents = mutableListOf<Intent>()
@@ -584,6 +698,16 @@ class PushRuntimeTest {
             }
         }
     }
+
+    private fun registeredApplication(packageName: String, registeredType: Int, userId: Int) =
+        RuntimeRegisteredApplicationRow(
+            packageName = packageName,
+            userId = userId,
+            type = 0,
+            notificationOnRegister = true,
+            registeredType = registeredType,
+            appName = packageName,
+        )
 
     private class TestExecutionHost(
         private val downstreamDispatchResult: PushRuntimeApplicationDispatchResult = PushRuntimeApplicationDispatchResult(),

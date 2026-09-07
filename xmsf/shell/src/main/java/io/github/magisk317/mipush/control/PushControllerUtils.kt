@@ -73,7 +73,10 @@ object PushControllerUtils {
     fun isFrameworkSelfRegistrationEnabled(context: Context): Boolean {
         Utils.requireValidUserId(Utils.myUserId())
         return shouldStartFrameworkSelfRegistration(
-            getPrefs(context).getBoolean(Constants.KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION, false),
+            // Framework registration is part of the normal XMSF runtime contract. Keep the
+            // preference as an explicit opt-out for installations that do not want an XMSF app
+            // identity on the MiPush service.
+            getPrefs(context).getBoolean(Constants.KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION, true),
         )
     }
 

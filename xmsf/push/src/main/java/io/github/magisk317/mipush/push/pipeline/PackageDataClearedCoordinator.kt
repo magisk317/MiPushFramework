@@ -83,6 +83,7 @@ object PackageDataClearedCoordinator {
                 packageName = packageName,
                 source = "PackageDataClearedCoordinator",
                 reason = "package_data_cleared",
+                androidUserId = userId,
             )
         }
         cleanup("shell_state") {

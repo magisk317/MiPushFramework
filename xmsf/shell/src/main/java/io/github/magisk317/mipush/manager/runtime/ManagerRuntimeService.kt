@@ -27,6 +27,7 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadPag
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadStats
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationRuntimeReader
+import io.github.magisk317.mipush.manager.runtime.read.ProcessLocalRegistrationSnapshotCache
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
 import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
@@ -57,9 +58,14 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChanne
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 
 class ManagerRuntimeService : Service() {
+    private val applicationProbeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter by lazy {
         AppDependencies.get(this)
     }
@@ -68,6 +74,8 @@ class ManagerRuntimeService : Service() {
             source = AndroidManagerApplicationReadSource(this),
             maxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
             maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
+            backgroundScope = applicationProbeScope,
+            localRegistrationCache = ProcessLocalRegistrationSnapshotCache.instance,
         )
     }
     private val eventReader by lazy { ManagerEventRuntimeReader(this) }
@@ -307,6 +315,16 @@ class ManagerRuntimeService : Service() {
                 }
             }
         }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        applicationReader.scheduleBackgroundProbe()
+    }
+
+    override fun onDestroy() {
+        applicationProbeScope.cancel()
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

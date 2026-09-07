@@ -127,6 +127,7 @@ object StalePackagePushGuard {
                 packageName = packageName,
                 source = source,
                 reason = "package_absent",
+                androidUserId = normalizedUserId,
             )
         }
         Logger.withTag(TAG).i { "marked absent package pkg=$packageName source=$source" }

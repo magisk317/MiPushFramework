@@ -24,8 +24,8 @@ object Constants {
     const val KEY_ENABLE_PUSH = "enable_push"
 
     /**
-     * Explicit opt-in for registering XMSF itself as a MiPush application.
-     * Runtime/service startup must not imply this product-level identity.
+     * Explicit opt-out for registering XMSF itself as a MiPush application.
+     * The default keeps the framework's own registration and connection status meaningful.
      */
     const val KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION = "enable_framework_self_registration"
 

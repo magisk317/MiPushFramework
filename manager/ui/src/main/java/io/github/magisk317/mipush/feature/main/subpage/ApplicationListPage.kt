@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -8,6 +7,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,10 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices
@@ -73,6 +75,9 @@ import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
@@ -125,18 +130,43 @@ fun ApplicationList(
     // Tab re-enter with same query+filter and non-empty VM cache skips IO; pull-to-refresh always loads.
     var isNeedRefresh by remember { mutableStateOf(false) }
     var handledRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
+    var lifecycleResumeSignal by remember { mutableIntStateOf(0) }
+    var wasActive by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, isActive) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && isActive) {
+                lifecycleResumeSignal += 1
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // showSystemApps toggles reload inside ViewModel.setShowSystemApps to avoid double IO.
     // currentQuery in keys keeps search live; cache hit short-circuits.
-    LaunchedEffect(isActive, currentQuery, refreshSignal, filterMode) {
-        if (!isActive) return@LaunchedEffect
-        withFrameNanos { }
+    LaunchedEffect(isActive, currentQuery, refreshSignal, filterMode, lifecycleResumeSignal) {
+        if (!isActive && currentQuery.isBlank()) {
+            wasActive = false
+            return@LaunchedEffect
+        }
+        val enteredPage = !wasActive
+        wasActive = true
         val forceBySignal = refreshSignal > handledRefreshSignal
-        if (!forceBySignal && listViewModel.hasCachedList(currentQuery, filterMode)) {
+        val forceByLifecycle = lifecycleResumeSignal > 0
+        if (!enteredPage && !forceBySignal && !forceByLifecycle &&
+            listViewModel.hasCachedList(currentQuery, filterMode)
+        ) {
             isNeedRefresh = false
             return@LaunchedEffect
         }
-        isNeedRefresh = true
+        listViewModel.loadApplications(currentQuery, filterMode) {
+            handledRefreshSignal = refreshSignal
+            isNeedRefresh = false
+        }
     }
 
     val refreshScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
@@ -154,10 +184,34 @@ fun ApplicationList(
         }
     }
 
+    fun closeSearch() {
+        searchExpanded = false
+        currentQuery = ""
+        // The query reset must also replace the ViewModel snapshot. Relying
+        // only on the LaunchedEffect below can leave the filtered snapshot
+        // visible when a query-scoped cache is already considered loaded.
+        listViewModel.loadApplications(
+            query = "",
+            filterMode = filterMode,
+            includeSystemApps = showSystemApps,
+        )
+    }
+
+    BackHandler(enabled = searchExpanded) {
+        closeSearch()
+    }
+
+    LaunchedEffect(isActive) {
+        if (!isActive) {
+            searchExpanded = false
+            currentQuery = ""
+        }
+    }
+
     Page {
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val searchActive = searchExpanded || currentQuery.isNotBlank()
-        val topOverlayHeight = topInset + if (searchActive) 152.dp else 96.dp
+        val searchActive = searchExpanded
+        val topOverlayHeight = topInset + if (searchActive) 64.dp else 96.dp
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         Box(modifier = Modifier.fillMaxSize()) {
         OverlayHeaderScaffold(
@@ -168,30 +222,32 @@ fun ApplicationList(
             overlayModifier = Modifier
                 .fillMaxWidth(),
             content = { listPadding ->
-                RefreshableLazyColumn(
-                    onRefresh,
-                    { false },
-                    onRefresh,
-                    isNeedRefresh = isNeedRefresh,
-                    scrollToTopSignal = refreshSignal,
-                    scrollChromeState = scrollChromeState,
-                    contentPadding = PaddingValues(
-                        top = listPadding.calculateTopPadding() + 8.dp,
-                        bottom = listPadding.calculateBottomPadding(),
-                    ),
-                    modifier = Modifier.fillMaxSize(),
-                    listState = listState,
-                ) {
-                    unavailableStatus?.let { status ->
-                        item(key = "application-list-unavailable") {
-                            ApplicationListUnavailable(
-                                status = status,
-                                onRetry = { isNeedRefresh = true },
-                            )
+                key(currentQuery, filterMode, refreshSignal, showSystemApps) {
+                    RefreshableLazyColumn(
+                        onRefresh,
+                        { false },
+                        onRefresh,
+                        isNeedRefresh = isNeedRefresh,
+                        scrollToTopSignal = refreshSignal,
+                        scrollChromeState = scrollChromeState,
+                        contentPadding = PaddingValues(
+                            top = listPadding.calculateTopPadding() + 8.dp,
+                            bottom = listPadding.calculateBottomPadding(),
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                        listState = listState,
+                    ) {
+                        unavailableStatus?.let { status ->
+                            item(key = "application-list-unavailable") {
+                                ApplicationListUnavailable(
+                                    status = status,
+                                    onRetry = { isNeedRefresh = true },
+                                )
+                            }
                         }
-                    }
-                    items(items.res, { it.packageName }) {
-                        ApplicationItem(it, onAppClick, itemsInfo)
+                        items(items.res, { it.packageName }) {
+                            ApplicationItem(it, onAppClick, itemsInfo)
+                        }
                     }
                 }
             },
@@ -202,11 +258,17 @@ fun ApplicationList(
                     searchPlaceholder = stringResource(android.R.string.search_go),
                     searchVisible = searchActive,
                     searchActionContentDescription = stringResource(R.string.action_search),
-                    onSearchActionClick = { searchExpanded = !searchExpanded },
+                    onSearchActionClick = {
+                        if (searchExpanded) {
+                            closeSearch()
+                        } else {
+                            searchExpanded = true
+                        }
+                    },
                     actions = {
                         IconButton(onClick = { showListSettingsSheet = true }) {
                             Icon(
-                                painter = painterResource(CommonR.drawable.ic_settings_black_24dp),
+                                imageVector = Icons.Default.Settings,
                                 contentDescription = stringResource(R.string.action_list_settings),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -250,7 +312,7 @@ fun ApplicationList(
                 )
             },
         )
-        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
+        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = contentPadding.calculateBottomPadding())
 
         // 列表设置：与记录页 / xinyi / xsmscode 拉齐，收进一个设置图标 → 底部 sheet。
         AppBottomSheet(
@@ -419,7 +481,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         },
         trailingContent = {
             Icon(
-                painter = painterResource(CommonR.drawable.ic_keyboard_arrow_right_black_24dp),
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

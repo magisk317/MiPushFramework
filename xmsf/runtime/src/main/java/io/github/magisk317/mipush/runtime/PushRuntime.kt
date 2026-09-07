@@ -30,6 +30,11 @@ object PushRuntime {
         AndroidPushRuntime.snapshot()
 
     @JvmStatic
+    fun synchronizePersistedRegistrationState(
+        androidUserId: Int = currentUserId(),
+    ): Int = AndroidPushRuntime.synchronizePersistedRegistrationState(androidUserId)
+
+    @JvmStatic
     fun connectionSnapshot() =
         AndroidPushRuntime.connectionSnapshot()
 

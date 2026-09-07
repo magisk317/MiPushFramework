@@ -33,6 +33,17 @@ class RegistrationStateCompatPolicyTest {
     }
 
     @Test
+    fun `batch probe keeps later chunks instead of applying a global cutoff`() {
+        val packages = (1..61).map { "com.example.app$it" }
+        val chunks = RegistrationStateCompat.batchProbeChunks(packages)
+
+        assertEquals(2, chunks.size)
+        assertEquals(60, chunks.first().size)
+        assertEquals(listOf("com.example.app61"), chunks.last())
+        assertEquals(packages, chunks.flatten())
+    }
+
+    @Test
     fun `registration XML yields any plausible regSec candidate`() {
         val complete = registrationXml(valid = true, regId = "reg-id", regSec = "YWJjZGVmZ2g=")
 

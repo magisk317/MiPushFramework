@@ -93,7 +93,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         includeSystemApps: Boolean,
     ): ManagerApplications {
         val timer = ElapsedTimer()
-        val registered = RegisteredApplicationDb.getList(null)
+        var registered = RegisteredApplicationDb.getList(null)
             .filter { includeSystemApps || Utils.isUserApplication(it.packageName) }
             .associateBy { it.packageName }
             .toMutableMap()
@@ -118,7 +118,17 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 )
             }
         reconcileLocalRegistrationState(enrichedApps.map { it.row })
+        // Local probing and a server result may update REGISTERED_APPLICATION while this read is
+        // in flight. Re-read before building the response so list and detail callers observe the
+        // same committed state in the very request that performed reconciliation.
+        registered = RegisteredApplicationDb.getList(null)
+            .filter { includeSystemApps || Utils.isUserApplication(it.packageName) }
+            .associateBy { it.packageName }
+            .toMutableMap()
         val apps = enrichedApps
+            .map { enriched ->
+                enriched.copy(row = registered[enriched.row.packageName] ?: enriched.row)
+            }
             .asSequence()
             .map { enriched ->
                 enriched.row.toStoredApplicationSnapshot().toManagerApplication(

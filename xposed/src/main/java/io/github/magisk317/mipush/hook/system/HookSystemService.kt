@@ -11,6 +11,8 @@ import android.os.Looper
 import android.os.Process
 import android.os.UserHandle
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.logging.LogRoute
 import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
@@ -58,6 +60,8 @@ class HookSystemService : BaseHook() {
             ModuleCompatRegistry.allProfiles().mapTo(LinkedHashSet()) { it.packageName }
         private val visibilityLogCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
 
+        private const val NMS_READY_PROPERTY = "mipush.nms_ready"
+
         val isSystemHookReady: Boolean
             get() {
                 if (_isSystemHookReady == true) return true
@@ -65,12 +69,42 @@ class HookSystemService : BaseHook() {
                     val app = currentApplication() ?: return false
                     val nm = app.getSystemService(NotificationManager::class.java) ?: return false
                     val ready = nm.callMethod("isSystemConditionProviderEnabled", IS_SYSTEM_HOOK_READY) as? Boolean ?: false
-                    if (ready) _isSystemHookReady = true
+                    if (ready) {
+                        if (_isSystemHookReady != true) {
+                            XLog.i(LogRoute.NMS_HOOK, TAG, "system hook readiness probe=true commit=${BuildConfig.GIT_COMMIT}")
+                        }
+                        _isSystemHookReady = true
+                    }
                     ready
                 } catch (t: Throwable) {
-                    false
+                    // Samsung Android 16 blocks isSystemConditionProviderEnabled as hidden API.
+                    // Fall back to the system property signal set by system_server.
+                    val propReady = getNmsReadyProperty()
+                    if (propReady) {
+                        XLog.i(LogRoute.NMS_HOOK, TAG, "system hook readiness probe=true (property fallback) commit=${BuildConfig.GIT_COMMIT}")
+                        _isSystemHookReady = true
+                    }
+                    propReady
                 }
             }
+
+        private fun getNmsReadyProperty(): Boolean {
+            return runCatching {
+                val clazz = Class.forName("android.os.SystemProperties")
+                val get = clazz.getMethod("get", String::class.java, String::class.java)
+                get.invoke(null, NMS_READY_PROPERTY, "0") as String == "1"
+            }.getOrDefault(false)
+        }
+
+        internal fun setNmsReadyProperty(value: Boolean) {
+            runCatching {
+                val clazz = Class.forName("android.os.SystemProperties")
+                val set = clazz.getMethod("set", String::class.java, String::class.java)
+                set.invoke(null, NMS_READY_PROPERTY, if (value) "1" else "0")
+            }.onFailure {
+                XLog.w(LogRoute.NMS_HOOK, TAG, "failed to set $NMS_READY_PROPERTY: ${it.message}")
+            }
+        }
 
         internal data class VisibilityDecision(
             val allow: Boolean,
@@ -102,6 +136,8 @@ class HookSystemService : BaseHook() {
                     "process" to "system_server",
                     "stage" to "system_service",
                     "reason" to reason,
+                    "hook_layer" to "system_server_nms",
+                    "commit" to BuildConfig.GIT_COMMIT,
                 ),
                 statusOk = statusOk,
             )
@@ -126,10 +162,10 @@ class HookSystemService : BaseHook() {
                         }
                     }
                 }
-                XLog.d(TAG, "installed scoped xmsf visibility hook")
+                XLog.d(LogRoute.NMS_HOOK, TAG, "installed scoped xmsf visibility hook")
                 emitSystemService(result = "ok", reason = "visibility_installed")
             }.onFailure {
-                XLog.e(TAG, "install xmsf global visibility hook failed", it)
+                XLog.e(LogRoute.NMS_HOOK, TAG, "install xmsf global visibility hook failed", it)
                 emitSystemService(result = "error", reason = it.javaClass.simpleName, statusOk = false)
             }
         }
@@ -157,10 +193,10 @@ class HookSystemService : BaseHook() {
                         }
                     }
                 }
-                XLog.d(TAG, "installed xmsf foreground service exemption hook")
+                XLog.d(LogRoute.NMS_HOOK, TAG, "installed xmsf foreground service exemption hook")
                 emitSystemService(result = "ok", reason = "fgs_exemption_installed")
             }.onFailure {
-                XLog.e(TAG, "install xmsf foreground service exemption hook failed", it)
+                XLog.e(LogRoute.NMS_HOOK, TAG, "install xmsf foreground service exemption hook failed", it)
                 emitSystemService(result = "error", reason = it.javaClass.simpleName, statusOk = false)
             }
         }
@@ -239,6 +275,7 @@ class HookSystemService : BaseHook() {
                 decision = decision,
             ) ?: return
             XLog.i(
+                LogRoute.NMS_HOOK,
                 TAG,
                 message,
             )
@@ -285,33 +322,34 @@ class HookSystemService : BaseHook() {
 
     override fun onLoadPackage(param: LoadParam) {
         XLog.i(
+            LogRoute.NMS_HOOK,
             TAG,
             "onLoadPackage pkg=${param.packageName} proc=${param.processName}",
         )
         if (param.packageName != ANDROID_PACKAGE_NAME) {
-            XLog.d(TAG, "skip system hook: package mismatch pkg=${param.packageName}")
+            XLog.d(LogRoute.NMS_HOOK, TAG, "skip system hook: package mismatch pkg=${param.packageName}")
             return
         }
         if (param.processName != ANDROID_PACKAGE_NAME &&
             param.processName != "system" &&
             param.processName != "system_server"
         ) {
-            XLog.w(TAG, "skip system hook: process mismatch proc=${param.processName}")
+            XLog.w(LogRoute.NMS_HOOK, TAG, "skip system hook: process mismatch proc=${param.processName}")
             return
         }
         val classLoader = param.classLoader
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
-        XLog.i(TAG, "installing system notification hooks")
+        XLog.i(LogRoute.NMS_HOOK, TAG, "installing system notification hooks")
         installXSpacePackageSyncReceiver(classLoader)
 
         classNotificationManagerService.hookMethod("onStart") {
             doAfter {
-                XLog.d(TAG, "onStart invoked")
+                XLog.d(LogRoute.NMS_HOOK, TAG, "onStart invoked")
                 val owner = thisObject ?: return@doAfter
                 val context = owner.callMethod("getContext") as Context
                 val service = owner.get<Any?>("mService")
                 if (service == null) {
-                    XLog.w(TAG, "skip system notification hook install because mService is null; scheduling retry")
+                    XLog.w(LogRoute.NMS_HOOK, TAG, "skip system notification hook install because mService is null; scheduling retry")
                     emitSystemService(result = "skip", reason = "mservice_null")
                     scheduleNmsHookRetry(classLoader)
                     return@doAfter
@@ -352,7 +390,7 @@ class HookSystemService : BaseHook() {
     private fun installRunningNotificationHooks(classLoader: ClassLoader, fromRetry: Boolean = false) {
         val context = currentSystemContext(classLoader)
         if (context == null) {
-            XLog.w(TAG, "skip hot-reload NMS hook install because system context is unavailable")
+            XLog.w(LogRoute.NMS_HOOK, TAG, "skip hot-reload NMS hook install because system context is unavailable")
             emitSystemService(result = "skip", reason = "hot_reload_context_unavailable")
             if (!fromRetry) scheduleNmsHookRetry(classLoader)
             return
@@ -361,10 +399,10 @@ class HookSystemService : BaseHook() {
             findHookClass("android.os.ServiceManager", classLoader)
                 .callStaticMethod("getService", Context.NOTIFICATION_SERVICE)
         }.onFailure {
-            XLog.w(TAG, "skip hot-reload NMS hook install because notification service lookup failed: ${it.message}")
+            XLog.w(LogRoute.NMS_HOOK, TAG, "skip hot-reload NMS hook install because notification service lookup failed: ${it.message}")
         }.getOrNull()
         if (service == null) {
-            XLog.d(TAG, "notification service is not published yet; onStart will install NMS hooks")
+            XLog.d(LogRoute.NMS_HOOK, TAG, "notification service is not published yet; onStart will install NMS hooks")
             emitSystemService(result = "skip", reason = "hot_reload_service_unavailable")
             if (!fromRetry) scheduleNmsHookRetry(classLoader)
             return
@@ -394,22 +432,23 @@ class HookSystemService : BaseHook() {
             NmsHookInstallState.INSTALLING,
         )
         if (!acquired) {
-            XLog.d(TAG, "skip duplicate NMS hook install source=$source state=$previousState")
+            XLog.d(LogRoute.NMS_HOOK, TAG, "skip duplicate NMS hook install source=$source state=$previousState")
             return
         }
         val stubClass = service.javaClass
-        XLog.i(TAG, "installing NMS permission hooks source=$source stub=${stubClass.name}")
+        XLog.i(LogRoute.NMS_HOOK, TAG, "installing NMS permission hooks source=$source stub=${stubClass.name}")
         try {
             XSpacePackageSyncHook.install(context)
             hookPermission(stubClass)
             hookSystemReadyFlag(stubClass)
             nmsHookInstallState.set(NmsHookInstallState.INSTALLED)
+            setNmsReadyProperty(true)
             stopNmsHookRetry()
-            XLog.i(TAG, "system notification hooks installed source=$source")
+            XLog.i(LogRoute.NMS_HOOK, TAG, "system notification hooks installed source=$source")
             emitSystemService(result = "ok", reason = "nms_installed")
         } catch (error: Throwable) {
             nmsHookInstallState.set(NmsHookInstallState.FAILED)
-            XLog.e(TAG, "system notification hooks install failed source=$source", error)
+            XLog.e(LogRoute.NMS_HOOK, TAG, "system notification hooks install failed source=$source", error)
             emitSystemService(result = "error", reason = error.javaClass.simpleName, statusOk = false)
             if (allowRetry) {
                 scheduleNmsHookRetry(retryClassLoader)
@@ -419,7 +458,7 @@ class HookSystemService : BaseHook() {
 
     private fun scheduleNmsHookRetry(classLoader: ClassLoader?) {
         if (classLoader == null) {
-            XLog.w(TAG, "cannot schedule NMS hook retry because classloader is unavailable")
+            XLog.w(LogRoute.NMS_HOOK, TAG, "cannot schedule NMS hook retry because classloader is unavailable")
             return
         }
         synchronized(nmsRetryLock) {
@@ -436,7 +475,7 @@ class HookSystemService : BaseHook() {
                         return
                     }
                     if (!NmsHookInstallRetryPolicy.shouldRetry(attempt)) {
-                        XLog.w(TAG, "NMS hook retry exhausted; state=${nmsHookInstallState.get()}")
+                        XLog.w(LogRoute.NMS_HOOK, TAG, "NMS hook retry exhausted; state=${nmsHookInstallState.get()}")
                         emitSystemService(result = "error", reason = "nms_retry_exhausted", statusOk = false)
                         stopNmsHookRetry()
                         return
@@ -444,7 +483,7 @@ class HookSystemService : BaseHook() {
                     synchronized(nmsRetryLock) {
                         nmsRetryAttempt = attempt + 1
                     }
-                    XLog.i(TAG, "retrying NMS hook install attempt=${attempt + 1}/${NmsHookInstallRetryPolicy.MAX_ATTEMPTS}")
+                    XLog.i(LogRoute.NMS_HOOK, TAG, "retrying NMS hook install attempt=${attempt + 1}/${NmsHookInstallRetryPolicy.MAX_ATTEMPTS}")
                     installRunningNotificationHooks(classLoader, fromRetry = true)
                     if (nmsHookInstallState.get() == NmsHookInstallState.INSTALLED) {
                         stopNmsHookRetry()
@@ -453,7 +492,7 @@ class HookSystemService : BaseHook() {
                     if (NmsHookInstallRetryPolicy.shouldRetry(attempt + 1)) {
                         handler.postDelayed(this, NmsHookInstallRetryPolicy.RETRY_DELAY_MS)
                     } else {
-                        XLog.w(TAG, "NMS hook retry exhausted after attempt=${attempt + 1}")
+                        XLog.w(LogRoute.NMS_HOOK, TAG, "NMS hook retry exhausted after attempt=${attempt + 1}")
                         emitSystemService(result = "error", reason = "nms_retry_exhausted", statusOk = false)
                         stopNmsHookRetry()
                     }
@@ -490,16 +529,16 @@ class HookSystemService : BaseHook() {
         runCatching {
             currentSystemContext(classLoader)?.let(XSpacePackageSyncHook::install)
         }.onFailure {
-            XLog.d(TAG, "skip immediate XSpace package sync receiver install: ${it.message}")
+            XLog.d(LogRoute.NMS_HOOK, TAG, "skip immediate XSpace package sync receiver install: ${it.message}")
         }
     }
 
     private fun hookSystemReadyFlag(stubClass: Class<Any>) {
-        XLog.d(TAG, "install system ready flag hook on ${stubClass.name}")
+        XLog.d(LogRoute.NMS_HOOK, TAG, "install system ready flag hook on ${stubClass.name}")
         stubClass.hookMethod("isSystemConditionProviderEnabled", String::class.java) {
             doBefore {
                 if (args[0] == IS_SYSTEM_HOOK_READY || args[0] == XMSF_FAKE_CONDITION_PROVIDER_PATH) {
-                    XLog.d(TAG, "force system condition provider enabled: ${args[0]}")
+                    XLog.dLimited(LogRoute.NMS_HOOK, TAG, "force system condition provider enabled: ${args[0]}")
                     result = true
                 }
             }
@@ -507,7 +546,7 @@ class HookSystemService : BaseHook() {
     }
 
     private fun hookPermission(stubClass: Class<Any>) {
-        XLog.d(TAG, "install permission hook on ${stubClass.name}")
+        XLog.d(LogRoute.NMS_HOOK, TAG, "install permission hook on ${stubClass.name}")
         NmsPermissionHooker.hook(stubClass)
     }
 }

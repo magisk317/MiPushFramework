@@ -51,8 +51,26 @@ interface ManagerApplicationReadSource {
     /** Reads registration artifacts only; implementations must not persist a reconciliation result. */
     suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> = emptySet()
 
+    /**
+     * Returns tri-state local evidence. UNKNOWN means the probe did not complete and must not be
+     * treated as a negative result or persisted in the short-lived cache.
+     */
+    suspend fun readLocalRegistrationStates(
+        packageNames: Collection<String>,
+    ): Map<String, LocalRegistrationProbeState> {
+        val registered = readLocallyRegisteredPackages(packageNames)
+        return packageNames.distinct().associateWith { packageName ->
+            if (packageName in registered) {
+                LocalRegistrationProbeState.REGISTERED
+            } else {
+                LocalRegistrationProbeState.NOT_REGISTERED
+            }
+        }
+    }
+
     suspend fun hasLocalRegistration(packageName: String): Boolean =
-        packageName in readLocallyRegisteredPackages(listOf(packageName))
+        readLocalRegistrationStates(listOf(packageName))[packageName] ==
+            LocalRegistrationProbeState.REGISTERED
 
     suspend fun readRegSecCount(packageName: String): Int = 0
 
@@ -104,13 +122,14 @@ fun StoredApplicationSnapshot.toManagerApplication(
             ?: installed?.appName.orEmpty()
         )
         .take(MAX_APPLICATION_LABEL_LENGTH)
-    val registeredType = if (
-        locallyRegistered && registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED
-    ) {
-        ManagerApplication.RegisteredType.REGISTERED
-    } else {
-        registeredType
-    }
+    val registeredType = RegistrationStateResolver.resolveRegisteredType(
+        storedType = registeredType,
+        localState = if (locallyRegistered) {
+            LocalRegistrationProbeState.REGISTERED
+        } else {
+            LocalRegistrationProbeState.NOT_REGISTERED
+        },
+    )
     return ManagerApplication(
         id = id,
         userId = userId,
@@ -140,11 +159,14 @@ fun InstalledApplicationSnapshot.toTransientManagerApplication(
         userId = requireValidManagerApplicationUserId(userId),
         packageName = packageName,
         notificationOnRegister = notificationOnRegister,
-        registeredType = if (locallyRegistered) {
-            ManagerApplication.RegisteredType.REGISTERED
-        } else {
-            ManagerApplication.RegisteredType.NOT_REGISTERED
-        },
+        registeredType = RegistrationStateResolver.resolveRegisteredType(
+            storedType = null,
+            localState = if (locallyRegistered) {
+                LocalRegistrationProbeState.REGISTERED
+            } else {
+                LocalRegistrationProbeState.NOT_REGISTERED
+            },
+        ),
         existServices = hasMiPushServices,
         appName = displayName,
         appNamePinYin = if (deriveAppNamePinYin) displayName.lowercase(java.util.Locale.ROOT) else "",

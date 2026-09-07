@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import io.github.magisk317.mipush.runtime.core.PushChannelRecord
 import io.github.magisk317.mipush.runtime.core.PushChannelState
 import io.github.magisk317.mipush.runtime.core.PushConnectionRecord
@@ -20,6 +21,9 @@ import io.github.magisk317.mipush.runtime.core.PushRuntimeApplicationDispatchRes
 import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationDispatchResult
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 
 object AndroidPushRuntime {
     private val state = AndroidPushRuntimeState()
@@ -71,6 +75,80 @@ object AndroidPushRuntime {
 
     @JvmStatic
     fun snapshot(): PushRuntimeSnapshot = snapshotProjectionCoordinator.snapshot()
+
+    /**
+     * Rebuild terminal registration observations from the persistent application registry.
+     *
+     * Registration records describe the current process' observations, while the application
+     * registry survives process death. Only terminal states are restored here: a persisted
+     * NotRegistered row is also used as a proactive-registration candidate and must not be
+     * turned into a runtime record merely by opening the health snapshot.
+     */
+    @JvmStatic
+    fun synchronizePersistedRegistrationState(
+        androidUserId: Int = RuntimeDeterministicCoordinator.currentUserId(),
+    ): Int {
+        val userId = Utils.requireValidUserId(androidUserId)
+        val applications = runCatching {
+            RegisteredApplicationDb.getList(null, userId)
+        }.getOrElse {
+            logW("unable to restore persisted registration state userId=$userId", it)
+            return 0
+        }
+        return applyPersistedRegistrationState(applications, userId, System.currentTimeMillis())
+    }
+
+    /** Testable projection seam; the database read remains in the Android adapter above. */
+    internal fun applyPersistedRegistrationState(
+        applications: Collection<RuntimeRegisteredApplicationRow>,
+        androidUserId: Int,
+        nowMs: Long,
+    ): Int {
+        val userId = Utils.requireValidUserId(androidUserId)
+        val restored = applications.mapNotNull { application ->
+            if (application.userId != userId) return@mapNotNull null
+            val state = when (application.registeredType) {
+                RegisteredAppRegisteredType.Registered -> PushRegistrationState.Registered
+                RegisteredAppRegisteredType.Unregistered -> PushRegistrationState.Unregistered
+                else -> return@mapNotNull null
+            }
+            RuntimeDeterministicCoordinator.packageScope(application.packageName, userId) to
+                PushRegistrationRecord(
+                    packageName = application.packageName,
+                    state = state,
+                    updatedAtMs = nowMs,
+                    source = PERSISTED_REGISTRATION_SOURCE,
+                    reason = "registered_application_db",
+                    androidUserId = userId,
+                )
+        }
+        var applied = 0
+        state.withLock {
+            val restoredKeys = restored.mapTo(hashSetOf()) { it.first }
+            registrationRecords.entries.removeIf { (key, record) ->
+                key.startsWith("$userId:") &&
+                    record.source == PERSISTED_REGISTRATION_SOURCE &&
+                    key !in restoredKeys
+            }
+            restored.forEach { (key, record) ->
+                val current = registrationRecords[key]
+                // A live request/result observed after startup is newer than the persisted
+                // projection and must not be replaced by a stale database read.
+                if (current == null || current.source == PERSISTED_REGISTRATION_SOURCE) {
+                    registrationRecords[key] = record
+                    applied += 1
+                }
+            }
+            AndroidPushRuntimeWindowSupport.evictOldestIfNeeded(
+                registrationRecords,
+                AndroidPushRuntimeWindowSupport.MAX_REGISTRATION_RECORDS,
+            )
+        }
+        if (applied > 0) {
+            logD("restored persisted registration state count=$applied userId=$userId")
+        }
+        return applied
+    }
 
     data class ConnectionSnapshotData(
         val connectionState: String,
@@ -170,6 +248,7 @@ object AndroidPushRuntime {
     @JvmStatic
     fun handleBootCompleted(source: String): PushRuntimeRegistrationDispatchResult {
         val androidUserId = RuntimeDeterministicCoordinator.currentUserId()
+        synchronizePersistedRegistrationState(androidUserId)
         val frameworkTriggered = requestFrameworkRegistrationForUser(source, "boot_completed", androidUserId)
         val connectionTriggered = requestConnection(source, "boot_completed")
         val replayed = replayPendingApplicationRegistrations(
@@ -205,10 +284,16 @@ object AndroidPushRuntime {
     internal fun handleNetworkAvailableForUser(
         source: String,
         androidUserId: Int,
+        nowElapsedMs: Long = currentElapsedRealtime(),
     ): PushRuntimeRegistrationDispatchResult {
         Utils.requireValidUserId(androidUserId)
         val host = state.withLock { executionHost }
         val processTriggered = if (host == null) {
+            false
+        } else if (state.withLock {
+                networkRegistrationThrottle.shouldThrottle(androidUserId, nowElapsedMs)
+            }) {
+            logD("skip pending registration processing during network burst userId=$androidUserId source=$source")
             false
         } else {
             runCatching { host.processPendingRegisterTasks(RuntimeDeterministicCoordinator.buildReason(source, "network_available")) }
@@ -773,6 +858,7 @@ object AndroidPushRuntime {
             recentPackageActions.clear()
             recentRegistrationReplays.clear()
             activeRegistrationDispatches.clear()
+            networkRegistrationThrottle.reset()
             registrationRecords.clear()
             channelRecords.clear()
             bridgeHost = null
@@ -812,6 +898,10 @@ object AndroidPushRuntime {
             lastRegistrationState = null
         }
     }
+
+    private fun currentElapsedRealtime(): Long =
+        runCatching { SystemClock.elapsedRealtime() }
+            .getOrElse { System.currentTimeMillis() }
 
     private fun updateRegistrationRecord(
         packageName: String,
@@ -868,5 +958,7 @@ object AndroidPushRuntime {
         reason: String?,
         androidUserId: Int,
     ): Boolean = registrationCoordinator.dispatchApplication(packageName, source, reason, androidUserId)
+
+    private const val PERSISTED_REGISTRATION_SOURCE = "registered_application_db"
 
 }

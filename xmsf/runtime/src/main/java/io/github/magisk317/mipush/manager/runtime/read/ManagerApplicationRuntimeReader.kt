@@ -1,13 +1,26 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
 import io.github.magisk317.mipush.manager.application.ManagerApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Read-only application list/detail projection used by the runtime Binder endpoint. */
 class ManagerApplicationRuntimeReader(
     private val source: ManagerApplicationReadSource,
     private val maxPageSize: Int = ManagerApplicationReadQuery.DEFAULT_PAGE_SIZE,
     private val maxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
+    private val backgroundScope: CoroutineScope? = null,
+    private val localRegistrationCache: LocalRegistrationSnapshotCache =
+        LocalRegistrationSnapshotCache(),
 ) {
+    private val localProbeMutex = Mutex()
+    private val backgroundProbeLock = Any()
+    private var backgroundProbeJob: Job? = null
     suspend fun readPage(query: ManagerApplicationReadQuery): ManagerApplicationReadPage {
         validateQuery(query)
         val userId = currentUserId()
@@ -19,18 +32,20 @@ class ManagerApplicationRuntimeReader(
         val packageNames = catalog.applications.map(InstalledApplicationSnapshot::packageName)
         val receiveTimes = source.readLastReceiveTimes(packageNames)
         val localProbePackages = packageNames.filter { packageName ->
-            stored[packageName]?.registeredType != ManagerApplication.RegisteredType.REGISTERED &&
-                stored[packageName]?.registeredType != ManagerApplication.RegisteredType.UNREGISTERED
+            RegistrationStateResolver.shouldProbe(stored[packageName]?.registeredType)
         }
-        val locallyRegistered = source.readLocallyRegisteredPackages(localProbePackages)
+        val localStates = resolveLocalRegistrationStates(userId, localProbePackages)
+        scheduleBackgroundProbe(includeSystemApps = query.includeSystemApps)
         val all = catalog.applications.map { installed ->
             val storedApplication = stored[installed.packageName]
             storedApplication?.toManagerApplication(
                 installed = installed,
                 lastReceiveTimeMs = receiveTimes[installed.packageName] ?: 0L,
-                locallyRegistered = installed.packageName in locallyRegistered,
+                locallyRegistered = localStates[installed.packageName] ==
+                    LocalRegistrationProbeState.REGISTERED,
             ) ?: installed.toTransientManagerApplication(
-                locallyRegistered = installed.packageName in locallyRegistered,
+                locallyRegistered = localStates[installed.packageName] ==
+                    LocalRegistrationProbeState.REGISTERED,
                 lastReceiveTimeMs = receiveTimes[installed.packageName] ?: 0L,
                 userId = userId,
             )
@@ -72,10 +87,9 @@ class ManagerApplicationRuntimeReader(
         val installed = source.readInstalledApplication(packageName)
         if (stored == null && !ignoreNotRegistered) return null
         val lastReceiveTime = source.readLastReceiveTime(packageName)
-        val locallyRegistered = if (
-            stored == null || stored.registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED
-        ) {
-            source.hasLocalRegistration(packageName)
+        val locallyRegistered = if (RegistrationStateResolver.shouldProbe(stored?.registeredType)) {
+            resolveLocalRegistrationStates(userId, listOf(packageName))[packageName] ==
+                LocalRegistrationProbeState.REGISTERED
         } else {
             false
         }
@@ -102,7 +116,8 @@ class ManagerApplicationRuntimeReader(
         }
         val userId = currentUserId()
         val latestEvent = source.readLatestRegistrationEvent(packageName)
-        val hasLocalRegistration = source.hasLocalRegistration(packageName)
+        val hasLocalRegistration = resolveLocalRegistrationStates(userId, listOf(packageName))[packageName] ==
+            LocalRegistrationProbeState.REGISTERED
         val regSecCount = source.readRegSecCount(packageName)
         val hasRegSec = regSecCount > 0
         return ManagerApplicationReadDiagnostics(
@@ -118,6 +133,75 @@ class ManagerApplicationRuntimeReader(
                 hasRegSec = hasRegSec,
             ),
         )
+    }
+
+    private suspend fun resolveLocalRegistrationStates(
+        userId: Int,
+        packageNames: Collection<String>,
+        interChunkDelayMs: Long = 0L,
+    ): Map<String, LocalRegistrationProbeState> {
+        val distinctPackages = packageNames.distinct()
+        if (distinctPackages.isEmpty()) return emptyMap()
+        val initial = localRegistrationCache.getFresh(userId, distinctPackages)
+        var missing = distinctPackages.filterNot(initial::containsKey)
+        if (missing.isNotEmpty()) {
+            localProbeMutex.withLock {
+                val refreshed = localRegistrationCache.getFresh(userId, distinctPackages)
+                missing = distinctPackages.filterNot(refreshed::containsKey)
+                missing.chunked(LOCAL_PROBE_CHUNK_SIZE).forEachIndexed { index, chunk ->
+                    val states = runCatching {
+                        source.readLocalRegistrationStates(chunk)
+                    }.getOrElse {
+                        chunk.associateWith { LocalRegistrationProbeState.UNKNOWN }
+                    }
+                    localRegistrationCache.put(userId, states)
+                    if (interChunkDelayMs > 0L && index + 1 < (missing.size + LOCAL_PROBE_CHUNK_SIZE - 1) / LOCAL_PROBE_CHUNK_SIZE) {
+                        delay(interChunkDelayMs)
+                    }
+                }
+            }
+        }
+        val resolved = localRegistrationCache.getFresh(userId, distinctPackages)
+        return distinctPackages.associateWith { resolved[it] ?: LocalRegistrationProbeState.UNKNOWN }
+    }
+
+    /** Starts one delayed, low-priority refresh; a live request still probes its own candidates. */
+    fun scheduleBackgroundProbe(
+        includeSystemApps: Boolean = false,
+        delayMs: Long = BACKGROUND_PROBE_DELAY_MS,
+    ) {
+        val scope = backgroundScope ?: return
+        synchronized(backgroundProbeLock) {
+            if (backgroundProbeJob?.isActive == true) return
+            backgroundProbeJob = scope.launch(Dispatchers.IO) {
+                try {
+                    delay(delayMs)
+                    val userId = currentUserId()
+                    val stored = source.readStoredApplications()
+                        .asCurrentUser(userId)
+                        .associateBy(StoredApplicationSnapshot::packageName)
+                    val installed = source.readInstalledApplications(includeSystemApps)
+                        .applications
+                        .map(InstalledApplicationSnapshot::packageName)
+                    val candidates = installed.filter { packageName ->
+                        RegistrationStateResolver.shouldProbe(stored[packageName]?.registeredType)
+                    }
+                    resolveLocalRegistrationStates(
+                        userId = userId,
+                        packageNames = candidates,
+                        interChunkDelayMs = BACKGROUND_INTER_CHUNK_DELAY_MS,
+                    )
+                } finally {
+                    synchronized(backgroundProbeLock) {
+                        backgroundProbeJob = null
+                    }
+                }
+            }
+        }
+    }
+
+    fun invalidateLocalRegistrationCache(userId: Int, packageName: String? = null) {
+        localRegistrationCache.invalidate(userId, packageName)
     }
 
     private suspend fun currentUserId(): Int =
@@ -186,6 +270,9 @@ class ManagerApplicationRuntimeReader(
         private const val STRING_LENGTH_PREFIX_BYTES = 4
         private const val STRING_TERMINATOR_CHARS = 1
         private const val UTF16_BYTES_PER_CHAR = 2
+        private const val LOCAL_PROBE_CHUNK_SIZE = 60
+        private const val BACKGROUND_PROBE_DELAY_MS = 3_000L
+        private const val BACKGROUND_INTER_CHUNK_DELAY_MS = 100L
         private fun isValidPackageName(packageName: String): Boolean =
             packageName.length in 1..255 &&
                 packageName.all { it.isLetterOrDigit() || it == '.' || it == '_' }

@@ -50,13 +50,16 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    fun getList(pkg: String?): List<RuntimeRegisteredApplicationRow> = runBlocking {
-        repository().getList(pkg)
+    fun getList(
+        pkg: String?,
+        requestedUserId: Int? = null,
+    ): List<RuntimeRegisteredApplicationRow> = runBlocking {
+        repository(requestedUserId?.let(::requireValidUserId) ?: currentUserId()).getList(pkg)
     }
 
     @JvmStatic
     fun update(application: RuntimeRegisteredApplicationRow): Long = runBlocking {
-        repository().update(application)
+        repository(requireValidUserId(application.userId)).update(application)
     }
 
     @JvmStatic

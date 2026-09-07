@@ -28,7 +28,8 @@ object RegistrationStateCompat {
     private const val KEVA_REG_SEC_PATTERN = "regSec"
     private const val KEVA_APP_TOKEN_PATTERN = "appToken"
     private const val ROOT_CAPABILITY_TTL_MS = 60_000L
-    private const val PROBE_TIME_BUDGET_MS = 500L
+    private const val SEQUENTIAL_PROBE_TIME_BUDGET_MS = 2_000L
+    private const val BATCH_PROBE_CHUNK_SIZE = 60
     private const val REG_SEC_RECOVERY_TIMEOUT_MS = 1_000L
     private const val REG_SEC_RECOVERY_MISS_TTL_MS = 60_000L
     private const val MAX_REGISTRATION_XML_LENGTH = 256 * 1_024
@@ -193,30 +194,34 @@ object RegistrationStateCompat {
         return markers.hasKevaValid && markers.hasKevaRegId && markers.hasKevaAppToken
     }
 
+    internal data class LocalRegistrationProbeOutcome(
+        val registeredPackages: Set<String>,
+        val checkedPackages: Set<String>,
+    )
+
     @JvmStatic
-    fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> {
+    fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> =
+        findPackagesWithValidLocalRegistrationOutcome(packages).registeredPackages
+
+    internal fun findPackagesWithValidLocalRegistrationOutcome(
+        packages: Collection<String>,
+    ): LocalRegistrationProbeOutcome {
         val userId = Utils.requireValidUserId(Utils.myUserId())
         logD { "find local registration start: queried=${packages.size} userId=$userId" }
-        if (packages.isEmpty()) return emptySet()
+        if (packages.isEmpty()) return LocalRegistrationProbeOutcome(emptySet(), emptySet())
         val result = linkedSetOf<String>()
+        val checked = linkedSetOf<String>()
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
         logD { "find local registration shell uid=$uid" }
         val capability = getRootCapability()
         if (!capability.available && !hasRootProbeAccess(uid)) {
             logI("skip local registration probe: root access unavailable")
-            return emptySet()
+            return LocalRegistrationProbeOutcome(emptySet(), emptySet())
         }
-        val startElapsed = SystemClock.elapsedRealtime()
         var hasBatchExecutionFailure = false
-        var hitTimeBudget = false
-        val chunks = packages.chunked(60)
+        val chunks = batchProbeChunks(packages)
         var chunkIdx = 0
         for (chunk in chunks) {
-            if (SystemClock.elapsedRealtime() - startElapsed > PROBE_TIME_BUDGET_MS) {
-                hitTimeBudget = true
-                logW("find local registration stop by time budget: ${PROBE_TIME_BUDGET_MS}ms")
-                break
-            }
             chunkIdx++
             logD { "find local registration processing chunk=$chunkIdx" }
             val safePackages = chunk.filter { it.matches(SAFE_PACKAGE_NAME) }
@@ -225,31 +230,44 @@ object RegistrationStateCompat {
             if (script.isBlank()) continue
             val out = runAsRoot(script)
             if (out != null && out.isSuccess) {
-                result += out.stdout.map { it.trim() }.filter { it.isNotEmpty() }
+                result += out.stdout.map { it.trim() }
+                    .filter { it in safePackages }
+                checked += safePackages
                 continue
             }
             val fallbackOut = runCatching { runCommand(script) }.getOrNull()
             if (fallbackOut != null && fallbackOut.isSuccess) {
-                result += fallbackOut.stdout.map { it.trim() }.filter { it.isNotEmpty() }
+                result += fallbackOut.stdout.map { it.trim() }
+                    .filter { it in safePackages }
+                checked += safePackages
                 continue
             }
             hasBatchExecutionFailure = true
         }
-        if (result.isEmpty() && hasBatchExecutionFailure && !hitTimeBudget) {
+        if (hasBatchExecutionFailure) {
             logW("find local registration fallback to sequential probe")
-            for (pkg in packages) {
-                if (SystemClock.elapsedRealtime() - startElapsed > PROBE_TIME_BUDGET_MS) {
+            val sequentialStartElapsed = SystemClock.elapsedRealtime()
+            for (pkg in packages.distinct()) {
+                if (!pkg.matches(SAFE_PACKAGE_NAME) || pkg in checked) continue
+                if (SystemClock.elapsedRealtime() - sequentialStartElapsed > SEQUENTIAL_PROBE_TIME_BUDGET_MS) {
                     logW("sequential local registration probe stopped by time budget")
                     break
                 }
+                checked += pkg
                 if (hasValidLocalRegistration(pkg)) {
                     result += pkg
                 }
             }
         }
-        logD { "find local registration done: queried=${packages.size}, matched=${result.size}" }
-        return result
+        logD {
+            "find local registration done: queried=${packages.size}, " +
+                "checked=${checked.size}, matched=${result.size}"
+        }
+        return LocalRegistrationProbeOutcome(result, checked)
     }
+
+    internal fun batchProbeChunks(packages: Collection<String>): List<List<String>> =
+        packages.distinct().chunked(BATCH_PROBE_CHUNK_SIZE)
 
     internal fun buildBatchProbeScript(packages: Collection<String>, userId: Int): String {
         val safePackages = packages.filter { it.matches(SAFE_PACKAGE_NAME) }

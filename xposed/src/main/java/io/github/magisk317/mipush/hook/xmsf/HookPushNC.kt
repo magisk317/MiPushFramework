@@ -3,10 +3,15 @@ package io.github.magisk317.mipush.hook.xmsf
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
+import android.app.NotificationManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.service.notification.StatusBarNotification
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
+import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
+import io.github.magisk317.mipush.common.logging.LogRoute
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.xposed.HookClassNotFoundError
@@ -48,11 +53,17 @@ object HookPushNC {
     }
 
     fun hook(classLoader: ClassLoader) {
-        XLog.d(TAG, "hookPushNC() called with: classLoader = $classLoader")
+        XLog.i(LogRoute.XMSF_HOOK, TAG, "hookPushNC start commit=${BuildConfig.GIT_COMMIT} loader=$classLoader")
+        XLog.d(LogRoute.XMSF_HOOK, TAG, "hookPushNC() called with: classLoader = $classLoader")
 
         val classNotificationManager = classLoader.findClass(TargetClass)
         val runtimeBridge = RuntimeNotificationBridge.create(classLoader) ?: run {
-            XLog.e(TAG, "XMSF notification bridge unavailable; skip notification hook installation", null)
+            XLog.e(
+                LogRoute.XMSF_HOOK,
+                TAG,
+                "XMSF notification bridge unavailable; skip notification hook installation commit=${BuildConfig.GIT_COMMIT}",
+                null,
+            )
             return
         }
         val managerHookApiVersion = runCatching {
@@ -60,9 +71,10 @@ object HookPushNC {
         }.getOrDefault(0)
         if (managerHookApiVersion != ExpectedHookApiVersion) {
             XLog.e(
+                LogRoute.XMSF_HOOK,
                 TAG,
                 "NotificationManagerEx hook api mismatch: expected=$ExpectedHookApiVersion actual=$managerHookApiVersion",
-                null
+                null,
             )
             MagiskOtel.event(
                 name = "notify.intercept",
@@ -72,6 +84,8 @@ object HookPushNC {
                     "process" to "hook",
                     "stage" to "hook_install",
                     "reason" to "api_mismatch",
+                    "hook_layer" to "xmsf_notification_manager",
+                    "commit" to BuildConfig.GIT_COMMIT,
                 ),
                 statusOk = false,
             )
@@ -171,7 +185,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val channels = runtimeBridge.getNotificationChannels(args[0] as String)
-                    XLog.d(TAG, "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
+                    XLog.d(LogRoute.XMSF_HOOK, TAG, "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
                     return@replace channels
                 }
             }
@@ -236,7 +250,7 @@ object HookPushNC {
                 }
             }
         }.onFailure {
-            XLog.e(TAG, "skip getNotificationChannelGroup hook", it)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "skip getNotificationChannelGroup hook", it)
         }
 
         //getNotificationChannelGroups(
@@ -246,7 +260,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val groups = runtimeBridge.getNotificationChannelGroups(args[0] as String)
-                    XLog.d(TAG, "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
+                    XLog.d(LogRoute.XMSF_HOOK, TAG, "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
                     return@replace groups
                 }
             }
@@ -314,6 +328,10 @@ object HookPushNC {
             }
         }
 
+        // Install local proxy hook so isSystemConditionProviderEnabled never crosses Binder.
+        // On Samsung Android 16 the cross-process call is blocked by hidden API enforcement.
+        installLocalReadyProbe(classLoader)
+
         val identityBridgeClass = hookIdentityBridge(classLoader, runtimeBridge)
         if (identityBridgeClass != null) {
             if (HookSystemService.isSystemHookReady) {
@@ -323,12 +341,30 @@ object HookPushNC {
                 // target-identity ownership yet, but keep probing so a transient boot race does
                 // not leave this process permanently on the unsafe local fallback path.
                 scheduleIdentityBridgeReady(classNotificationManager, identityBridgeClass)
-                XLog.w(TAG, "identity bridge installed before system_server ready; keeping bridge ownership disabled")
+                XLog.w(
+                    LogRoute.XMSF_HOOK,
+                    TAG,
+                    "identity bridge installed before system_server ready; " +
+                        "systemReady=false identityHooked=false managerHooked=false commit=${BuildConfig.GIT_COMMIT}",
+                )
             }
         } else {
-            XLog.w(TAG, "identity bridge hooks unavailable; keeping NotificationManagerEx.isHooked = false")
+            XLog.w(
+                LogRoute.XMSF_HOOK,
+                TAG,
+                "identity bridge hooks unavailable; " +
+                    "systemReady=${HookSystemService.isSystemHookReady} " +
+                    "identityHooked=false managerHooked=false commit=${BuildConfig.GIT_COMMIT}",
+            )
         }
-        XLog.i(TAG, "host notification takeover hooks installed")
+        XLog.i(
+            LogRoute.XMSF_HOOK,
+            TAG,
+            "host notification takeover hooks installed commit=${BuildConfig.GIT_COMMIT} " +
+                "systemReady=${HookSystemService.isSystemHookReady} " +
+                "identityHooked=${identityBridgeClass?.getOrNull<Boolean>("isHooked") == true} " +
+                "managerHooked=${classNotificationManager.getOrNull<Boolean>("isHooked") == true}",
+        )
         MagiskOtel.event(
             name = "notify.intercept",
             attributes = mapOf(
@@ -337,15 +373,42 @@ object HookPushNC {
                 "process" to "hook",
                 "stage" to "hook_install",
                 "reason" to "installed",
+                "hook_layer" to "xmsf_notification_takeover",
+                "commit" to BuildConfig.GIT_COMMIT,
             ),
             statusOk = true,
         )
     }
 
+    /**
+     * Hook [NotificationManager.isSystemConditionProviderEnabled] locally in the xmsf process
+     * so that [HookSystemService.isSystemHookReady] never needs to make a cross-Binder call.
+     * On Samsung Android 16 the hidden API enforcement blocks the Binder path entirely.
+     *
+     * By the time xmsf's module loads, system_server has already started and installed its
+     * NMS hooks, so returning `true` for the sentinel value is safe.
+     */
+    private fun installLocalReadyProbe(classLoader: ClassLoader) {
+        runCatching {
+            val nmClass = classLoader.findClass("android.app.NotificationManager")
+            nmClass.hookMethod("isSystemConditionProviderEnabled", String::class.java) {
+                doBefore {
+                    val arg = args[0] as? String
+                    if (arg == IS_SYSTEM_HOOK_READY || arg == XMSF_FAKE_CONDITION_PROVIDER_PATH) {
+                        result = true
+                    }
+                }
+            }
+            XLog.i(LogRoute.XMSF_HOOK, TAG, "installed local ready probe for NotificationManager")
+        }.onFailure {
+            XLog.w(LogRoute.XMSF_HOOK, TAG, "local ready probe install failed (non-fatal): ${it.message}")
+        }
+    }
+
     private fun hookIdentityBridge(classLoader: ClassLoader, runtimeBridge: RuntimeNotificationBridge): Class<*>? {
         val identityBridgeClass = runCatching { classLoader.findClass(IdentityBridgeClass) }
             .getOrElse {
-                XLog.d(TAG, "identity bridge class not found, skip")
+                XLog.d(LogRoute.XMSF_HOOK, TAG, "identity bridge class not found, skip")
                 return null
             }
         val bridgeHookApiVersion = runCatching {
@@ -353,6 +416,7 @@ object HookPushNC {
         }.getOrDefault(0)
         if (bridgeHookApiVersion != ExpectedHookApiVersion) {
             XLog.e(
+                LogRoute.XMSF_HOOK,
                 TAG,
                 "NotificationIdentityBridge hook api mismatch: expected=$ExpectedHookApiVersion actual=$bridgeHookApiVersion",
                 null
@@ -361,7 +425,7 @@ object HookPushNC {
         }
         val identityStrategyClass = runCatching { classLoader.findClass(IdentityStrategyClass) }
             .getOrElse {
-                XLog.d(TAG, "identity strategy enum not found, skip")
+                XLog.d(LogRoute.XMSF_HOOK, TAG, "identity strategy enum not found, skip")
                 return null
             }
 
@@ -369,10 +433,10 @@ object HookPushNC {
             @Suppress("UNCHECKED_CAST")
             java.lang.Enum.valueOf(identityStrategyClass as Class<out Enum<*>>, "FRAMEWORK")
         }.getOrElse {
-            XLog.e(TAG, "resolve FRAMEWORK strategy failed", it)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "resolve FRAMEWORK strategy failed", it)
             return null
         }
-        XLog.i(TAG, "installing identity bridge hooks")
+        XLog.i(LogRoute.XMSF_HOOK, TAG, "installing identity bridge hooks")
 
         identityBridgeClass.hookMethod("isFrameworkIdentitySupported", Context::class.java) {
             replace(hookCheck) { true }
@@ -394,7 +458,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val channels = runtimeBridge.getNotificationChannels(args[1] as String)
-                    XLog.d(TAG, "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
+                    XLog.d(LogRoute.XMSF_HOOK, TAG, "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
                     return@replace channels.orEmpty()
                 }
             }
@@ -404,7 +468,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val groups = runtimeBridge.getNotificationChannelGroups(args[1] as String)
-                    XLog.d(TAG, "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
+                    XLog.d(LogRoute.XMSF_HOOK, TAG, "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
                     return@replace groups.orEmpty()
                 }
             }
@@ -500,7 +564,7 @@ object HookPushNC {
                 }
             }
         }
-        XLog.i(TAG, "identity bridge hooks installed")
+        XLog.i(LogRoute.XMSF_HOOK, TAG, "identity bridge hooks installed")
         return identityBridgeClass
     }
 
@@ -510,10 +574,23 @@ object HookPushNC {
     ): Boolean = runCatching {
         identityBridgeClass["isHooked"] = true
         notificationManagerClass["isHooked"] = true
-        XLog.i(TAG, "marked identity bridge and NotificationManagerEx as ready")
+        XLog.i(
+            LogRoute.XMSF_HOOK,
+            TAG,
+            "identity bridge ready commit=${BuildConfig.GIT_COMMIT} " +
+                "systemReady=${HookSystemService.isSystemHookReady} " +
+                "identityHooked=${identityBridgeClass.getOrNull<Boolean>("isHooked")} " +
+                "managerHooked=${notificationManagerClass.getOrNull<Boolean>("isHooked")}",
+        )
         true
     }.onFailure {
-        XLog.e(TAG, "failed to mark identity bridge ready", it)
+        XLog.e(
+            LogRoute.XMSF_HOOK,
+            TAG,
+            "failed to mark identity bridge ready commit=${BuildConfig.GIT_COMMIT} " +
+                "systemReady=${HookSystemService.isSystemHookReady}",
+            it,
+        )
     }.getOrDefault(false)
 
     private fun scheduleIdentityBridgeReady(
@@ -529,7 +606,16 @@ object HookPushNC {
             val task = object : Runnable {
                 override fun run() {
                     val attempt = synchronized(readyRetryLock) { readyRetryAttempt }
-                    if (HookSystemService.isSystemHookReady) {
+                    val systemReady = HookSystemService.isSystemHookReady
+                    if (attempt == 0) {
+                        XLog.i(
+                            LogRoute.XMSF_HOOK,
+                            TAG,
+                            "identity bridge readiness waiting for system_server; " +
+                                "systemReady=$systemReady commit=${BuildConfig.GIT_COMMIT}",
+                        )
+                    }
+                    if (systemReady) {
                         if (markIdentityBridgeReady(notificationManagerClass, identityBridgeClass)) {
                             synchronized(readyRetryLock) {
                                 if (readyRetryTask === this) {
@@ -539,7 +625,14 @@ object HookPushNC {
                             }
                             return
                         }
-                        XLog.w(TAG, "system_server ready probe succeeded but identity bridge mark failed; retrying")
+                        if (attempt == 0) {
+                            XLog.w(
+                                LogRoute.XMSF_HOOK,
+                                TAG,
+                                "system_server ready but identity bridge mark failed; " +
+                                    "commit=${BuildConfig.GIT_COMMIT} retrying",
+                            )
+                        }
                     }
                     if (!shouldRetrySystemHookReady(attempt)) {
                         synchronized(readyRetryLock) {
@@ -548,7 +641,14 @@ object HookPushNC {
                                 readyRetryAttempt = 0
                             }
                         }
-                        XLog.w(TAG, "system_server ready probe exhausted; identity bridge remains disabled")
+                        XLog.w(
+                            LogRoute.XMSF_HOOK,
+                            TAG,
+                            "system_server ready probe exhausted; identity bridge remains disabled " +
+                                "commit=${BuildConfig.GIT_COMMIT} " +
+                                "identityHooked=${identityBridgeClass.getOrNull<Boolean>("isHooked")} " +
+                                "managerHooked=${notificationManagerClass.getOrNull<Boolean>("isHooked")}",
+                        )
                         return
                     }
                     synchronized(readyRetryLock) {
@@ -586,7 +686,7 @@ object HookPushNC {
                 check(version == 1) { "notification bridge api mismatch: $version" }
                 RuntimeNotificationBridge(bridge)
             }.onFailure {
-                XLog.e(TAG, "failed to resolve XMSF notification bridge", it)
+                XLog.e(LogRoute.XMSF_HOOK, TAG, "failed to resolve XMSF notification bridge", it)
             }.getOrNull()
         }
 
@@ -717,16 +817,16 @@ object HookPushNC {
         try {
             return invoke()
         } catch (e: HookInvocationTargetError) {
-            XLog.e(TAG, "tryInvoke: ", e)
-            XLog.e(TAG, "tryInvoke targetException: ", e.cause)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke: ", e)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke targetException: ", e.cause)
             throw e.cause ?: e
         } catch (e: InvocationTargetException) {
-            XLog.e(TAG, "tryInvoke: ", e)
-            XLog.e(TAG, "tryInvoke targetException: ", e.targetException)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke: ", e)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke targetException: ", e.targetException)
             throw e.targetException ?: e
         } catch (e: Throwable) {
-            XLog.e(TAG, "tryInvoke: ", e)
-            XLog.e(TAG, "tryInvoke cause: ", e.cause)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke: ", e)
+            XLog.e(LogRoute.XMSF_HOOK, TAG, "tryInvoke cause: ", e.cause)
             throw e.cause ?: e
         }
     }

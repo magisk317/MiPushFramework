@@ -8,6 +8,7 @@ import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
+import io.github.magisk317.mipush.manager.runtime.read.LocalRegistrationProbeState
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
@@ -71,10 +72,28 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
     }
 
     override suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> =
-        RegistrationStateCompat.findPackagesWithValidLocalRegistration(packageNames)
+        readLocalRegistrationStates(packageNames)
+            .filterValues { it == LocalRegistrationProbeState.REGISTERED }
+            .keys
+
+    override suspend fun readLocalRegistrationStates(
+        packageNames: Collection<String>,
+    ): Map<String, LocalRegistrationProbeState> {
+        val outcome = RegistrationStateCompat.findPackagesWithValidLocalRegistrationOutcome(packageNames)
+        val registered = outcome.registeredPackages
+        val checked = outcome.checkedPackages
+        return packageNames.distinct().associateWith { packageName ->
+            when {
+                packageName in registered -> LocalRegistrationProbeState.REGISTERED
+                packageName in checked -> LocalRegistrationProbeState.NOT_REGISTERED
+                else -> LocalRegistrationProbeState.UNKNOWN
+            }
+        }
+    }
 
     override suspend fun hasLocalRegistration(packageName: String): Boolean =
-        RegistrationStateCompat.hasValidLocalRegistration(packageName)
+        readLocalRegistrationStates(listOf(packageName))[packageName] ==
+            LocalRegistrationProbeState.REGISTERED
 
     override suspend fun readRegSecCount(packageName: String): Int = Utils.getRegSecs(packageName).size
 

@@ -73,6 +73,23 @@ class ManagerApplicationRuntimeReaderTest {
     }
 
     @Test
+    fun `detail reuses local registration result from the preceding list read`() {
+        val source = FakeSource(
+            stored = listOf(stored("target", ManagerApplication.RegisteredType.NOT_REGISTERED)),
+            installed = listOf(installed("target", "Target")),
+            locallyRegistered = setOf("target"),
+        )
+        val reader = ManagerApplicationRuntimeReader(source)
+
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery(userId = 0)).items.single()
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
+
+        assertEquals(ManagerApplication.RegisteredType.REGISTERED, listItem.registeredType)
+        assertEquals(ManagerApplication.RegisteredType.REGISTERED, detail?.registeredType)
+        assertEquals(1, source.localStateReadCount)
+    }
+
+    @Test
     fun `filters run before pagination and keep the legacy inactive predicates`() {
         val source = FakeSource(
             stored = listOf(
@@ -320,6 +337,7 @@ class ManagerApplicationRuntimeReaderTest {
     ) : ManagerApplicationReadSource {
         var storedReadCount = 0
         var regSecReadCount = 0
+        var localStateReadCount = 0
         var lastLocalProbePackages: Set<String> = emptySet()
 
         override suspend fun currentUserId(): Int = userId
@@ -342,6 +360,20 @@ class ManagerApplicationRuntimeReaderTest {
 
         override suspend fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> =
             packageNames.associateWith { receiveTimes[it] ?: 0L }
+
+        override suspend fun readLocalRegistrationStates(
+            packageNames: Collection<String>,
+        ): Map<String, LocalRegistrationProbeState> {
+            localStateReadCount++
+            lastLocalProbePackages = packageNames.toSet()
+            return packageNames.distinct().associateWith { packageName ->
+                if (localRegistration || packageName in locallyRegistered) {
+                    LocalRegistrationProbeState.REGISTERED
+                } else {
+                    LocalRegistrationProbeState.NOT_REGISTERED
+                }
+            }
+        }
 
         override suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> {
             lastLocalProbePackages = packageNames.toSet()
