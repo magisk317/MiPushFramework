@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import io.github.magisk317.mipush.app.R
+import io.github.magisk317.mipush.common.R as CommonR
 
 /**
  * Short-lived foreground owner for a user-initiated SAF diagnostic export.
@@ -25,7 +26,7 @@ class RuntimeLogExportService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureChannel()
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_xmsf)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .setContentTitle(getString(R.string.runtime_log_export_notification_title))
             .setContentText(getString(R.string.runtime_log_export_notification_text))
             .setOngoing(true)
