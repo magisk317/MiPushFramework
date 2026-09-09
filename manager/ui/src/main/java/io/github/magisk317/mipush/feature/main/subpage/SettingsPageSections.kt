@@ -1,71 +1,38 @@
 @file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
-import android.content.ComponentName
 import android.content.Context
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import android.content.Intent
-import android.provider.Settings
 import android.widget.Toast
+import io.github.magisk317.mipush.common.utils.VerboseLogEnableTracker
+import com.topjohnwu.superuser.Shell
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import io.github.magisk317.uikit.surface.AppAlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import io.github.magisk317.uikit.common.ElevatedSnackbarHost
-import androidx.compose.material3.Surface
+import io.github.magisk317.uikit.common.AppSnackbarDuration
+import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
+import io.github.magisk317.uikit.surface.AppTextButton
+import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.manager.R
@@ -79,29 +46,16 @@ import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsState
 import io.github.magisk317.uikit.preference.RuntimeLogShareEntryMode
 import io.github.magisk317.uikit.surface.ConfirmActionDialog
 import io.github.magisk317.uikit.preference.SectionCard
+import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
-import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.process.BoundedProcessRunner
-import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
-import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
-import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.SectionColumn
-import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.common.configurations.ConfigJson
-import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
-import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
-import org.koin.compose.viewmodel.koinViewModel
 import java.util.Locale
 
 @Composable
@@ -131,7 +85,7 @@ internal fun SettingsSectionCard(
 }
 
 @Composable
-internal fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean, Boolean) -> Unit {
+internal fun rememberSwitchFeedback(snackbarHostState: AppSnackbarHostState): (String, Boolean, Boolean) -> Unit {
     val scope = rememberCoroutineScope()
     val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
     val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
@@ -147,7 +101,7 @@ internal fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (Stri
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
                     message = String.format(Locale.getDefault(), template, title),
-                    duration = SnackbarDuration.Short,
+                    duration = AppSnackbarDuration.Short,
                 )
             }
         }
@@ -155,7 +109,7 @@ internal fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (Stri
 }
 
 @Composable
-internal fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState, onNavigateToConnectionStatus: () -> Unit) {
+internal fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState, onNavigateToConnectionStatus: () -> Unit) {
     val context = LocalContext.current
 
     SetXMPPServer()
@@ -178,14 +132,30 @@ internal fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostSt
     }
 }
 
+private enum class AppearanceChoice {
+    Theme,
+    UiKitStyle,
+    LayoutScale,
+    PaletteStyle,
+    ColorSpec,
+    Accent,
+}
+
 @Composable
 internal fun AppearanceBlock(
+    viewModel: SettingsViewModel,
     onNavigateToStatusBarIconSettings: () -> Unit,
+    onNavigateToThemeSettings: () -> Unit,
 ) {
+    SettingsItem(
+        title = stringResource(R.string.pref_choose_theme_title),
+        summary = stringResource(R.string.pref_theme_details_summary),
+        onClick = { onNavigateToThemeSettings() },
+    )
     SettingsItem(
         title = stringResource(R.string.pref_color_status_bar_icon_title),
         summary = stringResource(R.string.pref_color_status_bar_icon_summary),
-        onClick = onNavigateToStatusBarIconSettings,
+        onClick = { onNavigateToStatusBarIconSettings() },
     )
 }
 
@@ -194,7 +164,7 @@ internal fun ConfigurationsBlock(
     onNavigateToConfigurations: () -> Unit,
 ) {
     SettingsItem(
-        title = stringResource(R.string.main_configs),
+        title = stringResource(R.string.settings_configurations_management_title),
         summary = stringResource(R.string.settings_configurations_entry_summary),
         onClick = onNavigateToConfigurations,
     )
@@ -203,8 +173,9 @@ internal fun ConfigurationsBlock(
 @Composable
 internal fun IntegrationsBlock(
     viewModel: SettingsViewModel,
-    snackbarHostState: SnackbarHostState,
+    snackbarHostState: AppSnackbarHostState,
 ) {
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
@@ -240,7 +211,7 @@ internal fun IntegrationsBlock(
 }
 
 @Composable
-internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
@@ -252,7 +223,7 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
-    var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
+    val islandTimeoutState = remember(islandTimeout) { TextFieldState(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
 
     val islandEnabledTitle = stringResource(R.string.pref_island_enabled_title)
@@ -276,7 +247,7 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
         ),
         enabled = islandEnabled,
     ) {
-        islandTimeoutInput = islandTimeout.toString()
+        islandTimeoutState.setTextAndPlaceCursorAtEnd(islandTimeout.toString())
         showIslandTimeoutDialog = true
     }
 
@@ -346,23 +317,21 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     }
 
     if (showIslandTimeoutDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showIslandTimeoutDialog = false },
             title = { Text(stringResource(R.string.pref_island_timeout_title)) },
             text = {
-                TextField(
-                    value = islandTimeoutInput,
-                    onValueChange = { value ->
-                        islandTimeoutInput = value.filter { it.isDigit() }
-                    },
+                AppTextField(
+                    state = islandTimeoutState,
                     supportingText = { Text(stringResource(R.string.pref_island_timeout_hint)) },
                     singleLine = true,
                 )
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
+                    text = stringResource(android.R.string.ok),
                     onClick = {
-                        val days = islandTimeoutInput.toIntOrNull()
+                        val days = islandTimeoutState.text.toString().toIntOrNull()
                         if (days == null || days < 1) {
                             scope.launch {
                                 snackbarHostState.showSnackbar(islandTimeoutError)
@@ -379,14 +348,13 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
                             showIslandTimeoutDialog = false
                         }
                     },
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showIslandTimeoutDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
+                AppTextButton(
+                    text = stringResource(android.R.string.cancel),
+                    onClick = { showIslandTimeoutDialog = false },
+                )
             },
         )
     }
@@ -397,11 +365,10 @@ internal fun notifyPrefChanged(context: Context) {
 }
 
 @Composable
-internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
-    val logSanitizationEnabled by viewModel.logSanitizationEnabled.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
@@ -433,6 +400,13 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: S
     }
 
     fun saveRuntimeLogBundle() {
+        val blockReason = VerboseLogEnableTracker.checkPreExport(debugMode) { Shell.getShell().isRoot }
+        if (blockReason != null) {
+            val resId = context.resources.getIdentifier(blockReason, "string", context.packageName)
+            val message = if (resId != 0) context.getString(resId) else blockReason
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            return
+        }
         val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
             .format(java.util.Date())
         saveRuntimeLogLauncher.launch("mipush_logs_$timestamp.zip")
@@ -467,7 +441,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: S
             }
         }
     }
-    val logSanitizationTitle = stringResource(R.string.settings_log_sanitization)
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(
             shareLogTitle = stringResource(R.string.settings_get_log),
@@ -482,37 +455,30 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: S
             ),
             clearLogTitle = stringResource(R.string.runtime_log_clear_confirm_title),
             clearLogSummary = stringResource(R.string.runtime_log_clear_summary),
-            sensitiveLogTitle = logSanitizationTitle,
-            sensitiveLogSummary = stringResource(R.string.settings_log_sanitization_summary),
         ),
         state = RuntimeLogDiagnosticsState(
             verboseLogEnabled = debugMode,
-            sensitiveLogEnabled = logSanitizationEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::saveRuntimeLogBundle,
             onVerboseLogEnabledChange = { enabled ->
+                VerboseLogEnableTracker.onVerboseLogToggled(enabled)
+                io.github.magisk317.xposed.logging.LogSanitizerConfig
+                    .syncFromVerboseMode(enabled)
                 viewModel.setDebugMode(enabled) { success ->
                     showSwitchFeedback(debugModeTitle, enabled, success)
                 }
             },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
-            onSensitiveLogEnabledChange = { enabled ->
-                viewModel.setLogSanitizationEnabled(enabled) { success ->
-                    if (success) context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
-                    showSwitchFeedback(logSanitizationTitle, enabled, success)
-                }
-            },
         ),
         layout = RuntimeLogDiagnosticsLayout(
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
             itemOrder = listOf(
                 RuntimeLogDiagnosticsItem.SHARE_LOG,
-                RuntimeLogDiagnosticsItem.CLEAR_LOG,
-                RuntimeLogDiagnosticsItem.RETENTION,
                 RuntimeLogDiagnosticsItem.VERBOSE_LOG,
-                RuntimeLogDiagnosticsItem.SENSITIVE_LOG,
+                RuntimeLogDiagnosticsItem.RETENTION,
+                RuntimeLogDiagnosticsItem.CLEAR_LOG,
             ),
         ),
     )
@@ -552,18 +518,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: S
                 }
             }
         }
-    }
-}
-
-@Composable
-internal fun AboutBlock(onShowAboutDialog: (String) -> Unit) {
-    val context = LocalContext.current
-    val mainActivityOperation = MainActivityOperation(context)
-
-    SettingsItem(
-        title = stringResource(R.string.action_about),
-    ) {
-        mainActivityOperation.showAboutDialog(onShowAboutDialog)
     }
 }
 

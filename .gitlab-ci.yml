@@ -538,6 +538,9 @@ android:release:apk:
       - xmsf/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
+      # android:release:modules-repo reads versionCode/versionName from here to
+      # build its "<versionCode>-<versionName>" release tag.
+      - play-release.env
 
 android:release:play-bundle:
   extends:
