@@ -5,77 +5,18 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Process
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
-import io.github.magisk317.mipush.manager.application.ManagerApplication
-import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
-import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
-import io.github.magisk317.mipush.manager.application.ManagerApplications
-import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
-import io.github.magisk317.mipush.manager.application.ManagerConfigEditorSnapshot
-import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
-import io.github.magisk317.mipush.manager.application.ManagerConfigListSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
-import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerDayCount
 import io.github.magisk317.mipush.manager.application.ManagerEvent
-import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
 import io.github.magisk317.mipush.manager.application.EventDebugJson
 import io.github.magisk317.mipush.manager.application.ManagerEventGateway
-import io.github.magisk317.mipush.manager.application.ManagerLogClearResult
-import io.github.magisk317.mipush.manager.application.ManagerLogExportResult
-import io.github.magisk317.mipush.manager.application.ManagerLogGateway
-import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
-import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
-import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
-import io.github.magisk317.mipush.manager.application.ManagerRootSubjectStatus
-import io.github.magisk317.mipush.manager.application.ManagerRootTarget
-import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
-import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
-import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairResult
-import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
-import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
-import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
-import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
-import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
-import io.github.magisk317.mipush.manager.application.ApplicationListRequest
-import io.github.magisk317.mipush.manager.application.ApplicationReadResult
-import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
-import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
-import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
-import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
-import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.events.EventListRequest
 import io.github.magisk317.mipush.manager.events.EventReadResult
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
-import io.github.magisk317.mipush.manager.logs.LogExportReadResult
-import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
-import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
-import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
-import io.github.magisk317.mipush.core.configuration.LocalConfigSummary
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.io.OutputStream
-import java.util.zip.ZipOutputStream
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipEntry
-import java.util.zip.Deflater
-import java.util.Locale
-import java.util.Date
-import java.text.SimpleDateFormat
-import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
-import io.github.magisk317.mipush.manager.root.ManagerRootAccess
-import java.util.UUID
-import kotlinx.coroutines.flow.first
-import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.xposed.logging.MagiskOtel
 
 class RemoteManagerEventGateway(
     private val context: Context,
@@ -152,6 +93,12 @@ class RemoteManagerEventGateway(
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_DISPATCHED -> MockReplayOutcome.Dispatched
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED -> MockReplayOutcome.BlockedByPermission
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED -> MockReplayOutcome.FailedChannelDisabled
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_EVENT_NOT_FOUND -> MockReplayOutcome.FailedEventNotFound
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_PAYLOAD_MISSING -> MockReplayOutcome.FailedPayloadMissing
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_SERVICE_NOT_READY -> MockReplayOutcome.FailedServiceNotReady
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_APP_NOT_INSTALLED -> MockReplayOutcome.FailedAppNotInstalled
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_MISSING_REGSEC -> MockReplayOutcome.FailedMissingRegSec
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_NO_RECEIVER -> MockReplayOutcome.FailedNoReceiver
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED -> MockReplayOutcome.Failed
             else -> if (RemoteWriteSupport.isSuccess(result)) {
                 MockReplayOutcome.Dispatched
@@ -159,21 +106,25 @@ class RemoteManagerEventGateway(
                 MockReplayOutcome.Failed
             }
         }
-        val statusOk = outcome != MockReplayOutcome.Failed &&
-            outcome != MockReplayOutcome.FailedChannelDisabled &&
-            outcome != MockReplayOutcome.BlockedByPermission
+        val statusOk = outcome == MockReplayOutcome.Posted || outcome == MockReplayOutcome.Dispatched
         emitManager(
             stage = "manager_mock_replay",
             result = when (outcome) {
-                MockReplayOutcome.Failed, MockReplayOutcome.FailedChannelDisabled -> "error"
+                MockReplayOutcome.Posted, MockReplayOutcome.Dispatched -> "ok"
                 MockReplayOutcome.BlockedByPermission -> "skip"
-                else -> "ok"
+                else -> "error"
             },
             reason = when (outcome) {
                 MockReplayOutcome.Posted -> "posted"
                 MockReplayOutcome.Dispatched -> "dispatched"
                 MockReplayOutcome.BlockedByPermission -> "blocked_by_permission"
                 MockReplayOutcome.FailedChannelDisabled -> "channel_disabled"
+                MockReplayOutcome.FailedEventNotFound -> "event_not_found"
+                MockReplayOutcome.FailedPayloadMissing -> "payload_missing"
+                MockReplayOutcome.FailedServiceNotReady -> "service_not_ready"
+                MockReplayOutcome.FailedAppNotInstalled -> "app_not_installed"
+                MockReplayOutcome.FailedMissingRegSec -> "missing_regsec"
+                MockReplayOutcome.FailedNoReceiver -> "no_receiver"
                 MockReplayOutcome.Failed -> "failed"
             },
             statusOk = statusOk,

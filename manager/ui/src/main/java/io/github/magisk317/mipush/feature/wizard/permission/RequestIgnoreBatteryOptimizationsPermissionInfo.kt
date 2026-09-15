@@ -1,8 +1,6 @@
 package io.github.magisk317.mipush.feature.wizard.permission
 
 import android.content.Context
-import android.os.Build
-import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.manager.R
 
 class RequestIgnoreBatteryOptimizationsPermissionInfo(

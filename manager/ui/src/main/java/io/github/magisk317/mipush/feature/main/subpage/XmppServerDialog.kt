@@ -1,8 +1,10 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import android.widget.Toast
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,16 +74,15 @@ internal fun XmppServerDialog(
     onDismissRequest: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf(currentServer.orEmpty()) }
+    val textState = rememberTextFieldState(currentServer.orEmpty())
 
     AppAlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(stringResource(R.string.settings_XMPP_server)) },
+        title = { Text(text = stringResource(R.string.settings_XMPP_server), color = MaterialTheme.colorScheme.onSurface) },
         text = {
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text(serverHint) },
+            AppTextField(
+                state = textState,
+                placeholderText = serverHint,
                 singleLine = true,
                 enabled = !isSaving,
             )
@@ -97,7 +98,7 @@ internal fun XmppServerDialog(
                     ),
                     DialogAction(
                         label = stringResource(android.R.string.ok),
-                        onClick = { onConfirm(text) },
+                        onClick = { onConfirm(textState.text.toString()) },
                         enabled = !isSaving,
                     ),
                 ),

@@ -7,7 +7,6 @@ import android.app.Application
 import android.content.Context
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_NAME
-import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
 import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.manager.application.ManagerEventGateway
@@ -260,9 +259,9 @@ object ManagerDependencies {
         if (!logSanitizationSyncStarted) {
             logSanitizationSyncStarted = true
             appScope.launch {
-                koin.get<PreferenceRepository>().isLogSanitizationEnabled
-                    .catch { LogSanitizerConfig.syncSanitizationEnabled(null) }
-                    .collect { LogSanitizerConfig.syncSanitizationEnabled(it) }
+                koin.get<PreferenceRepository>().isDebugMode
+                    .catch { LogSanitizerConfig.syncFromVerboseMode(null) }
+                    .collect { LogSanitizerConfig.syncFromVerboseMode(it) }
             }
         }
         if (!runtimePreferenceSyncStarted) {

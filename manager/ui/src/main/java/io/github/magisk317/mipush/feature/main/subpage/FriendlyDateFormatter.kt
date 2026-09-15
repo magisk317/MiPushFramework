@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import android.content.Context
 import io.github.magisk317.mipush.manager.R
-import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
 

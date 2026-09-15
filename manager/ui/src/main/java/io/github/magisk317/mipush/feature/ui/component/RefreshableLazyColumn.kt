@@ -1,20 +1,12 @@
-@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package io.github.magisk317.mipush.feature.ui.component
 
 import android.os.SystemClock
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,12 +17,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 import io.github.magisk317.uikit.foundation.LoadingIndicatorTokens
+import io.github.magisk317.uikit.scroll.ScrollChromeState
+import io.github.magisk317.uikit.surface.AppPullToRefresh
+import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -93,32 +86,17 @@ fun RefreshableLazyColumn(
         currentDoRefresh(finishRefresh)
     }
 
-    val state = rememberPullToRefreshState()
-
-    PullToRefreshBox(
+    AppPullToRefresh(
         isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             refreshStartedAt = SystemClock.elapsedRealtime()
             doRefresh(finishRefresh)
         },
-        state = state,
         modifier = modifier.fillMaxSize(),
-        indicator = {
-            PullToRefreshDefaults.LoadingIndicator(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = contentPadding.calculateTopPadding() + LoadingIndicatorTokens.OverlayTopSpacing),
-                isRefreshing = isRefreshing,
-                state = state
-            )
-        }
+        contentPadding = contentPadding,
     ) {
-        LaunchedEffect(scrollToTopSignal) {
-            if (scrollToTopSignal > 0) {
-                lazyListState.scrollToItem(0)
-            }
-        }
+        io.github.magisk317.uikit.surface.ScrollToTopEffect(lazyListState, scrollToTopSignal)
         ReportLazyListScrollToChrome(lazyListState, scrollChromeState)
         LaunchedEffect(lazyListState) {
             snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
@@ -133,7 +111,9 @@ fun RefreshableLazyColumn(
                 }
         }
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier
+                .fillMaxSize()
+                .uiKitScrollEndHaptic(),
             state = lazyListState,
             contentPadding = contentPadding,
             content = content

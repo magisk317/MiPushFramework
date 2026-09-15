@@ -114,6 +114,17 @@ class PreferenceRepository constructor(
     private val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
     private val THEME_MODE = intPreferencesKey("theme_mode")
     private val UI_KIT_STYLE = intPreferencesKey("ui_kit_style")
+    private val THEME_DYNAMIC_COLOR = booleanPreferencesKey("theme_dynamic_color")
+    private val THEME_ACCENT_COLOR = intPreferencesKey("theme_accent_color")
+    private val THEME_MONET_ENABLED = booleanPreferencesKey("theme_monet_enabled")
+    private val THEME_PALETTE_STYLE = intPreferencesKey("theme_palette_style")
+    private val THEME_COLOR_SPEC = intPreferencesKey("theme_color_spec")
+    private val THEME_SURFACE_BLUR = booleanPreferencesKey("theme_surface_blur")
+    private val UI_LAYOUT_SCALE = intPreferencesKey("ui_layout_scale")
+    private val NAV_FLOATING_BOTTOM_BAR = booleanPreferencesKey("navigation_floating_bottom_bar")
+    private val NAV_BOTTOM_BAR_BLUR = booleanPreferencesKey("navigation_bottom_bar_blur")
+    private val NAV_BOTTOM_BAR_BACKDROP = booleanPreferencesKey("navigation_bottom_bar_backdrop")
+    private val NAVIGATION_BADGES = booleanPreferencesKey("navigation_badges")
     private val RUNTIME_LOG_RETENTION_DAYS = intPreferencesKey("runtime_log_retention_days")
     private val EVENT_RETENTION_DAYS = intPreferencesKey("event_retention_days")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
@@ -188,6 +199,23 @@ class PreferenceRepository constructor(
     val showSystemApps: Flow<Boolean> = dataStore.data.map { it[SHOW_SYSTEM_APPS] ?: false }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
     val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: DEFAULT_UI_KIT_STYLE }
+    val themeDynamicColor: Flow<Boolean> = dataStore.data.map { it[THEME_DYNAMIC_COLOR] ?: true }
+    val themeAccentColor: Flow<Int> = dataStore.data.map { it[THEME_ACCENT_COLOR] ?: 0 }
+    val themeMonetEnabled: Flow<Boolean> = dataStore.data.map { it[THEME_MONET_ENABLED] ?: false }
+    val themePaletteStyle: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[THEME_PALETTE_STYLE]?.takeIf { it in 0..8 } ?: 0
+    }
+    val themeColorSpec: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[THEME_COLOR_SPEC]?.takeIf { it in 0..1 } ?: 1
+    }
+    val themeSurfaceBlur: Flow<Boolean> = dataStore.data.map { it[THEME_SURFACE_BLUR] ?: false }
+    val uiLayoutScale: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[UI_LAYOUT_SCALE]?.takeIf { it in 0..2 } ?: 1
+    }
+    val navigationFloatingBottomBar: Flow<Boolean> = dataStore.data.map { it[NAV_FLOATING_BOTTOM_BAR] ?: true }
+    val navigationBottomBarBlur: Flow<Boolean> = dataStore.data.map { it[NAV_BOTTOM_BAR_BLUR] ?: false }
+    val navigationBottomBarBackdrop: Flow<Boolean> = dataStore.data.map { it[NAV_BOTTOM_BAR_BACKDROP] ?: false }
+    val navigationBadges: Flow<Boolean> = dataStore.data.map { it[NAVIGATION_BADGES] ?: true }
     val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
         (it[RUNTIME_LOG_RETENTION_DAYS] ?: 2).coerceAtLeast(1)
     }
@@ -377,6 +405,50 @@ class PreferenceRepository constructor(
 
     suspend fun setUiKitStyle(style: Int) {
         dataStore.edit { it[UI_KIT_STYLE] = style }
+    }
+
+    suspend fun setThemeDynamicColor(enabled: Boolean) {
+        dataStore.edit { it[THEME_DYNAMIC_COLOR] = enabled }
+    }
+
+    suspend fun setThemeAccentColor(colorArgb: Int) {
+        dataStore.edit { it[THEME_ACCENT_COLOR] = colorArgb }
+    }
+
+    suspend fun setThemeMonetEnabled(enabled: Boolean) {
+        dataStore.edit { it[THEME_MONET_ENABLED] = enabled }
+    }
+
+    suspend fun setThemePaletteStyle(value: Int) {
+        dataStore.edit { it[THEME_PALETTE_STYLE] = if (value in 0..8) value else 0 }
+    }
+
+    suspend fun setThemeColorSpec(value: Int) {
+        dataStore.edit { it[THEME_COLOR_SPEC] = if (value in 0..1) value else 1 }
+    }
+
+    suspend fun setThemeSurfaceBlur(enabled: Boolean) {
+        dataStore.edit { it[THEME_SURFACE_BLUR] = enabled }
+    }
+
+    suspend fun setUiLayoutScale(value: Int) {
+        dataStore.edit { it[UI_LAYOUT_SCALE] = if (value in 0..2) value else 1 }
+    }
+
+    suspend fun setNavigationFloatingBottomBar(enabled: Boolean) {
+        dataStore.edit { it[NAV_FLOATING_BOTTOM_BAR] = enabled }
+    }
+
+    suspend fun setNavigationBottomBarBlur(enabled: Boolean) {
+        dataStore.edit { it[NAV_BOTTOM_BAR_BLUR] = enabled }
+    }
+
+    suspend fun setNavigationBottomBarBackdrop(enabled: Boolean) {
+        dataStore.edit { it[NAV_BOTTOM_BAR_BACKDROP] = enabled }
+    }
+
+    suspend fun setNavigationBadges(enabled: Boolean) {
+        dataStore.edit { it[NAVIGATION_BADGES] = enabled }
     }
 
     suspend fun setRuntimeLogRetentionDays(days: Int) {

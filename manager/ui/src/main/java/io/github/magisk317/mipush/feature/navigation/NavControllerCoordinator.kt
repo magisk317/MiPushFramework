@@ -51,10 +51,6 @@ class NavControllerNavigationCoordinator(
         navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
     }
 
-    override fun navigateToSettingsSection(section: String) {
-        navController.navigate(AppDestinations.SettingsSection.route(section))
-    }
-
     override fun navigateBack(): Boolean {
         return navController.previousBackStackEntry != null && navController.navigateUp()
     }

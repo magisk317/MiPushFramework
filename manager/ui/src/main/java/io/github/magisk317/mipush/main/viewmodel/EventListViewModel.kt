@@ -17,7 +17,6 @@ import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.ManagerStatePolicies
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
-import io.github.magisk317.mipush.manager.application.ManagerDayCount
 import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException

@@ -25,6 +25,30 @@ class MockReplayFeedbackTest {
             MockReplayOutcome.FailedChannelDisabled.feedbackStringRes(),
         )
         assertEquals(
+            R.string.mock_notification_failed_event_not_found,
+            MockReplayOutcome.FailedEventNotFound.feedbackStringRes(),
+        )
+        assertEquals(
+            R.string.mock_notification_failed_payload_missing,
+            MockReplayOutcome.FailedPayloadMissing.feedbackStringRes(),
+        )
+        assertEquals(
+            R.string.mock_notification_failed_service_not_ready,
+            MockReplayOutcome.FailedServiceNotReady.feedbackStringRes(),
+        )
+        assertEquals(
+            R.string.mock_notification_failed_app_not_installed,
+            MockReplayOutcome.FailedAppNotInstalled.feedbackStringRes(),
+        )
+        assertEquals(
+            R.string.mock_notification_missing_regsec,
+            MockReplayOutcome.FailedMissingRegSec.feedbackStringRes(),
+        )
+        assertEquals(
+            R.string.mock_notification_no_receiver,
+            MockReplayOutcome.FailedNoReceiver.feedbackStringRes(),
+        )
+        assertEquals(
             R.string.mock_notification_failed,
             MockReplayOutcome.Failed.feedbackStringRes(),
         )

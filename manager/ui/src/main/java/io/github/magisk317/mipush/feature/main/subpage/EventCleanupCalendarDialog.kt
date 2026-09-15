@@ -12,9 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.AssistChip
+import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,12 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppAlertDialog
+import io.github.magisk317.uikit.surface.ConfirmActionDialog
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.DialogActionStyle
 import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.CalendarMonthGrid
 import kotlinx.coroutines.CancellationException
@@ -110,7 +113,7 @@ fun EventCleanupCalendarDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.event_cleanup_title)) },
+        title = { Text(text = stringResource(R.string.event_cleanup_title), color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column(
                 modifier = Modifier
@@ -127,28 +130,31 @@ fun EventCleanupCalendarDialog(
 
                 // 快捷预设
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(
+                    WorkspaceFilterPill(
                         onClick = {
                             val cutoff = today.minusDays(7).startMillis()
                             val cnt = dayCounts.entries.filter { it.key < today.minusDays(7) }.sumOf { it.value }
                             pending = PendingCleanup.Before(null, cutoff, cnt)
                         },
-                        label = { Text(stringResource(R.string.event_cleanup_preset_7)) },
+                        label = stringResource(R.string.event_cleanup_preset_7),
+                        selected = false,
                     )
-                    AssistChip(
+                    WorkspaceFilterPill(
                         onClick = {
                             val cutoff = today.minusDays(30).startMillis()
                             val cnt = dayCounts.entries.filter { it.key < today.minusDays(30) }.sumOf { it.value }
                             pending = PendingCleanup.Before(null, cutoff, cnt)
                         },
-                        label = { Text(stringResource(R.string.event_cleanup_preset_30)) },
+                        label = stringResource(R.string.event_cleanup_preset_30),
+                        selected = false,
                     )
-                    AssistChip(
+                    WorkspaceFilterPill(
                         onClick = {
                             val cutoff = today.plusDays(1).startMillis()
                             pending = PendingCleanup.All(cutoff, totalCount)
                         },
-                        label = { Text(stringResource(R.string.event_cleanup_preset_all)) },
+                        label = stringResource(R.string.event_cleanup_preset_all),
+                        selected = false,
                     )
                 }
 
@@ -158,7 +164,7 @@ fun EventCleanupCalendarDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1); selectedDay = null }) {
+                    AppIconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1); selectedDay = null }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = stringResource(R.string.event_cleanup_prev_month),
@@ -168,6 +174,7 @@ fun EventCleanupCalendarDialog(
                         Text(
                             text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.monthValue)}",
                             style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = pluralStringResource(
@@ -179,7 +186,7 @@ fun EventCleanupCalendarDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(
+                    AppIconButton(
                         onClick = { visibleMonth = visibleMonth.plusMonths(1); selectedDay = null },
                         enabled = visibleMonth < YearMonth.from(today),
                     ) {
@@ -229,7 +236,15 @@ fun EventCleanupCalendarDialog(
         },
         confirmButton = {},
         dismissButton = {
-            AppTextButton(text = stringResource(android.R.string.cancel), onClick = onDismiss)
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(android.R.string.cancel),
+                        onClick = onDismiss,
+                        style = DialogActionStyle.Secondary,
+                    )
+                )
+            )
         },
     )
 
@@ -256,22 +271,15 @@ fun EventCleanupCalendarDialog(
                 action.count,
             )
         }
-        AppAlertDialog(
+        ConfirmActionDialog(
+            title = stringResource(R.string.event_cleanup_confirm_title),
+            message = message,
+            confirmText = stringResource(android.R.string.ok),
             onDismissRequest = { pending = null },
-            title = { Text(stringResource(R.string.event_cleanup_confirm_title)) },
-            text = { Text(message) },
-            confirmButton = {
-                AppTextButton(
-                    text = stringResource(android.R.string.ok),
-                    onClick = {
-                        val a = action
-                        pending = null
-                        perform(a)
-                    },
-                )
-            },
-            dismissButton = {
-                AppTextButton(text = stringResource(android.R.string.cancel), onClick = { pending = null })
+            onConfirm = {
+                val a = action
+                pending = null
+                perform(a)
             },
         )
     }

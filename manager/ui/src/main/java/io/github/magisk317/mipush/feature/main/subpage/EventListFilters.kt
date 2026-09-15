@@ -5,10 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
@@ -42,9 +42,10 @@ internal fun EventFilters(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (showToggleAction) {
-                TextButton(onClick = onExpandedChange) {
-                    Text(stringResource(if (expanded) R.string.action_collapse else R.string.action_expand))
-                }
+                AppTextButton(
+                    text = stringResource(if (expanded) R.string.action_collapse else R.string.action_expand),
+                    onClick = onExpandedChange,
+                )
             }
         }
         if (!expanded) return@Column
@@ -53,16 +54,16 @@ internal fun EventFilters(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilterChip(
+            WorkspaceFilterPill(
+                label = stringResource(R.string.recent_activity_filter_type_all),
                 selected = selectedTypeFilters.isEmpty(),
                 onClick = { onTypeFiltersChange(emptySet()) },
-                label = { Text(stringResource(R.string.recent_activity_filter_type_all)) },
             )
             EventTypeFilter.entries.forEach { filter ->
-                FilterChip(
+                WorkspaceFilterPill(
+                    label = stringResource(filter.labelRes),
                     selected = filter in selectedTypeFilters,
                     onClick = { onTypeFiltersChange(selectedTypeFilters.toggle(filter)) },
-                    label = { Text(stringResource(filter.labelRes)) },
                 )
             }
         }
@@ -71,16 +72,16 @@ internal fun EventFilters(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilterChip(
+            WorkspaceFilterPill(
+                label = stringResource(R.string.recent_activity_filter_status_all),
                 selected = selectedStatusFilters.isEmpty(),
                 onClick = { onStatusFiltersChange(emptySet()) },
-                label = { Text(stringResource(R.string.recent_activity_filter_status_all)) },
             )
             EventStatusFilter.entries.forEach { filter ->
-                FilterChip(
+                WorkspaceFilterPill(
+                    label = stringResource(filter.labelRes),
                     selected = filter in selectedStatusFilters,
                     onClick = { onStatusFiltersChange(selectedStatusFilters.toggle(filter)) },
-                    label = { Text(stringResource(filter.labelRes)) },
                 )
             }
         }

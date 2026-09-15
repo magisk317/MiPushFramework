@@ -6,8 +6,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.AppSnackbarDuration
+import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -27,7 +27,7 @@ import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchIte
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+internal fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
@@ -132,7 +132,7 @@ internal fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Sna
                     }.onFailure {
                         snackbarHostState.showSnackbar(
                             message = activityIntentNotFoundMessage,
-                            duration = SnackbarDuration.Short,
+                            duration = AppSnackbarDuration.Short,
                         )
                     }
                 }

@@ -1,3 +1,6 @@
 # Existing deep Xiaomi imports/references outside runtime adapters.
 # Format: relative/path.kt|matched source line
 # The boundary check only fails on new entries not listed here.
+
+# Existing xmsf shell registration compatibility dependency; retained pending adapter migration.
+xmsf/shell/src/main/java/io/github/magisk317/mipush/app/ProactiveMiPushRegistrar.kt|import com.xiaomi.push.service.PushConstants

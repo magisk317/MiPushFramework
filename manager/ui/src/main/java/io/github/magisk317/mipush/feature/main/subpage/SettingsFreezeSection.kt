@@ -3,15 +3,17 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.surface.AppAlertDialog
+import io.github.magisk317.uikit.preference.AppRadioButton
+import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
+import io.github.magisk317.uikit.surface.AppTextButton
+import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,12 +32,24 @@ import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
+import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.currentUiKitStyle
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 private const val MAX_FREEZE_REFREEZE_DELAY_MINUTES = 120
 
+private data class PolicyOption(val value: Int, val labelRes: Int)
+
+private val POLICY_OPTIONS = listOf(
+    PolicyOption(FREEZE_REFREEZE_POLICY_NEVER, R.string.pref_freeze_policy_never),
+    PolicyOption(FREEZE_REFREEZE_POLICY_SCREEN_OFF, R.string.pref_freeze_policy_screen_off),
+    PolicyOption(FREEZE_REFREEZE_POLICY_TIMED, R.string.pref_freeze_policy_timed),
+    PolicyOption(FREEZE_REFREEZE_POLICY_TASK_REMOVED, R.string.pref_freeze_policy_task_removed),
+)
+
 @Composable
-internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val freezeEnabled by viewModel.freezeEnabled.collectAsStateWithLifecycle()
@@ -45,7 +59,7 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
     var showPolicyDialog by remember { mutableStateOf(false) }
     var pendingPolicy by remember { mutableStateOf(FREEZE_REFREEZE_POLICY_SCREEN_OFF) }
     var showDelayDialog by remember { mutableStateOf(false) }
-    var delayInput by remember(freezeRefreezeDelayMinutes) { mutableStateOf(freezeRefreezeDelayMinutes.toString()) }
+    val delayInputState = remember(freezeRefreezeDelayMinutes) { TextFieldState(freezeRefreezeDelayMinutes.toString()) }
     val delayError = stringResource(R.string.pref_freeze_refreeze_delay_error)
 
     val freezeEnabledTitle = stringResource(R.string.pref_freeze_enabled_title)
@@ -61,12 +75,32 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
     }
 
     if (freezeEnabled) {
-        SettingsItem(
-            title = stringResource(R.string.pref_freeze_refreeze_policy_title),
-            summary = stringResource(policySummaryRes(freezeRefreezePolicy)),
-        ) {
-            pendingPolicy = freezeRefreezePolicy
-            showPolicyDialog = true
+        val policyLabels = POLICY_OPTIONS.map { stringResource(it.labelRes) }
+        val selectedPolicyIndex = POLICY_OPTIONS.indexOfFirst { it.value == freezeRefreezePolicy }.coerceAtLeast(0)
+        val policyTitle = stringResource(R.string.pref_freeze_refreeze_policy_title)
+        fun applyPolicy(index: Int) {
+            val newPolicy = POLICY_OPTIONS[index].value
+            viewModel.setFreezeRefreezePolicy(newPolicy) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(policyTitle, true, success)
+            }
+        }
+        when (currentUiKitStyle()) {
+            UiKitStyle.Miuix -> OverlayDropdownPreference(
+                title = policyTitle,
+                summary = policyLabels[selectedPolicyIndex],
+                items = policyLabels,
+                selectedIndex = selectedPolicyIndex,
+                onSelectedIndexChange = ::applyPolicy,
+            )
+
+            UiKitStyle.Expressive -> SettingsItem(
+                title = policyTitle,
+                summary = policyLabels[selectedPolicyIndex],
+            ) {
+                pendingPolicy = POLICY_OPTIONS[selectedPolicyIndex].value
+                showPolicyDialog = true
+            }
         }
 
         if (freezeRefreezePolicy == FREEZE_REFREEZE_POLICY_TIMED) {
@@ -77,14 +111,14 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
                     freezeRefreezeDelayMinutes,
                 ),
             ) {
-                delayInput = freezeRefreezeDelayMinutes.toString()
+                delayInputState.setTextAndPlaceCursorAtEnd(freezeRefreezeDelayMinutes.toString())
                 showDelayDialog = true
             }
         }
     }
 
     if (showPolicyDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showPolicyDialog = false },
             title = { Text(stringResource(R.string.pref_freeze_refreeze_policy_title)) },
             text = {
@@ -101,7 +135,7 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
                                 .clickable { pendingPolicy = value },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RadioButton(
+                            AppRadioButton(
                                 selected = pendingPolicy == value,
                                 onClick = { pendingPolicy = value },
                             )
@@ -111,7 +145,8 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
                 }
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
+                    text = stringResource(android.R.string.ok),
                     onClick = {
                         viewModel.setFreezeRefreezePolicy(pendingPolicy) { success ->
                             if (success) notifyPrefChanged(context)
@@ -123,36 +158,33 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
                         }
                         showPolicyDialog = false
                     },
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showPolicyDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
+                AppTextButton(
+                    text = stringResource(android.R.string.cancel),
+                    onClick = { showPolicyDialog = false },
+                )
             },
         )
     }
 
     if (showDelayDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDelayDialog = false },
             title = { Text(stringResource(R.string.pref_freeze_refreeze_delay_title)) },
             text = {
-                TextField(
-                    value = delayInput,
-                    onValueChange = { value ->
-                        delayInput = value.filter { it.isDigit() }
-                    },
+                AppTextField(
+                    state = delayInputState,
                     supportingText = { Text(stringResource(R.string.pref_freeze_refreeze_delay_hint)) },
                     singleLine = true,
                 )
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
+                    text = stringResource(android.R.string.ok),
                     onClick = {
-                        val minutes = delayInput.toIntOrNull()
+                        val minutes = delayInputState.text.toString().toIntOrNull()
                         if (minutes == null || minutes < 1 || minutes > MAX_FREEZE_REFREEZE_DELAY_MINUTES) {
                             scope.launch {
                                 snackbarHostState.showSnackbar(delayError)
@@ -169,14 +201,13 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: Snackb
                             showDelayDialog = false
                         }
                     },
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showDelayDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
+                AppTextButton(
+                    text = stringResource(android.R.string.cancel),
+                    onClick = { showDelayDialog = false },
+                )
             },
         )
     }
