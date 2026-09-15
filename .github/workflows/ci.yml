@@ -24,8 +24,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Resolve CI toolkit
-        run: bash scripts/resolve_ci_toolkit.sh
+      - uses: ./.github/actions/resolve-ci-toolkit
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -44,8 +43,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Resolve CI toolkit
-        run: bash scripts/resolve_ci_toolkit.sh
+      - uses: ./.github/actions/resolve-ci-toolkit
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -76,8 +74,7 @@ jobs:
           fetch-depth: 0
       - name: Set debug build timestamp
         run: echo "MAGISK_BUILD_TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_ENV"
-      - name: Resolve CI toolkit
-        run: bash scripts/resolve_ci_toolkit.sh
+      - uses: ./.github/actions/resolve-ci-toolkit
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -208,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MAGISK_BUILD_TYPE: debug
-      MIPUSH_ZYGISK_REF: 77b23b5dfdae8b63b484dc7bf35f4d6951b00733
+      MIPUSH_ZYGISK_REF: 98433879080ed1139f207f2542b6a91571230201
     steps:
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7

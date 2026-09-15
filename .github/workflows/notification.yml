@@ -5,9 +5,6 @@ permissions:
   contents: read
 
 on:
-  workflow_run:
-    types: [completed]
-    workflows: [CI, Release]
   workflow_dispatch:
 
 concurrency:
@@ -24,8 +21,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
-      - name: Resolve CI toolkit
-        run: bash scripts/resolve_ci_toolkit.sh
+      - uses: ./.github/actions/resolve-ci-toolkit
 
       - name: Prepare GitHub release notes
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.name == 'Release' && startsWith(github.event.workflow_run.head_branch, 'v')

@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ZYGISK_DIR="${1:-${MIPUSH_ZYGISK_SOURCE_DIR:-${ROOT_DIR}/MiPushZygisk}}"
 ZYGISK_REPOSITORY="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
-ZYGISK_REF="${MIPUSH_ZYGISK_REF:-77b23b5dfdae8b63b484dc7bf35f4d6951b00733}"
+ZYGISK_REF="${MIPUSH_ZYGISK_REF:-v1.0.3}"
 ZYGISK_REPOSITORY_AUTH="$ZYGISK_REPOSITORY"
 if [[ -n "${CI_JOB_TOKEN:-}" && "$ZYGISK_REPOSITORY" == https://gitlab.com/* ]]; then
   ZYGISK_REPOSITORY_AUTH="${ZYGISK_REPOSITORY/https:\/\//https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@}"

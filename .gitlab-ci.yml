@@ -1,19 +1,19 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
+    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
+    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
+    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
+    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: 23cba532842894a4706671e8fbe29fe460be0d6e
+    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -35,38 +35,50 @@ default:
 stages:
   - build
   - package
-  - release-validate
   - release-build
+  # sync must precede release-publish: android:release:github declares
+  # `needs: sync:github`, and `needs` may only target the same or an earlier
+  # stage. With sync last, GitLab rejects the whole pipeline configuration.
+  - sync
   - release-publish
   - notify
   - quality
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "23cba532842894a4706671e8fbe29fe460be0d6e"
+  MAGISK_CI_TOOLKIT_REF: "e088d01ee05a8095fe4b96bf46cc41488894cd8b"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
   MAGISK_ANDROID_SDKMANAGER_CHANNEL: "3"
-  MAGISK_ANDROID_COMPILE_SDK: "37"
-  MAGISK_ANDROID_COMPILE_SDK_PACKAGE: "platforms;android-37.0"
+  MAGISK_ANDROID_COMPILE_SDK: "37.2"
+  MAGISK_ANDROID_COMPILE_SDK_PACKAGE: "platforms;android-37.2"
   MAGISK_ANDROID_SDK_PACKAGES: "platform-tools build-tools;37.0.0"
   MAGISK_GRADLE_ARGS: "--warning-mode all"
   MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PLAY_URL: "https://play.google.com/store/apps/details?id=io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "true"
-  MAGISK_ANDROID_RELEASE_PLAY_TRACK: "production"
+  # NOTE: the Play track is selected by MAGISK_PLAY_TRACK_OVERRIDE (consumed by
+  # the toolkit's resolve_play_release.sh) and is set explicitly by
+  # android:release:play-bundle / android:release:play below.
+  # MAGISK_ANDROID_RELEASE_PLAY_TRACK used to live here but has no consumer in
+  # the toolkit, so setting it silently did nothing. Removed.
   MAGISK_PLAY_INITIAL_VERSION_CODE: "1569"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/beta advances.
-  MIPUSH_ZYGISK_REF: "77b23b5dfdae8b63b484dc7bf35f4d6951b00733"
+  MIPUSH_ZYGISK_REF: "v1.0.3"
   MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
   # Public SHA-256 fingerprint of the production APK signing certificate.
   MAGISK_ANDROID_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
   MAGISK_ANDROID_RELEASE_APK_ROOTS: "xmsf/build/outputs/apk mipush/build/outputs/apk"
+  # GitHub mirror release target. The GitHub Release is mirrored from CI by
+  # android:release:github (RELEASE_OWNER stays "gitlab").
+  MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY: "magisk317/MiPushFramework"
+  # Xposed-Modules-Repo target for android:release:modules-repo.
+  MAGISK_ANDROID_RELEASE_MODULES_REPO: "Xposed-Modules-Repo/io.github.magisk317.mipush"
 
 .mipush_android_rules:
   rules:
@@ -154,7 +166,7 @@ android:check:
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.98.0-trixie"
+  image: "rust:1.98.1-trixie"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -313,13 +325,11 @@ telegram:ci:
   stage: notify
   allow_failure: true
   rules:
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\// && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       when: on_success
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       when: manual
       allow_failure: true
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-      when: on_success
     - when: never
   tags:
     - magisk-arm64-linux
@@ -475,7 +485,7 @@ android:release:guard:
   extends:
     - .magisk_linux_base
     - .magisk_android_release_tag_rules
-  stage: release-validate
+  stage: build
   tags:
     - magisk-arm64-linux
   script:
@@ -681,6 +691,8 @@ android:ci:play-beta:
   tags:
     - magisk-arm64-linux
   rules:
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+      when: on_success
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: manual
       allow_failure: true
@@ -744,3 +756,120 @@ renovate:gitlab:
   stage: maintenance
   tags:
     - magisk-arm64-linux
+
+sync:github:
+  stage: sync
+  # Kept dependency-free for branch pipelines (the guard only runs on tags),
+  # but on a tag pipeline the mirror push must wait for the tag contract check.
+  # Without this, a failing guard would leave an orphan tag on the public GitHub
+  # mirror, and --tags --force would have pushed every tag with it.
+  needs:
+    - job: android:release:guard
+      optional: true
+  image: alpine:latest
+  tags:
+    - magisk-arm64-linux
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      set -euo pipefail
+      # GITHUB_PAT is a group-level protected variable, so it is only injected on
+      # protected branches. A tag pipeline is not protected and falls back to the
+      # project-level GITHUB_RELEASE_TOKEN, which is available on tags.
+      sync_token="${GITHUB_PAT:-${GITHUB_RELEASE_TOKEN:-}}"
+      if [ -z "$sync_token" ]; then
+        echo "ERROR: neither GITHUB_PAT nor GITHUB_RELEASE_TOKEN is available on $CI_COMMIT_REF_NAME" >&2
+        exit 1
+      fi
+      git remote add github "https://magisk317:${sync_token}@github.com/magisk317/${CI_PROJECT_NAME}.git" || true
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        git push github "$CI_COMMIT_TAG" --force
+        git push github --tags --force
+      else
+        git push github "HEAD:refs/heads/$CI_COMMIT_BRANCH" --force
+      fi
+
+# Mirrors the GitLab-owned release to GitHub (tag, notes, release APKs, Zygisk ZIPs).
+# Inert unless GITHUB_RELEASE_TOKEN is configured for the project.
+android:release:github:
+  extends: .magisk_android_release_github
+  resource_group: mipush-android-release-publish
+  stage: release-publish
+  tags:
+    - magisk-arm64-linux
+  variables:
+    # Must stay job-level: the toolkit template pins the same key at job level
+    # to "*arm64-v8a*.apk", and job variables outrank the global variables
+    # block, so a global override here would be silently ignored.
+    MAGISK_ANDROID_RELEASE_GITHUB_ASSET_PATTERN: "*.apk"
+  needs:
+    - job: android:release:apk
+      artifacts: true
+    # gh release create would otherwise invent the tag at the GitHub default
+    # branch HEAD while the mirror has not published it yet.
+    - job: sync:github
+    # Zygisk ZIPs live in MiPushZygisk/build, outside the "*/release/*" subtree
+    # the toolkit's asset walker searches, so they cannot be matched by
+    # MAGISK_ANDROID_RELEASE_GITHUB_ASSET_PATTERN. They are appended to the
+    # same release by the extra step below.
+    - job: zygisk:build:release
+      artifacts: true
+  script:
+    # Reuse the toolkit script verbatim, then add the Zygisk ZIP upload.
+    - !reference [.magisk_android_release_github, script]
+    - |
+      set -euo pipefail
+      github_repo="${MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY:-}"
+      if [[ -z "$github_repo" ]]; then
+        github_repo="${MAGISK_GITHUB_RELEASE_OWNER:-magisk317}/${CI_PROJECT_NAME}"
+      fi
+      export GH_TOKEN="$GITHUB_RELEASE_TOKEN"
+
+      shopt -s nullglob
+      zygisk_zips=(MiPushZygisk/build/*.zip)
+      shopt -u nullglob
+
+      if [[ "${#zygisk_zips[@]}" -eq 0 ]]; then
+        # zygisk:build:release signals a deliberately skipped build this way.
+        if [[ -f MiPushZygisk/build/.zygisk-skip ]]; then
+          echo "SKIP: Zygisk source unavailable; GitHub release keeps the APK set only."
+        else
+          echo "ERROR: neither Zygisk ZIPs nor a supported skip marker were produced" >&2
+          exit 1
+        fi
+      else
+        # Keep the same contract as scripts/publish_mipush_release.sh so the
+        # GitLab and GitHub releases never disagree on the asset set.
+        if [[ -e MiPushZygisk/build/.zygisk-skip ]]; then
+          echo "ERROR: Zygisk ZIPs and a skip marker were produced together" >&2
+          exit 1
+        fi
+        if [[ "${#zygisk_zips[@]}" -ne 5 ]]; then
+          echo "ERROR: partial Zygisk asset set; expected 5 ZIPs, found ${#zygisk_zips[@]}" >&2
+          exit 1
+        fi
+        echo "Uploading ${#zygisk_zips[@]} Zygisk ZIP(s) to ${github_repo}"
+        gh release upload "$CI_COMMIT_TAG" "${zygisk_zips[@]}" \
+          --repo "$github_repo" \
+          --clobber
+      fi
+
+      echo "GitHub release assets: 15 APK + ${#zygisk_zips[@]} Zygisk ZIP"
+      echo "GitHub release ready: https://github.com/${github_repo}/releases/tag/${CI_COMMIT_TAG}"
+
+# Publishes the release into Xposed-Modules-Repo/io.github.magisk317.mipush.
+# Inert unless XPOSED_MODULES_REPO_TOKEN is configured for the project.
+android:release:modules-repo:
+  extends: .magisk_android_publish_modules_repo
+  resource_group: mipush-android-release-publish
+  stage: release-publish
+  tags:
+    - magisk-arm64-linux
+  needs:
+    - job: android:release:apk
+      artifacts: true
