@@ -8,7 +8,7 @@ kotlin {
 
     android {
         namespace = "io.github.magisk317.mipush.platform"
-        compileSdk = libs.versions.compileSdk.get().toInt()
+        compileSdk(project.magiskCompileSdk())
         minSdk = libs.versions.minSdk.get().toInt()
     }
 
