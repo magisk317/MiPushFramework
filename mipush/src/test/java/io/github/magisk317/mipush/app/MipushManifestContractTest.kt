@@ -153,7 +153,6 @@ class MipushManifestContractTest {
         assertTrue("resolveLoadedPackageClassLoader(XMSF_PACKAGE_NAME)" in entrySource)
         assertTrue("resolveLoadedPackageClassLoader(DOCUMENTS_UI_PACKAGE_NAME)" in entrySource)
         assertTrue("resolveLoadedPackageClassLoader(SECURITY_CORE_PACKAGE_NAME)" in entrySource)
-        assertTrue("resolveLoadedPackageClassLoader(AMAP_PACKAGE_NAME)" in entrySource)
 
         val scope = resolveProjectFile("xposed/src/main/resources/META-INF/xposed/scope.list")
             .readLines()
@@ -166,7 +165,6 @@ class MipushManifestContractTest {
                 "com.miui.securitycore",
                 "com.google.android.documentsui",
                 "com.xiaomi.xmsf",
-                "com.autonavi.minimap",
             ),
             scope,
         )

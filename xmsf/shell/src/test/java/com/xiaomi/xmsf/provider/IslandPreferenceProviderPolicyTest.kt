@@ -2,7 +2,7 @@ package com.xiaomi.xmsf.provider
 
 import android.content.pm.ApplicationInfo
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
-import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
+import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -35,33 +35,17 @@ class IslandPreferenceProviderPolicyTest {
     }
 
     @Test
-    fun `AMap caller is exact but does not need to be a system package`() {
-        assertTrue(provider.isTrustedAmapPackage("com.autonavi.minimap", 0))
-        assertFalse(provider.isTrustedAmapPackage("com.example.navigation", 0))
-    }
-
-    @Test
-    fun `AMap can read only the global focus bypass flag`() {
-        assertEquals(
-            listOf(ISLAND_PREF_FOCUS_NOTIF),
-            provider.preferenceKeysForCaller(
-                focusBypassOnly = true,
-                selectionArgs = arrayOf(ISLAND_PREF_ENABLED, ISLAND_PREF_FOCUS_NOTIF),
-            ),
+    fun `preference keys expose the full set and honor selection args`() {
+        assertTrue(
+            provider.preferenceKeysForCaller(selectionArgs = null).contains(ISLAND_PREF_ENABLED),
         )
         assertEquals(
-            listOf(ISLAND_PREF_FOCUS_NOTIF),
-            provider.preferenceKeysForCaller(
-                focusBypassOnly = true,
-                selectionArgs = null,
-            ),
+            listOf(ISLAND_PREF_ENABLED),
+            provider.preferenceKeysForCaller(selectionArgs = arrayOf(ISLAND_PREF_ENABLED, "not.a.key")),
         )
         assertEquals(
-            emptyList<String>(),
-            provider.preferenceKeysForCaller(
-                focusBypassOnly = true,
-                selectionArgs = arrayOf(ISLAND_PREF_ENABLED),
-            ),
+            listOf(ISLAND_PREF_TIMEOUT),
+            provider.preferenceKeysForCaller(selectionArgs = arrayOf(ISLAND_PREF_TIMEOUT)),
         )
     }
 

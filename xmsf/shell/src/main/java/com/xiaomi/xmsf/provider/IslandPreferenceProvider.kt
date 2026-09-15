@@ -32,17 +32,11 @@ import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 class IslandPreferenceProvider : ContentProvider() {
     private companion object {
         private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
-        private const val AMAP_PACKAGE = "com.autonavi.minimap"
         private val systemUiCallerGuard = PackageCallerGuard(setOf(SYSTEM_UI_PACKAGE))
-        private val amapCallerGuard = PackageCallerGuard(
-            allowedPackages = setOf(AMAP_PACKAGE),
-            requireSystemPackage = false,
-        )
     }
 
     private enum class CallerAccess {
         FULL,
-        FOCUS_BYPASS_ONLY,
         DENIED,
     }
 
@@ -77,20 +71,11 @@ class IslandPreferenceProvider : ContentProvider() {
         if (callerAccess == CallerAccess.DENIED) {
             return null
         }
-        val requestedKeys = preferenceKeysForCaller(
-            focusBypassOnly = callerAccess == CallerAccess.FOCUS_BYPASS_ONLY,
-            selectionArgs = selectionArgs,
-        )
-        val packageName = if (callerAccess == CallerAccess.FOCUS_BYPASS_ONLY) {
-            // The app-process bridge needs only the global authorization switch. Never expose
-            // registered-app focus state through a caller-controlled package query.
-            null
-        } else {
-            uri.getQueryParameter(ISLAND_PREF_COLUMN_PACKAGE)
+        val requestedKeys = preferenceKeysForCaller(selectionArgs)
+        val packageName = uri.getQueryParameter(ISLAND_PREF_COLUMN_PACKAGE)
+            ?.takeIf { it.isNotBlank() }
+            ?: uri.getQueryParameter("package")
                 ?.takeIf { it.isNotBlank() }
-                ?: uri.getQueryParameter("package")
-                    ?.takeIf { it.isNotBlank() }
-        }
         val userId = uri.getQueryParameter(ISLAND_PREF_COLUMN_USER)
             ?.toIntOrNull()
             ?.takeIf { it >= 0 }
@@ -126,30 +111,21 @@ class IslandPreferenceProvider : ContentProvider() {
         if (appContext.checkCallingPermission(ISLAND_PREF_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
             return CallerAccess.FULL
         }
-        return if (amapCallerGuard.isCallerAllowed(appContext)) {
-            CallerAccess.FOCUS_BYPASS_ONLY
-        } else {
-            CallerAccess.DENIED
-        }
+        return CallerAccess.DENIED
     }
 
     internal fun preferenceKeysForCaller(
-        focusBypassOnly: Boolean,
         selectionArgs: Array<out String>?,
     ): List<String> {
-        val allowedKeys = if (focusBypassOnly) listOf(ISLAND_PREF_FOCUS_NOTIF) else keys
         return if (selectionArgs.isNullOrEmpty()) {
-            allowedKeys
+            keys
         } else {
-            selectionArgs.filter { it in allowedKeys }
+            selectionArgs.filter { it in keys }
         }
     }
 
     internal fun isTrustedSystemUiPackage(packageName: String, flags: Int): Boolean =
         systemUiCallerGuard.isPackageAllowed(packageName, flags)
-
-    internal fun isTrustedAmapPackage(packageName: String, flags: Int): Boolean =
-        amapCallerGuard.isPackageAllowed(packageName, flags)
 
     internal fun requiresExplicitUserScope(packageName: String?, userId: Int?): Boolean =
         !packageName.isNullOrBlank() && userId == null

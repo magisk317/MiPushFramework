@@ -1,7 +1,11 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import android.os.Bundle
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.island.IslandOptions
 import io.github.magisk317.mipush.hook.island.IslandPreferences
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -40,7 +44,7 @@ class FocusNotificationPermissionPolicyTest {
     }
 
     @Test
-    fun `enabled focus authorization bypass applies globally`() {
+    fun `enabled focus authorization bypass is scoped to MiPush identities`() {
         IslandPreferences.resetForTest(
             IslandOptions(
                 enabled = true,
@@ -49,8 +53,46 @@ class FocusNotificationPermissionPolicyTest {
             )
         )
 
-        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.unregistered"))
-        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.autonavi.minimap"))
+        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows(XMSF_PACKAGE_NAME))
+        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.android.systemui"))
+        assertFalse(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.unregistered"))
+        assertFalse(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.delivery"))
+    }
+
+    @Test
+    fun `native system app focus remains outside MiPush bypass`() {
+        IslandPreferences.resetForTest(
+            IslandOptions(
+                enabled = true,
+                enableFloat = true,
+                focusNotification = true,
+            )
+        )
+
+        val proxyExtras = mockk<Bundle>()
+        every { proxyExtras.containsKey(any()) } returns false
+        every { proxyExtras.getBoolean(any(), any()) } returns false
+        every { proxyExtras.getString(any()) } returns null
+        every { proxyExtras.getString("mipush_island_source_pkg") } returns "com.example.source"
+
+        assertFalse(
+            FocusNotificationPermissionPolicy.isMiPushFocusNotification(
+                packageName = "com.android.mms",
+                extras = null,
+            )
+        )
+        assertTrue(
+            FocusNotificationPermissionPolicy.isMiPushFocusNotification(
+                packageName = XMSF_PACKAGE_NAME,
+                extras = null,
+            )
+        )
+        assertTrue(
+            FocusNotificationPermissionPolicy.isMiPushFocusNotification(
+                packageName = "com.android.systemui",
+                extras = proxyExtras,
+            )
+        )
     }
 
     @Test

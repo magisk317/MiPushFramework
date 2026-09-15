@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -169,13 +170,31 @@ internal object FocusNotificationPermissionPolicy {
         return if (miPushAllowed) 1 else systemState
     }
 
-    /**
-     * The focus-authorization switch is deliberately global. It controls SystemUI's focus
-     * authorization boundary, whereas per-package island options only control this project's
-     * generated payloads.
-     */
     fun isGlobalBypassEnabled(): Boolean = IslandPreferences.current().focusNotification
 
-    fun miPushPreferenceAllows(@Suppress("UNUSED_PARAMETER") packageName: String?): Boolean =
-        isGlobalBypassEnabled()
+    /**
+     * The focus-authorization switch enables this module's generated/managed notifications, not
+     * every application's native Dynamic Island. The dispatcher posts from SystemUI, while some
+     * legacy managed notifications still arrive from XMSF.
+     *
+     * Keep this package gate narrow: cf8105902 established scoped island hooks, while the later
+     * global implementation caused native SMS/weather islands to enter the MiPush auth path.
+     */
+    fun miPushPreferenceAllows(packageName: String?): Boolean =
+        isGlobalBypassEnabled() &&
+            // SystemUI is the trusted proxy publisher; XMSF is the legacy direct publisher.
+            (packageName == XMSF_PACKAGE_NAME || packageName == SYSTEM_UI_PACKAGE)
+
+    /**
+     * Identifies a notification for which MiPush may use the focus authorization bypass. The
+     * explicit extras markers cover the SystemUI-posted proxy; the XMSF package covers legacy
+     * direct posts. Native notifications from SMS, weather, and other apps must remain on the
+     * stock authorization path even when the global MiPush focus switch is enabled.
+     */
+    fun isMiPushFocusNotification(packageName: String?, extras: Bundle?): Boolean {
+        if (packageName == XMSF_PACKAGE_NAME) return true
+        return extras != null && SystemUiNotificationPolicy.isMiPushManagedNotification(extras)
+    }
+
+    private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
 }
