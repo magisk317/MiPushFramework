@@ -1,5 +1,6 @@
 package com.xiaomi.push.sdk
 
+import io.github.magisk317.mipush.service.runtime.AppPushMessageProcessor
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -27,8 +28,8 @@ import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.push.service.MIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationIntentSupport
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController
@@ -64,12 +65,12 @@ class MyPushMessageHandler : Service() {
     private fun handleIntent(intent: Intent) {
         val styleTargetIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(
-                MyMIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT,
+                MIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT,
                 Intent::class.java
             )
         } else {
             @Suppress("DEPRECATION")
-            intent.getParcelableExtra(MyMIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT) as? Intent
+            intent.getParcelableExtra(MIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT) as? Intent
         }
         if (styleTargetIntent != null) {
             styleTargetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -173,7 +174,7 @@ class MyPushMessageHandler : Service() {
         var dispatched = false
         runWithAppStateElevatedToForeground(container.packageName) { elevated ->
             if (!elevated) return@runWithAppStateElevatedToForeground
-            val pendingIntent = MyMIPushNotificationIntentSupport
+            val pendingIntent = MIPushNotificationIntentSupport
                 .cloneTargetPendingIntentForBackgroundActivityStart(
                     context = this,
                     container = container,
@@ -249,7 +250,7 @@ class MyPushMessageHandler : Service() {
         pkg: String,
         task: (Boolean) -> Unit,
     ) {
-        val intent = Intent().setClassName(pkg, MyMIPushNotificationHelper.CLASS_NAME_PUSH_MESSAGE_HANDLER)
+        val intent = Intent().setClassName(pkg, MIPushNotificationPublishHelper.CLASS_NAME_PUSH_MESSAGE_HANDLER)
         val appContext = applicationContext
         val completed = AtomicBoolean(false)
         val completion = CountDownLatch(1)
@@ -298,8 +299,8 @@ class MyPushMessageHandler : Service() {
         private const val APP_STATE_ELEVATION_TIMEOUT_MS = 5_000L
 
 
-        private fun getProcessor(context: Context): PushMessageProcessor {
-            return AppDependencies.get<PushMessageProcessor>(context.applicationContext)
+        private fun getProcessor(context: Context): AppPushMessageProcessor {
+            return AppDependencies.get<AppPushMessageProcessor>(context.applicationContext)
         }
 
         @JvmStatic

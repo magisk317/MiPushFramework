@@ -17,7 +17,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.service.ForegroundHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
 import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.service.runtime.PushClientsStateSupport
 import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
@@ -131,7 +131,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
             "reconnect_success",
             "MiPushRuntimeObserverBridge.reconnectionSuccessful",
         )
-        MyMIPushNotificationHelper.markNotificationSessionStarted(
+        MIPushNotificationPublishHelper.markNotificationSessionStarted(
             "MiPushRuntimeObserverBridge.reconnectionSuccessful",
         )
         if (successPlan.shouldBroadcastAvailable) {

@@ -144,6 +144,9 @@ internal class PushMessageProcessorActionResultSupport(
             result.reason,
             null
         )
+        // Stock d0.a() hands f0.autoMarkPkgs to the app through the COMMAND_REGISTER result;
+        // MiuiPushMessageReceiver uses it to seed superscript/badge state.
+        commandMessage.autoMarkPkgs = result.autoMarkPkgs
         PushServiceClient.getInstance(sAppContext).processPendRequest()
         return commandMessage
     }

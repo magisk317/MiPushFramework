@@ -114,7 +114,7 @@ object DefaultPushShellBridge : PushShellBridge {
                 },
                 "payload_deduplication" to {
                     io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
-                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
                     io.github.magisk317.mipush.notification.TopNotificationCoordinator.clearPackageState(context, packageName, userId)
@@ -126,7 +126,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
                 },
                 "conversation_history" to {
-                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
                 },
                 "media_sessions" to {
                     io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
@@ -157,7 +157,7 @@ object DefaultPushShellBridge : PushShellBridge {
                 },
                 "payload_deduplication" to {
                     io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
-                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
                     io.github.magisk317.mipush.notification.TopNotificationCoordinator.clearPackageState(context, packageName, userId)
@@ -169,7 +169,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
                 },
                 "conversation_history" to {
-                    io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                    io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
                 },
                 "media_sessions" to {
                     io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)

@@ -14,9 +14,9 @@ class MiPushComponentVisibilityModelFactoryTest {
         val packageInfo = MiPushComponentVisibilityModelFactory.fakeXmsfPackageInfo()
 
         assertEquals("com.xiaomi.xmsf", packageInfo.packageName)
-        assertEquals("7.4.67-C", packageInfo.versionName)
+        assertEquals("7.5.29-C", packageInfo.versionName)
         @Suppress("DEPRECATION")
-        assertEquals(70004067, packageInfo.versionCode)
+        assertEquals(70005029, packageInfo.versionCode)
         assertEquals("com.xiaomi.xmsf", packageInfo.applicationInfo?.packageName)
         assertTrue(packageInfo.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) != 0)
         assertEquals(

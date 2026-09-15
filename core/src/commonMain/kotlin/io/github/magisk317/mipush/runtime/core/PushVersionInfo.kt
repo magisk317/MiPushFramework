@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.runtime.core
 
 object PushVersionInfo {
-    const val STOCK_XMSF_APP_VERSION_NAME = "7.4.67-C"
-    const val STOCK_XMSF_APP_VERSION_CODE = 70004067
+    const val STOCK_XMSF_APP_VERSION_NAME = "7.5.29-C"
+    const val STOCK_XMSF_APP_VERSION_CODE = 70005029
 
     const val PUSH_SDK_VERSION_NAME = "7_12_4-C"
     const val PUSH_SDK_VERSION_CODE = 70124

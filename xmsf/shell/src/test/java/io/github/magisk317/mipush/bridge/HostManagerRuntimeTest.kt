@@ -1,4 +1,6 @@
-package com.xiaomi.network
+package io.github.magisk317.mipush.bridge
+
+import com.xiaomi.network.HostManager
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

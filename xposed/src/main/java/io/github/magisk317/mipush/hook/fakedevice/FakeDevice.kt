@@ -83,6 +83,20 @@ object FakeDevice {
             return
         }
 
+        // The Agoo click payload still needs result replacement on native Xiaomi devices.
+        // Install this narrowly scoped hook before the device guard skips FakeDevice vendor shims.
+        if (HookPipelineId.ALI_AGOO_ACCS in pipelines) {
+            AgooClickDecryptHook.install(lpparam)
+        }
+
+        // ByteDance's MiPush provider gate is a Java-class capability check
+        // (ToolUtils.isMiui resolves miui.os.Build). Property spoofing cannot provide a class,
+        // and the guard below would otherwise skip every pipeline on genuine or spoofed Xiaomi
+        // brand values, so this exact-predicate hook installs ahead of the guard as well.
+        if (HookPipelineId.DOUYIN in pipelines) {
+            DouyinMiuiGateHook.install(lpparam)
+        }
+
         if (android.os.Build.BRAND.equals("Xiaomi", ignoreCase = true) || android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
             XLog.i(TAG, "Zygisk spoofing detected (or native Xiaomi device) for $packageName, skipping FakeDevice pipelines")
             emit(result = "skip", reason = "xiaomi_device", pipelineCount = pipelines.size)

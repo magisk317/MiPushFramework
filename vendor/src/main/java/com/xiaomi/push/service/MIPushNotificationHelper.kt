@@ -70,9 +70,10 @@ object MIPushNotificationHelper {
         MIPushNotificationCacheSupport.clearNotification(context, packageName)
     }
 
+    /** Returns the number of cleared notifications (stock y0.c counts them for q2.a). */
     @JvmStatic
-    fun clearNotification(context: Context, packageName: String, notificationId: Int) {
-        MIPushNotificationCacheSupport.clearNotification(context, packageName, notificationId)
+    fun clearNotification(context: Context, packageName: String, notificationId: Int): Int {
+        return MIPushNotificationCacheSupport.clearNotification(context, packageName, notificationId)
     }
 
     @JvmStatic

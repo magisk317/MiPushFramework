@@ -1,6 +1,7 @@
 package com.xiaomi.push.service
 
 import android.content.Intent
+import android.os.Build
 import android.os.Message
 import android.os.RemoteException
 import android.text.TextUtils
@@ -64,6 +65,7 @@ internal object ClientEventDispatcherPacketSupport {
             putExtra(PushConstants.EXTRA_SESSION, clientLoginInfo.session)
             putExtra(PushConstants.EXTRA_SECURITY, clientLoginInfo.security)
         }
+        applyExportedFlagForLegacyChannels(intent, chid)
         val peer = clientLoginInfo.peer
         if (peer != null) {
             val msg = Message.obtain(null, 17, intent)
@@ -111,6 +113,7 @@ internal object ClientEventDispatcherPacketSupport {
             putExtra(PushConstants.EXTRA_SESSION, clientLoginInfo.session)
             putExtra(PushConstants.EXTRA_SECURITY, clientLoginInfo.security)
         }
+        applyExportedFlagForLegacyChannels(intent, chid)
         ClientEventDispatcherChannelSupport.sendBroadcast(pushAction.context, intent, clientLoginInfo)
     }
 
@@ -215,4 +218,21 @@ internal object ClientEventDispatcherPacketSupport {
     private fun isNotificationPayload(pushAction: IPushServiceAction, payload: ByteArray): Boolean {
         return pushAction.runtimeObserver.packToContainer(payload) != null
     }
+
+    /**
+     * Stock m.java compensates the Android 14 manifest-receiver rule for the legacy data
+     * channels: without FLAG_RECEIVER_EXPORTED (0x10000000) the new_msg/new_iq broadcast is
+     * dropped for every registered client that is not already receiving through the
+     * messenger peer. Declared as a literal because the vendor compile target predates the
+     * framework constant.
+     */
+    private fun applyExportedFlagForLegacyChannels(intent: Intent, chid: String) {
+        if (Build.VERSION.SDK_INT >= 34 &&
+            (chid.equals("10", ignoreCase = true) || chid.equals("11", ignoreCase = true))
+        ) {
+            intent.addFlags(FLAG_RECEIVER_EXPORTED)
+        }
+    }
+
+    private const val FLAG_RECEIVER_EXPORTED = 0x10000000
 }

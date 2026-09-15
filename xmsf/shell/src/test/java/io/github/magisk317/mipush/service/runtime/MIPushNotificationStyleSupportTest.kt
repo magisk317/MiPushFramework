@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class MyMIPushNotificationStyleSupportTest {
+class MIPushNotificationStyleSupportTest {
     @Test
     fun `explicit conversation icon wins over notification icon`() {
         assertEquals(
             "content://sender",
-            MyMIPushNotificationStyleSupport.selectConversationIconUri(
+            MIPushNotificationStyleSupport.selectConversationIconUri(
                 primary = "content://sender",
                 fallback = "content://notification",
             ),
@@ -21,7 +21,7 @@ class MyMIPushNotificationStyleSupportTest {
     fun `notification icon is used when conversation icon is missing`() {
         assertEquals(
             "content://notification",
-            MyMIPushNotificationStyleSupport.selectConversationIconUri(
+            MIPushNotificationStyleSupport.selectConversationIconUri(
                 primary = "  ",
                 fallback = "content://notification",
             ),
@@ -30,8 +30,8 @@ class MyMIPushNotificationStyleSupportTest {
 
     @Test
     fun `application fallback is allowed only without an effective uri`() {
-        assertTrue(MyMIPushNotificationStyleSupport.shouldUseApplicationIconFallback(null))
-        assertTrue(MyMIPushNotificationStyleSupport.shouldUseApplicationIconFallback("  "))
-        assertFalse(MyMIPushNotificationStyleSupport.shouldUseApplicationIconFallback("content://broken"))
+        assertTrue(MIPushNotificationStyleSupport.shouldUseApplicationIconFallback(null))
+        assertTrue(MIPushNotificationStyleSupport.shouldUseApplicationIconFallback("  "))
+        assertFalse(MIPushNotificationStyleSupport.shouldUseApplicationIconFallback("content://broken"))
     }
 }

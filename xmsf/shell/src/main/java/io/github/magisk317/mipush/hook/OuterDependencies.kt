@@ -5,7 +5,7 @@ import io.github.magisk317.mipush.service.XMPushServiceListener
 import com.xiaomi.push.service.XMPushServiceCore
 
 interface OuterDependencies {
-    fun configuration(): Configurations?
+    fun configuration(): XMPushServerProvider?
     fun serviceListener(pushService: XMPushServiceCore): XMPushServiceListener?
     fun hookedMethodHandler(): HookedMethodHandler?
 }

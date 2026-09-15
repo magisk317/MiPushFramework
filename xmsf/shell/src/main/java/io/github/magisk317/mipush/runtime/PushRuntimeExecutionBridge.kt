@@ -15,7 +15,7 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.mipush.sdk.AppInfoHolder
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
-import com.xiaomi.push.sdk.PushMessageProcessor
+import io.github.magisk317.mipush.service.runtime.AppPushMessageProcessor
 import com.xiaomi.push.service.ResetConnectJob
 import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.common.Constants
@@ -419,7 +419,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
         MagiskOtel.event(name = name, attributes = attrs, statusOk = statusOk)
     }
 
-    private fun getProcessor(context: Context): PushMessageProcessor {
-        return AppDependencies.get<PushMessageProcessor>(context.applicationContext)
+    private fun getProcessor(context: Context): AppPushMessageProcessor {
+        return AppDependencies.get<AppPushMessageProcessor>(context.applicationContext)
     }
 }

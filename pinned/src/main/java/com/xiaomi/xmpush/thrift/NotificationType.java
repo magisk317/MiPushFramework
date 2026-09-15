@@ -46,7 +46,18 @@ public enum NotificationType {
     PushLogUpload("log_upload"),
     APP_WAKEUP("app_wakeup"),
     APP_SLEEP("app_sleep"),
-    NOTIFICATION_SWITCH("notification_switch");
+    NOTIFICATION_SWITCH("notification_switch"),
+    SubscribeChannelSync("subscribe_channel_sync"),
+    SubscribeChannelSyncAck("subscribe_channel_sync_ack"),
+    SubscribeChannelSyncResult("subscribe_channel_sync_result"),
+    SyncAppSceneMiChannel("sync_app_scene_michannel"),
+    SyncAppSceneMiChannelResult("sync_app_scene_michannel_result"),
+    // Stock 7.5.29 ae.n:96,97,102,104. Only the inbound control/ack wire types are added;
+    // the PushDataRecover/RecoverLBSSubscription uplink requests are not ported.
+    SettingAppNotificationPermission("setting_app_notification_permission"),
+    SettingAppNotificationPermissionACK("setting_app_notification_permission_ack"),
+    PushDataForRecoverACK("push_data_recover_ack"),
+    RecoverLBSSubscriptionACK("recover_lbs_subscription_ack");
 
     public final String value;
 

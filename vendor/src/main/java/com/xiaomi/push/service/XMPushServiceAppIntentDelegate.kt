@@ -118,14 +118,31 @@ class XMPushServiceAppIntentDelegate(
         service.runtimeObserver.onPackageDataCleared(packageName)
     }
 
+    /**
+     * Stock 7.5.29 XMPushService.handleIntent:1543-1555: CLEAR_NOTIFICATION with a notifyId
+     * goes to y0.c(notifyId, ext_clicked_button, service, pkg); y0.c calls h.a(ctx, sbn,
+     * buttonIndex) on the matching active notification to record the button the user pressed
+     * (h ring, consumed as the -1001..-1004 dismiss reason by h.c when the notification is
+     * later collected). This tree reports the attribution through the observation channel
+     * instead: the h/h.c stats ring is not ported, so the button index is only surfaced when
+     * the clear actually matched a notification (stock y0.c clears on match only).
+     */
     fun handleClearNotification(intent: Intent) {
         val packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
         val notifyId = intent.getIntExtra(PushConstants.EXTRA_NOTIFY_ID, -2)
+        val clickedButton = intent.getIntExtra(PushConstants.EXTRA_CLICKED_BUTTON, -1)
         if (packageName.isNullOrEmpty()) {
             return
         }
         if (notifyId >= -1) {
-            MIPushNotificationHelper.clearNotification(service, packageName, notifyId)
+            val cleared = MIPushNotificationHelper.clearNotification(service, packageName, notifyId)
+            if (cleared > 0 && clickedButton > 0) {
+                service.runtimeObserver.onNotificationEvent(
+                    packageName,
+                    "clear_notification_clicked_button_$clickedButton",
+                    "XMPushServiceAppIntentDelegate.handleClearNotification",
+                )
+            }
         } else {
             MIPushNotificationHelper.clearNotification(
                 service,
@@ -134,6 +151,49 @@ class XMPushServiceAppIntentDelegate(
                 intent.getStringExtra(PushConstants.EXTRA_NOTIFY_DESCRIPTION),
             )
         }
+    }
+
+    /**
+     * Stock 7.5.29 XMPushService.handleIntent:1557-1564: CLEAR_HEADSUPNOTIFICATION routes the
+     * caller package to y0.b, which forwards to the heads-up stack listener (f10285b.a(pkg))
+     * on MIUI only. The com.xiaomi.push.headsup module is not part of this port (same effect
+     * as stock's null-listener path: drop), so the request is routed to the observer and
+     * otherwise dropped.
+     */
+    fun handleClearHeadsupNotification(intent: Intent) {
+        val packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
+        if (packageName.isNullOrEmpty()) {
+            return
+        }
+        service.runtimeObserver.onClearHeadsupNotificationRequested(packageName)
+    }
+
+    /**
+     * Stock 7.5.29 PkgActionsReceiver.java:92-101 + XMPushService.handleIntent:1494-1500:
+     * PACKAGE_ADDED (also fired while replacing, so updates trigger it too) arrives as
+     * com.xiaomi.xmsf.push.PACKAGE_ADD with the pkg_name extra and feeds u0.D (provider.g
+     * refresh + subscribenotification AppSubManager.m + scenepush e). The observer decides
+     * the runnable subset.
+     */
+    fun handlePackageAdd(intent: Intent) {
+        val packageName = intent.getStringExtra(PushServiceConstants.EXTRA_PKG_NAME)
+        if (packageName.isNullOrEmpty() || packageName.trim().isEmpty()) {
+            return
+        }
+        service.runtimeObserver.onPackageAdded(packageName)
+    }
+
+    /**
+     * Stock 7.5.29 PkgActionsReceiver.java:103-114 + XMPushService.handleIntent:1486-1491:
+     * PACKAGE_REPLACED arrives as com.xiaomi.xmsf.action.PACKAGE_REPLACED with the pkg_name
+     * extra and feeds u0.F (provider.g cache refresh only).
+     */
+    fun handlePackageReplaced(intent: Intent) {
+        val packageName = intent.getStringExtra(PushServiceConstants.EXTRA_PKG_NAME)
+        if (packageName.isNullOrEmpty() || packageName.trim().isEmpty()) {
+            return
+        }
+        service.runtimeObserver.onPackageReplaced(packageName)
     }
 
     fun handleSetNotificationType(intent: Intent) {

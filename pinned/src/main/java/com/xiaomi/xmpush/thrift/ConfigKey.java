@@ -131,10 +131,10 @@ public enum ConfigKey implements TEnum {
     // effective for a network id before the stable strategy discards it (stock default 90 days).
     ShortHeartbeatEffectivePeriodMsLong(130),
     // Added from stock XMSF 7.4.67-C za.f because the pinned 3.7.9 enum stopped at the
-    // older online-config surface. 140/142 gate ServiceBox telemetry and keep-alive,
-    // 141 lets an existing generated group summary move with newly posted children,
-    // and 208 controls Android 16's platform force-group opt-out.
-    OnetrackSwitch(140),
+    // older online-config surface. 142 gates keep-alive, 141 lets an existing generated
+    // group summary move with newly posted children, and 208 controls Android 16's
+    // platform force-group opt-out. The 7.4-era OnetrackSwitch(140) is deliberately not
+    // mirrored: stock deleted the key in 7.5.29 (upstream-sync rule).
     NotificationGroupUpdateTimeSwitch(141),
     KASwitch(142),
     // Stock XMSF 7.4.67-C za.f intelligent-heartbeat tuning: 143 keeps the adaptive interval
@@ -399,8 +399,6 @@ public enum ConfigKey implements TEnum {
                 return ShortHeartbeatEffectivePeriodMsLong;
             // Decode the stock 7.4.67-C additions as real enum members; otherwise remote
             // online-config updates for these IDs are silently treated as unknown values.
-            case 140:
-                return OnetrackSwitch;
             case 141:
                 return NotificationGroupUpdateTimeSwitch;
             case 142:

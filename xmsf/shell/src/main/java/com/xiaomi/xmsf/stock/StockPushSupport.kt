@@ -15,7 +15,7 @@ import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.adapter.container
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationIntentSupport
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -287,7 +287,7 @@ internal object StockPushSupport {
                 return@mapNotNull null
             }
             val payload = event.payload ?: return@mapNotNull null
-            val activityIntent = MyMIPushNotificationIntentSupport.buildBoxActivityIntent(
+            val activityIntent = MIPushNotificationIntentSupport.buildBoxActivityIntent(
                 context,
                 container,
                 payload,

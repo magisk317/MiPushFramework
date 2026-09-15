@@ -9,13 +9,14 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.NotificationGroupHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import com.xiaomi.xmsf.stock.StockNotificationPresentationBridge
 import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 
-internal object MyMIPushNotificationPresentationSupport {
+internal object MIPushNotificationPresentationSupport {
     internal data class NotificationInfo(
         val notificationId: Int,
         val notificationBuilder: NotificationCompat.Builder,
@@ -27,12 +28,13 @@ internal object MyMIPushNotificationPresentationSupport {
         container: XmPushActionContainer,
         decryptedContent: ByteArray,
         notificationId: Int,
+        sendMessage: XmPushActionSendMessage?,
     ): NotificationInfo {
         val metaInfo = container.metaInfo
         val packageName = MIPushNotificationHelper.getTargetPackage(container)
 
         val pkgCtx = XMPushUtils.getPackageContext(context, packageName)
-        val message = MyMIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
+        val message = MIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val useMessagingStyle = message != null && custom.useMessagingStyle(false)
 
@@ -40,7 +42,7 @@ internal object MyMIPushNotificationPresentationSupport {
         // Stock 7.4.67-C t0 keeps delegated notifications under the target package's
         // default group. Only a non-MIUI payload that explicitly disables that default
         // retains its source group, so use the same identity before click/group handling.
-        val group = MyMIPushNotificationHelper.resolveStockGroup(
+        val group = MIPushNotificationPublishHelper.resolveStockGroup(
             targetPackage = packageName,
             sourceGroup = sourceGroup,
             disableDefault = metaInfo.extra
@@ -52,12 +54,13 @@ internal object MyMIPushNotificationPresentationSupport {
         intentExtra.putExtra(io.github.magisk317.mipush.common.Constants.INTENT_NOTIFICATION_ID, notificationId)
         intentExtra.putExtra(io.github.magisk317.mipush.common.Constants.INTENT_NOTIFICATION_GROUP, group)
 
-        val localPendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
+        val localPendingIntent = MIPushNotificationIntentSupport.buildClickedPendingIntent(
             context,
             container,
             decryptedContent,
             notificationId,
             intentExtra.extras,
+            sendMessage,
         )
 
         val voipBuilder = if (VoipNotificationHelper.isVoipNotification(metaInfo)) {
@@ -67,7 +70,7 @@ internal object MyMIPushNotificationPresentationSupport {
         } else null
 
         val notificationBuilder = voipBuilder ?: if (useMessagingStyle) {
-            MyMIPushNotificationStyleSupport.messagingStyleNotificationBuilder(
+            MIPushNotificationStyleSupport.messagingStyleNotificationBuilder(
                 context,
                 container,
                 notificationId,
@@ -75,10 +78,10 @@ internal object MyMIPushNotificationPresentationSupport {
                 pkgCtx,
             )
         } else {
-            MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(pkgCtx, container.metaInfo, packageName)
+            MIPushNotificationStyleSupport.normalStyleNotificationBuilder(pkgCtx, container.metaInfo, packageName)
         }
 
-        if (MyMIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName)) {
+        if (MIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName)) {
             notificationBuilder.extras.putBoolean(
                 NotificationClickFallbackContract.USE_LAUNCHER_FALLBACK,
                 true,
@@ -86,7 +89,7 @@ internal object MyMIPushNotificationPresentationSupport {
         }
 
         if (metaInfo.extra != null) {
-            MyMIPushNotificationIntentSupport.addStyleActions(
+            MIPushNotificationIntentSupport.addStyleActions(
                 notificationBuilder,
                 context,
                 packageName,
@@ -102,7 +105,7 @@ internal object MyMIPushNotificationPresentationSupport {
             // active-notification clear and reporting can identify delegated records.
             // This custom builder bypasses t0, so it must restore that metadata here.
             val stockExtras = Bundle().apply {
-                MyMIPushNotificationHelper.buildStockMiuiIdentityExtras(container, packageName)
+                MIPushNotificationPublishHelper.buildStockMiuiIdentityExtras(container, packageName)
                     .forEach(::putString)
             }
             notificationBuilder.addExtras(stockExtras)
@@ -119,7 +122,7 @@ internal object MyMIPushNotificationPresentationSupport {
 
         if (localPendingIntent != null) {
             notificationBuilder.setContentIntent(localPendingIntent)
-            MyMIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
+            MIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
                 context,
                 container,
                 notificationId,

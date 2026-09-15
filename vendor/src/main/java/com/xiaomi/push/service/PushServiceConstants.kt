@@ -106,6 +106,9 @@ class PushServiceConstants private constructor() {
         const val EXTRA_PACKET_ID = "packet_id"
         const val EXTRA_PACKET_RECEIVE_HANDLERS = "pac_rec_handlers"
         const val EXTRA_PACKET_REQUIRE_ANSWER = "require_answer"
+        // Stock 7.5.29 PkgActionsReceiver.java:97,110: package add/replace service intents
+        // carry the affected package under this plain key.
+        const val EXTRA_PKG_NAME = "pkg_name"
         const val EXTRA_RECIPIENTS_RESULT_KEY = "recipients_result"
         const val EXTRA_RECIPIENT_SUBTITLE = "subtitle"
         const val EXTRA_RECIPIENT_TITLE = "title"
@@ -143,6 +146,10 @@ class PushServiceConstants private constructor() {
         const val XM_NOTIFY_MIUI_NAMESPACE = "xm:miui"
         const val ACTION_UNINSTALL = "com.xiaomi.xmsf.push.UNINSTALL"
         const val ACTION_PACKAGE_DATA_CLEARED = "com.xiaomi.xmsf.push.PACKAGE_DATA_CLEARED"
+        // Stock 7.5.29 PkgActionsReceiver.java:96 (ACTION_PACKAGE_ADD) and :109
+        // (ACTION_PACKAGE_REPLACED), consumed by XMPushService.handleIntent:1486-1500.
+        const val ACTION_PACKAGE_ADD = "com.xiaomi.xmsf.push.PACKAGE_ADD"
+        const val ACTION_PACKAGE_REPLACED = "com.xiaomi.xmsf.action.PACKAGE_REPLACED"
         const val ACTION_PACKAGE_UNINSTALLED = "com.xiaomi.xmsf.push.PACKAGE_UNINSTALLED"
         const val EXTRA_UNINSTALLED_PKG_NAME = "uninstalled_pkg_name"
     }

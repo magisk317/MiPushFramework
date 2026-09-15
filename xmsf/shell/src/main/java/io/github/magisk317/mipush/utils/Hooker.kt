@@ -10,7 +10,7 @@ import android.content.Context
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
-import io.github.magisk317.mipush.hook.Configurations
+import io.github.magisk317.mipush.hook.XMPushServerProvider
 import io.github.magisk317.mipush.hook.Dependencies
 import io.github.magisk317.mipush.push.hook.HookedMethodHandler
 import io.github.magisk317.mipush.hook.OuterDependencies
@@ -52,12 +52,12 @@ object Hooker {
     }
 
     private fun initMiPushHookLib(context: Context) {
-        val configurations = object : Configurations {
+        val configurations = object : XMPushServerProvider {
             override fun getXMPPServer(): String =
                 runBlocking { Global.configCenter().getXMPPServerAsync() }.orEmpty()
         }
         Dependencies.set(object : OuterDependencies {
-            override fun configuration(): Configurations = configurations
+            override fun configuration(): XMPushServerProvider = configurations
 
             override fun serviceListener(pushService: XMPushServiceCore): XMPushServiceListener =
                 XMPushServiceAbility(pushService)

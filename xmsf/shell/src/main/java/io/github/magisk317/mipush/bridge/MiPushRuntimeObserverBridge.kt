@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.ConnectionStatus
 import com.xiaomi.push.service.PushChannelState
 import com.xiaomi.push.service.PushRegistrationState
@@ -36,6 +37,7 @@ import com.xiaomi.push.service.PushServiceMiPushAppPlan
 import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchPlan
 import com.xiaomi.push.service.PushServiceRegisterAppPlan
 import com.xiaomi.push.service.PushServiceResetConnectionPlan
+import com.xiaomi.push.service.PushSettingAppNotificationPermissionResult
 import com.xiaomi.push.service.PushRegistrationPayloadRepairResult
 import com.xiaomi.push.service.PushShortConnectionPlan
 import com.xiaomi.push.service.PushShouldReconnectPlan
@@ -51,12 +53,16 @@ import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
 import com.xiaomi.smack.packet.Packet
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import io.github.magisk317.mipush.subscribe.SubscribeChannelSyncCoordinator
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeObservationAdapter
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeRegistrationChannelObservationAdapter
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntimeNotificationObservationAdapter
 import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeNotificationObservationSink
+import io.github.magisk317.xposed.logging.MagiskOtel
 import java.lang.ref.WeakReference
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
@@ -349,6 +355,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     override fun processMIPushMessage(payload: ByteArray, trafficBytes: Long) =
         messageNotificationExecutionAdapter.processMIPushMessage(payload, trafficBytes)
 
+    override fun handleClearPushMessage(notification: XmPushActionNotification): Boolean =
+        messageNotificationExecutionAdapter.handleClearPushMessage(notification)
+
     override fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent) =
         messageNotificationExecutionAdapter.postProcessMIPushMessage(targetPackage, payload, intent)
 
@@ -388,6 +397,75 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun onNotificationEvent(packageName: String?, event: String, source: String) =
         messageNotificationExecutionAdapter.onNotificationEvent(packageName, event, source)
+
+    override fun onSubscribeChannelSyncResult(sourcePackage: String?, sourceAppId: String?, notification: Any) {
+        val parsed = notification as? XmPushActionNotification ?: return
+        SubscribeChannelSyncCoordinator.handleResult(context, parsed)
+    }
+
+    override fun onSyncAppSceneMiChannelResult(sourcePackage: String?, sceneChannelData: String?) {
+        SubscribeChannelSyncCoordinator.handleSceneResult(context, sceneChannelData)
+    }
+
+    override fun onSubGroupResultReport(packageName: String, requestId: String) {
+        SubscribeChannelSyncCoordinator.handleSubGroupResultReport(context, packageName, requestId)
+    }
+
+    override fun handleCallKitMessage(packageName: String, container: XmPushActionContainer): String =
+        messageNotificationExecutionAdapter.handleCallKitMessage(packageName, container)
+
+    override fun handleSettingAppNotificationPermission(
+        notification: XmPushActionNotification,
+    ): PushSettingAppNotificationPermissionResult? =
+        messageNotificationExecutionAdapter.handleSettingAppNotificationPermission(notification)
+
+    override fun onClearHeadsupNotificationRequested(packageName: String) =
+        messageNotificationExecutionAdapter.onClearHeadsupNotificationRequested(packageName)
+
+    override fun onLbsPushCommand(packageName: String?, appId: String?, cmdName: String) =
+        messageNotificationExecutionAdapter.onLbsPushCommand(packageName, appId, cmdName)
+
+    /**
+     * Stock 7.5.29 u0.D (PACKAGE_ADD): provider.g cache refresh + subscribenotification
+     * AppSubManager.m(pkg) + scenepush e(pkg). The runnable subset here is the per-package
+     * channel-config pull (SubscribeChannelSyncCoordinator.syncPackages, the AppSubManager.m
+     * equivalent already used by the SUB_GROUP_RESULT_REPORT path). Gap: this tree has no
+     * provider.g cache to refresh (providers read live state) and the scenepush rules module
+     * is not ported, so those two stock refreshes are intentionally absent.
+     */
+    override fun onPackageAdded(packageName: String) {
+        MyLog.i("package added $packageName; refreshing its subscribe-channel config")
+        runCatching { SubscribeChannelSyncCoordinator.syncPackages(context, listOf(packageName)) }
+            .onFailure { MyLog.w("package add channel-config pull failed for $packageName: ${it.javaClass.simpleName}") }
+        emitPackageLifecycleOtel("package_add", packageName)
+    }
+
+    /**
+     * Stock 7.5.29 u0.F (PACKAGE_REPLACED): provider.g cache refresh only — no
+     * subscribenotification/scenepush call. This tree has no provider.g cache, so the product
+     * side records the event; the vendor keeps the stock wire contract (stock action string +
+     * pkg_name extra) reachable for future implementations.
+     */
+    override fun onPackageReplaced(packageName: String) {
+        MyLog.i("package replaced $packageName; provider.g cache refresh has no equivalent in this tree")
+        emitPackageLifecycleOtel("package_replaced", packageName)
+    }
+
+    private fun emitPackageLifecycleOtel(stage: String, packageName: String) {
+        MagiskOtel.event(
+            name = "push.package",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to stage,
+                "reason" to "observer_refresh",
+                "target_package" to packageName,
+            ),
+            statusOk = true,
+        )
+    }
+
 
     override fun rebuildRestoredNotification(context: Context, notification: Notification): Notification? =
         messageNotificationExecutionAdapter.rebuildRestoredNotification(context, notification)

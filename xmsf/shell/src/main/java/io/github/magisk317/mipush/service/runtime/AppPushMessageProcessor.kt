@@ -1,4 +1,4 @@
-package com.xiaomi.push.sdk
+package io.github.magisk317.mipush.service.runtime
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -15,7 +15,7 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.freeze.FrozenAppCoordinator
 import kotlinx.coroutines.runBlocking
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController
@@ -26,7 +26,7 @@ import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-class PushMessageProcessor constructor(
+class AppPushMessageProcessor constructor(
     private val configurations: Configurations,
     private val frozenAppCoordinator: FrozenAppCoordinator? = null,
 ) {
@@ -240,7 +240,7 @@ class PushMessageProcessor constructor(
     }
 
     private fun getJumpIntent(context: Context, container: XmPushActionContainer): Intent? {
-        return MyMIPushNotificationHelper.getSdkIntent(context, container)
+        return MIPushNotificationPublishHelper.getSdkIntent(context, container)
             ?: getJumpIntentFromPkg(context, container.packageName)
     }
 

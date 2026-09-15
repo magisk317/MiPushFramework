@@ -31,7 +31,7 @@ import io.github.magisk317.mipush.notification.NotificationController.roundLarge
 import java.util.LinkedHashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-internal object MyMIPushNotificationStyleSupport {
+internal object MIPushNotificationStyleSupport {
     private const val TAG = "MyNotificationStyle"
     
     private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
@@ -184,7 +184,7 @@ internal object MyMIPushNotificationStyleSupport {
         context: Context,
         container: XmPushActionContainer,
         packageName: String
-    ) = MyMIPushNotificationIntentSupport.getSdkIntent(context, container)
+    ) = MIPushNotificationIntentSupport.getSdkIntent(context, container)
         ?: context.packageManager.getLaunchIntentForPackage(packageName)
 
     private fun getBigPic(

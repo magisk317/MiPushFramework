@@ -38,9 +38,6 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
  * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
  * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/mipush/sdk/d0.java
- * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
- * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
- * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/PushMessageProcessor.java
  */
 class PushMessageProcessor private constructor(context: Context) {
     private var sAppContext: Context = context.applicationContext ?: context
@@ -448,6 +445,7 @@ class PushMessageProcessor private constructor(context: Context) {
                         val miPushMessage = PushMessageHelper.generateMessage(sendMessage, container.metaInfo, false)
                         miPushMessage.setArrivedMessage(true)
                         MyLog.w("message arrived: receive a message, msgid=" + message.id + ", jobkey=" + jobKey)
+                        return miPushMessage
                     } else {
                         MyLog.e("message arrived: receive an empty message without push content, drop it")
                     }

@@ -25,10 +25,17 @@ internal object ExternalPushIntentPolicy {
         PushConstants.MIPUSH_ACTION_SEND_MESSAGE,
         PushConstants.MIPUSH_ACTION_UNREGISTER_APP,
         PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION,
+        // Stock 7.5.29 XMPushService.handleIntent:1557-1564 accepts this action from the SDK;
+        // same per-package contract as CLEAR_NOTIFICATION (validated + copied below).
+        PushConstants.MIPUSH_ACTION_CLEAR_HEADSUPNOTIFICATION,
         PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE,
         PushConstants.MIPUSH_ACTION_DISABLE_PUSH,
         PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE,
         PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE,
+        PushConstants.MIPUSH_ACTION_THIRDPARTY_HINT,
+        // Stock SDKs report finished subscription-group binds with this action; extras-only
+        // payload validated below (caller package + non-blank ids).
+        PushConstants.ACTION_SUB_GROUP_RESULT_REPORT,
         // Internal control actions from the stock timer — accepted as a fallback when
         // MiPushFacadeService.isInternalControlAction() already routes them directly.
         PushConstants.ACTION_OPEN_CHANNEL,
@@ -78,7 +85,8 @@ internal object ExternalPushIntentPolicy {
                 action,
                 packageName,
             )
-            PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION -> clearNotificationRejectionReason(
+            PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION,
+            PushConstants.MIPUSH_ACTION_CLEAR_HEADSUPNOTIFICATION -> clearNotificationRejectionReason(
                 normalizedIntent,
                 packageName,
             )
@@ -87,8 +95,15 @@ internal object ExternalPushIntentPolicy {
                 packageName,
             )
             PushConstants.MIPUSH_ACTION_DISABLE_PUSH -> null
+            // Stock feeds the hint into Alarm.changePolicy with only the DESC/LEVEL extras;
+            // no payload to validate (extras survive the copy fallback).
+            PushConstants.MIPUSH_ACTION_THIRDPARTY_HINT -> null
             // Internal control actions — no payload to validate, just pass through.
             PushConstants.ACTION_OPEN_CHANNEL -> null
+            PushConstants.ACTION_SUB_GROUP_RESULT_REPORT -> subGroupResultRejectionReason(
+                normalizedIntent,
+                packageName,
+            )
             else -> "action_not_public"
         }
         return if (rejectionReason == null) {
@@ -227,6 +242,17 @@ internal object ExternalPushIntentPolicy {
         return if (localPackage == packageName) null else "package_mismatch"
     }
 
+    private fun subGroupResultRejectionReason(intent: Intent, packageName: String): String? {
+        localPackageRejectionReason(intent, packageName)?.let { return it }
+        val requestId = runCatching { intent.getStringExtra(PushConstants.EXTRA_SUB_GROUP_REQUEST_ID) }.getOrNull()
+        val reportedPackage = runCatching { intent.getStringExtra(PushConstants.EXTRA_SUB_GROUP_PKG_NAME) }.getOrNull()
+        return if (!requestId.isNullOrBlank() && !reportedPackage.isNullOrBlank() && isValidPackageName(reportedPackage)) {
+            null
+        } else {
+            "invalid_sub_group_extras"
+        }
+    }
+
     private fun clearNotificationRejectionReason(intent: Intent, packageName: String): String? {
         localPackageRejectionReason(intent, packageName)?.let { return it }
         return null
@@ -246,13 +272,14 @@ internal object ExternalPushIntentPolicy {
 
     private fun isNotificationExposure(intent: Intent): Boolean {
         if (intent.action != PushConstants.MIPUSH_ACTION_SEND_MESSAGE) return false
-        if (!intent.hasExtra(EXTRA_MESSAGE_CACHE_COLLECTION)) {
-            return CACHE_COLLECTION_DEFAULT == CACHE_COLLECTION_NOTIFICATION_EXPOSURE
-        }
-        val collection = intent.getIntExtra(EXTRA_MESSAGE_CACHE_COLLECTION, CACHE_COLLECTION_NOTIFICATION_EXPOSURE)
-        // Stock 7.4.67-C currently defines 0=normal and 1=notification exposure. Treat unknown
-        // future collection values as disabled too, so they cannot fall through as ordinary uplink.
-        return collection != CACHE_COLLECTION_DEFAULT
+        // Stock 7.4.67-C routes SEND_MESSAGE through c2.a.a(int), which maps every unknown
+        // collection value to the ordinary DEFAULT_CACHE queue and keeps forwarding. Only the
+        // 1=notification-exposure lane is a distinct product concern, and it is the one the
+        // privacy policy refuses to ingest. Treating unknown future values as disabled here
+        // inverted stock's forward-compat contract and would silently drop real uplink once a
+        // newer SDK assigns any collection value other than 0/1.
+        val collection = intent.getIntExtra(EXTRA_MESSAGE_CACHE_COLLECTION, CACHE_COLLECTION_DEFAULT)
+        return collection == CACHE_COLLECTION_NOTIFICATION_EXPOSURE
     }
 
     private fun decodeContainer(payload: ByteArray): XmPushActionContainer? {
@@ -294,8 +321,15 @@ internal object ExternalPushIntentPolicy {
             PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION -> {
                 copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
                 copyIntExtra(source, target, PushConstants.EXTRA_NOTIFY_ID)
+                // Stock 7.5.29 XMPushService.handleIntent:1550 reads ext_clicked_button off
+                // this action for the y0.c/h.a button-click attribution; it must survive the
+                // sanitized copy.
+                copyIntExtra(source, target, PushConstants.EXTRA_CLICKED_BUTTON)
                 copyStringExtra(source, target, PushConstants.EXTRA_NOTIFY_TITLE)
                 copyStringExtra(source, target, PushConstants.EXTRA_NOTIFY_DESCRIPTION)
+            }
+            PushConstants.MIPUSH_ACTION_CLEAR_HEADSUPNOTIFICATION -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
             }
             PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE -> {
                 copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)

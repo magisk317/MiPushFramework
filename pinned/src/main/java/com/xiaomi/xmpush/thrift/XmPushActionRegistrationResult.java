@@ -1,11 +1,14 @@
 package com.xiaomi.xmpush.thrift;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TBaseHelper;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TField;
+import org.apache.thrift.protocol.TList;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.protocol.TProtocolUtil;
@@ -35,6 +38,7 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
     public String regId;
     public String regSecret;
     public String region;
+    public List<String> autoMarkPkgs;
     public long registeredAt;
     public Target target;
     private static final TStruct STRUCT_DESC = new TStruct("XmPushActionRegistrationResult");
@@ -56,6 +60,7 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
     private static final TField HYBRID_PUSH_ENDPOINT_FIELD_DESC = new TField("", (byte) 11, 17);
     private static final TField APP_VERSION_CODE_FIELD_DESC = new TField("", (byte) 8, 18);
     private static final TField REGION_FIELD_DESC = new TField("", (byte) 11, 19);
+    private static final TField AUTO_MARK_PKGS_FIELD_DESC = new TField("", (byte) 15, 21);
 
     public XmPushActionRegistrationResult() {
         this.__isset_bit_vector = new BitSet(5);
@@ -66,6 +71,9 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
         this.__isset_bit_vector = bitSet;
         bitSet.clear();
         this.__isset_bit_vector.or(xmPushActionRegistrationResult.__isset_bit_vector);
+        if (xmPushActionRegistrationResult.autoMarkPkgs != null) {
+            this.autoMarkPkgs = new ArrayList(xmPushActionRegistrationResult.autoMarkPkgs);
+        }
         if (xmPushActionRegistrationResult.isSetDebug()) {
             this.debug = xmPushActionRegistrationResult.debug;
         }
@@ -145,6 +153,7 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
         setAppVersionCodeIsSet(false);
         this.appVersionCode = 0;
         this.region = null;
+        this.autoMarkPkgs = null;
     }
 
     @Override // java.lang.Comparable
@@ -554,6 +563,25 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
         return this.target != null;
     }
 
+    public List<String> getAutoMarkPkgs() {
+        return this.autoMarkPkgs;
+    }
+
+    public void setAutoMarkPkgs(List<String> list) {
+        this.autoMarkPkgs = list;
+    }
+
+    public boolean isSetAutoMarkPkgs() {
+        return this.autoMarkPkgs != null;
+    }
+
+    public void setAutoMarkPkgsIsSet(boolean z) {
+        if (z) {
+            return;
+        }
+        this.autoMarkPkgs = null;
+    }
+
     @Override // org.apache.thrift.TBase
     public void read(TProtocol tProtocol) throws TException {
         tProtocol.readStructBegin();
@@ -703,6 +731,18 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
                         TProtocolUtil.skip(tProtocol, fieldBegin.type);
                     } else {
                         this.region = tProtocol.readString();
+                    }
+                    break;
+                case 21:
+                    if (fieldBegin.type != 15) {
+                        TProtocolUtil.skip(tProtocol, fieldBegin.type);
+                    } else {
+                        TList list = tProtocol.readListBegin();
+                        this.autoMarkPkgs = new ArrayList(list.size);
+                        for (int i = 0; i < list.size; i++) {
+                            this.autoMarkPkgs.add(tProtocol.readString());
+                        }
+                        tProtocol.readListEnd();
                     }
                     break;
             }
@@ -1280,6 +1320,15 @@ public class XmPushActionRegistrationResult implements TBase<XmPushActionRegistr
         if (this.region != null && isSetRegion()) {
             tProtocol.writeFieldBegin(REGION_FIELD_DESC);
             tProtocol.writeString(this.region);
+            tProtocol.writeFieldEnd();
+        }
+        if (this.autoMarkPkgs != null && isSetAutoMarkPkgs()) {
+            tProtocol.writeFieldBegin(AUTO_MARK_PKGS_FIELD_DESC);
+            tProtocol.writeListBegin(new TList((byte) 11, this.autoMarkPkgs.size()));
+            for (String str : this.autoMarkPkgs) {
+                tProtocol.writeString(str);
+            }
+            tProtocol.writeListEnd();
             tProtocol.writeFieldEnd();
         }
         tProtocol.writeFieldStop();

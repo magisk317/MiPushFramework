@@ -31,7 +31,7 @@ import com.xiaomi.push.service.PushSlimPingPlan
 import com.xiaomi.push.service.PushSlimWritePlan
 import com.xiaomi.push.service.PushSocketFailurePlan
 import com.xiaomi.push.service.PushSocketHostSelectionPlan
-import com.xiaomi.network.HostManagerRuntime
+import io.github.magisk317.mipush.bridge.HostManagerRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 import io.github.magisk317.mipush.service.runtime.PushHostRuntime

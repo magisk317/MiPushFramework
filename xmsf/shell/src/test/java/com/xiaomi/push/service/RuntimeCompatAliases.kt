@@ -1,7 +1,7 @@
 package com.xiaomi.push.service
 
 typealias MIPushAccountUtilsRuntime = io.github.magisk317.mipush.service.runtime.MIPushAccountUtilsRuntime
-typealias MyMIPushNotificationHelper = io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+typealias MIPushNotificationPublishHelper = io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
 typealias NetworkCheckupRuntime = io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 typealias PushChannelOpenRuntime = io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 typealias PushClientStatusSupport = io.github.magisk317.mipush.service.runtime.PushClientStatusSupport

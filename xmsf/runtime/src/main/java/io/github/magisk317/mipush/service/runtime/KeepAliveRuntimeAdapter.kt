@@ -32,14 +32,10 @@ object KeepAliveRuntimeAdapter {
     private const val TAG = "KeepAliveRuntime"
     private const val PREFS_NAME = "stock_keepalive_runtime"
     private const val KEY_ENABLED = "enabled"
-    private const val KEY_ONETRACK_ENABLED = "onetrack_enabled"
     private const val STRATEGY_PREFIX = "strategy:"
     private const val RECONCILE_INTERVAL_MS = 60_000L
     internal const val BIND_RETRY_INTERVAL_MS = 5_000L
     internal const val MAX_BIND_RETRY_COUNT = 3
-    // Stock 7.4.67-C za.f: OnetrackSwitch=140 and KASwitch=142. These now come
-    // from the updated pinned wire enum instead of duplicating raw IDs here.
-    internal val ONLINE_CONFIG_KEY_ONETRACK = ConfigKey.OnetrackSwitch.value
     internal val ONLINE_CONFIG_KEY_KEEP_ALIVE = ConfigKey.KASwitch.value
 
     private val handler by lazy { Handler(Looper.getMainLooper()) }
@@ -57,7 +53,6 @@ object KeepAliveRuntimeAdapter {
     private var active = false
     private var onlineConfigKnown = false
     private var enabled = true
-    private var oneTrackEnabled = true
     private var pollScheduled = false
     private var observerRegistered = false
     private var observerFallbackLogged = false
@@ -80,18 +75,10 @@ object KeepAliveRuntimeAdapter {
             Logger.withTag(TAG).w(it) { "Keep-alive online config unavailable" }
             return
         }
-        val oneTrack = runCatching {
-            onlineConfig.getBooleanValue(ONLINE_CONFIG_KEY_ONETRACK, true)
-        }.getOrElse {
-            Logger.withTag(TAG).w(it) { "OneTrack online config unavailable" }
-            snapshot().oneTrackEnabled
-        }
-        // Preserve the stock subprocess state without overriding the product-wide
-        // TelemetryDisabler policy in the main app process.
-        updateOnlineConfig(context, keepAlive, oneTrack)
+        updateOnlineConfig(context, keepAlive)
     }
 
-    fun updateOnlineConfig(context: Context, keepAliveEnabled: Boolean, oneTrackEnabled: Boolean) {
+    fun updateOnlineConfig(context: Context, keepAliveEnabled: Boolean) {
         ensureInitialized(context)
         synchronized(lock) {
             // A new ServiceBox configuration invalidates any queued shutdown cleanup from the
@@ -102,10 +89,8 @@ object KeepAliveRuntimeAdapter {
             onlineConfigKnown = true
             active = keepAliveEnabled
             enabled = keepAliveEnabled
-            this.oneTrackEnabled = oneTrackEnabled
             requireNotNull(appContext).getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
                 putBoolean(KEY_ENABLED, keepAliveEnabled)
-                putBoolean(KEY_ONETRACK_ENABLED, oneTrackEnabled)
             }
         }
         handler.post {
@@ -233,7 +218,6 @@ object KeepAliveRuntimeAdapter {
     internal fun snapshot(): Snapshot = synchronized(lock) {
         Snapshot(
             enabled = enabled,
-            oneTrackEnabled = oneTrackEnabled,
             strategyPackages = strategies.keys.toSet(),
             boundTargetPackages = bindings.filterValues { it.connected }.keys,
             bindingOwners = bindings
@@ -255,7 +239,6 @@ object KeepAliveRuntimeAdapter {
             appContext = applicationContext
             val preferences = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             enabled = preferences.getBoolean(KEY_ENABLED, true)
-            oneTrackEnabled = preferences.getBoolean(KEY_ONETRACK_ENABLED, true)
             val supportEnvironment = KeepAliveEnvironment.snapshot(applicationContext)
             preferences.all.forEach { (key, value) ->
                 if (key.startsWith(STRATEGY_PREFIX) && value is String) {
@@ -776,7 +759,6 @@ object KeepAliveRuntimeAdapter {
 
     internal data class Snapshot(
         val enabled: Boolean,
-        val oneTrackEnabled: Boolean,
         val strategyPackages: Set<String>,
         val boundTargetPackages: Set<String>,
         val bindingOwners: Map<String, String>,

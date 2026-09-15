@@ -16,7 +16,7 @@ class BackgroundActivityStartContractTest {
     @Test
     fun `notification target pending intent is recovered and cloned`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationIntentSupport.kt",
+            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         assertTrue(source.contains("cloneTargetPendingIntentForBackgroundActivityStart"))

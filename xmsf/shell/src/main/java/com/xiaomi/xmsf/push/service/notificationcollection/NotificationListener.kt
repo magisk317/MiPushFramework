@@ -14,11 +14,6 @@ import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 
 @Suppress("DEPRECATION")
 class NotificationListener : NotificationListenerService() {
-    override fun onCreate() {
-        super.onCreate()
-        FocusNotificationCollection.initialize(this)
-    }
-
     override fun onListenerConnected() {
         super.onListenerConnected()
         StockSurfaceSupport.recordNotificationEvent(this, "listener_connected", packageName)
@@ -34,10 +29,6 @@ class NotificationListener : NotificationListenerService() {
         // Stock 7.4.67-C schedules sweet reminder expiry from its posted callback. Keep this in
         // addition to the direct publish hook so externally reposted/top-updated records also refresh.
         SweetNotificationCoordinator.onNotificationPosted(this, sbn)
-        if (FocusNotificationCollection.onNotificationPosted(this, sbn)) {
-            Logger.withTag(TAG).d { "skip collected focus notification key=${sbn.key}" }
-            return
-        }
         if (NotificationUtils.isNotificationFromXmsf(this, sbn)) {
             StockSurfaceSupport.recordNotificationEvent(this, "posted", sbn.packageName)
         }
@@ -55,8 +46,7 @@ class NotificationListener : NotificationListenerService() {
         if (!acceptsUser(sbn.userId)) return
         // NotificationListenerService's default three-argument method delegates to the one-argument
         // overload. Calling super here would run product cleanup twice, so handle the reason-aware
-        // stock path once and stop at this boundary.
-        FocusNotificationCollection.onNotificationRemoved(this, sbn, reason)
+        // path once and stop at this boundary.
         SweetNotificationCoordinator.onNotificationRemoved(this, sbn, reason)
         recordRemoval(sbn)
     }

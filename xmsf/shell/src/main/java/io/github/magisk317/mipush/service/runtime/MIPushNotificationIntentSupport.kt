@@ -2,10 +2,10 @@ package io.github.magisk317.mipush.service.runtime
 
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
-import io.github.magisk317.mipush.common.utils.logW
 
 import android.app.PendingIntent
 import android.content.ComponentName
@@ -20,8 +20,11 @@ import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
+import com.xiaomi.mipush.sdk.MiPushMessage
+import com.xiaomi.mipush.sdk.PushMessageHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
@@ -29,7 +32,7 @@ import java.net.MalformedURLException
 import java.net.URISyntaxException
 import java.net.URL
 
-internal object MyMIPushNotificationIntentSupport {
+internal object MIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
     internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
 
@@ -94,7 +97,7 @@ internal object MyMIPushNotificationIntentSupport {
         notificationId: Int,
         builder: NotificationCompat.Builder
     ) {
-        val targetIntent = MyMIPushNotificationHelper.buildTargetIntentWithoutExtras(
+        val targetIntent = MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras(
             container.packageName,
             container.metaInfo
         ).apply {
@@ -121,7 +124,7 @@ internal object MyMIPushNotificationIntentSupport {
     ): PendingIntent? {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) return null
         val metaInfo = container.metaInfo ?: return null
-        val targetIntent = MyMIPushNotificationHelper.buildTargetIntentWithoutExtras(
+        val targetIntent = MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras(
             container.packageName,
             metaInfo,
         ).apply {
@@ -141,7 +144,8 @@ internal object MyMIPushNotificationIntentSupport {
         container: XmPushActionContainer,
         decryptedContent: ByteArray,
         notificationId: Int,
-        extra: Bundle?
+        extra: Bundle?,
+        sendMessage: XmPushActionSendMessage?,
     ): PendingIntent? {
         val metaInfo = container.metaInfo ?: return null
         val messageId = metaInfo.id.orEmpty()
@@ -195,6 +199,9 @@ internal object MyMIPushNotificationIntentSupport {
             activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
             activityIntent.putExtras(serviceIntent)
+            buildKeyMessage(sendMessage, container)?.let { message ->
+                activityIntent.putExtra(PushMessageHelper.KEY_MESSAGE, message)
+            }
             applyPendingIntentIdentity(activityIntent, container.packageName, notificationId, messageId)
             logClickRoute("sdk_activity", container.packageName, notificationId)
             return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
@@ -214,6 +221,18 @@ internal object MyMIPushNotificationIntentSupport {
 
         logClickRoute("xmsf_service", container.packageName, notificationId)
         return PendingIntent.getService(context, requestCode, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+    }
+
+    private fun buildKeyMessage(
+        sendMessage: XmPushActionSendMessage?,
+        container: XmPushActionContainer,
+    ): MiPushMessage? {
+        if (sendMessage == null) return null
+        return runCatching {
+            PushMessageHelper.generateMessage(sendMessage, container.metaInfo, true)
+        }.onFailure {
+            logW("$TAG key_message generation failed: ${it.message ?: it.javaClass.simpleName}")
+        }.getOrNull()
     }
 
     /**
@@ -339,7 +358,7 @@ internal object MyMIPushNotificationIntentSupport {
         ExplicitHookBridge.onIntentAvailabilityChecked(
             intent,
             available,
-            "MyMIPushNotificationIntentSupport.getSdkIntent"
+            "MIPushNotificationIntentSupport.getSdkIntent"
         )
         if (!available || inFetchIntentBlackList(pkgName)) {
             return null
@@ -536,7 +555,7 @@ internal object MyMIPushNotificationIntentSupport {
             ExplicitHookBridge.onIntentAvailabilityChecked(
                 intent,
                 resolveInfo != null,
-                "MyMIPushNotificationIntentSupport.getPendingIntentFromExtra"
+                "MIPushNotificationIntentSupport.getPendingIntentFromExtra"
             )
             if (resolveInfo != null) {
                 return intent
@@ -706,7 +725,9 @@ internal object MyMIPushNotificationIntentSupport {
     private fun inFetchIntentBlackList(pkg: String): Boolean {
         // Known problematic packages: sdk_activity click either shows white screen
         // (cold start before initialization) or silently fails to open.
+        // Idlefish is intentionally not listed here: its Agoo notification click
+        // requires the sdk_activity deep link and the serializable key_message extra.
         return pkg.contains("youku") || pkg.contains("tudou") ||
-            pkg.contains("baidu.tieba") || pkg.contains("taobao.idlefish")
+            pkg.contains("baidu.tieba")
     }
 }

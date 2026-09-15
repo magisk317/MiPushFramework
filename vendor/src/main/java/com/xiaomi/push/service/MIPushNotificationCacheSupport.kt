@@ -5,22 +5,21 @@ import android.content.Context
 import android.text.TextUtils
 
 object MIPushNotificationCacheSupport {
+    /** Returns the number of cleared notifications (stock e1/f1 found-vs-miss code). */
     @JvmStatic
     fun clearNotification(
         context: Context,
         packageName: String,
-    ) {
-        clearNotification(context, packageName, -1)
-    }
+    ): Int = clearNotification(context, packageName, -1)
 
     @JvmStatic
     fun clearNotification(
         context: Context,
         packageName: String,
         notificationId: Int,
-    ) {
+    ): Int {
         if (notificationId < MIPushNotificationHelper.NOTIFY_ALL) {
-            return
+            return 0
         }
         val notificationManager = NotificationManagerHelper.from(context, packageName)
         val hashedNotificationId = (packageName.hashCode() / 10) * 10 + notificationId
@@ -41,6 +40,7 @@ object MIPushNotificationCacheSupport {
             }
         }
         uploadClearMessageData(context, clearedCount)
+        return clearedCount
     }
 
     @JvmStatic
@@ -49,10 +49,10 @@ object MIPushNotificationCacheSupport {
         packageName: String,
         titleFilter: String,
         descriptionFilter: String,
-    ) {
+    ): Int {
         // Stock 7.4.67-C t0.c tightened the old 3.7.9 API: both filters must be present.
         if (TextUtils.isEmpty(titleFilter) || TextUtils.isEmpty(descriptionFilter)) {
-            return
+            return 0
         }
         val notificationManager = NotificationManagerHelper.from(context, packageName)
         var clearedCount = 0
@@ -74,6 +74,7 @@ object MIPushNotificationCacheSupport {
             }
         }
         uploadClearMessageData(context, clearedCount)
+        return clearedCount
     }
 
     @JvmStatic

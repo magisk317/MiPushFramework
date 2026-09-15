@@ -32,8 +32,8 @@ import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSou
 import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport
 import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.push.service.MIPushNotificationHelper

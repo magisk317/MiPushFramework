@@ -1,5 +1,5 @@
 package io.github.magisk317.mipush.hook
 
-interface Configurations {
+interface XMPushServerProvider {
     fun getXMPPServer(): String?
 }

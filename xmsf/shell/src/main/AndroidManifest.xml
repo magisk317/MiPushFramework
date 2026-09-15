@@ -153,6 +153,14 @@
         </service>
 
         <service
+                android:name="com.xiaomi.xms.auth.AuthService"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.xiaomi.xms.auth.BIND_AUTH_SERVICE" />
+            </intent-filter>
+        </service>
+
+        <service
                 android:name="io.github.magisk317.mipush.service.KeepAliveAccessibilityService"
                 android:exported="false"
                 android:label="@string/pref_keepalive_dedicated_service_title"
@@ -281,16 +289,19 @@
             </intent-filter>
         </receiver>
 
-        <!-- Stock XMSF 7.4.67-C registers PkgActionsReceiver for package add/remove/data-clear
-             events. MiPushFramework keeps add/remove for its existing XSpace and uninstall paths
-             and adds data-clear for registration cleanup. PACKAGE_CHANGED, PACKAGE_REPLACED, and
-             PACKAGE_RESTARTED only refresh stock OnePush/extension state, which is not restored. -->
+        <!-- Stock 7.5.29 PkgActionsReceiver registers for package added/removed/replaced/
+             data-cleared and forwards add/replace to the push service (u0.D/u0.F refreshes).
+             MiPushFramework mirrors that surface: add/remove/replace keep the XSpace,
+             uninstall and channel-config paths fresh, and data-clear drives registration
+             cleanup. PACKAGE_CHANGED and PACKAGE_RESTARTED still only refresh stock
+             OnePush/extension state, which is not restored. -->
         <receiver
                 android:name="io.github.magisk317.mipush.receiver.PkgUninstallReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_DATA_CLEARED" />
 
                 <data android:scheme="package" />

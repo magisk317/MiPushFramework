@@ -78,6 +78,29 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                 return
             }
 
+            if (intent.action == Intent.ACTION_PACKAGE_ADDED) {
+                // Stock 7.5.29 PkgActionsReceiver.java:92-101 forwards every PACKAGE_ADDED (the
+                // broadcast fires with EXTRA_REPLACING=true during an update too) as
+                // com.xiaomi.xmsf.push.PACKAGE_ADD with the plain pkg_name extra.
+                val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
+                serviceIntent.action = PushServiceConstants.ACTION_PACKAGE_ADD
+                serviceIntent.putExtra(PushServiceConstants.EXTRA_PKG_NAME, packageName)
+                PushServiceStarter.start(context, serviceIntent)
+                emit(result = "ok", reason = "package_add_forwarded", targetPackage = packageName)
+                return
+            }
+
+            if (intent.action == Intent.ACTION_PACKAGE_REPLACED) {
+                // Stock 7.5.29 PkgActionsReceiver.java:103-114 forwards PACKAGE_REPLACED as
+                // com.xiaomi.xmsf.action.PACKAGE_REPLACED with the plain pkg_name extra.
+                val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
+                serviceIntent.action = PushServiceConstants.ACTION_PACKAGE_REPLACED
+                serviceIntent.putExtra(PushServiceConstants.EXTRA_PKG_NAME, packageName)
+                PushServiceStarter.start(context, serviceIntent)
+                emit(result = "ok", reason = "package_replaced_forwarded", targetPackage = packageName)
+                return
+            }
+
             if (intent.action != Intent.ACTION_PACKAGE_REMOVED) {
                 emit(result = "skip", reason = "non_remove", targetPackage = packageName)
                 return
@@ -106,6 +129,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
     private fun isPackageChangeAction(action: String?): Boolean =
         action == Intent.ACTION_PACKAGE_ADDED ||
             action == Intent.ACTION_PACKAGE_REMOVED ||
+            action == Intent.ACTION_PACKAGE_REPLACED ||
             action == Intent.ACTION_PACKAGE_DATA_CLEARED
 
     private fun resolveUserId(intent: Intent): Int {

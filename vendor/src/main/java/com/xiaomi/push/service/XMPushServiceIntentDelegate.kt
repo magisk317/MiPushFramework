@@ -84,6 +84,12 @@ internal class XMPushServiceIntentDelegate(
             PushServiceConstants.ACTION_UNINSTALL == action -> appIntentDelegate.handleUninstall(intent)
             PushServiceConstants.ACTION_PACKAGE_DATA_CLEARED == action -> appIntentDelegate.handlePackageDataCleared(intent)
             PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION == action -> appIntentDelegate.handleClearNotification(intent)
+            // Stock 7.5.29 XMPushService.handleIntent:1557-1564 (CLEAR_HEADSUPNOTIFICATION)
+            // and :1486-1500 (package add/replace forwarded by PkgActionsReceiver).
+            PushConstants.MIPUSH_ACTION_CLEAR_HEADSUPNOTIFICATION == action ->
+                appIntentDelegate.handleClearHeadsupNotification(intent)
+            PushServiceConstants.ACTION_PACKAGE_ADD == action -> appIntentDelegate.handlePackageAdd(intent)
+            PushServiceConstants.ACTION_PACKAGE_REPLACED == action -> appIntentDelegate.handlePackageReplaced(intent)
             PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE == action -> appIntentDelegate.handleSetNotificationType(intent)
             PushConstants.MIPUSH_ACTION_DISABLE_PUSH == action -> appIntentDelegate.handleDisablePush(intent)
             PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE == action ||
@@ -103,7 +109,24 @@ internal class XMPushServiceIntentDelegate(
                 handleWifiDigestChanged(intent)
             PushServiceConstants.ACTION_USE_INTELLIGENT_HB == action ->
                 handleUseIntelligentHb(intent)
+            PushConstants.ACTION_SUB_GROUP_RESULT_REPORT == action -> handleSubGroupResultReport(intent)
         }
+    }
+
+    /**
+     * Stock XMPushService.handleIntent (7.5.29:1793-1796) routes com.xiaomi.push.SUB_GROUP_RESULT_REPORT
+     * to u0.r: finish the pending GroupBindCommand and pull that package's channel config. The room
+     * GroupBindCommand ledger is not ported; the user-visible per-package channel pull is routed to
+     * the product observer (SubscribeChannelSyncCoordinator.handleSubGroupResultReport).
+     */
+    private fun handleSubGroupResultReport(intent: Intent) {
+        val requestId = intent.getStringExtra(PushConstants.EXTRA_SUB_GROUP_REQUEST_ID)
+        val reportedPackage = intent.getStringExtra(PushConstants.EXTRA_SUB_GROUP_PKG_NAME)
+        if (requestId.isNullOrEmpty() || reportedPackage.isNullOrEmpty()) {
+            MyLog.w("SUB_GROUP_RESULT_REPORT without request id or package name")
+            return
+        }
+        service.runtimeObserver.onSubGroupResultReport(reportedPackage, requestId)
     }
 
     private fun handleOpenChannel(intent: Intent) {

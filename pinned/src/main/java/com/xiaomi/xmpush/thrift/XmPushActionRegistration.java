@@ -21,9 +21,11 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
     private static final int __CREATEDTS_ISSET_ID = 5;
     private static final int __ISHYBRIDFRAME_ISSET_ID = 6;
     private static final int __MIID_ISSET_ID = 4;
+    private static final int __PUSHBUNDLEVERSIONCODE_ISSET_ID = 9;
     private static final int __PUSHSDKVERSIONCODE_ISSET_ID = 0;
     private static final int __SPACEID_ISSET_ID = 2;
     private static final int __VALIDATETOKEN_ISSET_ID = 3;
+    private static final int __XMSFHOSTVERSIONCODE_ISSET_ID = 8;
     private BitSet __isset_bit_vector;
     public String aliasName;
     public String androidId;
@@ -42,6 +44,7 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
     public long miid;
     public String oldRegId;
     public String packageName;
+    public int pushBundleVersionCode;
     public int pushSdkVersionCode;
     public String pushSdkVersionName;
     public RegistrationReason reason;
@@ -54,6 +57,7 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
     public Target target;
     public String token;
     public boolean validateToken;
+    public int xmsfHostVersionCode;
     private static final TStruct STRUCT_DESC = new TStruct("XmPushActionRegistration");
     private static final TField DEBUG_FIELD_DESC = new TField("", (byte) 11, 1);
     private static final TField TARGET_FIELD_DESC = new TField("", (byte) 12, 2);
@@ -84,16 +88,18 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
     private static final TField CONNECTION_ATTRS_FIELD_DESC = new TField("", (byte) 13, 100);
     private static final TField CLEAN_OLD_REG_INFO_FIELD_DESC = new TField("", (byte) 2, 101);
     private static final TField OLD_REG_ID_FIELD_DESC = new TField("", (byte) 11, 102);
+    private static final TField XMSF_HOST_VERSION_CODE_FIELD_DESC = new TField("", (byte) 8, 103);
+    private static final TField PUSH_BUNDLE_VERSION_CODE_FIELD_DESC = new TField("", (byte) 8, 104);
 
     public XmPushActionRegistration() {
-        this.__isset_bit_vector = new BitSet(8);
+        this.__isset_bit_vector = new BitSet(10);
         this.validateToken = true;
         this.cleanOldRegInfo = false;
         this.isHybridFrame = false;
     }
 
     public XmPushActionRegistration(XmPushActionRegistration xmPushActionRegistration) {
-        BitSet bitSet = new BitSet(8);
+        BitSet bitSet = new BitSet(10);
         this.__isset_bit_vector = bitSet;
         bitSet.clear();
         this.__isset_bit_vector.or(xmPushActionRegistration.__isset_bit_vector);
@@ -172,6 +178,8 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         if (xmPushActionRegistration.isSetOldRegId()) {
             this.oldRegId = xmPushActionRegistration.oldRegId;
         }
+        this.xmsfHostVersionCode = xmPushActionRegistration.xmsfHostVersionCode;
+        this.pushBundleVersionCode = xmPushActionRegistration.pushBundleVersionCode;
     }
 
     public XmPushActionRegistration(String str, String str2, String str3) {
@@ -218,6 +226,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         this.connectionAttrs = null;
         this.cleanOldRegInfo = false;
         this.oldRegId = null;
+        setXmsfHostVersionCodeIsSet(false);
+        this.xmsfHostVersionCode = 0;
+        setPushBundleVersionCodeIsSet(false);
+        this.pushBundleVersionCode = 0;
     }
 
     @Override // java.lang.Comparable
@@ -454,10 +466,24 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         if (iCompareTo58 != 0) {
             return iCompareTo58;
         }
-        if (!isSetOldRegId() || (iCompareTo = TBaseHelper.compareTo(this.oldRegId, xmPushActionRegistration.oldRegId)) == 0) {
+        if (isSetOldRegId() && (iCompareTo = TBaseHelper.compareTo(this.oldRegId, xmPushActionRegistration.oldRegId)) != 0) {
+            return iCompareTo;
+        }
+        int iCompareTo59 = Boolean.valueOf(isSetXmsfHostVersionCode()).compareTo(Boolean.valueOf(xmPushActionRegistration.isSetXmsfHostVersionCode()));
+        if (iCompareTo59 != 0) {
+            return iCompareTo59;
+        }
+        if (isSetXmsfHostVersionCode() && (iCompareTo2 = TBaseHelper.compareTo(this.xmsfHostVersionCode, xmPushActionRegistration.xmsfHostVersionCode)) != 0) {
+            return iCompareTo2;
+        }
+        int iCompareTo60 = Boolean.valueOf(isSetPushBundleVersionCode()).compareTo(Boolean.valueOf(xmPushActionRegistration.isSetPushBundleVersionCode()));
+        if (iCompareTo60 != 0) {
+            return iCompareTo60;
+        }
+        if (!isSetPushBundleVersionCode() || (iCompareTo3 = TBaseHelper.compareTo(this.pushBundleVersionCode, xmPushActionRegistration.pushBundleVersionCode)) == 0) {
             return 0;
         }
-        return iCompareTo;
+        return iCompareTo3;
     }
 
     @Override // org.apache.thrift.TBase
@@ -611,8 +637,18 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         }
         boolean zIsSetOldRegId = isSetOldRegId();
         boolean zIsSetOldRegId2 = xmPushActionRegistration.isSetOldRegId();
-        if (zIsSetOldRegId || zIsSetOldRegId2) {
-            return zIsSetOldRegId && zIsSetOldRegId2 && this.oldRegId.equals(xmPushActionRegistration.oldRegId);
+        if ((zIsSetOldRegId || zIsSetOldRegId2) && !(zIsSetOldRegId && zIsSetOldRegId2 && this.oldRegId.equals(xmPushActionRegistration.oldRegId))) {
+            return false;
+        }
+        boolean zIsSetXmsfHostVersionCode = isSetXmsfHostVersionCode();
+        boolean zIsSetXmsfHostVersionCode2 = xmPushActionRegistration.isSetXmsfHostVersionCode();
+        if ((zIsSetXmsfHostVersionCode || zIsSetXmsfHostVersionCode2) && !(zIsSetXmsfHostVersionCode && zIsSetXmsfHostVersionCode2 && this.xmsfHostVersionCode == xmPushActionRegistration.xmsfHostVersionCode)) {
+            return false;
+        }
+        boolean zIsSetPushBundleVersionCode = isSetPushBundleVersionCode();
+        boolean zIsSetPushBundleVersionCode2 = xmPushActionRegistration.isSetPushBundleVersionCode();
+        if (zIsSetPushBundleVersionCode || zIsSetPushBundleVersionCode2) {
+            return zIsSetPushBundleVersionCode && zIsSetPushBundleVersionCode2 && this.pushBundleVersionCode == xmPushActionRegistration.pushBundleVersionCode;
         }
         return true;
     }
@@ -689,6 +725,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         return this.packageName;
     }
 
+    public int getPushBundleVersionCode() {
+        return this.pushBundleVersionCode;
+    }
+
     public int getPushSdkVersionCode() {
         return this.pushSdkVersionCode;
     }
@@ -731,6 +771,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
 
     public String getToken() {
         return this.token;
+    }
+
+    public int getXmsfHostVersionCode() {
+        return this.xmsfHostVersionCode;
     }
 
     public int hashCode() {
@@ -813,6 +857,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         return this.packageName != null;
     }
 
+    public boolean isSetPushBundleVersionCode() {
+        return this.__isset_bit_vector.get(9);
+    }
+
     public boolean isSetPushSdkVersionCode() {
         return this.__isset_bit_vector.get(0);
     }
@@ -859,6 +907,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
 
     public boolean isSetValidateToken() {
         return this.__isset_bit_vector.get(3);
+    }
+
+    public boolean isSetXmsfHostVersionCode() {
+        return this.__isset_bit_vector.get(8);
     }
 
     public boolean isValidateToken() {
@@ -1101,6 +1153,22 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
                         TProtocolUtil.skip(tProtocol, fieldBegin.type);
                     }
                     break;
+                case 103:
+                    if (fieldBegin.type == 8) {
+                        this.xmsfHostVersionCode = tProtocol.readI32();
+                        setXmsfHostVersionCodeIsSet(true);
+                    } else {
+                        TProtocolUtil.skip(tProtocol, fieldBegin.type);
+                    }
+                    break;
+                case 104:
+                    if (fieldBegin.type == 8) {
+                        this.pushBundleVersionCode = tProtocol.readI32();
+                        setPushBundleVersionCodeIsSet(true);
+                    } else {
+                        TProtocolUtil.skip(tProtocol, fieldBegin.type);
+                    }
+                    break;
                 default:
                     TProtocolUtil.skip(tProtocol, fieldBegin.type);
                     break;
@@ -1303,6 +1371,16 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         this.packageName = null;
     }
 
+    public XmPushActionRegistration setPushBundleVersionCode(int i) {
+        this.pushBundleVersionCode = i;
+        setPushBundleVersionCodeIsSet(true);
+        return this;
+    }
+
+    public void setPushBundleVersionCodeIsSet(boolean z) {
+        this.__isset_bit_vector.set(9, z);
+    }
+
     public XmPushActionRegistration setPushSdkVersionCode(int i) {
         this.pushSdkVersionCode = i;
         setPushSdkVersionCodeIsSet(true);
@@ -1439,6 +1517,16 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
 
     public void setValidateTokenIsSet(boolean z) {
         this.__isset_bit_vector.set(3, z);
+    }
+
+    public XmPushActionRegistration setXmsfHostVersionCode(int i) {
+        this.xmsfHostVersionCode = i;
+        setXmsfHostVersionCodeIsSet(true);
+        return this;
+    }
+
+    public void setXmsfHostVersionCodeIsSet(boolean z) {
+        this.__isset_bit_vector.set(8, z);
     }
 
     public String toString() {
@@ -1746,6 +1834,20 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
                 sb.append(str18);
             }
         }
+        if (isSetXmsfHostVersionCode()) {
+            if (0 == 0) {
+                sb.append(", ");
+            }
+            sb.append("xmsfHostVersionCode:");
+            sb.append(this.xmsfHostVersionCode);
+        }
+        if (isSetPushBundleVersionCode()) {
+            if (0 == 0) {
+                sb.append(", ");
+            }
+            sb.append("pushBundleVersionCode:");
+            sb.append(this.pushBundleVersionCode);
+        }
         sb.append(")");
         return sb.toString();
     }
@@ -1818,6 +1920,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         this.packageName = null;
     }
 
+    public void unsetPushBundleVersionCode() {
+        this.__isset_bit_vector.clear(9);
+    }
+
     public void unsetPushSdkVersionCode() {
         this.__isset_bit_vector.clear(0);
     }
@@ -1864,6 +1970,10 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
 
     public void unsetValidateToken() {
         this.__isset_bit_vector.clear(3);
+    }
+
+    public void unsetXmsfHostVersionCode() {
+        this.__isset_bit_vector.clear(8);
     }
 
     public void validate() throws TException {
@@ -2031,6 +2141,16 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         if (this.oldRegId != null && isSetOldRegId()) {
             tProtocol.writeFieldBegin(OLD_REG_ID_FIELD_DESC);
             tProtocol.writeString(this.oldRegId);
+            tProtocol.writeFieldEnd();
+        }
+        if (isSetXmsfHostVersionCode()) {
+            tProtocol.writeFieldBegin(XMSF_HOST_VERSION_CODE_FIELD_DESC);
+            tProtocol.writeI32(this.xmsfHostVersionCode);
+            tProtocol.writeFieldEnd();
+        }
+        if (isSetPushBundleVersionCode()) {
+            tProtocol.writeFieldBegin(PUSH_BUNDLE_VERSION_CODE_FIELD_DESC);
+            tProtocol.writeI32(this.pushBundleVersionCode);
             tProtocol.writeFieldEnd();
         }
         tProtocol.writeFieldStop();

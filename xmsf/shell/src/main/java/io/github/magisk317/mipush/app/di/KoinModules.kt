@@ -64,7 +64,7 @@ val xmsfCoreKoinModule = module {
     single { ModernHookHandler() }
     single { MiPushEventListener() }
     single { FrozenAppCoordinator(androidContext(), get()) }
-    single { RuntimeProcessorBindings.createPushMessageProcessor(get(), get()) }
+    single { RuntimeProcessorBindings.createAppPushMessageProcessor(get(), get()) }
     single { RuntimeSettingsAdapter(androidContext(), get(), get()) }
     single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get()) }
     single<ConfigSyncObserver> {

@@ -125,14 +125,18 @@ if [ -s "$tmp_stale" ]; then
   exit 1
 fi
 
-# vendor is retained stock/runtime code. Existing product imports are recorded as migration debt,
-# but new imports must be routed through xmsf adapters instead of growing product behavior in the
-# vendored source tree.
-vendor_product_import_pattern='^import io\.github\.magisk317\.'
-rg -n "$vendor_product_import_pattern" "vendor/src/main" \
-  | while IFS=: read -r path _line import_line; do
+# vendor is retained stock/runtime code. Existing product references are recorded as migration debt,
+# but new references must be routed through xmsf adapters instead of growing product behavior in the
+# vendored source tree. The scan matches io.github.magisk317. anywhere on a line, not only ^import,
+# so fully-qualified inline plan delegation and typealias bridge tables cannot slip through. Matched
+# lines keep comments and string literals in scope (consistent with the recorded documentation lines)
+# and are trimmed of leading whitespace before baseline comparison.
+vendor_product_reference_pattern='io\.github\.magisk317\.'
+rg -n "$vendor_product_reference_pattern" "vendor/src/main" \
+  | while IFS=: read -r path _line reference_line; do
     [ -n "${path:-}" ] || continue
-    printf '%s|%s\n' "$path" "$import_line"
+    reference_line="${reference_line#"${reference_line%%[![:space:]]*}"}"
+    printf '%s|%s\n' "$path" "$reference_line"
   done | sort -u > "$tmp_vendor_current" || true
 
 sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$VENDOR_BASELINE" | sort -u > "$tmp_vendor_baseline"
@@ -140,7 +144,7 @@ comm -13 "$tmp_vendor_baseline" "$tmp_vendor_current" > "$tmp_vendor_new"
 comm -23 "$tmp_vendor_baseline" "$tmp_vendor_current" > "$tmp_vendor_stale"
 
 if [ -s "$tmp_vendor_new" ]; then
-  echo "Vendor boundary check failed: new product-layer imports were added under vendor/." >&2
+  echo "Vendor boundary check failed: new product-layer imports or inline references were added under vendor/." >&2
   echo "Move the behavior behind an xmsf runtime/bridge adapter, or document an explicit compatibility exception." >&2
   echo >&2
   cat "$tmp_vendor_new" >&2

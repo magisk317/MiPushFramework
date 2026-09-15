@@ -8,8 +8,8 @@ class PushVersionInfoTest {
 
     @Test
     fun `stock baseline constants match pulled xmsf baseline`() {
-        assertEquals("7.4.67-C", PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME)
-        assertEquals(70004067, PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE)
+        assertEquals("7.5.29-C", PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME)
+        assertEquals(70005029, PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE)
         assertEquals("7_12_4-C", PushVersionInfo.PUSH_SDK_VERSION_NAME)
         assertEquals(70124, PushVersionInfo.PUSH_SDK_VERSION_CODE)
     }
@@ -25,11 +25,11 @@ class PushVersionInfoTest {
     @Test
     fun `framework package reports stock compatible app version while other packages keep actual version`() {
         assertEquals(
-            "7.4.67-C",
-            PushVersionInfo.reportedAppVersionName(PushConstants.PUSH_SERVICE_PACKAGE_NAME, "0.3.17"),
+            "7.5.29-C",
+            PushVersionInfo.reportedAppVersionName(PushConstants.PUSH_SERVICE_PACKAGE_NAME, "1.2.3"),
         )
         assertEquals(
-            70004067,
+            70005029,
             PushVersionInfo.reportedAppVersionCode(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 1003003000),
         )
         assertEquals(
@@ -85,7 +85,7 @@ class PushVersionInfoTest {
             actualVersionCode = 1003003000,
         )
 
-        assertEquals("70004067", params["appversion"])
+        assertEquals("70005029", params["appversion"])
         assertEquals("70124", params["sdkversion"])
         assertEquals("com.example.app", params["packagename"])
         assertTrue(params.containsKey("sdkversion"))

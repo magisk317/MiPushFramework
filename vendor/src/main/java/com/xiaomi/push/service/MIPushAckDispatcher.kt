@@ -54,13 +54,30 @@ object MIPushAckDispatcher {
     }
 
     @JvmStatic
+    @JvmOverloads
     fun sendClearPushMessageAck(
         pushAction: IPushServiceAction,
         container: XmPushActionContainer,
         notification: XmPushActionNotification,
+        errorCode: Long = 0L,
+        msgId: String? = null,
+        resultCode: Int = 3,
+        cancelType: Int = 0,
     ) {
+        // Stock e1.b: the dispatcher always queues this ack after the clear resolve
+        // attempt, including the no-match (errorCode 0, result_code 3) and the
+        // no-matcher (errorCode -1, result_code -1, cancelType 0) paths.
         enqueue(pushAction, "send ack message for clear push message.", reason = "clear_push_ack") {
-            sendServiceClearNotificationAck(pushAction, pushAction.context, container, notification)
+            sendServiceClearNotificationAck(
+                pushAction,
+                pushAction.context,
+                container,
+                notification,
+                errorCode,
+                msgId,
+                resultCode,
+                cancelType,
+            )
         }
     }
 
@@ -73,6 +90,103 @@ object MIPushAckDispatcher {
     ) {
         enqueue(pushAction, "send wrong message ack for message.", reason = "error_ack") {
             sendServiceErrorAck(pushAction, pushAction.context, container, error, reason)
+        }
+    }
+
+    /**
+     * Stock 7.5.29 com.xiaomi.push.service.d.c: the setting_app_notification_permission_ack
+     * replays the control's id/appId/packageName/target and full extra map, carries the
+     * d.a/d.b wire errorCode and only sets reason when the stock reason is non-empty.
+     */
+    @JvmStatic
+    fun sendSettingAppNotificationPermissionAck(
+        pushAction: IPushServiceAction,
+        container: XmPushActionContainer,
+        notification: XmPushActionNotification,
+        errorCode: Long,
+        reason: String?,
+    ) {
+        enqueue(
+            pushAction,
+            "send ack message for setting app notification permission.",
+            reason = "setting_app_notification_permission_ack",
+        ) {
+            val ackNotification = XmPushActionAckNotification().apply {
+                type = NotificationType.SettingAppNotificationPermissionACK.value
+                id = notification.id
+                target = notification.target
+                appId = notification.appId
+                packageName = notification.packageName
+                this.errorCode = errorCode
+                if (!reason.isNullOrEmpty()) {
+                    this.reason = reason
+                }
+                extra = notification.extra
+            }
+            MIPushHelper.sendPacket(
+                pushAction,
+                pushAction.context,
+                MIPushHelper.constructResponseContainer(
+                    container.packageName,
+                    container.appid,
+                    ackNotification,
+                    ActionType.Notification,
+                ),
+            )
+            pushAction.runtimeObserver.onNotificationEvent(
+                notification.packageName,
+                "service_setting_app_notification_permission_ack_sent",
+                "MIPushAckDispatcher.sendSettingAppNotificationPermissionAck",
+            )
+        }
+    }
+
+    /**
+     * Stock 7.5.29 m0.g:531-551: the __check_alive/__awake probe is answered with an
+     * awake_system_app notification response (isRequest false) carrying app_running and,
+     * when the target is not running, the echoed awaked flag (x0.f + x0.h plumbing).
+     */
+    @JvmStatic
+    fun sendAwakeSystemAppResponse(
+        pushAction: IPushServiceAction,
+        container: XmPushActionContainer,
+        targetPackage: String,
+        appRunning: Boolean,
+        awaked: Boolean,
+    ) {
+        enqueue(
+            pushAction,
+            "send awake system app response.",
+            reason = "awake_system_app_response",
+        ) {
+            val response = XmPushActionNotification().apply {
+                appId = container.appid
+                packageName = targetPackage
+                type = NotificationType.AwakeSystemApp.value
+                id = container.metaInfo?.id
+                extra = hashMapOf(
+                    PushConstants.EXTRA_PARAM_APP_RUNNING to appRunning.toString(),
+                ).apply {
+                    if (!appRunning) {
+                        put(PushConstants.EXTRA_PARAM_AWAKED, awaked.toString())
+                    }
+                }
+            }
+            MIPushHelper.sendPacket(
+                pushAction,
+                pushAction.context,
+                MIPushHelper.constructResponseContainer(
+                    container.packageName,
+                    container.appid,
+                    response,
+                    ActionType.Notification,
+                ),
+            )
+            pushAction.runtimeObserver.onNotificationEvent(
+                container.packageName,
+                "service_awake_system_app_response_sent",
+                "MIPushAckDispatcher.sendAwakeSystemAppResponse",
+            )
         }
     }
 
@@ -219,20 +333,37 @@ object MIPushAckDispatcher {
     }
 
     @Throws(Exception::class)
+    @Suppress("LongParameterList")
     private fun sendServiceClearNotificationAck(
         pushAction: IPushServiceAction,
         context: Context,
         container: XmPushActionContainer,
         notification: XmPushActionNotification,
+        errorCode: Long,
+        msgId: String?,
+        resultCode: Int,
+        cancelType: Int,
     ) {
+        // Stock e1.b.b(): the ack replays the control's extras and appends msgId (only
+        // when non-empty), cancelType, hasPullDownCancel and resultCode
+        // (TrackConstants.KEY_RESULT_CODE == "resultCode"). The service dispatcher never
+        // reports a pull-down cancel here and always sends an empty reason.
+        val ackExtras = HashMap(notification.extra ?: emptyMap())
+        if (!msgId.isNullOrEmpty()) {
+            ackExtras["msgId"] = msgId
+        }
+        ackExtras["cancelType"] = cancelType.toString()
+        ackExtras["hasPullDownCancel"] = "0"
+        ackExtras["resultCode"] = resultCode.toString()
         val ackNotification = XmPushActionAckNotification().apply {
             type = NotificationType.CancelPushMessageACK.value
             id = notification.id
             target = notification.target
             appId = notification.appId
             packageName = notification.packageName
-            errorCode = 0L
-            reason = "success clear push message."
+            this.errorCode = errorCode
+            reason = ""
+            extra = ackExtras
         }
         MIPushHelper.sendPacket(
             pushAction,

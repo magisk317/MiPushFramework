@@ -62,7 +62,7 @@ class PushMessageProcessorSupportExtractionContractTest {
 
         val notificationIntent = source(
             "xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/" +
-                "MyMIPushNotificationIntentSupport.kt",
+                "MIPushNotificationIntentSupport.kt",
         )
         assertTrue(notificationIntent.contains("ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS)"))
         assertTrue(notificationIntent.contains("applyPendingIntentIdentity(this, container.packageName"))

@@ -9,7 +9,7 @@ class EncryptedPayloadFallbackPolicyTest {
     @Test
     fun `failed encrypted notification falls back to raw app dispatch`() {
         assertTrue(
-            MyMIPushNotificationHelper.shouldFallbackToRawEncryptedDispatch(
+            MIPushNotificationPublishHelper.shouldFallbackToRawEncryptedDispatch(
                 isEncrypted = true,
                 outcome = MockReplayOutcome.Failed,
             ),
@@ -24,14 +24,14 @@ class EncryptedPayloadFallbackPolicyTest {
             MockReplayOutcome.BlockedByPermission,
         ).forEach { outcome ->
             assertFalse(
-                MyMIPushNotificationHelper.shouldFallbackToRawEncryptedDispatch(
+                MIPushNotificationPublishHelper.shouldFallbackToRawEncryptedDispatch(
                     isEncrypted = true,
                     outcome = outcome,
                 ),
             )
         }
         assertFalse(
-            MyMIPushNotificationHelper.shouldFallbackToRawEncryptedDispatch(
+            MIPushNotificationPublishHelper.shouldFallbackToRawEncryptedDispatch(
                 isEncrypted = false,
                 outcome = MockReplayOutcome.Failed,
             ),

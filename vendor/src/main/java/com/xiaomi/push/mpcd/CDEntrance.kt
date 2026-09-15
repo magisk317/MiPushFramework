@@ -19,7 +19,6 @@ import com.xiaomi.xmpush.thrift.DataCollectionItem
  * JADX paths:
  * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/vb/b.java
  * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/u9/e.java
- * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/CDEntrance.java
  * Stock package collection entrance is split between vb.b and u9.e; this file keeps the deobfuscated CDEntrance API.
  */
 object CDEntrance {

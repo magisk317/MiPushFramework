@@ -33,7 +33,6 @@ import java.util.concurrent.Executors
 import java.util.regex.Pattern
 
 /*
- * Current override reference: miuipushsdkshared_3_7_9.jar:
  * com/xiaomi/channel/commonutils/network/Network.class
  */
 object Network {

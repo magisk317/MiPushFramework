@@ -23,9 +23,6 @@ import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
 
 /*
- * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
- * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
- * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/smack/util/PacketParserUtils.java
  * This runtime keeps the local introspection parser and MiPush extension constants.
  */
 object PacketParserUtils {

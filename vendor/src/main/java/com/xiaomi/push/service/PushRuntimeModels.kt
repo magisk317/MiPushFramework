@@ -262,6 +262,20 @@ data class HostRequestThrottlePlan(
     val nextTimestampMs: Long
 )
 
+// --- Inbound control decision results ---
+
+/**
+ * Product decision for the stock 7.5.29 setting_app_notification_permission control
+ * (com.xiaomi.push.service.c/d). [errorCode] mirrors the stock d.a/d.b wire codes:
+ * 0 applied, 1 apply did not settle, 2 already matching, 3 already marked setted,
+ * 4 target not installed, 5 apply failed, 6 invalid request. [reason] fills the
+ * stock ack reason field only when the stock reason is non-empty.
+ */
+data class PushSettingAppNotificationPermissionResult(
+    val errorCode: Long,
+    val reason: String? = null,
+)
+
 // --- Event-driven connection plans ---
 // Canonical definitions and decisions live in runtime-core commonMain.
 

@@ -1,21 +1,31 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import android.os.Build
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hookAllMethods
-import io.github.magisk317.xposed.hookMethod
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 
+/**
+ * ByteDance-specific compatibility hooks. The MiPush provider capability gate itself is handled
+ * by [DouyinMiuiGateHook] ahead of the FakeDevice brand guard; this pipeline only rewrites the
+ * cloud-push channel policy (`allow_push_list`) observed by Douyin's own log network client so
+ * the Xiaomi channel survives the server-side rollout configuration.
+ *
+ * Removed as dead or duplicated history: the `socialbase.appdownloader.util.MIUIUtils` forcing
+ * hooks (the verified provider gate is `com.ss.android.message.util.ToolUtils.isMiui`; the
+ * downloader predicate never gated push initialization and forcing it only altered downloader
+ * behavior), and the flyme property block (fully covered by `Common.fakeAllBuildInProperties`,
+ * which always clears the flyme keys and fakes display.id/user on exactly the non-Xiaomi
+ * devices where that block could fire).
+ */
 class DouYin : Common() {
     companion object {
         private const val TAG = "DouYin"
@@ -26,35 +36,6 @@ class DouYin : Common() {
 
     override fun fake(lpparam: LoadParam): Boolean {
         super.fake(lpparam)
-        
-        // Hook isMIUI detection - critical for DouYin to initialize MiPush SDK
-        XLog.d(TAG, "Hooking isMIUI detection for ${lpparam.packageName}...")
-        try {
-            val classMIUIUtils = lpparam.classLoader.findClass("com.ss.android.socialbase.appdownloader.util.MIUIUtils")
-            classMIUIUtils.hookMethod("isMIUI") {
-                doAfter {
-                    result = true
-                    XLog.d(TAG, "✓ Forced isMIUI() to return true")
-                }
-            }
-            classMIUIUtils.hookMethod("isMIUI6Later") {
-                doAfter {
-                    result = true
-                    XLog.d(TAG, "✓ Forced isMIUI6Later() to return true")
-                }
-            }
-            XLog.d(TAG, "✓ Successfully hooked MIUIUtils")
-        } catch (e: Throwable) {
-            XLog.d(TAG, "MIUIUtils not found or hook failed: ${e.message}")
-        }
-        
-        if (Build.DISPLAY.contains("flyme", true) || Build.USER.contains("flyme", true)) {
-            fakeProperty("ro.build.display.id" to "")
-            fakeProperty("ro.build.user" to "")
-            fakeProperty("ro.build.flyme.version" to "")
-            fakeProperty("ro.flyme.version.id" to "")
-        }
-
         //public java.lang.String com.bytedance.common.network.DefaultNetWorkClient.post(java.lang.String,java.util.List,java.util.Map,com.bytedance.common.utility.NetworkClient$ReqContext)
         XLog.d(TAG, "Searching for AppLogNetworkClient class...")
         val classAppLogNetworkClient = try {

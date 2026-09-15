@@ -8,7 +8,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.push.sdk.PushMessageProcessor
+import io.github.magisk317.mipush.service.runtime.AppPushMessageProcessor
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.MaintenanceCycle
 import com.xiaomi.push.service.timers.Alarm
@@ -30,7 +30,7 @@ import kotlinx.coroutines.runBlocking
 class RuntimeSettingsAdapter constructor(
     private val appContext: Context,
     private val configCenter: ConfigCenter,
-    private val pushMessageProcessor: PushMessageProcessor,
+    private val pushMessageProcessor: AppPushMessageProcessor,
 ) {
     fun startMiPushServiceAsForegroundService(context: Context = appContext) {
         InternalMessenger(context).send(Intent(PushServiceBroadcastActions.START_FOREGROUND))

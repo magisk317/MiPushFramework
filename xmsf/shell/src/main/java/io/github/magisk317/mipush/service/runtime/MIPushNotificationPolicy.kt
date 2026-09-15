@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.service.runtime
 
 import com.xiaomi.xmpush.thrift.ActionType
 
-internal object MyMIPushNotificationPolicy {
+internal object MIPushNotificationPolicy {
     private const val replayWindowMillis = 6 * 60 * 60 * 1000L
 
     fun shouldPublishNotification(
@@ -32,6 +32,19 @@ internal object MyMIPushNotificationPolicy {
         ActionType.Command -> true
         else -> false
     }
+
+    /**
+     * A Notification container the display path cannot render (no metaInfo title/description, or
+     * a pass-through shaped payload — e.g. Alipay pushsdk channels that ask XMSF to present a
+     * message they already received) still belongs to its target app. Stock hands the raw bytes
+     * over with MESSAGE_ARRIVED so the app renders its own surface; without that handoff the
+     * payload is silently swallowed at the end of the dispatch chain.
+     */
+    fun shouldHandoffNonDisplayNotification(
+        action: ActionType?,
+        isMockReplay: Boolean,
+        isBusinessMessage: Boolean,
+    ): Boolean = action == ActionType.Notification && !isMockReplay && !isBusinessMessage
 
     fun shouldDropReplayNotification(
         action: ActionType?,

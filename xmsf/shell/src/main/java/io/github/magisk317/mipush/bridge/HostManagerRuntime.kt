@@ -1,4 +1,4 @@
-package com.xiaomi.network
+package io.github.magisk317.mipush.bridge
 
 data class HostRefreshTargetsPlan(
     val targetHosts: List<String>
