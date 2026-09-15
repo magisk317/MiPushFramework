@@ -26,6 +26,15 @@ class TopLevelRoutePagerSynchronizer {
         return targetPage
     }
 
+    /**
+     * Called when a tab click or route-driven animation targets [page]. Keeps [lastEffectivePage]
+     * in sync with the pager's intended position so a stale route lookup (which arrives before
+     * navigateTopLevel updates currentRoute) cannot produce a backward bounce.
+     */
+    fun notifyTargetPage(page: Int) {
+        lastEffectivePage = page
+    }
+
     /** True only after restored route state and pager state have converged on the same page. */
     fun isReconciled(
         route: String?,
