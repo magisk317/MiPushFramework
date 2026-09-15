@@ -9,6 +9,8 @@ import android.app.ActivityManager
 import android.os.Build
 import android.os.SystemClock
 import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 import java.util.Collections
 import java.util.Date
 import java.util.concurrent.Callable
@@ -18,12 +20,12 @@ import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
 import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
-import io.github.magisk317.mipush.diagnostics.DiagnosticFileSanitizer
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
+import io.github.magisk317.xposed.diagnostics.DiagnosticShell
 
 object LogBundleExporter {
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
@@ -33,14 +35,13 @@ object LogBundleExporter {
     private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
     private const val APPLICATION_EXIT_HISTORY_FILE = "application_exit_history.txt"
     private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
+    private const val DEFAULT_HASH_BUFFER_SIZE = 64 * 1024
     private const val PRIVATE_LOG_DIR_NAME = "log"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
     private const val MI_PUSH_LOG_DIR_NAME = "MiPushLog"
-    private const val LSPOSED_ROTATING_LOGS_PER_KIND = 2
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
-    private val lsposedRotatingLogPattern = Regex("""^(verbose|modules)_.+\.log$""")
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
     )
@@ -143,6 +144,18 @@ object LogBundleExporter {
         details: MutableList<String>,
         mode: DiagnosticExportMode,
     ) {
+        appendPackageIdentity(
+            context = context,
+            details = details,
+            label = "manager/module",
+            packageName = Constants.MANAGER_APP_NAME,
+        )
+        appendPackageIdentity(
+            context = context,
+            details = details,
+            label = "xmsf host",
+            packageName = Constants.SERVICE_APP_NAME,
+        )
         val safeDetails = Collections.synchronizedList(details)
         val workers = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(6)
         val pool = Executors.newFixedThreadPool(workers)
@@ -165,47 +178,30 @@ object LogBundleExporter {
                 submit("captureApplicationExitHistory") {
                     captureApplicationExitHistory(context, stagingDir, safeDetails)
                 },
-                submit("captureLogcat") { captureLogcat(stagingDir, safeDetails, mode) },
+
             )
             localJobs.forEach { it.get() }
             error.get()?.let { throw it }
 
             if (mode.capturesRootHeavyDiagnostics) {
-                // Root-heavy path: sequential.
                 run {
                     val started = SystemClock.elapsedRealtime()
-                    if (!copyLsposedLogs(stagingDir, safeDetails)) {
-                        safeDetails += "lsposed log missing or unreadable"
-                    }
+                    copyLsposedLogs(stagingDir, safeDetails)
                     safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
-                    logI("LogBundleExporter copyLsposedLogs tookMs=${SystemClock.elapsedRealtime() - started}")
                 }
                 run {
                     val started = SystemClock.elapsedRealtime()
                     captureXmsfKeepaliveDiagnostics(stagingDir, safeDetails)
                     safeDetails += "keepaliveDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
-                    logI("LogBundleExporter keepaliveDiagnostics tookMs=${SystemClock.elapsedRealtime() - started}")
                 }
-            } else {
-                safeDetails += "lsposed diagnostics skipped in standard mode"
-                safeDetails += "xmsf keeper diagnostics skipped in standard mode"
             }
 
-            val sanitizeStarted = SystemClock.elapsedRealtime()
-            // Runtime jsonl is already sanitized at append time; skip re-scan of multi-MB files.
-            // Other sources (logcat/lsposed/sdk/crash) still get full streaming sanitize in parallel.
-            DiagnosticFileSanitizer.sanitizeDirectory(
-                root = stagingDir,
-                onWarning = { logW(it) },
-                includeFile = { file ->
-                    !(file.name.startsWith("runtime") && file.name.endsWith(".jsonl"))
-                },
-                parallel = true,
-            )
-            safeDetails += "sanitize=${SystemClock.elapsedRealtime() - sanitizeStarted}ms"
-            logI(
-                "LogBundleExporter sanitize tookMs=${SystemClock.elapsedRealtime() - sanitizeStarted}",
-            )
+            run {
+                val started = SystemClock.elapsedRealtime()
+                captureLogcat(stagingDir, safeDetails, mode)
+                safeDetails += "captureLogcat=${SystemClock.elapsedRealtime() - started}ms"
+            }
+
             safeDetails += "exportParallelWorkers=$workers"
         } finally {
             pool.shutdown()
@@ -411,6 +407,48 @@ object LogBundleExporter {
         }
     }
 
+    private fun appendPackageIdentity(
+        context: Context,
+        details: MutableList<String>,
+        label: String,
+        packageName: String,
+    ) {
+        val packageInfo = try {
+            context.packageManager.getPackageInfo(packageName, 0)
+        } catch (error: Exception) {
+            details += "$label package=$packageName status=unavailable " +
+                "error=${error.javaClass.simpleName}"
+            return
+        }
+        val apkPath = packageInfo.applicationInfo?.sourceDir.orEmpty()
+        val apkSha256 = sha256FileOrUnavailable(apkPath)
+        details += "$label package=$packageName " +
+            "versionName=${packageInfo.versionName.orEmpty()} " +
+            "versionCode=${packageInfo.longVersionCode} " +
+            "apkPath=${apkPath.ifBlank { "unavailable" }} " +
+            "apkSha256=$apkSha256"
+    }
+
+    private fun sha256FileOrUnavailable(path: String): String {
+        if (path.isBlank()) return "unavailable:path_missing"
+        val file = File(path)
+        if (!file.isFile) return "unavailable:file_missing"
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(DEFAULT_HASH_BUFFER_SIZE)
+            FileInputStream(file).use { input ->
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
+        } catch (error: Exception) {
+            "unavailable:${error.javaClass.simpleName}"
+        }
+    }
+
     private fun ensurePrivateSubDir(context: Context, name: String): File {
         val dir = File(context.filesDir, name)
         DiagnosticArchive.ensureDirectory(dir, recreateWhenFile = true, onWarning = { logW(it) })
@@ -452,97 +490,6 @@ object LogBundleExporter {
         if (sdkDir != null && sdkDir.exists() && sdkDir.isDirectory && sdkDir.listFiles()?.isNotEmpty() == true) {
             copyDirectory(sdkDir, File(stagingDir, "app/mipush_sdk"))
             details += "mipush sdk log: ${sdkDir.absolutePath}"
-        }
-    }
-
-    private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>): Boolean {
-        val lsposedTargetRoot = File(stagingDir, "lsposed")
-        var copied = false
-        LSPOSED_LOG_DIRS.forEach { path ->
-            val src = File(path)
-            if (src.exists() && src.canRead()) {
-                val target = File(lsposedTargetRoot, src.name)
-                copyDirectory(src, target) { file ->
-                    !file.name.contains("old", ignoreCase = true)
-                }
-                val trimmed = trimLsposedRotatingLogs(target)
-                if (trimmed > 0) {
-                    details += "lsposed rotating logs trimmed: $trimmed"
-                }
-                if (target.walkTopDown().any { it.isFile }) {
-                    details += "lsposed direct: $path"
-                    copied = true
-                }
-            }
-        }
-        if (copied) return true
-
-        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
-            details += "lsposed su skipped: root not granted"
-            return false
-        }
-
-        val targetPath = lsposedTargetRoot.absolutePath
-        val targetUid = runCatching { android.os.Process.myUid() }.getOrDefault(-1)
-        val shellCmd = buildString {
-            append("mkdir -p ${shQuote(targetPath)}; ")
-            LSPOSED_LOG_DIRS.forEach { path ->
-                val name = File(path).name
-                val targetDir = "$targetPath/$name"
-                append("if [ -d ${shQuote(path)} ]; then ")
-                append("mkdir -p ${shQuote(targetDir)}; ")
-                append("cd ${shQuote(path)} && ")
-                append("find . -type f ! -iname '*old*' | while read -r rel; do ")
-                append("mkdir -p ${shQuote(targetDir)}/\"$(dirname \"${'$'}rel\")\"; ")
-                append("cp \"${'$'}rel\" ${shQuote(targetDir)}/\"${'$'}rel\"; ")
-                append("done; ")
-                append("chmod -R a+rX ${shQuote(targetDir)}; ")
-                if (targetUid > 0) {
-                    append("chown -R $targetUid:$targetUid ${shQuote(targetDir)}; ")
-                }
-                append("fi; ")
-            }
-        }
-        val suResult = runSuCommand(shellCmd)
-        val trimmed = trimLsposedRotatingLogs(lsposedTargetRoot)
-        if (trimmed > 0) {
-            details += "lsposed rotating logs trimmed: $trimmed"
-        }
-        if (suResult.exitCode == 0 && lsposedTargetRoot.walkTopDown().any { it.isFile }) {
-            details += "lsposed copied via su"
-            return true
-        }
-        details += "lsposed su failed: ${suResult.stderr.ifBlank { suResult.stdout }.ifBlank { "unknown" }}"
-        return false
-    }
-
-    private fun captureLogcat(
-        stagingDir: File,
-        details: MutableList<String>,
-        mode: DiagnosticExportMode,
-    ) {
-        val logcatDir = File(stagingDir, "logcat")
-        if (!ensureDirectory(logcatDir, recreateWhenFile = true)) return
-        val output = File(logcatDir, "logcat_all.txt")
-        if (mode.usesBoundedLogcat) {
-            val bounded = dumpCommandOutput(
-                listOf("logcat", "-d", "-v", "threadtime", "-t", "24h", "-b", "main,system,crash"),
-                output,
-            )
-            if (bounded) {
-                details += "logcat: direct bounded main,system,crash 24h"
-            }
-            return
-        }
-        val direct = dumpCommandOutput(listOf("logcat", "-d", "-v", "threadtime", "-b", "all"), output)
-        if (direct) {
-            details += "logcat: direct"
-            return
-        }
-        if (!rootCommandAccess.refreshRootAccessIfGranted()) return
-        val su = dumpRootCommandOutput("logcat -d -v threadtime -b all", output)
-        if (su) {
-            details += "logcat: su"
         }
     }
 
@@ -590,43 +537,6 @@ object LogBundleExporter {
             }
         })
         details += "application exit history: system/$APPLICATION_EXIT_HISTORY_FILE entries=${exits.size}"
-    }
-
-    private fun captureXmsfKeepaliveDiagnostics(stagingDir: File, details: MutableList<String>) {
-        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
-            details += "xmsf keepalive diagnostics skipped: root not granted"
-            return
-        }
-
-        val output = File(stagingDir, "system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE")
-        val parent = output.parentFile
-        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
-            details += "xmsf keepalive diagnostics failed: output dir unavailable"
-            return
-        }
-
-        val sections = keepaliveDiagnosticCommands().map { section ->
-            section to rootCommandAccess.runRootCommand(section.command, timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS)
-        }
-        val text = buildString {
-            appendLine("# XMSF keepalive diagnostics")
-            appendLine("# Captures Xiaomi system keeper package, process, and XMPushService binding state.")
-            appendLine()
-            sections.forEach { (section, result) ->
-                appendLine("## ${section.title}")
-                appendLine("$ ${section.command}")
-                appendLine("exitCode=${result.exitCode} timedOut=${result.timedOut} skipped=${result.skipped}")
-                val stdout = result.stdoutText.ifBlank { "<empty>" }
-                appendLine("[stdout]")
-                appendLine(stdout)
-                val stderr = result.stderrText.ifBlank { "<empty>" }
-                appendLine("[stderr]")
-                appendLine(stderr)
-                appendLine()
-            }
-        }
-        output.writeText(text)
-        details += "xmsf keepalive diagnostics: system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE"
     }
 
     private data class KeepaliveDiagnosticCommand(
@@ -688,23 +598,6 @@ object LogBundleExporter {
         "dumpsys package $packageName | grep -E ${shQuote(grepPattern)} || " +
             "echo ${shQuote("package fields missing: $packageName")}"
 
-    private fun dumpCommandOutput(command: List<String>, output: File): Boolean {
-        return runCatching {
-            val parent = output.parentFile ?: return false
-            if (!ensureDirectory(parent, recreateWhenFile = true)) return false
-            val process = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.to(output))
-                .start()
-            val completed = process.waitFor(6, TimeUnit.SECONDS)
-            if (!completed) {
-                process.destroyForcibly()
-                return@runCatching false
-            }
-            output.exists() && output.length() > 0
-        }.getOrDefault(false)
-    }
-
     private fun dumpRootCommandOutput(command: String, output: File): Boolean {
         return runCatching {
             val parent = output.parentFile ?: return false
@@ -730,67 +623,86 @@ object LogBundleExporter {
         return "runtime log files: ${files.size}, bytes=$totalBytes"
     }
 
-    internal fun trimLsposedRotatingLogs(root: File): Int {
-        if (!root.exists() || !root.isDirectory) return 0
-        var deleted = 0
-        root.walkTopDown()
-            .filter { it.isFile }
-            .mapNotNull { file ->
-                val kind = lsposedRotatingLogPattern.matchEntire(file.name)
-                    ?.groupValues
-                    ?.getOrNull(1)
-                    ?: return@mapNotNull null
-                "${file.parentFile?.absolutePath.orEmpty()}:$kind" to file
-            }
-            .groupBy({ it.first }, { it.second })
-            .values
-            .forEach { files ->
-                files.sortedWith(compareByDescending<File> { it.name }.thenByDescending { it.lastModified() })
-                    .drop(LSPOSED_ROTATING_LOGS_PER_KIND)
-                    .forEach { file ->
-                        if (deleteRecursivelyWithSuFallback(file)) {
-                            deleted += 1
-                        }
-                    }
-            }
-        return deleted
-    }
-
     private fun ensureDirectory(dir: File, recreateWhenFile: Boolean): Boolean {
         return DiagnosticArchive.ensureDirectory(dir, recreateWhenFile, onWarning = { logW(it) })
     }
 
-    private fun deleteRecursivelyWithSuFallback(target: File): Boolean {
-        if (!target.exists()) return true
-        if (target.deleteRecursively()) return true
+    private fun deleteRecursivelyWithSuFallback(target: File): Boolean =
+        DiagnosticShell.deleteRecursivelyWithSuFallback(
+            target = target,
+            rootAvailable = {
+                runCatching { com.topjohnwu.superuser.Shell.getShell() }
+                rootCommandAccess.refreshRootAccessIfGranted()
+            },
+            onWarning = { logW(it) },
+        )
+
+    private fun captureLogcat(
+        stagingDir: File,
+        details: MutableList<String>,
+        mode: DiagnosticExportMode,
+    ) {
+        DiagnosticShell.captureLogcat(
+            stagingDir = stagingDir,
+            details = details,
+            mode = mode,
+            suFallback = { output ->
+                rootCommandAccess.refreshRootAccessIfGranted() &&
+                    dumpRootCommandOutput("logcat -d -v threadtime -b all", output)
+            },
+            onWarning = { logW(it) },
+        )
+    }
+
+    private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>) {
+        DiagnosticShell.copyLsposedLogs(
+            dirs = LSPOSED_LOG_DIRS,
+            stagingDir = stagingDir,
+            details = details,
+            includeFile = { file -> !file.name.contains("old", ignoreCase = true) },
+            onWarning = { logW(it) },
+        )
+    }
+
+    private fun captureXmsfKeepaliveDiagnostics(stagingDir: File, details: MutableList<String>) {
+        runCatching { com.topjohnwu.superuser.Shell.getShell() }
         if (!rootCommandAccess.refreshRootAccessIfGranted()) {
-            logW("Skip su rm fallback because root is not granted: ${target.absolutePath}")
-            return !target.exists()
+            details += "xmsf keepalive diagnostics skipped: root not granted"
+            return
         }
-        val suResult = runSuCommand("rm -rf ${shQuote(target.absolutePath)}")
-        val deleted = !target.exists()
-        if (!deleted) {
-            logW(
-                "su rm fallback failed: path=${target.absolutePath} exit=${suResult.exitCode} stderr=${suResult.stderr} stdout=${suResult.stdout}",
-            )
+
+        val output = File(stagingDir, "system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE")
+        val parent = output.parentFile
+        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
+            details += "xmsf keepalive diagnostics failed: output dir unavailable"
+            return
         }
-        return deleted
+
+        val sections = keepaliveDiagnosticCommands().map { section ->
+            section to rootCommandAccess.runRootCommand(section.command, timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS)
+        }
+        val text = buildString {
+            appendLine("# XMSF keepalive diagnostics")
+            appendLine("# Captures Xiaomi system keeper package, process, and XMPushService binding state.")
+            appendLine()
+            sections.forEach { (section, result) ->
+                appendLine("## ${section.title}")
+                appendLine("$ ${section.command}")
+                appendLine("exitCode=${result.exitCode} timedOut=${result.timedOut} skipped=${result.skipped}")
+                val stdout = result.stdoutText.ifBlank { "<empty>" }
+                appendLine("[stdout]")
+                appendLine(stdout)
+                val stderr = result.stderrText.ifBlank { "<empty>" }
+                appendLine("[stderr]")
+                appendLine(stderr)
+                appendLine()
+            }
+        }
+        output.writeText(text)
+        details += "xmsf keepalive diagnostics: system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE"
     }
 
-    private data class ShellResult(
-        val exitCode: Int,
-        val stdout: String,
-        val stderr: String,
-    )
-
-    private fun runSuCommand(command: String): ShellResult {
-        val result = rootCommandAccess.runRootCommand(command)
-        return ShellResult(result.exitCode, result.stdoutText, result.stderrText)
-    }
-
-    private fun shQuote(value: String): String {
-        return "'" + value.replace("'", "'\"'\"'") + "'"
-    }
+    private fun shQuote(value: String): String = DiagnosticShell.shQuote(value)
 
     private fun pruneCurrentDayLocalLogs(context: Context, now: Date) {
         runCatching {

@@ -353,7 +353,7 @@ object IslandPreferences {
 
         // Reuse the single provider query above instead of a second readFlag round-trip.
         val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
-        LogSanitizerConfig.syncSanitizationEnabled(logSanitizationEnabled)
+        LogSanitizerConfig.syncFromVerboseMode(!logSanitizationEnabled)
 
         IslandOptions(
             enabled = values.booleanValue(ISLAND_PREF_ENABLED, true),
@@ -368,7 +368,7 @@ object IslandPreferences {
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }.onFailure {
-        LogSanitizerConfig.syncSanitizationEnabled(null)
+        LogSanitizerConfig.syncFromVerboseMode(null)
     }
 
     private fun Map<String, String>.booleanValue(key: String, default: Boolean): Boolean {
