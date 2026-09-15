@@ -1,4 +1,5 @@
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -13,6 +14,14 @@ class NotificationIdentityBridgeContractTest {
         assertTrue(source.contains("appContext(context).packageName, packageName, callingUserId(context)"))
     }
 
+    @Test
+    fun `delegated group query supports includeDeleted overload before legacy overload`() {
+        val source = resolveSource().readText()
+
+        assertTrue(source.contains("Boolean::class.javaPrimitiveType"))
+        assertTrue(source.contains("getNotificationChannelGroups"))
+        assertTrue(source.contains("Keep the Android Q-era signature"))
+    }
     @Test
     fun `identity bridge does not use warning producing JavaCalls entrypoints`() {
         val source = resolveSource().readText()

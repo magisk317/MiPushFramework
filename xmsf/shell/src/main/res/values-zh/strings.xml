@@ -288,8 +288,12 @@
     <string name="force_register_sent">已发送强制注册请求</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
+    <string name="mock_notification_failed_event_not_found">重放失败：数据库中未找到该记录（可能已被清理或删除）。</string>
+    <string name="mock_notification_failed_payload_missing">重放失败：该事件缺少原始推送载荷（Payload），无法重新构造通知。</string>
+    <string name="mock_notification_failed_service_not_ready">重放失败：后台推送服务未就绪或响应超时。</string>
+    <string name="mock_notification_failed_app_not_installed">重放失败：目标应用未安装或已被卸载。</string>
     <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
-    <string name="mock_notification_no_receiver">重放预检：目标应用没有匹配此推送的接收器。</string>
+    <string name="mock_notification_no_receiver">重放失败：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">连接与服务</string>
     <string name="settings_home_service_summary">XMPP 服务器、前台服务与权限检查。</string>
     <string name="settings_home_keepalive_title">保活与系统限制</string>

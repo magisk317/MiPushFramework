@@ -442,6 +442,30 @@ class ManagerWriteRuntimeExecutor(
                 request.requestId,
                 ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED,
             )
+            MockReplayOutcome.FailedEventNotFound -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_EVENT_NOT_FOUND,
+            )
+            MockReplayOutcome.FailedPayloadMissing -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_PAYLOAD_MISSING,
+            )
+            MockReplayOutcome.FailedServiceNotReady -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_SERVICE_NOT_READY,
+            )
+            MockReplayOutcome.FailedAppNotInstalled -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_APP_NOT_INSTALLED,
+            )
+            MockReplayOutcome.FailedMissingRegSec -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_MISSING_REGSEC,
+            )
+            MockReplayOutcome.FailedNoReceiver -> failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_NO_RECEIVER,
+            )
             MockReplayOutcome.Failed -> failed(
                 request.requestId,
                 ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED,

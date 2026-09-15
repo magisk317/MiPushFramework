@@ -310,7 +310,7 @@ class EventRepository constructor(
                 )
                 logE("mock replay could not start push service", it)
             }.getOrElse {
-                return MockReplayOutcome.Failed
+                return MockReplayOutcome.FailedServiceNotReady
             }
             val ready = waitForPushService()
             if (ready == null) {
@@ -320,7 +320,7 @@ class EventRepository constructor(
                     "EventRepository.mockMessage",
                 )
                 logW("pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
-                return MockReplayOutcome.Failed
+                return MockReplayOutcome.FailedServiceNotReady
             }
             pushService = ready.first
             logD("pushService became ready after ${ready.second}ms, replaying mock")
@@ -398,6 +398,12 @@ class EventRepository constructor(
             MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
             MockReplayOutcome.Posted -> "mock_replay_posted"
             MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
+            MockReplayOutcome.FailedEventNotFound -> "mock_replay_failed_event_not_found"
+            MockReplayOutcome.FailedPayloadMissing -> "mock_replay_failed_payload_missing"
+            MockReplayOutcome.FailedServiceNotReady -> "mock_replay_failed_service_not_ready"
+            MockReplayOutcome.FailedAppNotInstalled -> "mock_replay_failed_app_not_installed"
+            MockReplayOutcome.FailedMissingRegSec -> "mock_replay_failed_missing_regsec"
+            MockReplayOutcome.FailedNoReceiver -> "mock_replay_failed_no_receiver"
             MockReplayOutcome.Failed -> "mock_replay_failed"
         }
         PushRuntime.observeNotificationEvent(packageName, action, "EventRepository.mockMessage")

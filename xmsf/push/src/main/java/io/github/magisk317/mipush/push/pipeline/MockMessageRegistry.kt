@@ -110,6 +110,14 @@ object MockMessageRegistry {
 
     private fun identityOf(container: XmPushActionContainer?): String? {
         if (container == null) return null
+        // For mock replays, use the original source message ID for dedup, not
+        // the per-replay ID (which includes a timestamp+sequence and is always
+        // unique, defeating the dedup entirely).
+        val extra = container.metaInfo?.extra
+        if (extra?.get(EXTRA_MOCK_REPLAY) == "true") {
+            val sourceId = extra[EXTRA_MOCK_REPLAY_SOURCE_ID]
+            if (!sourceId.isNullOrBlank()) return sourceId
+        }
         MessageIdentity.fromContainer(container)?.let { return it }
         return runCatching {
             "payload:${sha256(PushShellBridgeHolder.payload().packToBytes(container))}"

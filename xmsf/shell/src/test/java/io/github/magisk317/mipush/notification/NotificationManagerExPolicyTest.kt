@@ -154,6 +154,14 @@ class NotificationManagerExPolicyTest {
     }
 
     @Test
+    fun `publish remaps unavailable channel through managed fallback`() {
+        val source = resolveNotificationControllerSource().readText()
+
+        assertTrue(source.contains("findPublishFallbackChannel(packageName, channelId)"))
+        assertTrue(source.contains("notificationBuilder.setChannelId(channelId)"))
+        assertTrue(source.contains("publish remapped unavailable channel"))
+    }
+    @Test
     fun `group cancellation passes resolved user to notification manager`() {
         val source = resolveNotificationControllerSource().readText()
         val groupBranch = source.substringAfter("if (clearGroup) {")

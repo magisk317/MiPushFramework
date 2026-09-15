@@ -11,5 +11,11 @@ sealed interface MockReplayOutcome {
     data object Dispatched : MockReplayOutcome
     data object Posted : MockReplayOutcome
     data object FailedChannelDisabled : MockReplayOutcome
+    data object FailedEventNotFound : MockReplayOutcome
+    data object FailedPayloadMissing : MockReplayOutcome
+    data object FailedServiceNotReady : MockReplayOutcome
+    data object FailedAppNotInstalled : MockReplayOutcome
+    data object FailedMissingRegSec : MockReplayOutcome
+    data object FailedNoReceiver : MockReplayOutcome
     data object Failed : MockReplayOutcome
 }

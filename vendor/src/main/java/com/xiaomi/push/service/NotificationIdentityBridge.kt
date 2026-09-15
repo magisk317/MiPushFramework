@@ -151,16 +151,36 @@ object NotificationIdentityBridge {
 
             Strategy.DELEGATED -> runCatching {
                 val remoteService = service() ?: return@runCatching emptyList<NotificationChannelGroup>()
-                val groups = remoteService.javaClass.getMethod(
-                    "getNotificationChannelGroups",
-                    String::class.java,
-                    String::class.java,
-                    Int::class.javaPrimitiveType
-                ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
+                val callerPackage = appContext(context).packageName
+                val userId = callingUserId(context)
+                val groups = runCatching {
+                    // Android 16 moved the delegated query to the includeDeleted overload.
+                    remoteService.javaClass.getMethod(
+                        "getNotificationChannelGroups",
+                        String::class.java,
+                        String::class.java,
+                        Int::class.javaPrimitiveType,
+                        Boolean::class.javaPrimitiveType,
+                    ).invoke(remoteService, callerPackage, packageName, userId, false)
+                }.getOrElse {
+                    // Keep the Android Q-era signature for older framework builds.
+                    remoteService.javaClass.getMethod(
+                        "getNotificationChannelGroups",
+                        String::class.java,
+                        String::class.java,
+                        Int::class.javaPrimitiveType,
+                    ).invoke(remoteService, callerPackage, packageName, userId)
+                }
                 listFromParceledListSlice<NotificationChannelGroup>(groups)
             }.onFailure {
                 logW("DELEGATED getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}", it)
-            }.getOrNull().orEmpty()
+            }.getOrElse {
+                runCatching {
+                    NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName).orEmpty()
+                }.onSuccess { groups ->
+                    logI("DELEGATED getNotificationChannelGroups platform fallback count=${groups.size} pkg=$packageName")
+                }.getOrDefault(emptyList())
+            }
 
             Strategy.UNSUPPORTED -> emptyList()
         }

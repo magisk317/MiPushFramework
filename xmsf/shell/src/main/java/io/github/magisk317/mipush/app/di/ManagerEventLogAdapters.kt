@@ -104,9 +104,13 @@ class XmsfManagerEventGateway(
     }
 
     override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
-        val resolved = resolveEventForMock(event) ?: return MockReplayOutcome.Failed
-        val container = RegSecUtils.getContainerWithRegSec(resolved.payload, resolved.regSec)
-            ?: return MockReplayOutcome.Failed
+        val resolved = resolveEventForMock(event) ?: return MockReplayOutcome.FailedEventNotFound
+        val payload = resolved.payload
+        if (payload == null || payload.isEmpty()) {
+            return MockReplayOutcome.FailedPayloadMissing
+        }
+        val container = RegSecUtils.getContainerWithRegSec(payload, resolved.regSec)
+            ?: return MockReplayOutcome.FailedPayloadMissing
         return eventRepository.mockMessage(container)
     }
 

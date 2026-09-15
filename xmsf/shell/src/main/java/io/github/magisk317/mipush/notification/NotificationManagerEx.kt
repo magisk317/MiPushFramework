@@ -277,11 +277,22 @@ object NotificationManagerEx {
 
     fun notifyDetailed(
         packageName: String,
-        tag: String?, id: Int, notification: Notification,
+        tag: String?, requestedId: Int, notification: Notification,
         userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): NotifyResult {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        Logger.withTag(TAG).d { "notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}" }
+        Logger.withTag(TAG).d {
+            "notify() called with: packageName = $packageName, tag = $tag, id = $requestedId, " +
+                "channel = ${notification.channelId}, group = ${notification.group}"
+        }
+        val dedupFingerprint = runCatching { NotificationDedupPolicy.fingerprintOf(packageName, notification) }.getOrNull()
+        val id = runCatching {
+            NotificationDedupPolicy.mergedNotificationId(dedupFingerprint, requestedId, System.currentTimeMillis())
+        }.getOrDefault(requestedId)
+        if (id != requestedId) {
+            logD("merge duplicate notification publish pkg=$packageName channel=${notification.channelId} requestedId=$requestedId -> $id")
+        }
+        runCatching { NotificationDedupPolicy.record(dedupFingerprint, id, System.currentTimeMillis()) }
         val currentUserId = Utils.myUserId()
         if (!canNotifyForUser(userId, currentUserId)) {
             logW(
@@ -304,7 +315,7 @@ object NotificationManagerEx {
             Log.DEBUG,
             "notify() attribution pkg=$packageName isHooked=$isHooked " +
                 "identityHooked=${NotificationIdentityBridge.isHooked} strategy=$identityStrategy " +
-                "id=$id channel=${notification.channelId} commit=${BuildConfig.GIT_COMMIT}",
+                "id=$requestedId channel=${notification.channelId} commit=${BuildConfig.GIT_COMMIT}",
         )
         if (!isTargetPackageAvailable(packageName)) {
             logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
@@ -533,6 +544,11 @@ object NotificationManagerEx {
 
     fun getNotificationChannel(packageName: String, channelId: String?): NotificationChannel? =
         channelRegistry().getNotificationChannel(packageName, channelId)
+
+    fun findPublishFallbackChannel(
+        packageName: String,
+        requestedChannelId: String?,
+    ): NotificationChannel? = channelRegistry().findPublishFallbackChannel(packageName, requestedChannelId)
 
     fun getNotificationChannels(packageName: String): List<NotificationChannel?>? =
         channelRegistry().getNotificationChannels(packageName)

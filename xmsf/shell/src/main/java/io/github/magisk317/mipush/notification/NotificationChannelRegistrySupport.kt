@@ -218,6 +218,33 @@ internal class NotificationChannelRegistrySupport(
         return localFallback
     }
 
+    /**
+     * Finds an existing MiPush-owned channel when the requested ID is stale or belongs to a
+     * different naming namespace. The exact channel is preferred; otherwise only channels
+     * recognized as MiPush-managed for this target package are eligible.
+     */
+    fun findPublishFallbackChannel(
+        packageName: String,
+        requestedChannelId: String?,
+    ): NotificationChannel? {
+        val channels = getNotificationChannels(packageName).orEmpty().filterNotNull()
+        val exact = channels.firstOrNull { it.id == requestedChannelId }
+        if (exact != null) {
+            return exact
+        }
+        val managed = channels.firstOrNull {
+            io.github.magisk317.mipush.common.utils.NotificationUtils
+                .isMiPushManagedChannelId(packageName, it.id)
+        }
+        if (managed != null) {
+            logW(
+                "getNotificationChannel managed fallback pkg=$packageName " +
+                    "requested=$requestedChannelId channel=${managed.id}",
+            )
+        }
+        return managed
+    }
+
     fun getNotificationChannels(
         packageName: String
     ): List<NotificationChannel?>? {

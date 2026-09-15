@@ -305,8 +305,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="force_register_sent">Force-register request sent</string>
     <string name="force_register_failed">Force-register failed, check logs</string>
     <string name="mock_notification_missing_regsec">Cannot replay this encrypted push message: register secret is missing. Re-register the app and try again.</string>
+    <string name="mock_notification_failed_event_not_found">Replay failed: event record not found in database (may have been pruned or deleted).</string>
+    <string name="mock_notification_failed_payload_missing">Replay failed: missing original push payload to reconstruct notification.</string>
+    <string name="mock_notification_failed_service_not_ready">Replay failed: background push service not ready or timed out.</string>
+    <string name="mock_notification_failed_app_not_installed">Replay failed: target app is not installed or has been uninstalled.</string>
     <string name="mock_notification_failed">Failed to replay this push message. Check logs for details.</string>
-    <string name="mock_notification_no_receiver">Replay warning: target app receiver not found for this push intent.</string>
+    <string name="mock_notification_no_receiver">Replay failed: target app receiver not found for this push intent.</string>
     <string name="settings_home_service_title">Connection &amp; service</string>
     <string name="settings_home_service_summary">XMPP server, foreground service, and permission check.</string>
     <string name="settings_home_keepalive_title">Keep-alive &amp; system limits</string>

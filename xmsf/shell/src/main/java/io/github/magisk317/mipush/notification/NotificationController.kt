@@ -31,8 +31,8 @@ import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSou
 import co.touchlab.kermit.Logger
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport
 import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
@@ -97,7 +97,7 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder
     ): PublishResult {
         val startedAt = System.nanoTime()
-        val channelId = getExistsChannelId(context, metaInfo, packageName)
+        var channelId = getExistsChannelId(context, metaInfo, packageName)
         fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
             val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
             val attrs = mutableMapOf(
@@ -126,7 +126,20 @@ object NotificationController {
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
         }
 
-        val channel = getNotificationManagerEx().getNotificationChannel(packageName, channelId)
+        var channel = getNotificationManagerEx().getNotificationChannel(packageName, channelId)
+        if (channel == null) {
+            val fallback = getNotificationManagerEx().findPublishFallbackChannel(packageName, channelId)
+            if (fallback != null) {
+                logW(
+                    "publish remapped unavailable channel pkg=$packageName id=$notificationId " +
+                        "requested=$channelId actual=${fallback.id} " +
+                        "source=${if (metaInfo.isMockReplay()) "mock_replay" else "server"}",
+                )
+                channelId = fallback.id
+                notificationBuilder.setChannelId(channelId)
+                channel = fallback
+            }
+        }
         when {
             channel == null -> {
                 Logger.withTag(TAG).d {
@@ -167,7 +180,10 @@ object NotificationController {
             emit(result = "skip", reason = "notify_null")
             return PublishResult.Failed
         }
-        Logger.withTag(TAG).d { "publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}" }
+        Logger.withTag(TAG).d {
+            "publish posted pkg=$packageName id=$notificationId group=${notification.group} " +
+                "tag=${MIPushNotificationPublishHelper.getNotificationTag(packageName)}"
+        }
         if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context) && !metaInfo.isMockReplay()) {
             NotificationGroupHelper.getInstance().onNotificationNotify(
                 context,
@@ -313,7 +329,7 @@ object NotificationController {
                 "source=$focusPayloadSource reason=${focusPlan.reason}",
         )
 
-        val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
+        val tag = MIPushNotificationPublishHelper.getNotificationTag(packageName)
         val nativeFeature = NativeNotificationFeatureBuilder.apply(
             context = context,
             builder = notificationBuilder,
@@ -589,8 +605,8 @@ object NotificationController {
     ) {
         val packageName = MIPushNotificationHelper.getTargetPackage(container)
         val userId = resolveNotificationUserId(context, packageName)
-        MyMIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
-        val tag = MyMIPushNotificationHelper.getNotificationTag(container)
+        MIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
+        val tag = MIPushNotificationPublishHelper.getNotificationTag(container)
         NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
         TopNotificationCoordinator.cancelNotification(
             context = context,
@@ -623,7 +639,7 @@ object NotificationController {
         if (clearGroup) {
             getNotificationManagerEx().cancel(
                 packageName,
-                MyMIPushNotificationHelper.getNotificationTag(container),
+                MIPushNotificationPublishHelper.getNotificationTag(container),
                 notificationGroup?.let { ("GroupSummary" + packageName + it).hashCode() } ?: 0,
                 userId = userId,
             )

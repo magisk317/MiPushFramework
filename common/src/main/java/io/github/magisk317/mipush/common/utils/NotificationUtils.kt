@@ -19,8 +19,13 @@ object NotificationUtils {
     @JvmStatic
     fun isMiPushManagedChannelId(packageName: String, channelId: String?): Boolean {
         if (channelId.isNullOrEmpty()) return false
-        val prefix = getChannelIdByPkg(packageName)
-        return channelId == prefix || channelId.startsWith(prefix + "_")
+        val legacyPrefix = getChannelIdByPkg(packageName)
+        val stockOldPrefix = "mipush_${packageName}_"
+        val stockNewPrefix = "mipush|$packageName|"
+        return channelId == legacyPrefix ||
+            channelId.startsWith(legacyPrefix + "_") ||
+            channelId.startsWith(stockOldPrefix) ||
+            channelId.startsWith(stockNewPrefix)
     }
 
     @JvmStatic

@@ -28,6 +28,7 @@ object EventDebugJson {
         prettyPrintIndent = "  "
         encodeDefaults = true
         ignoreUnknownKeys = true
+        isLenient = true
     }
 
     private val receiveDateTimeFormatter: DateTimeFormatter =
@@ -42,7 +43,7 @@ object EventDebugJson {
         put("packageName", event.packageName)
         put("appName", event.appName?.let { JsonPrimitive(it) } ?: JsonNull)
         put("title", event.title)
-        put("content", event.content)
+        put("content", parseIfJson(event.content))
         put("channel", event.channel.takeIf { it.isNotBlank() }?.let { JsonPrimitive(it) } ?: JsonNull)
         put(
             "configOptions",
@@ -59,7 +60,7 @@ object EventDebugJson {
         put("receiveDateMs", event.receiveDateMs)
         put("type", event.type)
         put("result", event.result)
-        put("info", event.info?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("info", parseIfJson(event.info))
         put("hasRegSec", !event.regSec.isNullOrBlank())
         val payload = event.payload
         if (payload == null) {
@@ -80,6 +81,45 @@ object EventDebugJson {
                     put("note", "Protocol details are available from the XMSF runtime gateway")
                 },
             )
+        }
+    }
+
+    private fun parseIfJson(raw: String?): JsonElement {
+        if (raw.isNullOrBlank()) return JsonNull
+        val trimmed = raw.trim()
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))
+        ) {
+            val parsed = runCatching { prettyJson.parseToJsonElement(trimmed) }.getOrNull()
+            if (parsed != null) return recursivelyParseJsonStrings(parsed)
+        }
+        return JsonPrimitive(raw)
+    }
+
+    private fun recursivelyParseJsonStrings(element: JsonElement): JsonElement {
+        return when (element) {
+            is JsonObject -> buildJsonObject {
+                element.forEach { (k, v) ->
+                    put(k, recursivelyParseJsonStrings(v))
+                }
+            }
+            is kotlinx.serialization.json.JsonArray -> buildJsonArray {
+                element.forEach { add(recursivelyParseJsonStrings(it)) }
+            }
+            is JsonPrimitive -> {
+                if (element.isString) {
+                    val str = element.content.trim()
+                    if ((str.startsWith('{') && str.endsWith('}')) ||
+                        (str.startsWith('[') && str.endsWith(']'))
+                    ) {
+                        val parsed = runCatching { prettyJson.parseToJsonElement(str) }.getOrNull()
+                        if (parsed != null) {
+                            return recursivelyParseJsonStrings(parsed)
+                        }
+                    }
+                }
+                element
+            }
         }
     }
 }

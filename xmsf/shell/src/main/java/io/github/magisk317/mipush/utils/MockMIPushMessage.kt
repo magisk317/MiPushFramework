@@ -221,6 +221,18 @@ object MockMIPushMessage {
                 emitMockReplay(result = "ok", statusOk = true, reason = "posted", startedAt = startedAt)
             MockReplayOutcome.FailedChannelDisabled ->
                 emitMockReplay(result = "error", statusOk = false, reason = "channel_disabled", startedAt = startedAt)
+            MockReplayOutcome.FailedEventNotFound ->
+                emitMockReplay(result = "error", statusOk = false, reason = "event_not_found", startedAt = startedAt)
+            MockReplayOutcome.FailedPayloadMissing ->
+                emitMockReplay(result = "error", statusOk = false, reason = "payload_missing", startedAt = startedAt)
+            MockReplayOutcome.FailedServiceNotReady ->
+                emitMockReplay(result = "error", statusOk = false, reason = "service_not_ready", startedAt = startedAt)
+            MockReplayOutcome.FailedAppNotInstalled ->
+                emitMockReplay(result = "error", statusOk = false, reason = "app_not_installed", startedAt = startedAt)
+            MockReplayOutcome.FailedMissingRegSec ->
+                emitMockReplay(result = "error", statusOk = false, reason = "missing_regsec", startedAt = startedAt)
+            MockReplayOutcome.FailedNoReceiver ->
+                emitMockReplay(result = "error", statusOk = false, reason = "no_receiver", startedAt = startedAt)
             MockReplayOutcome.Failed ->
                 emitMockReplay(result = "error", statusOk = false, reason = "failed", startedAt = startedAt)
         }
@@ -235,6 +247,12 @@ object MockMIPushMessage {
         MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
         MockReplayOutcome.Posted -> "mock_replay_posted"
         MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
+        MockReplayOutcome.FailedEventNotFound -> "mock_replay_failed_event_not_found"
+        MockReplayOutcome.FailedPayloadMissing -> "mock_replay_failed_payload_missing"
+        MockReplayOutcome.FailedServiceNotReady -> "mock_replay_failed_service_not_ready"
+        MockReplayOutcome.FailedAppNotInstalled -> "mock_replay_failed_app_not_installed"
+        MockReplayOutcome.FailedMissingRegSec -> "mock_replay_failed_missing_regsec"
+        MockReplayOutcome.FailedNoReceiver -> "mock_replay_failed_no_receiver"
         MockReplayOutcome.Failed -> "mock_replay_failed"
     }
 
