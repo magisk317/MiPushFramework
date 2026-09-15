@@ -8,7 +8,7 @@ class NotificationClickFallbackContractTest {
     @Test
     fun `known broken click packages opt into launcher fallback`() {
         assertTrue(NotificationClickFallbackContract.shouldUseLauncherFallback("com.tencent.mobileqq"))
-        assertTrue(NotificationClickFallbackContract.shouldUseLauncherFallback("com.taobao.idlefish"))
+        assertFalse(NotificationClickFallbackContract.shouldUseLauncherFallback("com.taobao.idlefish"))
     }
 
     @Test

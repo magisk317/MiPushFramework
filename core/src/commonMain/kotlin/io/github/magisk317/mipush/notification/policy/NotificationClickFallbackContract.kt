@@ -9,7 +9,6 @@ object NotificationClickFallbackContract {
         "com.youku.phone",
         "com.tudou.android",
         "com.baidu.tieba",
-        "com.taobao.idlefish",
     )
 
     fun shouldUseLauncherFallback(packageName: String?): Boolean =

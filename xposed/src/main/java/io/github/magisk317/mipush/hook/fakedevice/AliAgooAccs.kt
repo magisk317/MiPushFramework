@@ -5,6 +5,7 @@ import io.github.magisk317.xposed.LoadParam
 class AliAgooAccs : Common() {
     override fun fake(lpparam: LoadParam): Boolean {
         super.fake(lpparam)
+        AgooClickDecryptHook.install(lpparam)
         return VendorPushHookHelper.install(lpparam, SPEC)
     }
 
