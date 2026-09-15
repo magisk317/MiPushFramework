@@ -217,7 +217,7 @@ Key source:
 
 ## 6. Downstream Delivery
 
-- Entry point: `com.xiaomi.push.sdk.PushMessageProcessor`
+- Entry point: `io.github.magisk317.mipush.service.runtime.AppPushMessageProcessor`
 - Main work:
   - optionally foreground the target app
   - deliver to target `PushMessageHandler`
@@ -229,7 +229,7 @@ Key source:
 
 ## 7. Notification Publish
 
-- Entry point: `MyMIPushNotificationHelper`
+- Entry point: `MIPushNotificationPublishHelper`
 - Main work:
   - unpack the payload; the external-intent, runtime-observation, hook, and SDK dedupe layers
     remain separate and are applied at their respective call sites
@@ -238,7 +238,13 @@ Key source:
   - intercept eligible `hyper_type=1` notifications through the target application's stock extension
     service before ordinary notification construction
   - after a real display-message notification attempt, send the stock
-    `com.xiaomi.mipush.MESSAGE_ARRIVED` callback to a running target that declares the receiver
+    `com.xiaomi.mipush.MESSAGE_ARRIVED` callback; like stock the arrival is not gated by the
+    container action (the raw profile matcher only gates legacy SendMessage payloads), and the
+    target is addressed by package plus receiver query, not by observed running state
+  - Notification containers the display path cannot render are handed off through the same
+    `MESSAGE_ARRIVED` callback so the target app can surface its own notification (stock behavior
+    for Alipay-pushsdk-style republished payloads); business, mock, and duplicate containers
+    never hand off
   - keep explicit `miui.focus.param` on the original notification when remote configuration supplies one
   - leave regular notifications without generated focus extras so they remain visible in the notification shade
   - publish, ignore, wake, or open based on resolved policy
@@ -372,6 +378,10 @@ Application arrival callbacks are independent of XMSF's display result:
 - local `PackageConfig` ignore is a MiPushFramework display policy, so it must not suppress the
   app callback. Business, pass-through, duplicate/replay, foreground-suppressed, mock, and direct
   helper paths do not synthesize this callback;
+- non-display Notification containers (no metaInfo title/description or pass-through shaped, e.g.
+  Alipay pushsdk channels that ask XMSF to present a message they already received) are exempt from
+  the foreground suppression and hand off through the same callback, because no other delivery
+  route exists for them;
 - an eligible extension notification is the exception to immediate post-attempt timing: the callback
   or fallback owns publication, so arrival uses the extension-resolved payload at that later point;
   app-requested notification suppression also suppresses arrival, matching stock `i0.f(...)` entry;
@@ -395,7 +405,7 @@ Stored-event replay contract:
 
 Key sources:
 
-- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
+- `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationPublishHelper.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/ExtensionNotificationCoordinator.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/bridge/MiPushRuntimeObserverBridge.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`

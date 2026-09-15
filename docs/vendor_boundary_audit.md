@@ -2,13 +2,16 @@
 
 > 生成日期：2026-08-22
 > 更新日期：2026-08-31
+> 更新日期：2026-09-12（D1 扫描覆盖扩展）
 > 对应文档：`docs/architecture/vendor-xmsf-boundary-compliance.md`
 > 退出条件：每条保留的 vendor policy 都有 stock 来源、影响说明和验证状态
 
 ## 审计范围
 
-`vendor/src/main/java/` 中所有 `io.github.magisk317.*` import（当前共 17 条，由
-`scripts/vendor_boundary_baseline.txt` 维护，必须保持无新增）。
+`vendor/src/main/java/` 中所有 `io.github.magisk317.` 引用（当前共 82 条：17 条 import
+与 65 条行内全限定引用/typealias 表/文档注释行，由 `scripts/vendor_boundary_baseline.txt`
+维护，必须保持无新增）。自 2026-09-12 起，扫描器对整行任意位置的 FQCN 生效（不再仅匹配
+`^import`），行内 plan 委托与 typealias 桥接表对“拒绝新增”检查可见，详见下文 D1 章节。
 
 ## 分类汇总
 
@@ -65,6 +68,36 @@
 
 所有 baseline 条目均有明确 stock 来源、影响说明和验证状态。无新增 vendor product-layer
 import debt；baseline 不是允许新增 product 行为的豁免列表。
+
+## D1 扫描覆盖扩展（2026-09-12）
+
+> 对应审计发现：D1 —— vendor 边界扫描此前仅匹配 `^import io\.github\.magisk317\.`，
+> 行内全限定引用与 typealias 桥接对“拒绝新增”检查不可见，导致边界扫描低报。
+
+### 扫描器行为变更
+
+`scripts/verify_module_boundaries.sh` vendor 检查的匹配模式由 `^import io\.github\.magisk317\.`
+放宽为整行任意位置匹配 `io\.github\.magisk317\.`（扫描根 `vendor/src/main`，入库行去除前导
+空白）。注释与字符串行保持在扫描范围内，与既有 baseline 的文档行处理一致。此次扩展一次性入账
+65 条既有 sanctioned 引用（baseline 类别 5-7），此后同类新增将被拒绝。
+
+### 新暴露类别（baseline 类别 5-7）
+
+| 类别 | 文件 | 条数 | 惯用法 |
+| :--- | :--- | :--- | :--- |
+| 5 行内 FQCN plan 委托 | `smack/Connection.kt`、`slim/BlobReader.kt`、`slim/BlobWriter.kt`、`NetworkCheckup.kt`、`XMPushServiceIntentDelegate.kt` | 22 | 行内直调 runtime-core PlanFactory/Event/Command（plan-delegation/adapter 惯例） |
+| 6 PushVersionInfo 行内 FQCN 委托 | `push/service/PushVersionInfo.kt` | 10 | 常量与方法薄委托至 runtime-core `PushVersionInfo` |
+| 7 typealias 桥接表 | `push/service/PushRuntimeModels.kt` | 33 | 将 runtime-core 模型/工厂以 typealias 重导出到 stock 包名（含 1 行注释说明） |
+
+### 反射缝（扫描器不可见，文档豁免）
+
+`push/service/timers/Alarm.kt` 的 `createProductAlarm()` 通过
+`Class.forName("com.xiaomi.push.service.timers.AlarmManagerTimer")` 加载产品侧定时器
+（类文件位于 `xmsf/shell/src/main/java/com/xiaomi/push/service/timers/AlarmManagerTimer.kt`，
+与 vendor 共享 `com.xiaomi` 包名空间），解析失败时回退 vendor 自带
+`StockAlarmManagerTimer`。目标是 `com.xiaomi.*` 类名字符串，不在
+`io.github.magisk317.` 扫描模式覆盖范围内，本扫描器有意不覆盖；作为 sanctioned
+兼容缝记录于此（对齐 stock 7.4.67-C 选择 AlarmManager 后端的定时器身份语义）。
 
 ## 运行验证
 
