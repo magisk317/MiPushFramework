@@ -13,8 +13,6 @@ import io.github.magisk317.uikit.surface.tabPopExitTransition
 import io.github.magisk317.uikit.surface.tabPredictivePopEnterTransition
 import io.github.magisk317.uikit.surface.tabPredictivePopExitTransition
 import io.github.magisk317.uikit.surface.tabTransitionDirection
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 
 /**
  * 应用导航图定义
@@ -29,10 +27,7 @@ import java.nio.charset.StandardCharsets
  * - EventsList (底部 Tab 2)
  *   └─ EventDetails (详情页)
  * - Settings (底部 Tab 3)
- *   ├─ Configurations / ConfigEditor
- *   └─ SettingsSection / ConnectionStatus / StatusBarIconSettings
- *
- * ## 导航动画
+ *   └─ ConnectionStatus / StatusBarIconSettings / ThemeSettings
  * - 水平滑动 + 淡入淡出效果
  * - 动画时长: 300ms
  * - Easing: EaseInOut
@@ -45,11 +40,7 @@ fun AppNavHostContent(
     overviewPage: @Composable (PaddingValues) -> Unit,
     eventsPage: @Composable (String, PaddingValues, Int, Boolean) -> Unit,
     appsPage: @Composable (String, PaddingValues, Int, Int) -> Unit,
-    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, () -> Unit) -> Unit,
-    configEditorPage: @Composable (String, PaddingValues, () -> Unit) -> Unit,
-    settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int) -> Unit,
-    onAbout: (String?) -> Unit = {},
-    onSectionChanged: (String?) -> Unit = {},
+    settingsPage: @Composable (PaddingValues, Int) -> Unit,
 ) {
     fun routeRank(route: String?): Int {
         if (route == null) return 0
@@ -61,22 +52,13 @@ fun AppNavHostContent(
             route.startsWith(AppDestinations.EventsList.ROUTE) ||
                 route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
 
-            route.startsWith(AppDestinations.Configs.ROUTE) ||
-                route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
-                route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
-
             route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
                 route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
-                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
+                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) ||
+                    route.startsWith(AppDestinations.ThemeSettings.ROUTE) -> 3
 
             else -> 0
         }
-    }
-
-    fun decodeRouteArg(value: String?): String {
-        if (value.isNullOrBlank()) return ""
-        return URLDecoder.decode(value, StandardCharsets.UTF_8.toString())
     }
 
     fun rankDirection(initialRoute: String?, targetRoute: String?, isPop: Boolean = false): Int {
@@ -154,66 +136,12 @@ fun AppNavHostContent(
             arguments = listOf(NavigationArguments.packageNameArgument),
         ) { /* detail route reserved */ }
 
-        // ==================== Configs 分支 ====================
-        composable(
-            route = AppDestinations.Configs.ROUTE,
-        ) {
-            configsPage(
-                "",
-                contentPadding,
-                0,
-                { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
-                {
-                    if (!navController.popBackStack()) {
-                        navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
-                    }
-                },
-            )
-        }
-
-        composable(
-            route = AppDestinations.ConfigsSearch.ROUTE_PATTERN,
-            arguments = listOf(NavigationArguments.configInitialQueryArgument),
-        ) { backStackEntry ->
-            configsPage(
-                decodeRouteArg(
-                    backStackEntry.arguments?.getString(AppDestinations.ConfigsSearch.ARGUMENT_INITIAL_QUERY),
-                ),
-                contentPadding,
-                0,
-                { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
-                {
-                    if (!navController.popBackStack()) {
-                        navController.navigateTopLevel(AppDestinations.Settings.ROUTE)
-                    }
-                },
-            )
-        }
-
-        composable(
-            route = AppDestinations.ConfigEditor.ROUTE_PATTERN,
-            arguments = listOf(NavigationArguments.configPathArgument),
-        ) { backStackEntry ->
-            configEditorPage(
-                decodeRouteArg(
-                    backStackEntry.arguments?.getString(AppDestinations.ConfigEditor.ARGUMENT_PATH),
-                ),
-                contentPadding,
-                { navController.popBackStack() },
-            )
-        }
-
         // ==================== Settings 分支 ====================
         composable(
             route = AppDestinations.Settings.ROUTE,
         ) {
-            settingsPage(contentPadding, onAbout, onSectionChanged, 0)
+            settingsPage(contentPadding, 0)
         }
-
-        composable(
-            route = AppDestinations.SettingsSection.ROUTE_PATTERN,
-            arguments = listOf(NavigationArguments.settingsSectionArgument),
-        ) { /* detail route reserved */ }
 
         // ==================== Connection Status ====================
         composable(
@@ -222,6 +150,17 @@ fun AppNavHostContent(
             val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
                 org.koin.androidx.compose.koinViewModel()
             io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusContent(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = AppDestinations.ThemeSettings.ROUTE,
+        ) {
+            val viewModel: io.github.magisk317.mipush.main.viewmodel.SettingsViewModel =
+                org.koin.androidx.compose.koinViewModel()
+            io.github.magisk317.mipush.feature.main.subpage.ThemeSettingsPage(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )

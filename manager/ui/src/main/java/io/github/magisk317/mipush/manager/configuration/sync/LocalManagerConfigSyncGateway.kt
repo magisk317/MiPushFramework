@@ -12,13 +12,12 @@ import io.github.magisk317.mipush.configuration.ConfigSyncRepository
 import io.github.magisk317.mipush.configuration.LocalConfigRepository
 import io.github.magisk317.mipush.configuration.toSummary
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.feature.main.MainActivity
+import io.github.magisk317.mipush.feature.main.subpage.ConfigurationsPage
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import io.github.magisk317.mipush.core.configuration.LocalConfigSummary
-import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -93,17 +92,12 @@ class LocalManagerConfigSyncGateway(
     override suspend fun openForPackage(packageName: String) {
         val treeUri = preferenceRepository.configDirectory.first()?.let(Uri::parse)
         val matchedPath = syncRepository.resolvePackageConfigPath(packageName, treeUri)
-        val encoded = java.net.URLEncoder.encode(
-            matchedPath ?: packageName,
-            StandardCharsets.UTF_8.name(),
-        )
-        val route = if (matchedPath != null) {
-            "config_editor/$encoded"
-        } else {
-            "configs_search/$encoded"
-        }
-        val intent = Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_START_ROUTE, route)
+        val intent = Intent(context, ConfigurationsPage::class.java)
+            .putExtra(
+                ConfigurationsPage.EXTRA_INITIAL_QUERY,
+                packageName.takeUnless { matchedPath != null },
+            )
+            .putExtra(ConfigurationsPage.EXTRA_INITIAL_PATH, matchedPath)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
     }

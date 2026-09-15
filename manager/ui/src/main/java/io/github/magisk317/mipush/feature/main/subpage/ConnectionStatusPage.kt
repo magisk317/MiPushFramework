@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,30 +11,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -55,19 +43,21 @@ import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.ReconnectFeedback
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.DetailSectionCard
-import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.chromeTopAppBarColors
+import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.surface.SectionColumn
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import io.github.magisk317.uikit.theme.applyEdgeToEdge
+import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.currentUiKitStyle
 
 open class ConnectionStatusPage : ComponentActivity() {
     private val viewModel: ConnectionStatusViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        applyEdgeToEdge(this)
         setContent {
-            Theme {
+            Theme() {
                 ConnectionStatusContent(
                     viewModel = viewModel,
                     onBack = { finish() },
@@ -104,100 +94,80 @@ fun ConnectionStatusContent(
         onDispose { viewModel.stopAutoRefresh() }
     }
 
-    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-
-    Page {
-        OverlayHeaderScaffold(
-            fallbackTopPadding = topInset + 64.dp,
-            overlayModifier = Modifier
-                .fillMaxWidth(),
-            overlay = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.connection_status_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
-                    actions = {
-                        IconButton(
-                            onClick = viewModel::forceReconnect,
-                            enabled = !isReconnecting,
-                        ) {
-                            if (isReconnecting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.RestartAlt,
-                                    contentDescription = stringResource(R.string.connection_status_force_reconnect),
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = viewModel::refresh,
-                            enabled = !isRefreshing,
-                        ) {
-                            if (isRefreshing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = stringResource(R.string.connection_status_refresh),
-                                )
-                            }
-                        }
-                    },
-                    windowInsets = WindowInsets.statusBars,
-                    colors = chromeTopAppBarColors(),
-                )
-            },
-            content = { listPadding ->
-                SectionColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    contentPadding = PaddingValues(
-                        start = MaterialTheme.spacing.medium,
-                        top = listPadding.calculateTopPadding() + MaterialTheme.spacing.small,
-                        end = MaterialTheme.spacing.medium,
-                        bottom = MaterialTheme.spacing.large,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-                ) {
-                    val data = snapshot
-                    if (data == null) {
-                        Text(
-                            text = stringResource(R.string.connection_status_loading),
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(top = MaterialTheme.spacing.large),
-                        )
-                    } else {
-                        ConnectionStateHeader(data)
-                        XmppServerEditor { uiState, onEditHost ->
-                            ServerSection(
-                                data = data,
-                                onEditHost = onEditHost.takeIf {
-                                    uiState.isLoaded && !uiState.isSaving
-                                },
-                            )
-                        }
-                        TimingSection(data, currentTimeMs)
-                        HeartbeatSection(data)
-                        RecoverySection(data)
-                        MessagesSection(data)
-                        ChannelsSection(data)
-                    }
-                }
-            },
+    val body: @Composable (PaddingValues, Modifier) -> Unit = { listPadding, scrollModifier ->
+        ConnectionStatusBody(
+            listPadding = listPadding,
+            scrollModifier = scrollModifier,
+            snapshot = snapshot,
+            currentTimeMs = currentTimeMs,
         )
     }
+    when (currentUiKitStyle()) {
+        UiKitStyle.Miuix -> ConnectionStatusMiuix(
+            onBack = onBack,
+            isReconnecting = isReconnecting,
+            isRefreshing = isRefreshing,
+            onReconnect = viewModel::forceReconnect,
+            onRefresh = viewModel::refresh,
+            body = body,
+        )
 
+        UiKitStyle.Expressive -> ConnectionStatusExpressive(
+            onBack = onBack,
+            isReconnecting = isReconnecting,
+            isRefreshing = isRefreshing,
+            onReconnect = viewModel::forceReconnect,
+            onRefresh = viewModel::refresh,
+            body = body,
+        )
+    }
+}
+
+@Composable
+private fun ConnectionStatusBody(
+    listPadding: PaddingValues,
+    scrollModifier: Modifier,
+    snapshot: ManagerConnectionSnapshot?,
+    currentTimeMs: Long,
+) {
+    SectionColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .then(scrollModifier),
+        contentPadding = PaddingValues(
+            start = MaterialTheme.spacing.medium,
+            top = listPadding.calculateTopPadding() + MaterialTheme.spacing.small,
+            end = MaterialTheme.spacing.medium,
+            bottom = MaterialTheme.spacing.large,
+        ),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+    ) {
+        val data = snapshot
+        if (data == null) {
+            Text(
+                text = stringResource(R.string.connection_status_loading),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = MaterialTheme.spacing.large),
+            )
+        } else {
+            ConnectionStateHeader(data)
+            XmppServerEditor { uiState, onEditHost ->
+                ServerSection(
+                    data = data,
+                    onEditHost = onEditHost.takeIf {
+                        uiState.isLoaded && !uiState.isSaving
+                    },
+                )
+            }
+            TimingSection(data, currentTimeMs)
+            HeartbeatSection(data)
+            RecoverySection(data)
+            MessagesSection(data)
+            ChannelsSection(data)
+        }
+    }
 }
 
 @Composable
@@ -221,11 +191,18 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
                 .clip(CircleShape)
                 .background(indicatorColor)
         )
+        val stateLabel = when (data.connectionState) {
+            "Connected" -> stringResource(R.string.connection_status_state_connected)
+            "Connecting" -> stringResource(R.string.connection_status_state_connecting)
+            "Disconnected" -> stringResource(R.string.connection_status_state_disconnected)
+            else -> stringResource(R.string.connection_status_unknown)
+        }
         Column {
             Text(
-                text = data.connectionState,
+                text = stateLabel,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = stringResource(R.string.connection_status_session_count, data.connectionSessionCount),
@@ -472,7 +449,7 @@ private fun InfoRow(
     summary: String,
     onClick: (() -> Unit)? = null,
 ) {
-    ListItem(
+    WorkspaceListItem(
         supportingContent = {
             Text(
                 text = summary,
@@ -502,7 +479,6 @@ private fun InfoRow(
             }
         },
         modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     ) {
         Text(
             text = label,

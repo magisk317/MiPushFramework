@@ -104,6 +104,15 @@
     <string name="config_remote_branch_label">Branch</string>
     <string name="config_remote_accelerator_label">Raw URL accelerator</string>
     <string name="config_remote_source_default_hint">Built-in default: %1$s</string>
+    <string name="config_remote_source_config_suffix"> (configuration source)</string>
+    <string name="config_remote_source_icon_suffix"> (icon source)</string>
+    <string name="config_import_dialog_title">Local import</string>
+    <string name="config_import_dialog_message">Choose whether to import configuration files or icons.</string>
+    <string name="config_import_configuration">Import configurations</string>
+    <string name="config_import_icons">Import icons</string>
+    <string name="config_item_local">Local: %1$s</string>
+    <string name="config_item_remote">Remote: %1$s</string>
+    <string name="config_item_remote_missing">Not found</string>
     <string name="config_directory_title">Local directory</string>
     <string name="config_directory_not_selected">No local configuration directory selected yet.</string>
     <string name="config_directory_label">Local directory: %1$s</string>
@@ -116,6 +125,10 @@
     <string name="config_sync_progress">Syncing %1$d/%2$d · %3$s</string>
     <string name="config_remote_error">Remote error: %1$s</string>
     <string name="action_reset_default">Reset default</string>
+    <string name="config_preview_title">Configuration preview</string>
+    <string name="config_preview_summary">Browse and edit configuration files.</string>
+    <string name="icon_preview_title">Icon preview</string>
+    <string name="icon_preview_summary">Browse and edit icon configurations.</string>
     <string name="config_empty_title">No configs found</string>
     <string name="config_empty_summary">You can preview remote configs right away, or select a local directory to import and edit them.</string>
     <string name="config_status_in_sync">In sync</string>
@@ -134,7 +147,6 @@
 
 
     <!-- About -->
-    <string name="action_about">About</string>
 
     <!-- Wizard -->
     <string name="wizard_descr"><![CDATA[This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitHub project:<a href="https://github.io/github/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
@@ -293,6 +305,9 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="connection_status_title">Connection Status</string>
     <string name="connection_status_loading">Loading…</string>
+    <string name="connection_status_state_connected">Connected</string>
+    <string name="connection_status_state_connecting">Connecting</string>
+    <string name="connection_status_state_disconnected">Disconnected</string>
     <string name="connection_status_refresh">Refresh connection status</string>
     <string name="connection_status_force_reconnect">Force reconnect</string>
     <string name="connection_status_reconnect_requested">Reconnect requested</string>
@@ -508,37 +523,83 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_dispatched">Replay was dispatched; this runtime cannot confirm the final notification post.</string>
     <string name="mock_notification_posted">Replay notification posted.</string>
     <string name="mock_notification_failed_channel_disabled">Replay failed: the notification channel is disabled. Enable it in system notification settings.</string>
+    <string name="mock_notification_failed_event_not_found">Replay failed: event record not found in database (may have been pruned or deleted).</string>
+    <string name="mock_notification_failed_payload_missing">Replay failed: missing original push payload to reconstruct notification.</string>
+    <string name="mock_notification_failed_service_not_ready">Replay failed: background push service not ready or timed out.</string>
+    <string name="mock_notification_failed_app_not_installed">Replay failed: target app is not installed or has been uninstalled.</string>
     <string name="mock_notification_failed">Failed to replay this push message. Check logs for details.</string>
-    <string name="mock_notification_no_receiver">Replay warning: target app receiver not found for this push intent.</string>
+    <string name="mock_notification_no_receiver">Replay failed: target app receiver not found for this push intent.</string>
     <string name="settings_home_service_title">Services</string>
-    <string name="settings_home_service_summary">Server, foreground service, and permissions.</string>
+    <string name="settings_home_service_summary">Server, foreground service, and permissions</string>
     <string name="settings_home_keepalive_title">Keep alive</string>
-    <string name="settings_home_keepalive_summary">Process priority and system-limit bypasses.</string>
+    <string name="settings_home_keepalive_summary">Process priority and system-limit bypasses</string>
     <string name="settings_home_notifications_title">Notifications</string>
-    <string name="settings_home_notifications_summary">Dynamic Island and Focus presentation.</string>
+    <string name="settings_home_notifications_summary">Dynamic Island and Focus presentation</string>
     <string name="settings_home_appearance_title">Appearance</string>
-    <string name="settings_home_appearance_summary">Status-bar and launcher icons.</string>
     <string name="settings_home_configurations_title">Configurations</string>
-    <string name="settings_home_configurations_summary">Configuration files and preference migration.</string>
+    <string name="settings_home_configurations_summary">Configuration files and preference migration</string>
+    <string name="settings_home_appearance_summary">Theme and status-bar icons.</string>
     <string name="settings_configurations_entry_summary">Open and edit MiPush configuration files.</string>
+    <string name="settings_configurations_management_title">Configuration management</string>
     <string name="settings_home_integrations_title">Integrations</string>
-    <string name="settings_home_integrations_summary">Dual-app space and Zygisk integration.</string>
+    <string name="settings_home_integrations_summary">Configuration management, dual-app space, and Zygisk integration.</string>
     <string name="settings_dual_app_title">Enable dual app</string>
     <string name="settings_dual_app_summary">Install xmsf and MiPush to the dual-app space (user 999). Requires root access.</string>
     <string name="settings_dual_app_primary_user_only_summary">Dual-app installation is managed from the primary space (User 0). This clone only shows its own runtime status.</string>
+    <string name="pref_theme_details_title">Theme details</string>
+    <string name="pref_theme_details_summary">Palette, blur, accent, and layout options</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="pref_ui_kit_style_title">UI style</string>
-    <string name="ui_kit_style_expressive">Expressive</string>
+    <string name="pref_layout_scale_title">Page layout scale</string>
+    <string name="layout_scale_compact">Compact</string>
+    <string name="layout_scale_standard">Standard</string>
+    <string name="layout_scale_comfortable">Comfortable</string>
+    <string name="ui_kit_style_expressive">Material</string>
     <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">Automatic (Follow System)</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_black">Pure Black</string>
+    <string name="pref_dynamic_color_title">Dynamic colors</string>
+    <string name="pref_monet_title">Monet palette</string>
+    <string name="pref_monet_summary">Generate a complete Material color palette from the selected seed and style.</string>
+    <string name="pref_palette_style_title">Palette style</string>
+    <string name="pref_color_spec_title">Color specification</string>
+    <string name="pref_surface_blur_title">Surface blur</string>
+    <string name="pref_surface_blur_summary">Blur shared UI surfaces when the device supports RuntimeShader; otherwise use a stable translucent surface.</string>
+    <string name="palette_style_tonal_spot">Tonal Spot</string>
+    <string name="palette_style_neutral">Neutral</string>
+    <string name="palette_style_vibrant">Vibrant</string>
+    <string name="palette_style_expressive">Expressive</string>
+    <string name="palette_style_rainbow">Rainbow</string>
+    <string name="palette_style_fruit_salad">Fruit Salad</string>
+    <string name="palette_style_monochrome">Monochrome</string>
+    <string name="palette_style_fidelity">Fidelity</string>
+    <string name="palette_style_content">Content</string>
+    <string name="color_spec_2021">Material 3 / 2021</string>
+    <string name="color_spec_2025">Material 3 / 2025</string>
+    <string name="pref_dynamic_color_summary">Use the system color palette when no fixed accent is selected.</string>
+    <string name="pref_accent_color_title">Accent color</string>
+    <string name="pref_floating_bottom_bar_title">Floating navigation bar</string>
+    <string name="pref_floating_bottom_bar_summary">Lift the compact navigation bar above the content.</string>
+    <string name="pref_floating_bottom_bar_summary_miuix">Lift the compact navigation bar above the content. Liquid glass is exclusive to the Miuix style; the Expressive floating bar keeps a translucent surface.</string>
+    <string name="pref_bottom_bar_blur_title">Liquid glass</string>
+    <string name="pref_bottom_bar_blur_summary">Refractive blur, gravity-tracked highlights and a drag-follow indicator on the floating bar (Android 13+).</string>
+    <string name="pref_bottom_bar_backdrop_title">Navigation backdrop capture</string>
+    <string name="pref_bottom_bar_backdrop_summary">Capture the page behind the floating bar for a static liquid-glass effect when supported.</string>
+    <string name="pref_navigation_badges_title">Navigation badges</string>
+    <string name="pref_navigation_badges_summary">Show badges when a navigation item provides a meaningful status.</string>
+    <string name="accent_system">System dynamic</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_purple">Purple</string>
+    <string name="accent_green">Green</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_rose">Rose</string>
     <string name="settings_home_diagnostics_title">Diagnostics</string>
-    <string name="settings_home_diagnostics_summary">Runtime logs, retention, and debug controls.</string>
+    <string name="settings_home_diagnostics_summary">Runtime logs, retention, and debug controls</string>
     <string name="settings_home_about_title">About</string>
-    <string name="settings_home_about_summary">Update entry and project information.</string>
+    <string name="settings_home_about_summary">Update entry and project information</string>
     <string name="settings_version_label">Version</string>
     <string name="relay_mode_foreground">Foreground</string>
     <string name="relay_mode_background">Background</string>
@@ -549,8 +610,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_blur_radius">Background blur intensity</string>
     <string name="settings_blur_mask_alpha">Blur overlay opacity</string>
     <string name="app_list_stats_total">Total apps</string>
-    <string name="app_list_stats_using_mipush">Using MiPush</string>
-    <string name="app_list_stats_not_using_mipush">Not using MiPush</string>
+    <string name="app_list_stats_integrated">Integrated</string>
+    <string name="app_list_stats_registration">Registered</string>
     <string name="app_list_stats_registered">Registered</string>
     <string name="app_list_stats_not_registered">Not registered</string>
     <string name="app_list_hero_title">MiPush integration overview</string>
@@ -702,7 +763,13 @@ This could be the application doing a reverse registration, or the registration 
 
     <string name="settings_enable_analytics">Analytics</string>
     <string name="settings_enable_analytics_summary">Allow anonymous analytics for channel usage, success rates, crashes and technical diagnostics.</string>
-    <string name="runtime_missing_dialog_title">MiPushFramework runtime unavailable</string>
-    <string name="runtime_missing_dialog_message">MiPushFramework runtime was not detected. The device may have only MiPush Manager installed, or may be using a stock/fork runtime without MiPushFramework capabilities. Please download and install the matching MiPushFramework runtime from the relevant project group, then open Manager again.</string>
+    <string name="runtime_missing_dialog_title">Usable xmsf not detected</string>
+    <string name="runtime_missing_dialog_message">The xmsf runtime may be missing or incompatible. Install the matching xmsf runtime, then reopen Manager.</string>
     <string name="runtime_missing_dialog_exit">Exit</string>
+    <string name="legacy_module_dialog_title">Legacy MiPush module detected</string>
+    <string name="legacy_module_dialog_message">Legacy module com.nihility.mipush detected. Uninstall it, then reopen Manager.</string>
+    <string name="legacy_module_dialog_exit">Exit</string>
+
+    <string name="pref_theme_group_color">Color</string>
+    <string name="pref_theme_group_navigation">Navigation bar</string>
 </resources>

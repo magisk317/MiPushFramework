@@ -7,4 +7,5 @@ object ManagerComponentNames {
     const val APPLICATION_INFO_PAGE = "$PACKAGE.feature.main.ApplicationInfoPage"
     const val RECENT_EVENT_LIST_PAGE = "$PACKAGE.feature.main.RecentEventListPage"
     const val REQUEST_PERMISSION_PAGE = "$PACKAGE.feature.wizard.RequestPermissionPage"
+    const val CONFIGURATIONS_PAGE = "$PACKAGE.feature.main.subpage.ConfigurationsPage"
 }

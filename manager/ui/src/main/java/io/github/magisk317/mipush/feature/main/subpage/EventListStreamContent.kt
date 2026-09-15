@@ -1,124 +1,63 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.R as CommonR
-import io.github.magisk317.mipush.feature.main.RecentEventListPage
-import android.content.Intent
-import android.net.Uri
-import android.content.Context
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import io.github.magisk317.uikit.surface.AppHorizontalDivider
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.WrapText
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import io.github.magisk317.uikit.common.ElevatedSnackbarHost
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import io.github.magisk317.uikit.common.AppSnackbar
+import io.github.magisk317.uikit.common.AppSnackbarData
+import io.github.magisk317.uikit.common.AppSnackbarDuration
+import io.github.magisk317.uikit.common.AppSnackbarHostState
+import io.github.magisk317.uikit.common.AppSnackbarResult
+import io.github.magisk317.uikit.surface.AppSwipeToDismissBox
+import io.github.magisk317.uikit.surface.AppSwipeToDismissValue
+import io.github.magisk317.uikit.surface.rememberAppSwipeToDismissState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Devices
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.manager.application.EventDebugJson
-import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
-import io.github.magisk317.mipush.manager.application.ManagerEventType
-import io.github.magisk317.mipush.manager.application.MockReplayOutcome
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
-import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.InfoPill
-import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
-import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.uikit.surface.AppBottomSheet
-import io.github.magisk317.uikit.preference.StateSwitchItem
-import io.github.magisk317.uikit.preference.Item as SettingsItem
-import io.github.magisk317.uikit.preference.TextInputDialog
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Calendar
-import java.util.Date
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
-import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
-import org.koin.compose.viewmodel.koinViewModel
 
 fun EventInfoForDisplay.composeKey(): String {
     if (id > 0L) return "id:$id"
@@ -147,7 +86,7 @@ internal fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
-    snackbarHostState: SnackbarHostState,
+    snackbarHostState: AppSnackbarHostState,
     viewModel: EventListViewModel,
     scrollChromeState: ScrollChromeState? = null,
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
@@ -303,9 +242,9 @@ internal fun EventList(
             val result = snackbarHostState.showSnackbar(
                 message = recentActivityDeletedMessage,
                 actionLabel = actionUndoLabel,
-                duration = SnackbarDuration.Indefinite,
+                duration = AppSnackbarDuration.Indefinite,
             )
-            if (result == SnackbarResult.ActionPerformed) {
+            if (result == AppSnackbarResult.ActionPerformed) {
                 val restored = viewModel.restoreEvent(item)
                 if (restored != null) {
                     val idx = insertAt.coerceIn(0, items.size)
@@ -318,7 +257,9 @@ internal fun EventList(
         }
     }
 
-    RefreshableLazyColumn(
+     val isMiuixRows = io.github.magisk317.uikit.theme.currentUiKitStyle() ==
+        io.github.magisk317.uikit.theme.UiKitStyle.Miuix
+   RefreshableLazyColumn(
         doRefresh,
         isNeedMore,
         doLoadMore,
@@ -344,11 +285,31 @@ internal fun EventList(
             }
         } else {
             items(filteredItems, key = { it.composeKey() }) {
-                SwipeToDeleteEventItem(
-                    item = it,
-                    onDelete = ::deleteEventWithUndo,
-                    onClick = onClick,
-                )
+                if (isMiuixRows) {
+                    // Match the application-list rhythm: gapped 16dp-radius cards instead of
+                    // full-bleed rows + dividers (the swipe backdrop inherits the same inset).
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 6.dp),
+                    ) {
+                        SwipeToDeleteEventItem(
+                            item = it,
+                            onDelete = ::deleteEventWithUndo,
+                            onClick = onClick,
+                        )
+                    }
+                } else {
+                    SwipeToDeleteEventItem(
+                        item = it,
+                        onDelete = ::deleteEventWithUndo,
+                        onClick = onClick,
+                    )
+                    AppHorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
             }
         }
     }
@@ -360,7 +321,7 @@ private fun SwipeToDeleteEventItem(
     onDelete: (EventInfoForDisplay) -> Unit,
     onClick: (EventInfoForDisplay) -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState()
+    val dismissState = rememberAppSwipeToDismissState()
     var observedInitialValue by remember { mutableStateOf(false) }
     var deleteTriggered by remember { mutableStateOf(false) }
 
@@ -370,30 +331,38 @@ private fun SwipeToDeleteEventItem(
     LaunchedEffect(dismissState.currentValue) {
         if (!observedInitialValue) {
             observedInitialValue = true
-            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+            if (dismissState.currentValue != AppSwipeToDismissValue.Settled) {
+                dismissState.snapTo(AppSwipeToDismissValue.Settled)
             }
             return@LaunchedEffect
         }
-        if (!deleteTriggered && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+        if (!deleteTriggered && dismissState.currentValue != AppSwipeToDismissValue.Settled) {
             deleteTriggered = true
             onDelete(item)
         }
     }
 
-    SwipeToDismissBox(
+    AppSwipeToDismissBox(
         state = dismissState,
         enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
-        backgroundContent = {
-            val fromEnd = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+        backgroundContent = { direction ->
+            val fromEnd = direction == AppSwipeToDismissValue.EndToStart
+            val isMiuixRow = io.github.magisk317.uikit.theme.currentUiKitStyle() ==
+                io.github.magisk317.uikit.theme.UiKitStyle.Miuix
+            // background(color, shape): the shape must ride along with the background —
+            // background(...).clip(...) draws the rectangle before the clip takes effect.
+            val deleteShape =
+                if (isMiuixRow) RoundedCornerShape(16.dp) else RectangleShape
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp)
+                    // Hairline inset: keeps the red silhouette fully under the card AA edge
+                    // so no red fringe peeks out at the four corners.
+                    .padding(1.dp)
                     .background(
                         color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = deleteShape,
                     )
                     .padding(horizontal = 24.dp),
                 contentAlignment = if (fromEnd) Alignment.CenterEnd else Alignment.CenterStart,
@@ -424,16 +393,11 @@ private fun EventItem(
     } else {
         appName
     }
-    val surface = MaterialTheme.colorScheme.surface
-    val containerColor = when {
-        denied -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f).compositeOver(surface)
-        else -> surface
-    }
+    val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
 
     WorkspaceListItem(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+            .fillMaxWidth(),
         containerColor = containerColor,
         onClick = { onClick(item) },
         leadingContent = {
@@ -452,7 +416,7 @@ private fun EventItem(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
@@ -499,8 +463,9 @@ private fun EventItem(
     }
 }
 
+
 @Composable
-internal fun DeleteCountdownSnackbar(data: androidx.compose.material3.SnackbarData) {
+internal fun DeleteCountdownSnackbar(data: AppSnackbarData) {
     var secondsLeft by remember { mutableIntStateOf(5) }
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(data) {
@@ -512,17 +477,9 @@ internal fun DeleteCountdownSnackbar(data: androidx.compose.material3.SnackbarDa
             data.dismiss()
         }
     }
-    Snackbar(
-        action = {
-            TextButton(onClick = {
-                settled = true
-                data.performAction()
-                data.dismiss()
-            }) {
-                Text("${data.visuals.actionLabel} (${secondsLeft.coerceAtLeast(0)}s)")
-            }
-        },
-    ) {
-        Text(data.visuals.message)
-    }
+    AppSnackbar(
+        data = data,
+        actionLabel = "${data.visuals.actionLabel} (${secondsLeft.coerceAtLeast(0)}s)",
+        onAction = { settled = true },
+    )
 }

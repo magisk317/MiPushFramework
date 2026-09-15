@@ -87,76 +87,20 @@ object AppDestinations {
         const val ROUTE = "settings"
     }
 
-    /** 配置列表页面；保留原路由兼容，顶级归属为设置页。 */
-    @Serializable
-    data object Configs {
-        const val ROUTE = "configs"
-    }
-
-    /**
-     * 配置列表页面（携带初始过滤词）
-     */
-    @Serializable
-    data class ConfigsSearch(val initialQuery: String) {
-        companion object {
-            const val ROUTE = "configs_search"
-            const val ARGUMENT_INITIAL_QUERY = "initialQuery"
-            const val ROUTE_PATTERN = "$ROUTE/{$ARGUMENT_INITIAL_QUERY}"
-
-            @JvmStatic
-            fun route(initialQuery: String): String {
-                require(initialQuery.isNotBlank()) { "initialQuery must not be blank" }
-                return "$ROUTE/${encodeRouteArg(initialQuery)}"
-            }
-        }
-    }
-
-    /**
-     * 配置编辑页面
-     */
-    @Serializable
-    data class ConfigEditor(val path: String) {
-        companion object {
-            const val ROUTE = "config_editor"
-            const val ARGUMENT_PATH = "path"
-            const val ROUTE_PATTERN = "$ROUTE/{$ARGUMENT_PATH}"
-
-            @JvmStatic
-            fun route(path: String): String {
-                require(path.isNotBlank()) { "path must not be blank" }
-                return "$ROUTE/${encodeRouteArg(path)}"
-            }
-        }
-    }
-
-    /**
-     * 设置子页面
-     *
-     * @param section 设置的分类 (e.g., "about", "advance", "ui")
-     *
-     * 路由格式: "settings/{section}"
-     */
-    @Serializable
-    data class SettingsSection(val section: String) {
-        companion object {
-            const val ROUTE = "settings_section"
-            const val ARGUMENT_SECTION = "section"
-            const val ROUTE_PATTERN = "$ROUTE/{$ARGUMENT_SECTION}"
-
-            @JvmStatic
-            fun route(section: String): String {
-                require(section.isNotBlank()) { "section must not be blank" }
-                return "$ROUTE/${encodeRouteArg(section)}"
-            }
-        }
-    }
-
     /**
      * 连接状态详情页面
      */
     @Serializable
     data object ConnectionStatus {
         const val ROUTE = "connection_status"
+    }
+
+    /**
+     * 主题设置详情页
+     */
+    @Serializable
+    data object ThemeSettings {
+        const val ROUTE = "theme_settings"
     }
 
     /**
@@ -184,18 +128,6 @@ object NavigationArguments {
     }
 
     val packageNameArgument = navArgument(AppDestinations.AppDetails.ARGUMENT_PACKAGE_NAME) {
-        type = NavType.StringType
-    }
-
-    val settingsSectionArgument = navArgument(AppDestinations.SettingsSection.ARGUMENT_SECTION) {
-        type = NavType.StringType
-    }
-
-    val configInitialQueryArgument = navArgument(AppDestinations.ConfigsSearch.ARGUMENT_INITIAL_QUERY) {
-        type = NavType.StringType
-    }
-
-    val configPathArgument = navArgument(AppDestinations.ConfigEditor.ARGUMENT_PATH) {
         type = NavType.StringType
     }
 }
@@ -237,13 +169,6 @@ interface NavigationCoordinator {
      * 导航至设置页面
      */
     fun navigateToSettings()
-
-    /**
-     * 导航至设置子页面
-     *
-     * @param section 设置分类
-     */
-    fun navigateToSettingsSection(section: String)
 
     /**
      * 返回上一页

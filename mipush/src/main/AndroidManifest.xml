@@ -4,6 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     >
 
+    <!-- miuix-blur is used only on API 33+; MainTabScaffold keeps API 28-32 on alpha fallback. -->
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -59,6 +62,10 @@
             android:theme="@style/AppTheme" />
         <activity
             android:name="io.github.magisk317.mipush.feature.main.ZygiskConfigPage"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name="io.github.magisk317.mipush.feature.main.subpage.ConfigurationsPage"
             android:exported="false"
             android:theme="@style/AppTheme" />
         <activity

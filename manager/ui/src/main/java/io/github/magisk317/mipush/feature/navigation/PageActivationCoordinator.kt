@@ -32,11 +32,10 @@ enum class TopLevelPage(
             route == AppDestinations.Overview.ROUTE -> OVERVIEW
             route == AppDestinations.AppsList.ROUTE || route.startsWith("${AppDestinations.AppDetails.ROUTE}/") -> APPLICATIONS
             route == AppDestinations.EventsList.ROUTE || route.startsWith("${AppDestinations.EventDetails.ROUTE}/") -> EVENTS
-            route == AppDestinations.Configs.ROUTE || route.startsWith("${AppDestinations.ConfigsSearch.ROUTE}/") ||
-                route.startsWith("${AppDestinations.ConfigEditor.ROUTE}/") -> SETTINGS
-            route == AppDestinations.Settings.ROUTE || route.startsWith("${AppDestinations.SettingsSection.ROUTE}/") ||
+            route == AppDestinations.Settings.ROUTE ||
                 route == AppDestinations.ConnectionStatus.ROUTE ||
-                route == AppDestinations.StatusBarIconSettings.ROUTE -> SETTINGS
+                route == AppDestinations.StatusBarIconSettings.ROUTE ||
+                    route == AppDestinations.ThemeSettings.ROUTE -> SETTINGS
             else -> null
         }
     }

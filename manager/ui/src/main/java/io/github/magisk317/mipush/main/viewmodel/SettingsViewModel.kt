@@ -32,6 +32,9 @@ import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
+import io.github.magisk317.uikit.theme.UiKitColorSpec
+import io.github.magisk317.uikit.theme.UiKitLayoutScale
+import io.github.magisk317.uikit.theme.UiKitPaletteStyle
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +65,13 @@ class SettingsViewModel constructor(
     data class ThemeState(
         val mode: Int,
         val uiKitStyle: Int = UiKitStyle.Expressive.value,
+        val dynamicColor: Boolean = true,
+        val accentColorArgb: Int = 0,
+        val monetEnabled: Boolean = false,
+        val paletteStyle: Int = UiKitPaletteStyle.TonalSpot.value,
+        val colorSpec: Int = UiKitColorSpec.Spec2025.value,
+        val surfaceBlur: Boolean = false,
+        val layoutScale: Int = UiKitLayoutScale.Standard.value,
         val centerX: Float = -1f,
         val centerY: Float = -1f,
     )
@@ -141,6 +151,18 @@ class SettingsViewModel constructor(
     val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val navigationFloatingBottomBar: StateFlow<Boolean> = preferenceRepository.navigationFloatingBottomBar
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val navigationBottomBarBlur: StateFlow<Boolean> = preferenceRepository.navigationBottomBarBlur
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val navigationBottomBarBackdrop: StateFlow<Boolean> = preferenceRepository.navigationBottomBarBackdrop
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val navigationBadges: StateFlow<Boolean> = preferenceRepository.navigationBadges
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     private val _dualAppProcessing = MutableStateFlow(false)
     val dualAppProcessing: StateFlow<Boolean> = _dualAppProcessing.asStateFlow()
     val currentUserId: Int = currentUserIdProvider()
@@ -174,6 +196,64 @@ class SettingsViewModel constructor(
                 val previous = _themeState.value
                 if (previous.uiKitStyle != style) {
                     _themeState.value = previous.copy(uiKitStyle = style)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themeDynamicColor.collect { enabled ->
+                val previous = _themeState.value
+                if (previous.dynamicColor != enabled) {
+                    _themeState.value = previous.copy(dynamicColor = enabled)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themeAccentColor.collect { colorArgb ->
+                val previous = _themeState.value
+                if (previous.accentColorArgb != colorArgb) {
+                    _themeState.value = previous.copy(accentColorArgb = colorArgb)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themeMonetEnabled.collect { enabled ->
+                val previous = _themeState.value
+                if (previous.monetEnabled != enabled) {
+                    _themeState.value = previous.copy(monetEnabled = enabled)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themePaletteStyle.collect { style ->
+                val previous = _themeState.value
+                val resolved = UiKitPaletteStyle.fromValue(style).value
+                if (previous.paletteStyle != resolved) {
+                    _themeState.value = previous.copy(paletteStyle = resolved)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themeColorSpec.collect { spec ->
+                val previous = _themeState.value
+                val resolved = UiKitColorSpec.fromValue(spec).value
+                if (previous.colorSpec != resolved) {
+                    _themeState.value = previous.copy(colorSpec = resolved)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.themeSurfaceBlur.collect { enabled ->
+                val previous = _themeState.value
+                if (previous.surfaceBlur != enabled) {
+                    _themeState.value = previous.copy(surfaceBlur = enabled)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.uiLayoutScale.collect { layoutScale ->
+                val previous = _themeState.value
+                if (previous.layoutScale != layoutScale) {
+                    _themeState.value = previous.copy(layoutScale = layoutScale)
                 }
             }
         }
@@ -348,6 +428,89 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setUiKitStyle(style)
             _themeState.value = _themeState.value.copy(uiKitStyle = style)
+            if (style != UiKitStyle.Miuix.value) {
+                // Liquid glass is exclusive to the Miuix floating bar; when leaving Miuix
+                // for the Expressive/MD style (which uses a plain translucent surface) drop
+                // the now-dead glass flags so the Expressive bar does not carry stale state.
+                preferenceRepository.setNavigationBottomBarBlur(false)
+                preferenceRepository.setNavigationBottomBarBackdrop(false)
+            }
+        }
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeDynamicColor(enabled)
+            _themeState.value = _themeState.value.copy(dynamicColor = enabled)
+        }
+    }
+
+    fun setAccentColor(colorArgb: Int) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeAccentColor(colorArgb)
+            _themeState.value = _themeState.value.copy(accentColorArgb = colorArgb)
+        }
+    }
+
+    fun setMonetEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeMonetEnabled(enabled)
+            _themeState.value = _themeState.value.copy(monetEnabled = enabled)
+        }
+    }
+
+    fun setPaletteStyle(value: Int) {
+        val resolved = UiKitPaletteStyle.fromValue(value).value
+        viewModelScope.launch {
+            preferenceRepository.setThemePaletteStyle(resolved)
+            _themeState.value = _themeState.value.copy(paletteStyle = resolved)
+        }
+    }
+
+    fun setColorSpec(value: Int) {
+        val resolved = UiKitColorSpec.fromValue(value).value
+        viewModelScope.launch {
+            preferenceRepository.setThemeColorSpec(resolved)
+            _themeState.value = _themeState.value.copy(colorSpec = resolved)
+        }
+    }
+
+    fun setSurfaceBlur(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeSurfaceBlur(enabled)
+            _themeState.value = _themeState.value.copy(surfaceBlur = enabled)
+        }
+    }
+
+    fun setLayoutScale(value: Int) {
+        val resolved = UiKitLayoutScale.fromValue(value).value
+        viewModelScope.launch {
+            preferenceRepository.setUiLayoutScale(resolved)
+            _themeState.value = _themeState.value.copy(layoutScale = resolved)
+        }
+    }
+
+    fun setNavigationFloatingBottomBar(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setNavigationFloatingBottomBar(enabled)
+        }
+    }
+
+    fun setNavigationBottomBarBlur(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setNavigationBottomBarBlur(enabled)
+        }
+    }
+
+    fun setNavigationBottomBarBackdrop(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setNavigationBottomBarBackdrop(enabled)
+        }
+    }
+
+    fun setNavigationBadges(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setNavigationBadges(enabled)
         }
     }
 
@@ -467,7 +630,6 @@ class SettingsViewModel constructor(
         val configurations: Boolean = false,
         val integrations: Boolean = false,
         val diagnostics: Boolean = false,
-        val about: Boolean = false,
     ) {
         fun toggle(id: SectionId): SectionExpandState = when (id) {
             SectionId.SERVICE -> copy(service = !service)
@@ -477,7 +639,6 @@ class SettingsViewModel constructor(
             SectionId.CONFIGURATIONS -> copy(configurations = !configurations)
             SectionId.INTEGRATIONS -> copy(integrations = !integrations)
             SectionId.DIAGNOSTICS -> copy(diagnostics = !diagnostics)
-            SectionId.ABOUT -> copy(about = !about)
         }
 
         operator fun get(id: SectionId): Boolean = when (id) {
@@ -488,12 +649,10 @@ class SettingsViewModel constructor(
             SectionId.CONFIGURATIONS -> configurations
             SectionId.INTEGRATIONS -> integrations
             SectionId.DIAGNOSTICS -> diagnostics
-            SectionId.ABOUT -> about
         }
     }
 
     enum class SectionId {
-        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE,
-        CONFIGURATIONS, INTEGRATIONS, DIAGNOSTICS, ABOUT,
+        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE, CONFIGURATIONS, INTEGRATIONS, DIAGNOSTICS,
     }
 }

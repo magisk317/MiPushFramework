@@ -8,22 +8,18 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -34,24 +30,19 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
+import io.github.magisk317.uikit.surface.AppAlertDialog
+import io.github.magisk317.uikit.surface.AppCard
+import io.github.magisk317.uikit.surface.AppPrimaryButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import io.github.magisk317.uikit.common.ElevatedSnackbarHost
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import io.github.magisk317.uikit.surface.AppSecondaryButton
+import io.github.magisk317.uikit.common.AppSnackbarDuration
+import io.github.magisk317.uikit.common.AppSnackbarHostState
+import io.github.magisk317.uikit.common.AppSnackbarHost
+import io.github.magisk317.uikit.surface.AppSurface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.getValue
@@ -61,46 +52,32 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.fromHtml
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.application.ManagerApplication
-import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
-import io.github.magisk317.mipush.manager.notification.NotificationChannelReadStatus
-import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
-import io.github.magisk317.uikit.surface.DetailDivider
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.SectionColumn
-import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import io.github.magisk317.uikit.theme.applyEdgeToEdge
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -120,7 +97,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        applyEdgeToEdge(this)
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
         if (packageName.isNullOrBlank()) {
             finish()
@@ -142,7 +119,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             infoViewModel.setApplicationInfo(info = app, ignoreNotRegistered = ignoreNotRegistered)
             appConfigurationUtils = AppConfigurationUtils(this@ApplicationInfoPage, app)
             setContent {
-                Theme {
+                Theme() {
                     SettingsApp()
                 }
             }
@@ -151,10 +128,10 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     fun SettingsApp() {
-        val snackbarHostState = remember { SnackbarHostState() }
+        val snackbarHostState = remember { AppSnackbarHostState() }
 
         Theme {
-            Surface(
+            AppSurface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
@@ -166,6 +143,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             .fillMaxSize()
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             .verticalScroll(rememberScrollState())
+                            .uiKitScrollEndHaptic()
                             .padding(horizontal = MaterialTheme.spacing.medium),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             top = topInset + MaterialTheme.spacing.medium,
@@ -175,7 +153,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         SettingsScreen(snackbarHostState)
                     }
-                    ElevatedSnackbarHost(
+                    AppSnackbarHost(
                         hostState = snackbarHostState,
                         bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
                     )
@@ -185,7 +163,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    fun SettingsScreen(snackbarHostState: SnackbarHostState) {
+    fun SettingsScreen(snackbarHostState: AppSnackbarHostState) {
         ApplicationInfoHeader(snackbarHostState)
         TipsCard()
         ActivitySectionCard(snackbarHostState)
@@ -194,7 +172,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean) -> Unit {
+    private fun rememberSwitchFeedback(snackbarHostState: AppSnackbarHostState): (String, Boolean) -> Unit {
         val scope = rememberCoroutineScope()
         val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
         val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
@@ -205,7 +183,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(
                         message = String.format(Locale.getDefault(), template, title),
-                        duration = SnackbarDuration.Short,
+                        duration = AppSnackbarDuration.Short,
                     )
                 }
             }
@@ -213,7 +191,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
+    private fun ApplicationInfoHeader(snackbarHostState: AppSnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
@@ -230,10 +208,8 @@ open class ApplicationInfoPage : ComponentActivity() {
         val registrationValue = stringResource(RegistrationStateStyle.registrationLabelResOf(applicationInfo))
         val lastPush = formatTime(applicationInfo.lastReceiveTimeMs)
 
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+        AppCard(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {
             Column {
                 Box(
@@ -355,7 +331,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         ),
                         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                     ) {
-                        FilledTonalButton(
+                        AppPrimaryButton(
                             onClick = {
                                 scope.launch {
                                     val feedback = infoViewModel.launchTargetAppAndForceRegister(
@@ -365,18 +341,19 @@ open class ApplicationInfoPage : ComponentActivity() {
                                     snackbarHostState.currentSnackbarData?.dismiss()
                                     snackbarHostState.showSnackbar(
                                         message = feedback,
-                                        duration = SnackbarDuration.Short,
+                                        duration = AppSnackbarDuration.Short,
                                     )
                                 }
                             },
                         ) {
                             Text(
                                 text = stringResource(R.string.app_detail_force_register),
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        OutlinedButton(
+                        AppSecondaryButton(
                             onClick = { openSystemAppInfo(context) },
                         ) {
                             Text(
@@ -444,7 +421,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
+    private fun ActivitySectionCard(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
@@ -491,7 +468,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         snackbarHostState.currentSnackbarData?.dismiss()
                         snackbarHostState.showSnackbar(
                             message = redirectInDevelopment,
-                            duration = SnackbarDuration.Short,
+                            duration = AppSnackbarDuration.Short,
                         )
                     }
                 },
@@ -510,7 +487,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun IslandDisplaySection(snackbarHostState: SnackbarHostState) {
+    private fun IslandDisplaySection(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
@@ -549,7 +526,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @SuppressLint("LocalContextGetResourceValueCall")
     @Composable
-    private fun NotificationSection(snackbarHostState: SnackbarHostState) {
+    private fun NotificationSection(snackbarHostState: AppSnackbarHostState) {
         val scope = rememberCoroutineScope()
         val deleteFailedMessage = stringResource(R.string.notification_channels_delete_failed)
         val isPreview = LocalInspectionMode.current
@@ -660,12 +637,11 @@ open class ApplicationInfoPage : ComponentActivity() {
                         enabled = channel.enabled,
                         title = channelTitle,
                         summary = summary,
-                        showDivider = channelIndex < section.channels.lastIndex ||
-                            sectionIndex < sections.lastIndex,
+                        showDivider = channelIndex < section.channels.lastIndex,
                         onClick = { shouldShowDialog = true },
                     )
                     if (shouldShowDialog) {
-                        AlertDialog(
+                        AppAlertDialog(
                             onDismissRequest = { shouldShowDialog = false },
                             title = {
                                 Column(
@@ -679,6 +655,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                         NotificationChannelBadge(text = badge)
                                         Text(
                                             text = channelTitle,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             softWrap = true,
                                             overflow = TextOverflow.Clip,
                                         )
@@ -695,6 +672,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             text = {
                                 Text(
                                     text = summary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             },
@@ -726,7 +704,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                                         scope.launch {
                                                             snackbarHostState.showSnackbar(
                                                                 deleteFailedMessage,
-                                                                duration = SnackbarDuration.Short,
+                                                                duration = AppSnackbarDuration.Short,
                                                             )
                                                         }
                                                     }

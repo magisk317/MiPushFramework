@@ -49,7 +49,7 @@ class PageActivationCoordinatorTest {
         val restore = coordinator.requestNavigation(3, NavigationInputKind.RESTORE) as NavigationRequestResult.Accepted
         assertEquals(NavigationInputKind.RESTORE, restore.token.inputKind)
         coordinator.onPagerSettled(3, restore.token)
-        val deepRoute = coordinator.requestFromRoute(AppDestinations.ConfigsSearch.route("filter"))
+        val deepRoute = coordinator.requestFromRoute(AppDestinations.ConnectionStatus.ROUTE)
         assertTrue(deepRoute is NavigationRequestResult.Accepted)
         assertEquals(NavigationInputKind.DEEP_ROUTE, (deepRoute as NavigationRequestResult.Accepted).token.inputKind)
         assertEquals(2L, deepRoute.token.sequence)

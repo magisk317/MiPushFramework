@@ -11,6 +11,8 @@ object ManagerUiEntryPoints {
     private const val EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME"
     private const val EXTRA_IGNORE_NOT_REGISTERED = "EXTRA_IGNORE_NOT_REGISTERED"
     private const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
+    private const val EXTRA_INITIAL_QUERY = "extra_initial_query"
+    private const val EXTRA_INITIAL_PATH = "extra_initial_path"
 
     fun managerUiPackage(context: Context): String {
         return if (hasLocalManagerUi(context)) context.packageName else ManagerComponentNames.PACKAGE
@@ -50,6 +52,17 @@ object ManagerUiEntryPoints {
     fun recentEventListIntent(context: Context, packageName: String): Intent {
         return managerUiIntent(context, ManagerComponentNames.RECENT_EVENT_LIST_PAGE)
             .setData(packageName.toUri())
+    }
+
+    fun configurationsIntent(
+        context: Context,
+        initialQuery: String? = null,
+        initialPath: String? = null,
+    ): Intent {
+        return managerUiIntent(context, ManagerComponentNames.CONFIGURATIONS_PAGE).apply {
+            if (!initialQuery.isNullOrBlank()) putExtra(EXTRA_INITIAL_QUERY, initialQuery)
+            if (!initialPath.isNullOrBlank()) putExtra(EXTRA_INITIAL_PATH, initialPath)
+        }
     }
 
     fun requestPermissionIntent(

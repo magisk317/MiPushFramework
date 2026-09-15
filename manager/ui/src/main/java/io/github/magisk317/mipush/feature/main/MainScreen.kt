@@ -2,15 +2,9 @@ package io.github.magisk317.mipush.feature.main
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -28,9 +22,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,8 +36,7 @@ import androidx.navigation.NavDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationList
-import io.github.magisk317.mipush.feature.main.subpage.ConfigurationEditor
-import io.github.magisk317.mipush.feature.main.subpage.Configurations
+import io.github.magisk317.mipush.feature.main.subpage.ConfigurationsPage
 import io.github.magisk317.mipush.feature.main.subpage.EventList
 import io.github.magisk317.mipush.feature.main.subpage.Overview
 import io.github.magisk317.mipush.feature.main.subpage.Settings
@@ -55,24 +50,23 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.telemetry.PagePerformanceHandle
 import io.github.magisk317.mipush.manager.telemetry.TransitionInputKind
 import io.github.magisk317.mipush.manager.telemetry.TransitionPerformanceRecorder
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
-import io.github.magisk317.uikit.pager.MainPagerState
 import io.github.magisk317.uikit.pager.rememberMainPagerState
 import io.github.magisk317.uikit.surface.MainTabScaffold
 import io.github.magisk317.uikit.surface.MainTabSpec
 import io.github.magisk317.uikit.surface.PagerTabScaffold
 import io.github.magisk317.uikit.surface.rememberIsCompactWidth
 import io.github.magisk317.uikit.surface.rememberMainChromeController
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import co.touchlab.kermit.Logger
+
+private val navLog = Logger.withTag("NavDiag")
 
 private const val MAIN_CHROME_ANIMATION_MILLIS = 160
 
 internal fun shouldKeepMainChromeVisible(route: String?): Boolean {
     return route?.startsWith(AppDestinations.Overview.ROUTE) == true ||
-        route?.startsWith(AppDestinations.Settings.ROUTE) == true ||
-        route?.startsWith(AppDestinations.SettingsSection.ROUTE) == true ||
-        route?.startsWith(AppDestinations.Configs.ROUTE) == true ||
-        route?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true
+        route?.startsWith(AppDestinations.Settings.ROUTE) == true
 }
 
 internal fun resolveTabIndex(destination: NavDestination?): Int {
@@ -83,11 +77,7 @@ internal fun resolveTabIndex(destination: NavDestination?): Int {
             route.startsWith(AppDestinations.AppDetails.ROUTE) -> 1
         route.startsWith(AppDestinations.EventsList.ROUTE) ||
             route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
-        route.startsWith(AppDestinations.Configs.ROUTE) ||
-            route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
-            route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
         route.startsWith(AppDestinations.Settings.ROUTE) ||
-            route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
             route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
             route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 3
         else -> 0
@@ -99,9 +89,6 @@ internal fun shouldShowCompactBottomBar(destination: NavDestination?): Boolean {
     return route.startsWith(AppDestinations.Overview.ROUTE) ||
         route.startsWith(AppDestinations.AppsList.ROUTE) ||
         route.startsWith(AppDestinations.EventsList.ROUTE) ||
-        route.startsWith(AppDestinations.Configs.ROUTE) ||
-        route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
-        route.startsWith(AppDestinations.ConfigEditor.ROUTE) ||
         route.startsWith(AppDestinations.Settings.ROUTE)
 }
 
@@ -116,13 +103,14 @@ fun MainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val isCompact = rememberIsCompactWidth()
 
-    var aboutDialogContent by remember { mutableStateOf<String?>(null) }
     val settingsViewModel: io.github.magisk317.mipush.main.viewmodel.SettingsViewModel =
         org.koin.androidx.compose.koinViewModel()
-    var settingsBackSignal by rememberSaveable { mutableIntStateOf(0) }
+    val floatingBottomBar by settingsViewModel.navigationFloatingBottomBar.collectAsStateWithLifecycle()
+    val bottomBarBlur by settingsViewModel.navigationBottomBarBlur.collectAsStateWithLifecycle()
+    val bottomBarBackdrop by settingsViewModel.navigationBottomBarBackdrop.collectAsStateWithLifecycle()
     var eventRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
-    var configRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
+    var aboutDialogContent by remember { mutableStateOf<String?>(null) }
 
     val tabs = listOf(
         MainTabSpec(
@@ -154,8 +142,6 @@ fun MainScreen(
             AppDestinations.Overview.ROUTE -> Unit
             AppDestinations.EventsList.ROUTE -> eventRefreshTrigger++
             AppDestinations.AppsList.ROUTE -> appRefreshTrigger++
-            AppDestinations.Configs.ROUTE -> configRefreshTrigger++
-            AppDestinations.Settings.ROUTE -> settingsBackSignal++
         }
     }
 
@@ -182,7 +168,15 @@ fun MainScreen(
         PageActivationCoordinator(initialPage = initialPagerPage)
     }
     val routePagerSynchronizer = remember { TopLevelRoutePagerSynchronizer() }
-    var routePagerReconciled by remember { mutableStateOf(false) }
+    var routePagerReconciled by remember {
+        mutableStateOf(
+            routePagerSynchronizer.isReconciled(
+                route = currentRoute ?: startDestination,
+                currentPage = initialPagerPage,
+                isNavigating = false,
+            ),
+        )
+    }
     val performanceRecorder = remember { TransitionPerformanceRecorder() }
     val performanceHandle = remember { arrayOfNulls<PagePerformanceHandle>(1) }
     val isTopLevelRoute = currentRoute in tabRoutes
@@ -194,7 +188,9 @@ fun MainScreen(
         }
         val targetPage = pagerState.selectedPage
         val sourcePage = pagerState.currentPage
+        navLog.d { "EffectA: selectedPage=$targetPage sourcePage=$sourcePage coordSP=${pageActivationCoordinator.state.selectedPage} isTop=$isTopLevelRoute" }
         if (pageActivationCoordinator.state.selectedPage != targetPage) {
+            navLog.d { "EffectA: requestNavigation($targetPage, CLICK)" }
             pageActivationCoordinator.requestNavigation(targetPage, NavigationInputKind.CLICK)
         }
         performanceHandle[0]?.cancel()
@@ -217,28 +213,55 @@ fun MainScreen(
     // old settled page, otherwise route -> pager and pager -> route continuously pull each other
     // between the two pages. Publish only when the pager itself settles or leaves top-level mode.
     LaunchedEffect(pagerState.pagerState.settledPage, isTopLevelRoute, routePagerReconciled) {
+        navLog.d { "EffectE: settledPage=${pagerState.pagerState.settledPage} isTop=$isTopLevelRoute reconciled=$routePagerReconciled route=$currentRoute" }
         if (!isTopLevelRoute || !routePagerReconciled) return@LaunchedEffect
         val route = tabRoutes.getOrNull(pagerState.pagerState.settledPage) ?: return@LaunchedEffect
         if (currentRoute == route) return@LaunchedEffect
+        navLog.d { "EffectE: navigateTopLevel($route)" }
         navController.navigateTopLevel(route)
     }
+    // Track the route already dispatched to the activation coordinator. This effect is keyed on
+    // isNavigating as well so a route change that lands mid-animation is retried once the pager
+    // stops moving, but the dispatch itself must run only on an actual route change: re-running
+    // it on an isNavigating flip would re-apply the (still stale) current route over a fresh
+    // CLICK selection. The resulting DEEP_ROUTE token then disagrees with the click target, so
+    // onPagerSettled's token check rejects the settle, settledPage sticks on the old page, and
+    // the route<->pager bridges ping-pong the last two pages (each toggle re-firing the pages'
+    // isActive load effects).
+    var lastDispatchedRoute by remember { mutableStateOf(currentRoute) }
     LaunchedEffect(currentRoute, pagerState.isNavigating) {
-        currentRoute?.let(pageActivationCoordinator::onRouteChanged)
+        navLog.d {
+            "EffectD: route=$currentRoute lastDispatched=$lastDispatchedRoute " +
+                "isNav=${pagerState.isNavigating} " +
+                "currentPage=${pagerState.pagerState.currentPage} " +
+                "settledPage=${pagerState.pagerState.settledPage}"
+        }
+        if (currentRoute != null && currentRoute != lastDispatchedRoute) {
+            lastDispatchedRoute = currentRoute
+            navLog.d { "EffectD: onRouteChanged($currentRoute)" }
+            pageActivationCoordinator.onRouteChanged(currentRoute)
+        }
         val targetPage = routePagerSynchronizer.targetPageFor(
             route = currentRoute,
             currentPage = pagerState.pagerState.currentPage,
             isNavigating = pagerState.isNavigating,
         )
+        navLog.d { "EffectD: targetPageFor=$targetPage reconciled=$routePagerReconciled" }
         if (targetPage != null) {
             routePagerReconciled = false
+            navLog.d { "EffectD: animateToPage($targetPage)" }
+            routePagerSynchronizer.notifyTargetPage(targetPage)
             pagerState.animateToPage(targetPage)
             return@LaunchedEffect
         }
-        routePagerReconciled = routePagerSynchronizer.isReconciled(
-            route = currentRoute,
-            currentPage = pagerState.pagerState.currentPage,
-            isNavigating = pagerState.isNavigating,
-        )
+        if (!routePagerReconciled) {
+            routePagerReconciled = routePagerSynchronizer.isReconciled(
+                route = currentRoute,
+                currentPage = pagerState.pagerState.currentPage,
+                isNavigating = pagerState.isNavigating,
+            )
+            navLog.d { "EffectD: isReconciled=$routePagerReconciled" }
+        }
     }
     // When returning from a detail page to the pager, snap to the correct page immediately
     // instead of animating — otherwise the AnimatedContent transition briefly shows the wrong page.
@@ -269,29 +292,54 @@ fun MainScreen(
     val chromeResetKey = if (isTopLevelRoute) "main-tabs" else currentRoute
     val chromeController = rememberMainChromeController(
         isCompact = isCompact,
-        compactChromeRouteAvailable = shouldShowCompactBottomBar(currentDestination),
+        compactChromeRouteAvailable = shouldShowCompactBottomBar(currentDestination) && isTopLevelRoute,
         keepVisible = shouldKeepMainChromeVisible(currentRoute),
         allowScrollHide = allowScrollChrome,
         resetKey = chromeResetKey,
         animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
     )
     val pageScrollChromeState = chromeController.pageScrollChromeState
-
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
             isCompact = isCompact,
+            showSystemBarsScrim = false,
             chromeController = chromeController,
+            onTabSelected = { index ->
+                navLog.d { "onTabSelected: index=$index isTop=$isTopLevelRoute selectedPage=${pagerState.selectedPage} currentPage=${pagerState.currentPage}" }
+                routePagerSynchronizer.notifyTargetPage(index)
+                // A deep route (settings section, theme page, ...) hides the pager layer; animating
+                // it would move invisible content. Pop the deep route onto the tapped tab instead —
+                // the same canonical navigateTopLevel policy the nav-host branch uses.
+                if (isTopLevelRoute) {
+                    pagerState.animateToPage(index)
+                } else {
+                    tabRoutes.getOrNull(index)?.let(navController::navigateTopLevel)
+                }
+            },
             onTabReselected = { index ->
-                tabRoutes.getOrNull(index)?.let(::triggerRefreshForRoute)
+                if (isTopLevelRoute) {
+                    tabRoutes.getOrNull(index)?.let(::triggerRefreshForRoute)
+                } else {
+                    tabRoutes.getOrNull(index)?.let(navController::navigateTopLevel)
+                }
             },
             pagerVisible = isTopLevelRoute,
             onChromeTransition = { transition ->
-                pageActivationCoordinator.onPagerSettled(
+                routePagerSynchronizer.notifyTargetPage(transition.settledPage)
+                val settled = pageActivationCoordinator.onPagerSettled(
                     transition.settledPage,
                     pageActivationCoordinator.token,
                 )
+                navLog.d {
+                    "onChromeTransition: settledPage=${transition.settledPage} " +
+                        "currentPage=${transition.currentPage} " +
+                        "token=${pageActivationCoordinator.token?.id} " +
+                        "accepted=$settled " +
+                        "coordSP=${pageActivationCoordinator.state.selectedPage} " +
+                        "coordSettled=${pageActivationCoordinator.state.settledPage}"
+                }
                 performanceHandle[0]?.let { handle ->
                     if (transition.settledPage == handle.token.targetPage) {
                         handle.pagerSettled(transition.settledPage)
@@ -303,6 +351,9 @@ fun MainScreen(
             beyondViewportPageCount = 3,
             retainPageContentAfterFirstFrame = true,
             reserveCompactBottomBarSpace = true,
+            floatingBottomBar = floatingBottomBar,
+            bottomBarBlur = bottomBarBlur,
+            bottomBarBackdrop = bottomBarBackdrop,
             animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
             railHeader = {
                 Column(
@@ -323,6 +374,7 @@ fun MainScreen(
             },
         ) { page, contentPadding ->
             val pageIsSettled = pageActivationCoordinator.activationFor(page).isActive
+            if (page == 3) navLog.d { "PageContent: page=$page isActive=$pageIsSettled coordSettled=${pageActivationCoordinator.state.settledPage}" }
             // Only the visible pager page may drive the shared chrome. Adjacent pages are
             // precomposed for fast navigation, but their list observers must not overwrite the
             // active page's bottom-bar/header state.
@@ -335,7 +387,6 @@ fun MainScreen(
                 0 -> Overview(
                     contentPadding = contentPadding,
                     isActive = pageIsSettled,
-                    onShowAboutDialog = { content -> aboutDialogContent = content },
                     onNavigateToConnectionStatus = {
                         context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
                     },
@@ -366,14 +417,17 @@ fun MainScreen(
                 3 -> Settings(
                     contentPadding = contentPadding,
                     viewModel = settingsViewModel,
-                    onShowAboutDialog = { content -> aboutDialogContent = content },
                     onSectionChanged = {},
                     onNavigateToConnectionStatus = {
                         context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
                     },
                     onNavigateToStatusBarIconSettings = { navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE) },
-                    onNavigateToConfigurations = { navController.navigate(AppDestinations.Configs.ROUTE) },
-                    sectionBackSignal = settingsBackSignal,
+                    onNavigateToThemeSettings = {
+                        navController.navigate(AppDestinations.ThemeSettings.ROUTE)
+                    },
+                    onNavigateToConfigurations = {
+                        context.startActivity(Intent(context, ConfigurationsPage::class.java))
+                    },
                     isActive = pageIsSettled,
                     scrollChromeState = activePageScrollChromeState,
                 )
@@ -393,6 +447,13 @@ fun MainScreen(
                 },
                 onTabReselected = { index -> tabRoutes.getOrNull(index)?.let(::triggerRefreshForRoute) },
                 animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
+                // Miuix pages own their full-bleed top surface (TopAppBar + page background);
+                // the default scrim would paint a mismatched chrome band over the status-bar
+                // strip on detail routes (theme page etc.).
+                showSystemBarsScrim = false,
+                floatingBottomBar = floatingBottomBar,
+                bottomBarBlur = bottomBarBlur,
+                bottomBarBackdrop = bottomBarBackdrop,
                 railHeader = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -419,8 +480,7 @@ fun MainScreen(
                     Overview(
                         contentPadding = padding,
                         isActive = currentRoute?.startsWith(AppDestinations.Overview.ROUTE) == true,
-                        onShowAboutDialog = { content -> aboutDialogContent = content },
-                        onNavigateToConnectionStatus = {
+                            onNavigateToConnectionStatus = {
                             navController.navigate(AppDestinations.ConnectionStatus.ROUTE)
                         },
                     )
@@ -452,32 +512,11 @@ fun MainScreen(
                         scrollChromeState = pageScrollChromeState,
                     )
                 },
-                configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, onBack ->
-                    Configurations(
-                        initialQuery = initialQuery,
-                        contentPadding = padding,
-                        refreshSignal = configRefreshTrigger + refreshSignal,
-                        isActive = currentRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
-                            currentRoute?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true,
-                        onOpenEditor = onOpenEditor,
-                        onBack = onBack,
-                        scrollChromeState = pageScrollChromeState,
-                    )
-                },
-                configEditorPage = { path, padding, onBack ->
-                    ConfigurationEditor(
-                        path = path,
-                        onBack = onBack,
-                        contentPadding = padding,
-                    )
-                },
-                settingsPage = { padding, onAbout, _, _ ->
+                settingsPage = { padding, _ ->
                     Settings(
                         contentPadding = padding,
                         viewModel = settingsViewModel,
-                        isActive = currentRoute?.startsWith(AppDestinations.Settings.ROUTE) == true ||
-                            currentRoute?.startsWith(AppDestinations.SettingsSection.ROUTE) == true,
-                        onShowAboutDialog = onAbout,
+                        isActive = currentRoute?.startsWith(AppDestinations.Settings.ROUTE) == true,
                         onSectionChanged = {},
                         onNavigateToConnectionStatus = {
                             context.startActivity(Intent(context, io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage::class.java))
@@ -485,21 +524,21 @@ fun MainScreen(
                         onNavigateToStatusBarIconSettings = {
                             navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
                         },
-                        onNavigateToConfigurations = {
-                            navController.navigate(AppDestinations.Configs.ROUTE)
+                        onNavigateToThemeSettings = {
+                            navController.navigate(AppDestinations.ThemeSettings.ROUTE)
                         },
-                        sectionBackSignal = settingsBackSignal,
+                        onNavigateToConfigurations = {
+                            context.startActivity(Intent(context, ConfigurationsPage::class.java))
+                        },
                         scrollChromeState = pageScrollChromeState,
                     )
                 },
-                onAbout = { content -> aboutDialogContent = content },
-                onSectionChanged = {},
                 )
             }
         } // detail overlay
 
         if (aboutDialogContent != null) {
-            androidx.compose.material3.AlertDialog(
+            io.github.magisk317.uikit.surface.AppAlertDialog(
                 onDismissRequest = { aboutDialogContent = null },
                 confirmButton = {
                     DialogActionRow(

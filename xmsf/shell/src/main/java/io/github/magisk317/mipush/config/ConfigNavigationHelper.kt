@@ -15,16 +15,11 @@ class ConfigNavigationHelper constructor(
     suspend fun createIntentForPackage(packageName: String): Intent {
         val treeUri: Uri? = configCenter.getConfigurationDirectoryAsync()
         val matchedPath = syncRepository.resolvePackageConfigPath(packageName, treeUri)
-        val route = if (matchedPath != null) {
-            "config_editor/${java.net.URLEncoder.encode(matchedPath, java.nio.charset.StandardCharsets.UTF_8.name())}"
-        } else {
-            "configs_search/${java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())}"
-        }
-        return ManagerUiEntryPoints.mainActivityIntent(
+        return ManagerUiEntryPoints.configurationsIntent(
             context = context,
-            startRoute = route,
-        )
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            initialQuery = packageName.takeUnless { matchedPath != null },
+            initialPath = matchedPath,
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     suspend fun openForPackage(packageName: String) {

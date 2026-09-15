@@ -1,18 +1,9 @@
 @file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package io.github.magisk317.mipush.feature.main.subpage
 
 import android.app.Activity
 import android.widget.Toast
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.graphics.BitmapFactory
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
-import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,43 +17,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.SnackbarHostState
-import io.github.magisk317.uikit.common.ElevatedSnackbarHost
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
-import io.github.magisk317.uikit.common.showLatestSnackbar
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,66 +42,65 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.PackageInfoCompat
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
-import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
+import io.github.magisk317.mipush.feature.main.MainActivityOperation
+import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.billing.BillingProvider
-import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.feature.main.MainActivityOperation
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
-import io.github.magisk317.uikit.surface.SectionColumn
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.common.AppSnackbarHostState
+import io.github.magisk317.uikit.common.showLatestSnackbar
+import io.github.magisk317.uikit.surface.DonateDialog
+import io.github.magisk317.uikit.surface.QRCodeDialog
+import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
+import io.github.magisk317.uikit.surface.startAlipayPlatformDonate
+import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.currentUiKitStyle
+import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import io.github.magisk317.uikit.surface.DonateDialog
-import io.github.magisk317.uikit.surface.QRCodeDialog
-import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
-import io.github.magisk317.uikit.surface.startAlipayPlatformDonate
-import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.R as UiKitR
 
-private val OverviewCardShape = RoundedCornerShape(28.dp)
+/**
+ * Style-independent render state for the Overview page (KernelSU `HomeUiState` model).
+ */
+internal data class OverviewUiState(
+    val appStats: ApplicationStats,
+    val runtimeVersionName: String?,
+    val appVersionName: String?,
+    val appVersionCode: String,
+)
+
+/**
+ * Action callbacks assembled by the dispatcher, consumed verbatim by each style
+ * implementation (KernelSU `HomeActions` model).
+ */
+internal class OverviewActions(
+    val onConnectionStatusClick: () -> Unit,
+    val onJoinTelegram: () -> Unit,
+    val onSourceCode: () -> Unit,
+    val onDonate: () -> Unit,
+)
 
 @Composable
 fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     isActive: Boolean = true,
-    onShowAboutDialog: (String) -> Unit = {},
     onNavigateToConnectionStatus: () -> Unit = {},
-) {
-    Page {
-        OverviewScreen(
-            contentPadding = contentPadding,
-            onShowAboutDialog = onShowAboutDialog,
-            onNavigateToConnectionStatus = onNavigateToConnectionStatus,
-            isActive = isActive,
-        )
-    }
-}
-
-@Composable
-private fun OverviewScreen(
-    contentPadding: PaddingValues,
-    isActive: Boolean,
-    onShowAboutDialog: (String) -> Unit,
-    onNavigateToConnectionStatus: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -139,7 +109,7 @@ private fun OverviewScreen(
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { AppSnackbarHostState() }
     val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
     val runtimeVersionName by overviewViewModel.runtimeVersionName.collectAsState()
@@ -151,72 +121,40 @@ private fun OverviewScreen(
         overviewViewModel.loadStats()
         hasLoadedStats = true
     }
-    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val scrollState = rememberScrollState()
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val appVersionName = packageInfo.versionName
-        ?: context.getString(io.github.magisk317.uikit.R.string.unknown)
+        ?: context.getString(UiKitR.string.unknown)
     val appVersionCode = CommonBuildConfig.GIT_COMMIT
         .takeIf { it.isNotBlank() && it != "unknown" }
         ?: PackageInfoCompat.getLongVersionCode(packageInfo).toString()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        SectionColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-            contentPadding = PaddingValues(
-                start = MaterialTheme.spacing.medium,
-                top = topInset + 80.dp,
-                end = MaterialTheme.spacing.medium,
-                bottom = contentPadding.calculateBottomPadding() + bottomInset + 24.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = OverviewCardShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
-            ) {
-                AppStatsDonutSection(appStats = appStats)
-            }
+    val state = OverviewUiState(
+        appStats = appStats,
+        runtimeVersionName = runtimeVersionName,
+        appVersionName = appVersionName,
+        appVersionCode = appVersionCode,
+    )
+    val actions = OverviewActions(
+        onConnectionStatusClick = onNavigateToConnectionStatus,
+        onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
+        onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
+        onDonate = { showDonateDialog = true },
+    )
 
-            io.github.magisk317.uikit.surface.OverviewAppInfoCard(
-                appVersionName = appVersionName,
-                runtimeVersionName = runtimeVersionName
-                    ?: stringResource(UiKitR.string.unknown),
-                appVersionCode = appVersionCode,
-                appVersionCodeLabel = stringResource(R.string.commit_info),
-            )
-
-            io.github.magisk317.uikit.surface.OverviewDeviceInfoCard()
-
-            io.github.magisk317.uikit.surface.OverviewLinksCard(
-                onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
-                onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
-                onDonate = { showDonateDialog = true },
-            )
-        }
-
-        TopAppBar(
-            title = { Text(text = stringResource(R.string.app_name)) },
-            windowInsets = WindowInsets.statusBars,
-            actions = {
-                ConnectionStatusIndicator(onClick = onNavigateToConnectionStatus)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter),
-            colors = chromeTopAppBarColors(),
+    when (currentUiKitStyle()) {
+        UiKitStyle.Miuix -> OverviewMiuix(
+            state = state,
+            actions = actions,
+            contentPadding = contentPadding,
+            snackbarHostState = snackbarHostState,
         )
 
-        ElevatedSnackbarHost(
-            hostState = snackbarHostState,
-            bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
+        UiKitStyle.Expressive -> OverviewExpressive(
+            state = state,
+            actions = actions,
+            contentPadding = contentPadding,
+            snackbarHostState = snackbarHostState,
         )
     }
 
@@ -261,14 +199,14 @@ private fun OverviewScreen(
                         .forEach { message ->
                             snackbarHostState.showLatestSnackbar(message)
                         }
-                    }
-                },
+                }
+            },
         )
     }
 }
 
 @Composable
-private fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
+internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
     val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel = koinViewModel()
     val snapshot by viewModel.snapshot.collectAsState()
 
@@ -307,7 +245,7 @@ private fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
 }
 
 @Composable
-private fun AppStatsDonutSection(
+internal fun AppStatsDonutSection(
     appStats: ApplicationStats,
 ) {
     val activeSliceColor = MaterialTheme.colorScheme.primary
@@ -449,7 +387,7 @@ private fun OverviewChartPanel(
 private fun DonutChart(
     modifier: Modifier = Modifier,
     slices: List<DonutSlice>,
-    stroke: androidx.compose.ui.unit.Dp,
+    stroke: Dp,
     onSliceTap: (Int) -> Unit,
 ) {
     val baseTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh

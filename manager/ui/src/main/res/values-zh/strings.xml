@@ -121,6 +121,15 @@
     <string name="config_remote_branch_label">分支</string>
     <string name="config_remote_accelerator_label">原始文件加速源</string>
     <string name="config_remote_source_default_hint">内置默认：%1$s</string>
+    <string name="config_remote_source_config_suffix">（配置源）</string>
+    <string name="config_remote_source_icon_suffix">（图标源）</string>
+    <string name="config_import_dialog_title">本地导入</string>
+    <string name="config_import_dialog_message">请选择要导入的文件类型：配置还是图标。</string>
+    <string name="config_import_configuration">导入配置</string>
+    <string name="config_import_icons">导入图标</string>
+    <string name="config_item_local">本地：%1$s</string>
+    <string name="config_item_remote">远端：%1$s</string>
+    <string name="config_item_remote_missing">未发现</string>
     <string name="config_directory_title">本地目录</string>
     <string name="config_directory_not_selected">还没有选择本地配置目录。</string>
     <string name="config_directory_label">本地目录：%1$s</string>
@@ -133,6 +142,10 @@
     <string name="config_sync_progress">同步中 %1$d/%2$d · %3$s</string>
     <string name="config_remote_error">远端错误：%1$s</string>
     <string name="action_reset_default">恢复默认</string>
+    <string name="config_preview_title">配置预览</string>
+    <string name="config_preview_summary">浏览和编辑配置文件。</string>
+    <string name="icon_preview_title">图标预览</string>
+    <string name="icon_preview_summary">浏览和编辑图标配置。</string>
     <string name="config_empty_title">暂无可显示的配置</string>
     <string name="config_empty_summary">你可以先浏览远端配置，也可以选择本地目录后导入、编辑并立即生效。</string>
     <string name="config_status_in_sync">已同步</string>
@@ -150,7 +163,6 @@
     <string name="config_time_unknown">未知</string>
 
     <!-- About -->
-    <string name="action_about">关于</string>
 
     <!-- Wizard -->
 
@@ -252,6 +264,9 @@
 
     <string name="connection_status_title">连接状态</string>
     <string name="connection_status_loading">加载中…</string>
+    <string name="connection_status_state_connected">已连接</string>
+    <string name="connection_status_state_connecting">连接中</string>
+    <string name="connection_status_state_disconnected">已断开</string>
     <string name="connection_status_refresh">刷新连接状态</string>
     <string name="connection_status_force_reconnect">强制重连</string>
     <string name="connection_status_reconnect_requested">已请求重新连接</string>
@@ -492,37 +507,83 @@
     <string name="mock_notification_dispatched">重放已分发；当前运行路径无法确认通知最终发布。</string>
     <string name="mock_notification_posted">重放通知已发布。</string>
     <string name="mock_notification_failed_channel_disabled">重放失败：通知渠道已禁用，请在系统通知设置中启用该渠道。</string>
+    <string name="mock_notification_failed_event_not_found">重放失败：数据库中未找到该记录（可能已被历史清理或删除）。</string>
+    <string name="mock_notification_failed_payload_missing">重放失败：该事件缺少原始推送载荷（Payload），无法重新构造通知。</string>
+    <string name="mock_notification_failed_service_not_ready">重放失败：后台推送服务未就绪或响应超时。</string>
+    <string name="mock_notification_failed_app_not_installed">重放失败：目标应用未安装或已被卸载。</string>
     <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
-    <string name="mock_notification_no_receiver">重放预检：目标应用没有匹配此推送的接收器。</string>
+    <string name="mock_notification_no_receiver">重放失败：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">服务权限</string>
-    <string name="settings_home_service_summary">服务器、前台服务与权限检查。</string>
+    <string name="settings_home_service_summary">服务器、前台服务与权限检查</string>
     <string name="settings_home_keepalive_title">系统保活</string>
-    <string name="settings_home_keepalive_summary">进程优先级与系统限制绕过。</string>
+    <string name="settings_home_keepalive_summary">进程优先级与系统限制绕过</string>
     <string name="settings_home_notifications_title">通知呈现</string>
-    <string name="settings_home_notifications_summary">灵动岛与焦点通知显示。</string>
+    <string name="settings_home_notifications_summary">灵动岛与焦点通知显示</string>
     <string name="settings_home_appearance_title">外观显示</string>
-    <string name="settings_home_appearance_summary">状态栏与启动器图标。</string>
     <string name="settings_home_configurations_title">配置管理</string>
-    <string name="settings_home_configurations_summary">配置文件与偏好迁移。</string>
+    <string name="settings_home_configurations_summary">配置文件与偏好迁移</string>
+    <string name="settings_home_appearance_summary">主题与状态栏图标。</string>
     <string name="settings_configurations_entry_summary">打开并编辑 MiPush 配置文件。</string>
+    <string name="settings_configurations_management_title">配置管理</string>
     <string name="settings_home_integrations_title">系统集成</string>
-    <string name="settings_home_integrations_summary">应用双开与 Zygisk 集成。</string>
+    <string name="settings_home_integrations_summary">配置管理、应用双开与 Zygisk 集成。</string>
     <string name="settings_dual_app_title">启用双开</string>
     <string name="settings_dual_app_summary">将 xmsf 和 MiPush 安装到分身空间（用户 999）。需要 Root 权限。</string>
     <string name="settings_dual_app_primary_user_only_summary">双开安装由主空间（User 0）管理；当前分身只显示自身运行状态。</string>
+    <string name="pref_theme_details_title">主题详情</string>
+    <string name="pref_theme_details_summary">调色板、模糊、强调色与布局选项</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>
-    <string name="ui_kit_style_expressive">Expressive</string>
+    <string name="pref_layout_scale_title">页面布局缩放</string>
+    <string name="layout_scale_compact">紧凑</string>
+    <string name="layout_scale_standard">标准</string>
+    <string name="layout_scale_comfortable">舒适</string>
+    <string name="ui_kit_style_expressive">Material</string>
     <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">自动（跟随系统）</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
     <string name="theme_black">纯黑</string>
+    <string name="pref_dynamic_color_title">动态取色</string>
+    <string name="pref_monet_title">Monet 调色板</string>
+    <string name="pref_monet_summary">根据种子颜色和样式生成完整的 Material 调色板。</string>
+    <string name="pref_palette_style_title">调色板样式</string>
+    <string name="pref_color_spec_title">颜色规范</string>
+    <string name="pref_surface_blur_title">表面模糊</string>
+    <string name="pref_surface_blur_summary">设备支持 RuntimeShader 时模糊共享 UI 表面，否则使用稳定的半透明表面。</string>
+    <string name="palette_style_tonal_spot">Tonal Spot</string>
+    <string name="palette_style_neutral">Neutral</string>
+    <string name="palette_style_vibrant">Vibrant</string>
+    <string name="palette_style_expressive">Expressive</string>
+    <string name="palette_style_rainbow">Rainbow</string>
+    <string name="palette_style_fruit_salad">Fruit Salad</string>
+    <string name="palette_style_monochrome">Monochrome</string>
+    <string name="palette_style_fidelity">Fidelity</string>
+    <string name="palette_style_content">Content</string>
+    <string name="color_spec_2021">Material 3 / 2021</string>
+    <string name="color_spec_2025">Material 3 / 2025</string>
+    <string name="pref_dynamic_color_summary">未选择固定强调色时，使用系统调色板。</string>
+    <string name="pref_accent_color_title">强调色</string>
+    <string name="pref_floating_bottom_bar_title">悬浮导航栏</string>
+    <string name="pref_floating_bottom_bar_summary">让紧凑导航栏悬浮在内容上方。</string>
+    <string name="pref_floating_bottom_bar_summary_miuix">让紧凑导航栏悬浮在内容上方。液态玻璃为 Miuix 风格专属，Expressive 悬浮栏使用半透明表面。</string>
+    <string name="pref_bottom_bar_blur_title">液态玻璃</string>
+    <string name="pref_bottom_bar_blur_summary">悬浮导航栏的折射模糊、随重力高光与拖拽指示器（需 Android 13+）。</string>
+    <string name="pref_bottom_bar_backdrop_title">导航栏背景捕获</string>
+    <string name="pref_bottom_bar_backdrop_summary">在设备支持时捕获悬浮栏下方页面，呈现静态液态玻璃效果。</string>
+    <string name="pref_navigation_badges_title">导航角标</string>
+    <string name="pref_navigation_badges_summary">仅当导航项提供明确状态时显示角标。</string>
+    <string name="accent_system">系统动态色</string>
+    <string name="accent_blue">蓝色</string>
+    <string name="accent_purple">紫色</string>
+    <string name="accent_green">绿色</string>
+    <string name="accent_orange">橙色</string>
+    <string name="accent_rose">玫红</string>
     <string name="settings_home_diagnostics_title">调试日志</string>
-    <string name="settings_home_diagnostics_summary">运行日志、保留周期与调试控制。</string>
+    <string name="settings_home_diagnostics_summary">运行日志、保留周期与调试控制</string>
     <string name="settings_home_about_title">关于应用</string>
-    <string name="settings_home_about_summary">更新入口与项目信息。</string>
+    <string name="settings_home_about_summary">更新入口与项目信息</string>
     <string name="settings_version_label">版本</string>
     <string name="relay_mode_foreground">前台</string>
     <string name="relay_mode_background">后台</string>
@@ -533,8 +594,8 @@
     <string name="settings_blur_radius">背景模糊强度</string>
     <string name="settings_blur_mask_alpha">模糊遮罩透明度</string>
     <string name="app_list_stats_total">应用总数</string>
-    <string name="app_list_stats_using_mipush">使用 MiPush</string>
-    <string name="app_list_stats_not_using_mipush">未使用 MiPush</string>
+    <string name="app_list_stats_integrated">接入</string>
+    <string name="app_list_stats_registration">注册</string>
     <string name="app_list_stats_registered">已注册</string>
     <string name="app_list_stats_not_registered">未注册成功</string>
     <string name="app_list_hero_title">应用接入概览</string>
@@ -692,8 +753,13 @@
 
     <string name="settings_enable_analytics">统计数据</string>
     <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
-    <string name="runtime_missing_dialog_title">未检测到 MiPushFramework 运行时</string>
-    <string name="runtime_missing_dialog_message">未检测到可用的 MiPushFramework 运行时。当前可能只安装了 MiPush 管理器，或安装的是不具备 MiPushFramework 能力的 stock/fork 运行时。请到相关项目群下载并安装匹配的 MiPushFramework 运行时，然后重新打开管理器。</string>
+    <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
+    <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="runtime_missing_dialog_exit">退出</string>
+    <string name="legacy_module_dialog_title">检测到旧版 MiPush 模块</string>
+    <string name="legacy_module_dialog_message">检测到旧模块 com.nihility.mipush，请卸载后重新打开管理器</string>
+    <string name="legacy_module_dialog_exit">退出管理器</string>
 
+    <string name="pref_theme_group_color">色彩</string>
+    <string name="pref_theme_group_navigation">导航栏</string>
 </resources>

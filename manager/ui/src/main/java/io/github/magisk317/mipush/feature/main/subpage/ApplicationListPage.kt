@@ -1,58 +1,47 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.common.utils.logD
-import io.github.magisk317.mipush.common.utils.logE
-import io.github.magisk317.mipush.common.utils.logI
-import io.github.magisk317.mipush.common.utils.logV
-import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.uikit.surface.AppBadge
 
-import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import io.github.magisk317.uikit.surface.AppHorizontalDivider
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import io.github.magisk317.uikit.surface.AppTopBar
+import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices
@@ -65,12 +54,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.manager.application.ManagerApplication
-import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.utils.Utils
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
@@ -80,20 +65,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
-import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.InfoPill
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import io.github.magisk317.uikit.surface.DetailSectionCard
-import io.github.magisk317.uikit.surface.MetricCard
-import io.github.magisk317.uikit.surface.MetricGrid
-import io.github.magisk317.uikit.surface.MetricSpec
-import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceListItem
-import io.github.magisk317.uikit.surface.chromeTopAppBarColors
+import io.github.magisk317.uikit.surface.rememberSearchOverlayState
+import io.github.magisk317.uikit.surface.SearchOverlayState
+import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Immutable
@@ -124,7 +104,10 @@ fun ApplicationList(
     var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
 
     var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
-    var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
+    val searchState = rememberSearchOverlayState(
+        initialQuery = query,
+        onSearchChange = { currentQuery = it },
+    )
 
     // Auto-load only when cache miss (first enter / search / filter / external refreshSignal).
     // Tab re-enter with same query+filter and non-empty VM cache skips IO; pull-to-refresh always loads.
@@ -153,6 +136,7 @@ fun ApplicationList(
             wasActive = false
             return@LaunchedEffect
         }
+        withFrameNanos { }
         val enteredPage = !wasActive
         wasActive = true
         val forceBySignal = refreshSignal > handledRefreshSignal
@@ -185,8 +169,7 @@ fun ApplicationList(
     }
 
     fun closeSearch() {
-        searchExpanded = false
-        currentQuery = ""
+        searchState.close()
         // The query reset must also replace the ViewModel snapshot. Relying
         // only on the LaunchedEffect below can leave the filtered snapshot
         // visible when a query-scoped cache is already considered loaded.
@@ -197,31 +180,20 @@ fun ApplicationList(
         )
     }
 
-    BackHandler(enabled = searchExpanded) {
+    BackHandler(enabled = searchState.expanded) {
         closeSearch()
     }
 
     LaunchedEffect(isActive) {
         if (!isActive) {
-            searchExpanded = false
-            currentQuery = ""
+            searchState.close()
         }
     }
 
-    Page {
-        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val searchActive = searchExpanded
-        val topOverlayHeight = topInset + if (searchActive) 64.dp else 96.dp
-        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-        Box(modifier = Modifier.fillMaxSize()) {
-        OverlayHeaderScaffold(
-            fallbackTopPadding = topOverlayHeight,
-            bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-            headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
-            onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
-            overlayModifier = Modifier
-                .fillMaxWidth(),
-            content = { listPadding ->
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
+
+    val body: @Composable (PaddingValues, AppRowStyle) -> Unit = { listPadding, rowStyle ->
                 key(currentQuery, filterMode, refreshSignal, showSystemApps) {
                     RefreshableLazyColumn(
                         onRefresh,
@@ -246,73 +218,47 @@ fun ApplicationList(
                             }
                         }
                         items(items.res, { it.packageName }) {
-                            ApplicationItem(it, onAppClick, itemsInfo)
+                            rowStyle.wrap {
+                                ApplicationItem(it, onAppClick, itemsInfo, showDivider = rowStyle.divider)
+                            }
                         }
                     }
                 }
-            },
-            overlay = {
-                WorkspaceTopBarSearchOverlay(
-                    title = stringResource(R.string.app_list_hero_title),
-                    searchQuery = currentQuery,
-                    searchPlaceholder = stringResource(android.R.string.search_go),
-                    searchVisible = searchActive,
-                    searchActionContentDescription = stringResource(R.string.action_search),
-                    onSearchActionClick = {
-                        if (searchExpanded) {
-                            closeSearch()
-                        } else {
-                            searchExpanded = true
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { showListSettingsSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = stringResource(R.string.action_list_settings),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    preSearchContent = {
-                    Text(
-                        text = pluralStringResource(
-                            R.plurals.app_list_hero_summary,
-                            stats.usingMiPush,
-                            stats.usingMiPush,
-                            stats.total,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(
-                            start = MaterialTheme.spacing.medium,
-                            end = MaterialTheme.spacing.medium,
-                            bottom = MaterialTheme.spacing.small,
-                        ),
-                    )
-                    },
-                    supportingContent = {
-                    Column(
-                        modifier = Modifier.padding(
-                            start = MaterialTheme.spacing.medium,
-                            top = MaterialTheme.spacing.small,
-                            end = MaterialTheme.spacing.medium,
-                            bottom = MaterialTheme.spacing.small,
-                        ),
-                    ) {
-                        ApplicationHeaderPills(
-                            stats = stats,
-                            query = currentQuery,
-                            filterMode = filterMode,
-                            showSystemApps = showSystemApps,
-                        )
-                    }
-                    },
-                    onSearchChange = { currentQuery = it },
-                )
-            },
+    }
+
+    val state = ApplicationListUiState(
+        searchState = searchState,
+        stats = stats,
+        currentQuery = currentQuery,
+        filterMode = filterMode,
+        showSystemApps = showSystemApps,
+    )
+    val actions = ApplicationListActions(
+        onSettingsClick = { showListSettingsSheet = true },
+        onCloseSearch = { closeSearch() },
+    )
+
+    when (currentUiKitStyle()) {
+        UiKitStyle.Miuix -> ApplicationListMiuix(
+            state = state,
+            actions = actions,
+            listState = listState,
+            scrollScope = scrollScope,
+            scrollChromeState = scrollChromeState,
+            contentBottomPadding = contentPadding.calculateBottomPadding(),
+            body = body,
         )
-        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = contentPadding.calculateBottomPadding())
+
+        UiKitStyle.Expressive -> ApplicationListExpressive(
+            state = state,
+            actions = actions,
+            listState = listState,
+            scrollScope = scrollScope,
+            scrollChromeState = scrollChromeState,
+            contentBottomPadding = contentPadding.calculateBottomPadding(),
+            body = body,
+        )
+    }
 
         // 列表设置：与记录页 / xinyi / xsmscode 拉齐，收进一个设置图标 → 底部 sheet。
         AppBottomSheet(
@@ -328,8 +274,6 @@ fun ApplicationList(
                 listViewModel.setShowSystemApps(checked)
             }
         }
-        }
-    }
 }
 
 @Composable
@@ -358,12 +302,11 @@ private fun ApplicationListUnavailable(
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(top = MaterialTheme.spacing.extraSmall),
         )
-        TextButton(
+        AppTextButton(
+            text = stringResource(R.string.retry),
             onClick = onRetry,
             modifier = Modifier.align(Alignment.End),
-        ) {
-            Text(stringResource(R.string.retry))
-        }
+        )
     }
 }
 
@@ -385,7 +328,7 @@ private fun applicationListUnavailableMessage(status: ApplicationReadStatus): St
 )
 
 @Composable
-private fun ApplicationHeaderPills(
+internal fun ApplicationHeaderPills(
     stats: ApplicationStats,
     query: String,
     filterMode: Int,
@@ -396,13 +339,13 @@ private fun ApplicationHeaderPills(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         InfoPill(
-            text = "${stringResource(R.string.app_list_stats_total)} · ${stats.total}",
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            text = "${stringResource(R.string.app_list_stats_integrated)}: ${stats.usingMiPush}/${stats.total}",
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         InfoPill(
-            text = "${stringResource(R.string.app_list_stats_registered)} · ${stats.registered}",
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            text = "${stringResource(R.string.app_list_stats_registration)}: ${stats.registered}/${stats.usingMiPush}",
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.primary,
         )
         if (query.isNotBlank()) {
@@ -440,23 +383,18 @@ private fun applicationFilterLabel(filterMode: Int): String? {
 }
 
 @Composable
-private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Unit, itemsInfo: Map<String, AppInfoForDisplay>) {
+private fun ApplicationItem(
+    item: ManagerApplication,
+    onAppClick: (String) -> Unit,
+    itemsInfo: Map<String, AppInfoForDisplay>,
+    showDivider: Boolean = true,
+) {
     val info = itemsInfo[item.packageName] ?: return
     val statusColor =
         if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
         else info.registrationState.second
     val isRecentlyActive = item.lastReceiveTimeMs > 0L
-    val containerColor = when {
-        isRecentlyActive -> statusColor.copy(alpha = 0.10f)
-        item.registeredType == ManagerApplication.RegisteredType.REGISTERED -> {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-        }
-        item.registeredType == ManagerApplication.RegisteredType.UNREGISTERED -> {
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.18f)
-        }
-
-        else -> Color.Transparent
-    }
+    val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     val activityLabel = if (isRecentlyActive) {
         io.github.magisk317.mipush.feature.main.subpage.friendlyDateString(
             java.util.Date(item.lastReceiveTimeMs),
@@ -467,16 +405,16 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         stringResource(R.string.app_list_item_delivery_idle)
     }
 
+    Column(Modifier.fillMaxWidth()) {
     WorkspaceListItem(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MaterialTheme.spacing.medium),
+            .fillMaxWidth(),
         containerColor = containerColor,
         onClick = { onAppClick(item.packageName) },
         leadingContent = {
             AppIconImage(
                 packageName = item.packageName,
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(40.dp),
             )
         },
         trailingContent = {
@@ -490,7 +428,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         Text(
             text = item.appName,
             style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -537,6 +475,14 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         }
     }
 }
+        if (showDivider) {
+            AppHorizontalDivider(
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+    }
 
 @Composable
 private fun AppListBadge(
@@ -544,19 +490,13 @@ private fun AppListBadge(
     containerColor: Color,
     contentColor: Color,
 ) {
-    androidx.compose.material3.Surface(
-        color = containerColor,
+    AppBadge(
+        text = text,
+        containerColor = containerColor,
         contentColor = contentColor,
         shape = RoundedCornerShape(999.dp),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        )
-    }
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -571,55 +511,34 @@ private fun ApplicationListPreview(
     itemsInfo: Map<String, AppInfoForDisplay>,
     scrollChromeState: ScrollChromeState? = null,
 ) {
-    val isPreview = LocalInspectionMode.current
-    var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
-    var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
-    val stats = items.toApplicationStats()
-
+    // Preview helper mirrors the runtime shape (bar above the list) without
+    // the removed overlay-hero scaffolding.
     Page {
-        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + if (searchExpanded) 152.dp else 96.dp
-        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-        Box(modifier = Modifier.fillMaxSize()) {
-            OverlayHeaderScaffold(
-                fallbackTopPadding = topOverlayHeight,
-                bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-                headerOffsetY = 0f,
-                onHeaderHeightChanged = {},
-                overlayModifier = Modifier.fillMaxWidth(),
-                content = { listPadding ->
-                    RefreshableLazyColumn(
-                        doRefresh = {},
-                        isNeedMore = { false },
-                        doLoadMore = {},
-                        isNeedRefresh = false,
-                        scrollToTopSignal = refreshSignal,
-                        scrollChromeState = scrollChromeState,
-                        contentPadding = PaddingValues(
-                            top = listPadding.calculateTopPadding() + 8.dp,
-                            bottom = listPadding.calculateBottomPadding(),
-                        ),
-                        listState = listState,
-                    ) {
-                        items(items.res, { it.packageName }) {
-                            ApplicationItem(it, onAppClick, itemsInfo)
-                        }
-                    }
-                },
-                overlay = {
-                    Column {
-                        TopAppBar(
-                            title = { Text(stringResource(R.string.app_list_hero_title)) },
-                            windowInsets = WindowInsets.statusBars,
-                            colors = chromeTopAppBarColors(),
-                        )
-                    }
-                },
+        Column(modifier = Modifier.fillMaxSize()) {
+            AppTopBar(
+                title = stringResource(R.string.app_list_hero_title),
             )
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            RefreshableLazyColumn(
+                doRefresh = {},
+                isNeedMore = { false },
+                doLoadMore = {},
+                isNeedRefresh = false,
+                scrollToTopSignal = refreshSignal,
+                scrollChromeState = scrollChromeState,
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.medium,
+                ),
+                listState = listState,
+            ) {
+                items(items.res, { it.packageName }) {
+                    ApplicationItem(it, onAppClick, itemsInfo)
+                }
+            }
         }
     }
 }
-
 @Preview(
     showBackground = true,
     device = Devices.PIXEL_3,
@@ -713,3 +632,46 @@ private fun registeredApplication(
         existServices = existServices,
     )
 }
+
+/** Settings action shared by both list-tab styles (rendered in the bar slot). */
+@Composable
+internal fun ApplicationHeaderSettingsAction(onClick: () -> Unit) {
+    AppIconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = stringResource(R.string.action_list_settings),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Style-agnostic render state for the application list tab
+ * (KernelSU `HomeUiState` / `SuperUserUiState` model).
+ */
+internal data class ApplicationListUiState(
+    val searchState: SearchOverlayState,
+    val stats: ApplicationStats,
+    val currentQuery: String,
+    val filterMode: Int,
+    val showSystemApps: Boolean,
+)
+
+/**
+ * Row presentation knobs supplied by each style file (miuix: gapped cards, no
+ * dividers, per KernelSU SimpleAppItem rhythm; expressive: full-bleed rows
+ * with dividers as before).
+ */
+internal class AppRowStyle(
+    val divider: Boolean,
+    val wrap: @Composable (content: @Composable () -> Unit) -> Unit,
+)
+
+/**
+ * Action callbacks assembled by the dispatcher, consumed verbatim by each
+ * style implementation (KernelSU `HomeActions` model).
+ */
+internal class ApplicationListActions(
+    val onSettingsClick: () -> Unit,
+    val onCloseSearch: () -> Unit,
+)

@@ -2,68 +2,28 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
-import io.github.magisk317.mipush.feature.main.RecentEventListPage
 
-import android.content.Intent
-import android.net.Uri
-import android.content.Context
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.background
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.automirrored.outlined.WrapText
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import io.github.magisk317.uikit.common.ElevatedSnackbarHost
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,62 +31,37 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
-import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.manager.R
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import io.github.magisk317.mipush.common.cache.ApplicationNameCache
-import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.manager.application.EventDebugJson
-import io.github.magisk317.mipush.manager.application.ManagerEvent
-import io.github.magisk317.mipush.manager.application.ManagerEventResult
-import io.github.magisk317.mipush.manager.application.ManagerEventType
-import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.uikit.surface.AppIconImage
-import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
-import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.InfoPill
-import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
-import io.github.magisk317.uikit.surface.WorkspaceEmptyState
-import io.github.magisk317.uikit.surface.WorkspaceListItem
+import io.github.magisk317.uikit.surface.rememberSearchOverlayState
+import io.github.magisk317.uikit.surface.SearchOverlayState
+import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
 import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.preference.TextInputDialog
-import io.github.magisk317.mipush.feature.ui.theme.spacing
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.style.TextAlign
+import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 
 internal val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -142,21 +77,25 @@ fun EventList(
     settingsViewModel: SettingsViewModel = koinViewModel(),
     scrollChromeState: ScrollChromeState? = null,
 ) {
-    Page {
-        Box(modifier = Modifier.fillMaxSize()) {
-            val context = LocalContext.current
+    val context = LocalContext.current
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
         var preferenceRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
         var searchRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
         val effectiveRefreshSignal = refreshSignal + preferenceRefreshSignal + searchRefreshSignal
-        var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
+        val searchState = rememberSearchOverlayState(
+            initialQuery = query,
+            onSearchChange = {
+                currentQuery = it
+                searchRefreshSignal++
+            },
+        )
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
         val showGroupedByApp = packageName.isEmpty() && groupMode
-        val snackbarHostState = remember { SnackbarHostState() }
+        val snackbarHostState = remember { AppSnackbarHostState() }
         val scope = rememberCoroutineScope()
         val eventRetentionDays by viewModel.eventRetentionDays.collectAsState()
         val showAllEvents by settingsViewModel.showAllEvents.collectAsState()
@@ -178,24 +117,14 @@ fun EventList(
                     ?: packageName
             }
         }
-        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val searchActive = searchExpanded
-        val topOverlayHeight = topInset + if (searchActive) 64.dp else 64.dp
 
-        fun closeSearch() {
-            searchExpanded = false
-            currentQuery = ""
-            searchRefreshSignal++
-        }
-
-        BackHandler(enabled = searchExpanded) {
-            closeSearch()
+        BackHandler(enabled = searchState.expanded) {
+            searchState.close()
         }
 
         LaunchedEffect(isActive) {
             if (!isActive) {
-                searchExpanded = false
-                currentQuery = ""
+                searchState.close()
             }
         }
 
@@ -203,14 +132,7 @@ fun EventList(
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
         }
 
-        OverlayHeaderScaffold(
-            fallbackTopPadding = topOverlayHeight,
-            bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-            headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
-            onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
-            overlayModifier = Modifier
-                .fillMaxWidth(),
-            content = { listPadding ->
+            val body: @Composable (PaddingValues) -> Unit = { listPadding ->
                 key(currentQuery, packageName, effectiveRefreshSignal, showGroupedByApp) {
                     if (showGroupedByApp) {
                     EventGroupList(
@@ -259,60 +181,43 @@ fun EventList(
                     )
                 }
                 }
-            },
-            overlay = {
-                WorkspaceTopBarSearchOverlay(
-                    title = if (packageName.isNotEmpty()) {
-                        resolvedTitle ?: packageName
-                    } else {
-                        stringResource(R.string.recent_activity_title)
-                    },
-                    searchQuery = currentQuery,
-                    searchPlaceholder = stringResource(android.R.string.search_go),
-                    searchVisible = searchActive,
-                    searchActionContentDescription = stringResource(R.string.action_search),
-                    onSearchActionClick = {
-                        if (searchExpanded) {
-                            closeSearch()
-                        } else {
-                            searchExpanded = true
-                        }
-                    },
-                    actions = {
-                        if (packageName.isEmpty()) {
-                            IconButton(onClick = { showListSettingsSheet = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = stringResource(R.string.action_list_settings),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    onSearchChange = {
-                        currentQuery = it
-                        searchRefreshSignal++
-                    },
+            }
+            val state = EventListUiState(
+                searchState = searchState,
+                heroTitle = if (packageName.isNotEmpty()) {
+                    resolvedTitle ?: packageName
+                } else {
+                    stringResource(R.string.recent_activity_title)
+                },
+                showSettings = packageName.isEmpty(),
+            )
+            val actions = EventListActions(
+                onSettingsClick = { showListSettingsSheet = true },
+                onCloseSearch = { searchState.close() },
+            )
+            when (currentUiKitStyle()) {
+                UiKitStyle.Miuix -> EventListMiuix(
+                    state = state,
+                    actions = actions,
+                    snackbarHostState = snackbarHostState,
+                    listState = listState,
+                    scrollScope = scope,
+                    scrollChromeState = scrollChromeState,
+                    contentBottomPadding = contentPadding.calculateBottomPadding(),
+                    body = body,
+                )
+
+                UiKitStyle.Expressive -> EventListExpressive(
+                    state = state,
+                    actions = actions,
+                    snackbarHostState = snackbarHostState,
+                    listState = listState,
+                    scrollScope = scope,
+                    scrollChromeState = scrollChromeState,
+                    contentBottomPadding = contentPadding.calculateBottomPadding(),
+                    body = body,
                 )
             }
-        )
-            val snackbarBottomPadding = contentPadding.calculateBottomPadding() +
-                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                MaterialTheme.spacing.medium
-            ElevatedSnackbarHost(
-                hostState = snackbarHostState,
-                bottomPadding = snackbarBottomPadding,
-                modifier = Modifier.padding(
-                    start = MaterialTheme.spacing.medium,
-                    end = MaterialTheme.spacing.medium,
-                ),
-                snackbar = { data -> DeleteCountdownSnackbar(data) },
-            )
-            ScrollToTopFAB(
-                listState = listState,
-                visible = snackbarHostState.currentSnackbarData == null && scrollChromeState?.isChromeVisible != true,
-                extraBottomPadding = contentPadding.calculateBottomPadding(),
-            )
 
             // 列表设置：与 xinyi / xsmscode 记录页拉齐，收进一个设置图标 → 底部 sheet。
             AppBottomSheet(
@@ -427,8 +332,6 @@ fun EventList(
                     },
                 )
             }
-        }
-    }
 }
 
 @Composable
@@ -509,9 +412,10 @@ internal fun InitialEventLoadState(modifier: Modifier = Modifier) {
         Text(
             text = stringResource(R.string.event_initial_load_title),
             style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(
             text = stringResource(R.string.event_initial_load_summary),
             style = MaterialTheme.typography.bodyMedium,
@@ -609,7 +513,7 @@ fun EventListPreview() {
             query = "",
             packageName = "",
             contentPadding = PaddingValues(0.dp),
-            snackbarHostState = remember { SnackbarHostState() },
+            snackbarHostState = remember { AppSnackbarHostState() },
             viewModel = koinViewModel(),
         )
     }
@@ -623,24 +527,18 @@ private fun date(year: Int, month: Int, day: Int): Date {
 }
 
 
-@Immutable
-data class EventInfoForDisplay(
-    val id: Long,
-    val packageName: String,
-    val configOptions: Set<String>,
-    val channel: String,
-    val receiveDate: Date,
-    val title: String,
-    val content: String,
-    val appName: String? = null,
-    val event: ManagerEvent = ManagerEvent(
-        id = id,
-        packageName = packageName,
-        configOptions = configOptions,
-        channel = channel,
-        receiveDateMs = receiveDate.time,
-        title = title,
-        content = content,
-        appName = appName,
-    ),
+/**
+ * Style-agnostic render state for the recent-activity tab (KernelSU
+ * `SuperUserUiState` model).
+ */
+internal data class EventListUiState(
+    val searchState: SearchOverlayState,
+    val heroTitle: String,
+    val showSettings: Boolean,
+)
+
+/** Action callbacks for the recent-activity tab (KernelSU `SuperUserActions` model). */
+internal class EventListActions(
+    val onSettingsClick: () -> Unit,
+    val onCloseSearch: () -> Unit,
 )
