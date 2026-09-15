@@ -7,13 +7,18 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.XmsfComponentNames
+import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
+import io.github.magisk317.mipush.service.PushServiceStarter
+import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -26,9 +31,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 object ProactiveMiPushRegistrar {
     private const val TAG = "ProactiveMiPushRegistrar"
     private const val MIN_SCAN_INTERVAL_MS = 120_000L
+    private const val SYNTHESIS_COOLDOWN_MS = 15 * 60_000L
 
     private val running = AtomicBoolean(false)
     private val lastScanAtMs = java.util.concurrent.atomic.AtomicLong(0L)
+    private val lastSynthesisAtMs = ConcurrentHashMap<String, Long>()
 
     // Known metadata keys for MiPush credentials
     private val appIdKeys = arrayOf(
@@ -169,8 +176,61 @@ object ProactiveMiPushRegistrar {
                 reason = "proactive_scan"
             )
             logI("requested registration for $packageName, success=$success")
+
+            synthesizeServerSideRegistration(context, packageName)
         }.onFailure { error ->
             logW("failed to trigger registration for $packageName: ${error.message}")
+        }
+    }
+
+    /**
+     * Service-side synthetic registration. The in-app nudge above only works while the target
+     * SDK keeps the xiaomi channel enabled; apps like com.sgcc.wsgw.cn gate it behind their own
+     * cloud config (and some refuse LSPosed injection entirely), so REGISTER_APP never arrives
+     * and the app stays unregistered forever. Synthesize the very wire format the app SDK would
+     * send (RegistrationPayloadRepair, credential from compat-profiles.json or manifest
+     * meta-data) and hand it to XMPushServiceCore over the standard REGISTER_APP intent; the
+     * core-side plan keeps the blocked check and the registration throttle.
+     */
+    private fun synthesizeServerSideRegistration(context: Context, packageName: String) {
+        val nowMs = System.currentTimeMillis()
+        val previous = lastSynthesisAtMs.put(packageName, nowMs)
+        if (previous != null && nowMs - previous < SYNTHESIS_COOLDOWN_MS) return
+        val repair = runCatching { RegistrationPayloadRepair.repair(context, packageName) }.getOrNull()
+        val payload = repair?.payload
+        if (payload == null) {
+            logD("no synthetic registration credential for $packageName")
+            return
+        }
+        runCatching {
+            val intent = PushRuntimeComponents.newCoreServiceIntent(
+                context,
+                PushConstants.MIPUSH_ACTION_REGISTER_APP,
+            ).apply {
+                putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, packageName)
+                putExtra(PushConstants.MIPUSH_EXTRA_APP_ID, repair.appId)
+                putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+            }
+            PushServiceStarter.start(context, intent)
+            logI(
+                "synthetic registration submitted for $packageName " +
+                    "appId=${repair.appId.take(6)}... payloadBytes=${payload.size}",
+            )
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "proactive_synthesize",
+                    "reason" to "submitted",
+                    "target_package" to packageName,
+                ),
+                statusOk = true,
+            )
+        }.onFailure {
+            lastSynthesisAtMs.remove(packageName)
+            logW("failed to submit synthetic registration for $packageName: ${it.message}")
         }
     }
 }

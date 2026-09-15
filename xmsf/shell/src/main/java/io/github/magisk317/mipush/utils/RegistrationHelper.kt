@@ -147,6 +147,12 @@ class RegistrationHelper(
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsReceiverFallback && !plan.supportsServiceDispatch && plan.bridgeCandidates.isEmpty()) {
                 logW("skip force register fallback for $packageName: ${plan.summary()}")
+                runBlocking {
+                    EventDb.insertEventAsync(
+                        EventRowResultType.DENY_DISABLED,
+                        RegistrationType("force_register_fallback_unsupported", packageName, null),
+                    )
+                }
                 emitHelperRegister(
                     result = "skip",
                     reason = "unsupported_fallback",
@@ -189,6 +195,12 @@ class RegistrationHelper(
                 )
             } else {
                 logW("force register fallback for $packageName failed")
+                runBlocking {
+                    EventDb.insertEventAsync(
+                        EventRowResultType.DENY_DISABLED,
+                        RegistrationType("force_register_fallback_dispatch_failed", packageName, null),
+                    )
+                }
                 emitHelperRegister(
                     result = "error",
                     reason = "dispatch_failed_fallback",
@@ -205,6 +217,12 @@ class RegistrationHelper(
             val app = Utils.getApplication() ?: return false
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsServiceDispatch) {
+                runBlocking {
+                    EventDb.insertEventAsync(
+                        EventRowResultType.DENY_DISABLED,
+                        RegistrationType("force_register_service_unsupported", packageName, null),
+                    )
+                }
                 emitHelperRegister(
                     result = "skip",
                     reason = "unsupported_service",
@@ -238,6 +256,12 @@ class RegistrationHelper(
                 )
             } else {
                 logW("force register for $packageName failed to dispatch")
+                runBlocking {
+                    EventDb.insertEventAsync(
+                        EventRowResultType.DENY_DISABLED,
+                        RegistrationType("force_register_dispatch_failed", packageName, null),
+                    )
+                }
                 emitHelperRegister(
                     result = "error",
                     reason = "dispatch_failed",

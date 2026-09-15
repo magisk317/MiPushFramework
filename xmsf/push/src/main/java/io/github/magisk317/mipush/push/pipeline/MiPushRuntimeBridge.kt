@@ -453,13 +453,19 @@ object MiPushRuntimeBridge {
         }.getOrNull() ?: return null
         return when (result) {
             is XmPushActionRegistrationResult -> {
-                val appId = result.appId?.takeIf { it.isNotBlank() }
-                val regSecret = result.regSecret?.takeIf { it.isNotBlank() }
-                if (result.errorCode == 0L && appId != null && regSecret != null) {
+                // Product deviation from stock 7.4.67-C (which drops a success result that
+                // lacks regSecret): the service-side registration record can be lost while
+                // the cloud and the app-side SDK keep a valid registration, and the cloud
+                // answer to the resulting re-registration carries the registration id without
+                // re-issuing appId/regSecret. Accepting errorCode==0 with an identity is what
+                // lets those apps leave "not registered"; the dual-store persist below still
+                // requires the full pair, and the getRegSecs recovery healer repairs the
+                // decryption secret independently.
+                if (result.errorCode == 0L && result.registrationConfirmationId() != null) {
                     ConfirmedRegistrationTransition(
                         registeredType = RegisteredAppRegisteredType.Registered,
-                        appId = appId,
-                        regSecret = regSecret,
+                        appId = result.appId?.takeIf { it.isNotBlank() },
+                        regSecret = result.regSecret?.takeIf { it.isNotBlank() },
                     )
                 } else {
                     null
@@ -473,6 +479,14 @@ object MiPushRuntimeBridge {
         }
     }
 
+    /**
+     * Cloud registration results identify the confirmed registration via regId; the
+     * re-registration responses observed in the field carry the value in the request-echo
+     * slot only, so either non-blank field confirms the registration (stock keeps both set).
+     */
+    private fun XmPushActionRegistrationResult.registrationConfirmationId(): String? =
+        regId?.takeIf { it.isNotBlank() } ?: id?.takeIf { it.isNotBlank() }
+
     fun resolveRegistrationResultOutcome(
         container: XmPushActionContainer,
     ): RegistrationResultOutcome? {
@@ -483,7 +497,7 @@ object MiPushRuntimeBridge {
         val appId = result.appId?.takeIf { it.isNotBlank() }
         val regSecret = result.regSecret?.takeIf { it.isNotBlank() }
         return RegistrationResultOutcome(
-            success = result.errorCode == 0L && appId != null && regSecret != null,
+            success = result.errorCode == 0L && result.registrationConfirmationId() != null,
             appId = appId,
             regSecret = regSecret,
         )
@@ -532,11 +546,13 @@ object MiPushRuntimeBridge {
     ) {
         when (transition.registeredType) {
             RegisteredAppRegisteredType.Registered -> {
+                // Dual-store invariant (Requirements 3.6/12.1/12.2, Property 5): the app-id
+                // map and the regSecret store are written only as one atomic pair. A relaxed
+                // id-only confirmation flips the registration row via updateRegistrationState
+                // above but stores nothing here; the missing half is supplied later by a full
+                // registration response or by the getRegSecs recovery healer.
                 val appId = transition.appId ?: return
                 val regSecret = transition.regSecret ?: return
-                // Stock XMSF 7.4.67-C i0 accepts registration only when errorCode is zero and
-                // regSecret is non-empty, then persists appId and secret as one confirmed result.
-                // The old split recorder could confirm appId without a usable decryption secret.
                 PushShellBridgeHolder.registration().rememberRegisteredPackage(context, packageName, appId)
                 PushShellBridgeHolder.registration().setRegSec(context, packageName, regSecret)
             }
@@ -565,10 +581,12 @@ object MiPushRuntimeBridge {
         // Many MiPush SDK versions check registration status on any incoming message
         val wakeUpIntent = Intent("com.xiaomi.mipush.RECEIVE_MESSAGE").apply {
             `package` = packageName
-            // Add a fake payload that will be ignored but triggers the receiver
+            // Empty payload cannot build a container; the receiver wake-up itself is the point.
             putExtra("mipush_payload", ByteArray(0))
             addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         }
+        runCatching { context.sendBroadcast(wakeUpIntent) }
+            .onFailure { logI("wake-up broadcast failed pkg=$packageName: ${it.message}") }
         PushShellBridgeHolder.payload().dispatchToApplication(context, packageName, ByteArray(0))
         
         // 2. Mock connectivity change (connectivity change often triggers re-reg)

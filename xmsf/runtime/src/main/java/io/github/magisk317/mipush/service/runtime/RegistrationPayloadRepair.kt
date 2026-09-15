@@ -41,7 +41,7 @@ object RegistrationPayloadRepair {
             emitRepair(result = "skip", reason = "blank_package", statusOk = false)
             return null
         }
-        val credential = credentialForPackage(context, packageName)
+        val credential = credentialForPackage(context, packageName) ?: manifestCredential(context, packageName)
         if (credential == null) {
             emitRepair(
                 result = "skip",
@@ -117,6 +117,95 @@ object RegistrationPayloadRepair {
     private fun credentialForPackage(context: Context, packageName: String): Credential? {
         val cache = credentialCache ?: loadCredentialCache(context).also { credentialCache = it }
         return cache[packageName]
+    }
+
+    private val manifestAppIdKeys = listOf(
+        "com.xiaomi.push.api_id",
+        "com.xiaomi.push.app_id",
+        "com.xiaomi.mipush.APP_ID",
+        "org.android.agoo.xiaomi.app_id",
+        "mipush_app_id",
+        "MIPUSH_APPID",
+        "MI_PUSH_APP_ID",
+        "MIAPP_ID",
+        "XM_APP_ID",
+        "XIAOMI_APP_ID",
+        "XIAOMI_PUSH_APP_ID",
+        "xiaomi_appid",
+    )
+
+    private val manifestAppKeyKeys = listOf(
+        "com.xiaomi.push.api_key",
+        "com.xiaomi.push.app_key",
+        "com.xiaomi.mipush.APP_KEY",
+        "org.android.agoo.xiaomi.app_key",
+        "mipush_app_key",
+        "MIPUSH_APPKEY",
+        "MI_PUSH_APP_KEY",
+        "MIAPP_KEY",
+        "XM_APP_KEY",
+        "XIAOMI_APP_KEY",
+        "XIAOMI_PUSH_APP_KEY",
+        "xiaomi_appkey",
+    )
+
+    /** Pure resolver: the first meta entry holding a complete appId+appKey pair. */
+    internal fun credentialFromMetadataEntries(entries: List<Map<String, String>>): Pair<String, String>? {
+        entries.forEach { entry ->
+            val appId = manifestAppIdKeys.firstNotNullOfOrNull { entry[it]?.trim() }?.takeIf { it.isNotEmpty() }
+                ?: return@forEach
+            val appKey = manifestAppKeyKeys.firstNotNullOfOrNull { entry[it]?.trim() }?.takeIf { it.isNotEmpty() }
+                ?: return@forEach
+            return appId to appKey
+        }
+        return null
+    }
+
+    /**
+     * Manifest fallback for applications missing from compat-profiles.json. Apps such as
+     * cn.gov.pbc.dcep or com.sgcc.wsgw.cn ship their MiPush appId/appKey as manifest
+     * meta-data, so the service can synthesize registrations for them without a per-app
+     * hardcoded override; the JSON credentialOverride stays authoritative when present.
+     */
+    private fun manifestCredential(context: Context, packageName: String): Credential? {
+        val packageInfo = runCatching {
+            context.packageManager.getPackageInfo(
+                packageName,
+                android.content.pm.PackageManager.GET_META_DATA or
+                    android.content.pm.PackageManager.GET_RECEIVERS or
+                    android.content.pm.PackageManager.GET_SERVICES or
+                    android.content.pm.PackageManager.GET_PROVIDERS or
+                    android.content.pm.PackageManager.GET_ACTIVITIES,
+            )
+        }.getOrNull() ?: return null
+        val entries = ArrayList<Map<String, String>>(8)
+        packageInfo.applicationInfo?.metaData?.let { entries += bundleToMap(it) }
+        listOfNotNull(
+            packageInfo.services?.toList(),
+            packageInfo.receivers?.toList(),
+            packageInfo.providers?.toList(),
+            packageInfo.activities?.toList(),
+        ).flatten().forEach { component ->
+            component.metaData?.let { entries += bundleToMap(it) }
+        }
+        val credential = credentialFromMetadataEntries(entries) ?: return null
+        return Credential(packageName, credential.first, credential.second)
+    }
+
+    // BaseBundle.get(String) is the only type-agnostic reader, and its typed
+    // accessors would silently drop non-string meta-data; the value is stringified below.
+    @Suppress("DEPRECATION")
+    private fun bundleToMap(bundle: android.os.Bundle): Map<String, String> {
+        val map = LinkedHashMap<String, String>(bundle.size())
+        bundle.keySet().forEach { key ->
+            runCatching {
+                val value: String? = bundle.get(key)?.toString()?.trim()
+                if (!value.isNullOrBlank()) {
+                    map[key] = value
+                }
+            }
+        }
+        return map
     }
 
     private fun loadCredentialCache(context: Context): Map<String, Credential> {

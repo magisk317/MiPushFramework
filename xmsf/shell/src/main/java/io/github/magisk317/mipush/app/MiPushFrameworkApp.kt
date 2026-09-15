@@ -31,7 +31,8 @@ import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
-import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.RegSecRecoveryHealer
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.NotificationHookBridge
 import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
@@ -83,6 +84,7 @@ open class MiPushFrameworkApp : Application() {
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)
         PushShellBridgeHolder.install(DefaultPushShellBridge)
+        Utils.regSecRecoveryListener = RegSecRecoveryHealer
         if (!isAppMainProc(this)) {
             LogUtils.init(this)
             CrashHandler.installCrashLogger()
@@ -122,7 +124,7 @@ open class MiPushFrameworkApp : Application() {
         Hooker.hook(this)
         NotificationShellBridge.installStatusBarRefresh(NotificationManagerEx::triggerStatusBarRefresh)
         NotificationShellBridge.installNotificationOperations(
-            getNotificationTag = MyMIPushNotificationHelper::getNotificationTag,
+            getNotificationTag = MIPushNotificationPublishHelper::getNotificationTag,
             getActiveNotifications = NotificationManagerEx::getActiveNotifications,
             cancel = NotificationManagerEx::cancel,
         )
@@ -305,21 +307,14 @@ open class MiPushFrameworkApp : Application() {
         }.getOrDefault(false)
         LogUtils.setMinLogLevel(if (initialDebugMode) Severity.Verbose else Severity.Info)
         HookTrace.enabled = initialDebugMode
-        val initialLogSanitization = runCatching {
-            runBlocking { preferenceRepository.isLogSanitizationEnabled.first() }
-        }.getOrNull()
-        LogSanitizerConfig.syncSanitizationEnabled(initialLogSanitization)
+        LogSanitizerConfig.syncFromVerboseMode(initialDebugMode)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
                 LogUtils.setMinLogLevel(if (enabled) Severity.Verbose else Severity.Info)
                 HookTrace.enabled = enabled
+                LogSanitizerConfig.syncFromVerboseMode(enabled)
             }
-        }
-        applicationScope.launch {
-            preferenceRepository.isLogSanitizationEnabled
-                .catch { LogSanitizerConfig.syncSanitizationEnabled(null) }
-                .collect { LogSanitizerConfig.syncSanitizationEnabled(it) }
         }
         logI("App starts: $VERSION_NAME, debugMode=$initialDebugMode")
     }

@@ -46,6 +46,7 @@ import io.github.magisk317.mipush.configuration.toSummary
 import io.github.magisk317.mipush.common.utils.ElapsedTimer
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
@@ -67,6 +68,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
+import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
 import io.github.magisk317.mipush.manager.runtime.read.InstalledApplicationSnapshot
@@ -275,6 +277,12 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             Logger.withTag("XmsfManagerApplicationGateway").w {
                 "force-register aborted: root not granted pkg=$packageName"
             }
+            logW("force register aborted for $packageName: root not granted")
+            recordForceRegisterStage(
+                packageName,
+                "force_register_abort_root_denied",
+                EventRowResultType.DENY_USER,
+            )
             return ManagerForceRegisterResult(
                 succeeded = false,
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_requires_root),
@@ -282,21 +290,47 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
         val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
         if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback && plan.bridgeCandidates.isEmpty()) {
+            logW("force register aborted for $packageName: ${plan.summary()}")
+            recordForceRegisterStage(
+                packageName,
+                "force_register_abort_unsupported_components",
+                EventRowResultType.DENY_DISABLED,
+            )
             return ManagerForceRegisterResult(
                 succeeded = false,
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable),
             )
         }
-        runCatching {
-            io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand("am force-stop $packageName")
+        val forceStopOk = runCatching {
+            io.github.magisk317.mipush.platform.support.AppRootAccessFacade
+                .runRootCommand("am force-stop $packageName")
+                .isSuccess
+        }.getOrDefault(false)
+        if (!forceStopOk) {
+            logW("force register: force-stop failed for $packageName; continuing with relaunch anyway")
         }
+        recordForceRegisterStage(packageName, "force_register_relaunch forceStop=$forceStopOk")
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-            ?: return ManagerForceRegisterResult(
-                succeeded = false,
-                message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
-            )
+            ?: run {
+                logW("force register aborted for $packageName: no launch intent")
+                recordForceRegisterStage(
+                    packageName,
+                    "force_register_abort_no_launch_intent",
+                    EventRowResultType.DENY_DISABLED,
+                )
+                return ManagerForceRegisterResult(
+                    succeeded = false,
+                    message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
+                )
+            }
         launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
         if (runCatching { context.startActivity(launchIntent) }.isFailure) {
+            logW("force register aborted for $packageName: failed to start launch intent")
+            recordForceRegisterStage(
+                packageName,
+                "force_register_abort_launch_failed",
+                EventRowResultType.DENY_DISABLED,
+            )
             return ManagerForceRegisterResult(
                 succeeded = false,
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
@@ -304,6 +338,20 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
         kotlinx.coroutines.delay(500)
         return forceRegisterWithFeedback(context, packageName, registeredType)
+    }
+
+    private fun recordForceRegisterStage(
+        packageName: String,
+        info: String,
+        result: Int = EventRowResultType.OK,
+    ) {
+        runCatching {
+            runBlocking {
+                EventDb.insertEventAsync(result, RegistrationType(info, packageName, null))
+            }
+        }.onFailure {
+            logW("force register stage event write failed for $packageName info=$info error=${it.message}")
+        }
     }
 
     private fun forceRegisterWithFeedback(
@@ -317,7 +365,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             registeredType != ManagerApplication.RegisteredType.REGISTERED &&
             RegistrationStateCompat.hasLocalRegistrationArtifacts(packageName)
         ) {
-            runCatching { RegistrationHelper(context, packageName).removeMiPushData() }
+            val wiped = runCatching { RegistrationHelper(context, packageName).removeMiPushData() }
+                .getOrDefault(false)
+            logI("force register: wiped app-side MiPush data for $packageName success=$wiped")
+            recordForceRegisterStage(packageName, "force_register_wiped_app_data success=$wiped")
         }
         val result = runCatching { RegistrationHelper.tryForceRegister(packageName) }
         if (result.getOrDefault(false)) {

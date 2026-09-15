@@ -192,6 +192,15 @@ object Utils {
         }
     }
 
+    /**
+     * Notified after [getRegSecs] recovers a registration secret from the target app's own
+     * store: the cloud registration is still valid but the service-side record is stale, so
+     * the product layer reconciles it. Implementations must be idempotent.
+     */
+    @JvmStatic
+    @Volatile
+    var regSecRecoveryListener: RegSecRecoveryListener? = null
+
     @JvmStatic
     fun getRegSec(packageName: String, userId: Int = requireValidUserId(myUserId())): String? {
         return getRegSecs(packageName, userId).firstOrNull()
@@ -233,7 +242,20 @@ object Utils {
                 }
                 if (!regSec.isNullOrEmpty()) {
                     secrets += regSec
-                    Logger.withTag("Utils").d { "getRegSecs: found regSec via fallback pkg=$packageName" }
+                    // The fallback reads the target app's private store (root on user builds);
+                    // persist the recovered secret into the service-side store so decryption
+                    // and the startup registration restore stop depending on it, then let the
+                    // product layer reconcile the registration record.
+                    runCatching { setRegSec(app, packageName, regSec, normalizedUserId) }
+                    runCatching { regSecRecoveryListener?.onRegSecRecovered(packageName, normalizedUserId) }
+                        .onFailure {
+                            Logger.withTag("Utils").w {
+                                "getRegSecs: regSec recovery heal failed pkg=$packageName error=${it.message}"
+                            }
+                        }
+                    Logger.withTag("Utils").d {
+                        "getRegSecs: found regSec via fallback pkg=$packageName (persisted + heal scheduled)"
+                    }
                 } else {
                     Logger.withTag("Utils").d { "getRegSecs: fallback found no regSec pkg=$packageName" }
                 }

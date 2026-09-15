@@ -43,10 +43,35 @@ class MiPushRuntimeBridgeTest {
             MiPushRuntimeBridge.resolveServerRegistrationState(success),
         )
         assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(failure))
-        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(missingSecret))
+        assertEquals(
+            RegisteredAppRegisteredType.Registered,
+            MiPushRuntimeBridge.resolveServerRegistrationState(missingSecret),
+        )
         assertTrue(MiPushRuntimeBridge.resolveRegistrationResultOutcome(success)!!.success)
         assertFalse(MiPushRuntimeBridge.resolveRegistrationResultOutcome(failure)!!.success)
-        assertFalse(MiPushRuntimeBridge.resolveRegistrationResultOutcome(missingSecret)!!.success)
+        assertTrue(MiPushRuntimeBridge.resolveRegistrationResultOutcome(missingSecret)!!.success)
+    }
+
+    @Test
+    fun `re-registration results without secret still confirm the registration id`() {
+        val regIdOnly = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            registrationResult(id = "", appId = "", secret = null, regId = "u_J9re-registration-id", errorCode = 0L),
+            ActionType.Registration,
+        )
+        val anonymous = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            registrationResult(id = "", regId = null, errorCode = 0L),
+            ActionType.Registration,
+        )
+
+        val transition = MiPushRuntimeBridge.resolveConfirmedRegistrationTransition(regIdOnly)
+        assertEquals(RegisteredAppRegisteredType.Registered, transition?.registeredType)
+        assertEquals(null, transition?.appId)
+        assertEquals(null, transition?.regSecret)
+        assertEquals(null, MiPushRuntimeBridge.resolveConfirmedRegistrationTransition(anonymous))
     }
 
     @Test
@@ -143,7 +168,9 @@ class MiPushRuntimeBridgeTest {
         appId: String = "app-id",
         errorCode: Long,
         secret: String? = "reg-secret",
+        regId: String? = null,
     ) = XmPushActionRegistrationResult(id, appId, errorCode).apply {
         secret?.let(::setRegSecret)
+        regId?.let(::setRegId)
     }
 }
