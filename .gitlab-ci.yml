@@ -545,7 +545,6 @@ android:release:apk:
     expire_in: 30 days
     paths:
       - xmsf/build/outputs/apk/**/release/*.apk
-      - xmsf/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
       # android:release:modules-repo reads versionCode/versionName from here to
@@ -600,7 +599,6 @@ android:release:play-bundle:
     paths:
       - mipush/build/outputs/bundle/**/*.aab
       - mipush/build/outputs/mapping/**/mapping.txt
-      - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - play-release.env
 
 android:release:gitlab:
@@ -681,7 +679,6 @@ android:ci:play-beta-bundle:
     paths:
       - mipush/build/outputs/bundle/**/*.aab
       - mipush/build/outputs/mapping/**/mapping.txt
-      - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - play-release.env
 
 android:ci:play-beta:
