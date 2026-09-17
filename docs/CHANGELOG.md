@@ -3,6 +3,18 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.3] - 2026-09-17
+- 版本：`versionCode 14` / `versionName 1.0.3`。
+- `[ui]` 管理端接入 Miuix 设计系统。
+- `[registration]` 为静默应用合成服务端注册记录。
+- `[dispatch]` 补齐下行派发与控制面缺口。
+- `[notification]` 同内容重复推送合并至实况卡片。
+- `[island]` 焦点授权放宽为 allow-all，恢复认证回退与 stock AuthService。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.2...v1.0.3
+
+---
+
 ## [v1.0.2] - 2026-09-07
 - 版本：`versionCode 13` / `versionName 1.0.2`。
 - `[freeze]` 新增冻结应用点通知自动解冻，支持锁屏/定时/任务移除三种回冻策略。

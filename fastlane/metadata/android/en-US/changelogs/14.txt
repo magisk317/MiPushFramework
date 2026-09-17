@@ -1,0 +1,5 @@
+- Miuix design system across the manager; grouped settings navigation.
+- Liquid glass top bars, theme mode and double-tap to top.
+- Silent apps get server-side registrations; lost records self-heal.
+- Stock-parity dispatch; same-content re-pushes merge into the live card.
+- Scoped focus auth, idlefish tap fix, APK hash in log bundles.
