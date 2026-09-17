@@ -3,6 +3,15 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.4] - 2026-09-17
+- 版本：`versionCode 15` / `versionName 1.0.4`。
+- `[ci]` 移除永不产出的 native-debug-symbols 产物路径。
+- `[build]` 抑制 AGP 对实验性 aapt2 选项的告警。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.3...v1.0.4
+
+---
+
 ## [v1.0.3] - 2026-09-17
 - 版本：`versionCode 14` / `versionName 1.0.3`。
 - `[ui]` 管理端接入 Miuix 设计系统。
