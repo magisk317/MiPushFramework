@@ -92,6 +92,7 @@ internal data class OverviewUiState(
 internal class OverviewActions(
     val onConnectionStatusClick: () -> Unit,
     val onJoinTelegram: () -> Unit,
+    val onJoinQqChannel: () -> Unit,
     val onSourceCode: () -> Unit,
     val onDonate: () -> Unit,
 )
@@ -138,6 +139,7 @@ fun Overview(
     val actions = OverviewActions(
         onConnectionStatusClick = onNavigateToConnectionStatus,
         onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
+        onJoinQqChannel = { mainActivityOperation.gotoQqChannel() },
         onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
         onDonate = { showDonateDialog = true },
     )

@@ -136,6 +136,11 @@ internal fun OverviewMiuix(
                             onClick = actions.onJoinTelegram,
                         )
                         MiuixActionRow(
+                            label = UiKitR.string.uikit_pref_join_qq_channel_title,
+                            summary = UiKitR.string.uikit_pref_join_qq_channel_summary,
+                            onClick = actions.onJoinQqChannel,
+                        )
+                        MiuixActionRow(
                             label = UiKitR.string.uikit_pref_source_code_title,
                             summary = UiKitR.string.uikit_pref_source_code_summary,
                             onClick = actions.onSourceCode,

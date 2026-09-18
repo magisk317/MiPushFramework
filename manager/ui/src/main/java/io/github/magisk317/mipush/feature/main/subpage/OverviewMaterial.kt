@@ -107,6 +107,7 @@ internal fun OverviewExpressive(
 
                 OverviewLinksCard(
                     onJoinTelegram = actions.onJoinTelegram,
+                    onJoinQqChannel = actions.onJoinQqChannel,
                     onSourceCode = actions.onSourceCode,
                     onDonate = actions.onDonate,
                 )
