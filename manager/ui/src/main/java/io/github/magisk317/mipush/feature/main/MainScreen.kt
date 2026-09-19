@@ -168,15 +168,11 @@ fun MainScreen(
         PageActivationCoordinator(initialPage = initialPagerPage)
     }
     val routePagerSynchronizer = remember { TopLevelRoutePagerSynchronizer() }
-    var routePagerReconciled by remember {
-        mutableStateOf(
-            routePagerSynchronizer.isReconciled(
-                route = currentRoute ?: startDestination,
-                currentPage = initialPagerPage,
-                isNavigating = false,
-            ),
-        )
-    }
+    // Starts unreconciled on purpose. The route visible during the first composition can still
+    // be the graph start destination rather than the restored route, and deriving `true` from
+    // that guess let EffectD declare convergence before the real route arrived, which then kept
+    // EffectE from ever publishing it. EffectD converges the flag on the first real route.
+    var routePagerReconciled by remember { mutableStateOf(false) }
     val performanceRecorder = remember { TransitionPerformanceRecorder() }
     val performanceHandle = remember { arrayOfNulls<PagePerformanceHandle>(1) }
     val isTopLevelRoute = currentRoute in tabRoutes
@@ -214,7 +210,11 @@ fun MainScreen(
     // between the two pages. Publish only when the pager itself settles or leaves top-level mode.
     LaunchedEffect(pagerState.pagerState.settledPage, isTopLevelRoute, routePagerReconciled) {
         navLog.d { "EffectE: settledPage=${pagerState.pagerState.settledPage} isTop=$isTopLevelRoute reconciled=$routePagerReconciled route=$currentRoute" }
-        if (!isTopLevelRoute || !routePagerReconciled) return@LaunchedEffect
+        // Only a pager that is still moving may hold the reverse bridge back. Treating a stale
+        // `false` as a hard block let one missed reconciliation strand the route on the previous
+        // tab forever while the pager sat on the tab the user had tapped.
+        if (!isTopLevelRoute) return@LaunchedEffect
+        if (!routePagerReconciled && pagerState.pagerState.isScrollInProgress) return@LaunchedEffect
         val route = tabRoutes.getOrNull(pagerState.pagerState.settledPage) ?: return@LaunchedEffect
         if (currentRoute == route) return@LaunchedEffect
         navLog.d { "EffectE: navigateTopLevel($route)" }
@@ -308,14 +308,18 @@ fun MainScreen(
             chromeController = chromeController,
             onTabSelected = { index ->
                 navLog.d { "onTabSelected: index=$index isTop=$isTopLevelRoute selectedPage=${pagerState.selectedPage} currentPage=${pagerState.currentPage}" }
-                routePagerSynchronizer.notifyTargetPage(index)
-                // A deep route (settings section, theme page, ...) hides the pager layer; animating
-                // it would move invisible content. Pop the deep route onto the tapped tab instead —
-                // the same canonical navigateTopLevel policy the nav-host branch uses.
+                // Register the tap before anything moves. Until the route controller catches up,
+                // a route -> pager lookup still reads the route the user is leaving, and without
+                // this registration that stale lookup bounces the pager straight back to it.
+                routePagerSynchronizer.notifyUserIntent(index)
+                // Always navigate. On a top-level route launchSingleTop makes this a no-op for the
+                // tab already showing, so route and pager advance within the same frame instead of
+                // waiting for EffectE to publish the tap after the animation settles. On a deep
+                // route (settings section, theme page, ...) the pager layer is hidden, so the same
+                // canonical navigateTopLevel policy pops that branch back onto the tapped tab.
+                tabRoutes.getOrNull(index)?.let(navController::navigateTopLevel)
                 if (isTopLevelRoute) {
                     pagerState.animateToPage(index)
-                } else {
-                    tabRoutes.getOrNull(index)?.let(navController::navigateTopLevel)
                 }
             },
             onTabReselected = { index ->
@@ -350,6 +354,7 @@ fun MainScreen(
             // a secondary Settings route, so they no longer participate in every pager frame.
             beyondViewportPageCount = 3,
             retainPageContentAfterFirstFrame = true,
+            onDiagnostic = { message -> navLog.d { message } },
             reserveCompactBottomBarSpace = true,
             floatingBottomBar = floatingBottomBar,
             bottomBarBlur = bottomBarBlur,
