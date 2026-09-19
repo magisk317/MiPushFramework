@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.kermit)
     implementation(libs.libsu.core)
     implementation(project(":magisk-xposed-kit:logging"))
+    implementation(project(":magisk-xposed-kit:permission"))
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.compose.foundation)

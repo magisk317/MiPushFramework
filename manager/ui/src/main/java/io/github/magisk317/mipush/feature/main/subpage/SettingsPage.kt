@@ -30,12 +30,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.process.BoundedProcessRunner
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.xposed.permission.PermissionBridge
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -222,7 +222,7 @@ fun SettingsPagePreview() {
 }
 
 internal suspend fun toggleAccessibilityServiceViaRoot(context: android.content.Context, enable: Boolean): Boolean {
-    return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    return withContext(Dispatchers.IO) {
         val component = ComponentName(
             Constants.SERVICE_APP_NAME,
             Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
@@ -230,24 +230,14 @@ internal suspend fun toggleAccessibilityServiceViaRoot(context: android.content.
         val currentServices = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-        ).orEmpty()
-        val newServices = if (enable) {
-            if (currentServices.contains(component)) return@withContext true
-            if (currentServices.isEmpty()) component else "$currentServices:$component"
-        } else {
-            if (!currentServices.contains(component)) return@withContext true
-            currentServices.split(":").filter { it.isNotEmpty() && it != component }.joinToString(":")
+        )
+        // An empty list means the service is already in the requested state, so no su round trip.
+        val commands = PermissionBridge.accessibilityCommands(currentServices, component, enable)
+        commands.isEmpty() || PermissionBridge.runRoot(commands, timeoutMillis = ROOT_TOGGLE_TIMEOUT_MILLIS) { message ->
+            settingsPageLogger.w { "keepalive accessibility toggle: $message" }
         }
-
-        val script = buildString {
-            appendLine("settings put secure enabled_accessibility_services $newServices")
-            if (enable) appendLine("settings put secure accessibility_enabled 1")
-            appendLine("exit")
-        }
-        BoundedProcessRunner.run(
-            command = listOf("su"),
-            timeoutMillis = 8_000L,
-            standardInput = script,
-        ).isSuccess
     }
 }
+
+/** Root on some devices waits on a Magisk prompt; cap the wait so the toggle cannot hang the UI. */
+private const val ROOT_TOGGLE_TIMEOUT_MILLIS = 8_000L
