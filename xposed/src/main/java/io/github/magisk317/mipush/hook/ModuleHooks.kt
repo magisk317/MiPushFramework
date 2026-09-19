@@ -21,6 +21,8 @@ import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
 import io.github.magisk317.mipush.hook.freeze.FreezeTaskRemovedHook
 import io.github.magisk317.mipush.hook.xmsf.UnlockFocusAuthHook
+import io.github.magisk317.mipush.hook.widgetcenter.PersonalAssistantPickerHook
+import io.github.magisk317.mipush.hook.widgetcenter.PersonalAssistantDetailHook
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.BaseLibXposedEntry
 import io.github.magisk317.xposed.LoadParam
@@ -48,6 +50,8 @@ class LibXposedEntry : BaseLibXposedEntry {
         HookXmsf(),
         FreezeTaskRemovedHook(),
         FakeDeviceHook(),
+        PersonalAssistantPickerHook(),
+        PersonalAssistantDetailHook(),
     )
 
     override val logTag: String = TAG
@@ -135,6 +139,11 @@ class LibXposedEntry : BaseLibXposedEntry {
             SECURITY_CORE_PACKAGE_NAME -> {
                 resolveLoadedPackageClassLoader(SECURITY_CORE_PACKAGE_NAME)
                     ?.let { mapOf(SECURITY_CORE_PACKAGE_NAME to it) }
+                    ?: emptyMap()
+            }
+            "com.miui.personalassistant" -> {
+                resolveLoadedPackageClassLoader("com.miui.personalassistant")
+                    ?.let { mapOf("com.miui.personalassistant" to it) }
                     ?: emptyMap()
             }
             else -> emptyMap()

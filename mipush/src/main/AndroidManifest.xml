@@ -28,6 +28,7 @@
         android:theme="@style/AppTheme"
         tools:targetApi="tiramisu">
 
+
         
         <activity-alias
             android:name="io.github.magisk317.mipush.app.MainActivityDefault"

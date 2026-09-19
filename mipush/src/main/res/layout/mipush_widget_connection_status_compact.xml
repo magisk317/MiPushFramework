@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
+    android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/mipush_widget_background"
@@ -31,7 +31,7 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:text="@string/widget_connection_status_title"
-            android:textColor="#F0EBF6"
+            android:textColor="@color/widget_text_primary"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -42,7 +42,7 @@
             android:gravity="center"
             android:minWidth="52dp"
             android:text="@string/widget_action_refresh"
-            android:textColor="#B8B0C2"
+            android:textColor="@color/widget_text_secondary"
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -62,7 +62,7 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:text="@string/widget_status_unavailable"
-            android:textColor="#F0EBF6"
+            android:textColor="@color/widget_text_primary"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -74,7 +74,7 @@
             android:ellipsize="end"
             android:singleLine="true"
             android:text="@string/widget_status_tap_refresh"
-            android:textColor="#B8B0C2"
+            android:textColor="@color/widget_text_secondary"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -98,7 +98,7 @@
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:text="@string/widget_connection_duration"
-                android:textColor="#8D8498"
+                android:textColor="@color/widget_text_tertiary"
                 android:textSize="11sp" />
 
             <Chronometer
@@ -107,7 +107,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:singleLine="true"
-                android:textColor="#F0EBF6"
+                android:textColor="@color/widget_text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -125,7 +125,7 @@
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:text="@string/widget_connection_messages"
-                android:textColor="#8D8498"
+                android:textColor="@color/widget_text_tertiary"
                 android:textSize="11sp" />
 
             <TextView
@@ -135,7 +135,7 @@
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:text="@string/connection_status_not_available"
-                android:textColor="#F0EBF6"
+                android:textColor="@color/widget_text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>

@@ -9,7 +9,8 @@ import android.os.Bundle
 class RecentEventsWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == MiPushWidgetActions.ACTION_REFRESH_RECENT_EVENTS ||
-            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
+            intent.action == MIUI_APPWIDGET_UPDATE
         ) {
             val pendingResult = goAsync()
             MiPushWidgetRunner.launch {

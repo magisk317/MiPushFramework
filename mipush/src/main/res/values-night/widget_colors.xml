@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark variants. Matches the previous hardcoded dark palette so the widget
+         looks identical in dark mode and correct in light mode. -->
+    <color name="widget_bg">#1C1922</color>
+    <color name="widget_bg_stroke">#322D39</color>
+    <color name="widget_text_primary">#F0EBF6</color>
+    <color name="widget_text_secondary">#B8B0C2</color>
+    <color name="widget_text_tertiary">#8D8498</color>
+    <color name="widget_divider">#34303B</color>
+    <color name="widget_icon_bg">#28232D</color>
+</resources>
