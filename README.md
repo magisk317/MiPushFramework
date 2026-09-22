@@ -140,6 +140,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 项目当前使用多模块 Gradle 结构。模块边界、运行时链路和重构记录见：
 
 - [隐私政策](docs/PRIVACY.md)
+- [赞助与捐赠 (Donations)](docs/DONATIONS.md)
 - [模块边界](docs/architecture/boundary-model.md)
 - [运行时调用链](docs/architecture/current-runtime-call-flow.md)
 - [Xposed 通知边界](docs/architecture/xposed-notification-boundary.md)
@@ -175,3 +176,12 @@ scripts/build_release.sh
 - [HyperIsland](https://github.com/1812z/HyperIsland) 提供超级岛实现参考。
 - [HyperIsland-ToolKit](https://github.com/D4vidDf/HyperIsland-ToolKit) 提供 HyperIsland SDK 支持。
 - 酷安 @PzHown @lmnm011223 @苏沐晨风丶（未采纳）提供图标。
+
+# 赞助与捐赠
+如果本项目对你有帮助，欢迎支持开发者。你的支持会直接用于项目维护与持续迭代。
+
+赞助名单与说明请见：[赞助与捐赠文档](docs/DONATIONS.md)。
+
+| 支付宝收款码 | 微信赞赏码 | 微信收款码 |
+| :---: | :---: | :---: |
+| ![Alipay](./art/sponsorship/alipay.png) | ![WeChat Appreciation](./art/sponsorship/wx.png) | ![WeChat Collect](./art/sponsorship/wx_collect.png)
