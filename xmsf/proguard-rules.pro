@@ -27,7 +27,14 @@
 
 # Xposed hooks resolve these classes and methods by string name from the host
 # process, so minified builds must keep their binary API stable.
+# HookPushNC resolves exactly these four names through the com.xiaomi.xmsf
+# classloader; any rename here breaks injection (isHooked stays false and mock
+# replay receipts degrade to the xmsf identity, producing duplicate posts).
+# NOTE: keep in sync with xmsf/shell/proguard-rules.pro (library-level R8).
 -keep class io.github.magisk317.mipush.notification.NotificationManagerEx { *; }
+-keep class io.github.magisk317.mipush.notification.NotificationHookBridge { *; }
+-keep class io.github.magisk317.mipush.notification.NotificationHookBackend { *; }
+-keep class io.github.magisk317.mipush.notification.BackendLog { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge$* { *; }
 
