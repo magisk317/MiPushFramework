@@ -106,7 +106,15 @@ object FakeDevice {
         LegacyHuaweiSignatureCompat.hook(lpparam)
         val distinctPipelines = pipelines.distinct()
         distinctPipelines.forEach { pipelineId ->
-            createPipelineHook(pipelineId).fake(lpparam)
+            runCatching {
+                createPipelineHook(pipelineId).fake(lpparam)
+            }.onFailure { throwable ->
+                XLog.w(
+                    TAG,
+                    "pipeline failed pkg=$packageName process=$processName " +
+                        "pipeline=$pipelineId error=${throwable.javaClass.simpleName}: ${throwable.message}",
+                )
+            }
         }
         emit(result = "ok", reason = "pipelines_installed", pipelineCount = distinctPipelines.size)
     }
@@ -117,6 +125,18 @@ class FakeDeviceHook : BaseHook() {
     override fun onLoadPackage(param: LoadParam) {
         if (param.processName.isBlank()) return
         if (param.packageName == "android" || param.packageName == "system") return
-        FakeDevice.fake(param)
+        runCatching {
+            FakeDevice.fake(param)
+        }.onFailure { throwable ->
+            XLog.w(
+                TAG,
+                "FakeDevice skipped pkg=${param.packageName} process=${param.processName} " +
+                    "error=${throwable.javaClass.simpleName}: ${throwable.message}",
+                )
+            }
+    }
+
+    private companion object {
+        private const val TAG = "FakeDevice"
     }
 }

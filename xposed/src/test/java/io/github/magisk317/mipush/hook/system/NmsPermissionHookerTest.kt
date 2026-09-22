@@ -1,10 +1,47 @@
 package io.github.magisk317.mipush.hook.system
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NmsPermissionHookerTest {
+    @Test
+    fun `cancel keeps xmsf opPkg for xmsf-owned notifications`() {
+        assertEquals(
+            "com.xiaomi.xmsf",
+            NmsPermissionHooker.cancelOpPackage(
+                pkg = "com.xiaomi.xmsf",
+                currentOpPkg = "com.xiaomi.xmsf",
+            ),
+        )
+        assertEquals(
+            "com.xiaomi.xmsf",
+            NmsPermissionHooker.cancelOpPackage(
+                pkg = "com.example.target",
+                currentOpPkg = "com.xiaomi.xmsf",
+            ),
+        )
+    }
+
+    @Test
+    fun `cancel rewrites foreign opPkg to android system identity`() {
+        assertEquals(
+            "android",
+            NmsPermissionHooker.cancelOpPackage(
+                pkg = "com.example.target",
+                currentOpPkg = null,
+            ),
+        )
+        assertEquals(
+            "android",
+            NmsPermissionHooker.cancelOpPackage(
+                pkg = null,
+                currentOpPkg = "com.other.app",
+            ),
+        )
+    }
+
     @Test
     fun `recognizes cloned user xmsf by calling packages`() {
         assertTrue(

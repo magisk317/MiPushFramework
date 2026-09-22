@@ -45,6 +45,11 @@ object LogBundleExporter {
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
     )
+    private val SYSTEMUI_HOOK_LOG_DIRS = listOf(
+        "/data/user/0/com.android.systemui/files/mipush-hook",
+        "/data/user_de/0/com.android.systemui/files/mipush-hook",
+        "/data/system_ce/0/com.android.systemui/files/mipush-hook",
+    )
     private val opLock = Any()
 
     data class ExportResult(
@@ -188,6 +193,11 @@ object LogBundleExporter {
                     val started = SystemClock.elapsedRealtime()
                     copyLsposedLogs(stagingDir, safeDetails)
                     safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
+                }
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    copySystemUiHookLogs(stagingDir, safeDetails)
+                    safeDetails += "copySystemUiHookLogs=${SystemClock.elapsedRealtime() - started}ms"
                 }
                 run {
                     val started = SystemClock.elapsedRealtime()
@@ -652,6 +662,51 @@ object LogBundleExporter {
             },
             onWarning = { logW(it) },
         )
+    }
+
+    private fun copySystemUiHookLogs(stagingDir: File, details: MutableList<String>) {
+        val target = File(stagingDir, "app/log")
+        if (!ensureDirectory(target, recreateWhenFile = true)) {
+            details += "systemui hook log failed: output dir unavailable"
+            return
+        }
+        var copied = false
+        SYSTEMUI_HOOK_LOG_DIRS.forEach { path ->
+            val src = File(path)
+            if (src.exists() && src.canRead()) {
+                src.listFiles()?.filter { it.isFile && it.name.endsWith(".jsonl") }?.forEach { file ->
+                    file.copyTo(File(target, file.name), overwrite = true)
+                    copied = true
+                }
+            }
+        }
+        if (copied) {
+            details += "systemui hook log: direct"
+            return
+        }
+        val targetPath = target.absolutePath
+        val targetUid = runCatching { android.os.Process.myUid() }.getOrDefault(-1)
+        val shellCmd = buildString {
+            append("mkdir -p ${shQuote(targetPath)}; ")
+            SYSTEMUI_HOOK_LOG_DIRS.forEach { path ->
+                append("if [ -d ${shQuote(path)} ]; then ")
+                append("cp -f ${shQuote(path)}/*.jsonl ${shQuote("$targetPath/")} 2>/dev/null; ")
+                if (targetUid > 0) {
+                    append("chown $targetUid:$targetUid ${shQuote("$targetPath/")}*.jsonl 2>/dev/null; ")
+                }
+                append("chmod a+r ${shQuote("$targetPath/")}*.jsonl 2>/dev/null; fi; ")
+            }
+        }
+        val rootReady = rootCommandAccess.refreshRootAccessIfGranted()
+        val copiedViaSu = rootReady && runCatching {
+            rootCommandAccess.runRootCommand(shellCmd, timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS).isSuccess
+        }.getOrDefault(false) &&
+            target.listFiles()?.any { it.name.contains("runtime.hook.systemui") } == true
+        if (copiedViaSu) {
+            details += "systemui hook log: su"
+            return
+        }
+        details += "systemui hook log missing"
     }
 
     private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>) {

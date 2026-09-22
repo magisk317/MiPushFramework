@@ -33,4 +33,16 @@ object NotificationUtils {
         if (groupId.isNullOrEmpty()) return false
         return groupId == getGroupIdByPkg(packageName)
     }
+
+    /**
+     * Channel IDs may point at a group that Samsung NMS requires to exist before
+     * createNotificationChannelsForPackage. Collect unique non-blank group IDs so
+     * callers can provision groups first.
+     */
+    @JvmStatic
+    fun referencedGroupIds(groupIds: Collection<String?>): List<String> {
+        return groupIds.mapNotNull { groupId ->
+            groupId?.takeIf { it.isNotBlank() }
+        }.distinct()
+    }
 }

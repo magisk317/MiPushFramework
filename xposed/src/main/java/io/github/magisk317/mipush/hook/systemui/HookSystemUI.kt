@@ -58,7 +58,8 @@ class HookSystemUI : BaseHook() {
     override fun onLoadPackage(param: LoadParam) {
         if (param.packageName != SYSTEMUI_PACKAGE) return
         val classLoader = param.classLoader
-        XLog.i(TAG, "HookSystemUI.hook() called")
+        XLog.i(TAG, "HookSystemUI.hook() called commit=${io.github.magisk317.mipush.common.BuildConfig.GIT_COMMIT}")
+        AospAppIconDiagnosticsHook().hook(classLoader)
         MiuiHeaderAppIconHook().hook(classLoader)
         hookNativeCustomAppIcon(classLoader)
         hookAndroid17StatusBarIconDescriptor(classLoader)

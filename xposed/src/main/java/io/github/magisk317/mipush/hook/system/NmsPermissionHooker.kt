@@ -106,6 +106,16 @@ object NmsPermissionHooker {
             isXmsfCallingIdentity(callingUid, primaryXmsfUid, callingPackages)
     }
 
+    internal fun cancelOpPackage(pkg: String?, currentOpPkg: String?): String {
+        if (pkg == XMSF_PACKAGE_NAME) {
+            return XMSF_PACKAGE_NAME
+        }
+        if (currentOpPkg == XMSF_PACKAGE_NAME) {
+            return XMSF_PACKAGE_NAME
+        }
+        return ANDROID_PACKAGE_NAME
+    }
+
     private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
         replace {
             var token: Long? = null
@@ -219,7 +229,17 @@ object NmsPermissionHooker {
             //void cancelNotificationWithTag(String pkg, String opPkg, String tag, int id, int userId);
             findMethodExact(classINotificationManager, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
                 .hook(hookPermission(0) {
-                    args[1] = ANDROID_PACKAGE_NAME
+                    val pkg = args[0] as? String
+                    val currentOpPkg = args[1] as? String
+                    val resolvedOpPkg = cancelOpPackage(pkg, currentOpPkg)
+                    if (resolvedOpPkg != currentOpPkg) {
+                        XLog.i(
+                            LogRoute.NMS_HOOK,
+                            TAG,
+                            "cancelNotificationWithTag rewrite opPkg pkg=$pkg from=$currentOpPkg to=$resolvedOpPkg",
+                        )
+                        args[1] = resolvedOpPkg
+                    }
                 })
         } else {
             //void cancelNotificationWithTag(String pkg, String opPkg, String tag, int id, int userId);
