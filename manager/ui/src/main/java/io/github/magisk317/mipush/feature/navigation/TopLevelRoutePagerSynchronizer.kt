@@ -9,6 +9,14 @@ class TopLevelRoutePagerSynchronizer {
     private var lastEffectivePage: Int? = null
 
     /**
+     * Top-level page a tab tap asked for, until the route controller catches up with it. While
+     * this is set, a route -> pager lookup that points at any other page is still reading the
+     * route the user just left, so it is a stale lookup and not a real back navigation. Ignoring
+     * it is what keeps the pager from bouncing back to the tab the tap came from.
+     */
+    private var pendingUserIntent: Int? = null
+
+    /**
      * Returns the pager target for a new route, or null when no pager synchronization is needed.
      * The effective route is remembered only after it can be handled, so a route change that
      * arrives during an existing pager animation is retried when that animation settles.
@@ -19,7 +27,26 @@ class TopLevelRoutePagerSynchronizer {
         isNavigating: Boolean,
     ): Int? {
         val targetPage = route?.let(TopLevelPage::fromRoute)?.index ?: return null
+
+        // Evaluated before the animation guard on purpose: with navigation issued on the tap the
+        // route normally catches up while the animation is still running, and an intent that is
+        // only released on a settled lookup would stay armed until some unrelated change happened
+        // to re-run the caller's effect. Releasing early is safe because the animation guard below
+        // still suppresses any pager command for this pass.
+        val pending = pendingUserIntent
+        if (pending != null) {
+            // Route has not caught up with the tap yet: report no synchronization at all, which
+            // is the whole point of remembering the intent.
+            if (targetPage != pending) return null
+            // Route caught up: the intent is fulfilled and normal synchronization resumes from
+            // the page it asked for.
+            pendingUserIntent = null
+            lastEffectivePage = pending
+            return null
+        }
+
         if (isNavigating) return null
+
         if (targetPage == lastEffectivePage) return null
         lastEffectivePage = targetPage
         if (targetPage == currentPage) return null
@@ -27,9 +54,19 @@ class TopLevelRoutePagerSynchronizer {
     }
 
     /**
-     * Called when a tab click or route-driven animation targets [page]. Keeps [lastEffectivePage]
-     * in sync with the pager's intended position so a stale route lookup (which arrives before
-     * navigateTopLevel updates currentRoute) cannot produce a backward bounce.
+     * Called by a tab tap, before the pager starts moving. Records the tapped page as a user
+     * intent so a route lookup that still reads the previous route cannot produce the backward
+     * bounce this class documents as its reason to exist. The intent is released as soon as the
+     * route catches up; navigation on tap is what bounds that window to a single frame.
+     */
+    fun notifyUserIntent(page: Int) {
+        pendingUserIntent = page
+        lastEffectivePage = page
+    }
+
+    /**
+     * Called by route-driven pager synchronization. Keeps [lastEffectivePage] in sync with the
+     * position the pager is being moved to.
      */
     fun notifyTargetPage(page: Int) {
         lastEffectivePage = page

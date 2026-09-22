@@ -1,9 +1,5 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +17,7 @@ import io.github.magisk317.uikit.common.AppSnackbarData
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.common.AppSnackbarResult
+import io.github.magisk317.uikit.surface.swipeRevealSurface
 import io.github.magisk317.uikit.surface.AppSwipeToDismissBox
 import io.github.magisk317.uikit.surface.AppSwipeToDismissValue
 import io.github.magisk317.uikit.surface.rememberAppSwipeToDismissState
@@ -347,25 +344,19 @@ private fun SwipeToDeleteEventItem(
         enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
         backgroundContent = { direction ->
-            val fromEnd = direction == AppSwipeToDismissValue.EndToStart
-            val isMiuixRow = io.github.magisk317.uikit.theme.currentUiKitStyle() ==
-                io.github.magisk317.uikit.theme.UiKitStyle.Miuix
-            // background(color, shape): the shape must ride along with the background —
-            // background(...).clip(...) draws the rectangle before the clip takes effect.
-            val deleteShape =
-                if (isMiuixRow) RoundedCornerShape(16.dp) else RectangleShape
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Hairline inset: keeps the red silhouette fully under the card AA edge
-                    // so no red fringe peeks out at the four corners.
-                    .padding(1.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = deleteShape,
-                    )
+                    // Shared style-aware reveal surface: full-row silhouette carrying the
+                    // row card's rounded shape (Miuix) or a plain rectangle (Expressive),
+                    // with the same hairline inset under the card's anti-aliased edge.
+                    .then(swipeRevealSurface(color = MaterialTheme.colorScheme.errorContainer))
                     .padding(horizontal = 24.dp),
-                contentAlignment = if (fromEnd) Alignment.CenterEnd else Alignment.CenterStart,
+                contentAlignment = if (direction == AppSwipeToDismissValue.EndToStart) {
+                    Alignment.CenterEnd
+                } else {
+                    Alignment.CenterStart
+                },
             ) {
                 Text(
                     text = stringResource(R.string.action_delete),
