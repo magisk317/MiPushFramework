@@ -79,8 +79,8 @@ metrics-performance = "1.0.0"
 version-catalog-update = "1.1.1"
 miuix-blur = "0.9.4"
 material-kolor = "5.0.1"
-versionCode = "14"
-versionName = "1.0.3"
+versionCode = "15"
+versionName = "1.0.4"
 pushVersionCode = "1003003000"
 
 [libraries]

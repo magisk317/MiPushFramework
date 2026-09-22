@@ -3,6 +3,19 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.4] - 2026-09-22
+- 版本：`versionCode 15` / `versionName 1.0.4`。
+- `[overview]` 管理端首页新增连接状态卡片。
+- `[manager]` 版本不一致主动提醒，点击回退可按应用配置。
+- `[widget]` 新增连接状态与最近事件桌面小部件。
+- `[ui]` 首页新增 QQ 频道入口，修复顶层 Tab 点按切换。
+- `[xmsf]` 修复 richpush 点击透传与派发链路标记丢失。
+- `[deps]` 升级 AGP、ktor、coil3、miuix 等依赖。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.3...v1.0.4
+
+---
+
 ## [v1.0.3] - 2026-09-17
 - 版本：`versionCode 14` / `versionName 1.0.3`。
 - `[ui]` 管理端接入 Miuix 设计系统。

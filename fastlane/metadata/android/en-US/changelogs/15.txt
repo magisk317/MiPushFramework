@@ -1,0 +1,5 @@
+- Connection status card on the overview page, driven by runtime hook state.
+- Per-app launcher click fallback toggle in the app detail page.
+- Warning when the module and xmsf commits mismatch.
+- Connection status and recent events widgets in the widget center.
+- Fixed push click dispatch: passthrough to the app receiver, missing click markers.
