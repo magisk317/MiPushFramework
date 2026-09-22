@@ -1,19 +1,19 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
+    ref: v1
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
+    ref: v1
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
+    ref: v1
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
+    ref: v1
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: e088d01ee05a8095fe4b96bf46cc41488894cd8b
+    ref: v1
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -46,7 +46,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "e088d01ee05a8095fe4b96bf46cc41488894cd8b"
+  MAGISK_CI_TOOLKIT_REF: "v1"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -280,6 +280,11 @@ android:check:
       source scripts/resolve_zygisk_version_env.sh
       cd MiPushZygisk
       ./build.sh
+      # Permanent success marker: keeps the artifact glob below non-empty on
+      # normal builds. The skip marker (.zygisk-skip) is only written on a
+      # deliberate skip and stays mutually exclusive with ZIPs.
+      mkdir -p build
+      printf '%s\n' "built" > build/.zygisk-status
   artifacts:
     name: "MiPushFramework-zygisk-$MIPUSH_ZYGISK_RUNNER_GROUP-$CI_COMMIT_REF_SLUG"
     when: always
@@ -287,7 +292,7 @@ android:check:
     paths:
       - MiPushZygisk/build/*.zip
       - MiPushZygisk/magisk/zygisk/*.so
-      - MiPushZygisk/build/.zygisk-skip*
+      - MiPushZygisk/build/.zygisk-*
 
 zygisk:build:arm:
   extends: .mipush_zygisk_build
@@ -495,7 +500,14 @@ android:release:guard:
       scripts/check_release_guard.sh "$CI_COMMIT_TAG"
 
 android:release:apk:
+  # Driven by the shared toolkit template. The project only declares what is
+  # project-specific: two gradle modules, the GitHub flavours and the
+  # split/kotlin flags. Keystore location, version resolution and signature
+  # validation are the template's job now.
   extends: .magisk_android_release_apk
+  variables:
+    MAGISK_ANDROID_RELEASE_APK_TASKS: ":xmsf:assembleRelease :mipush:assembleGithubRelease"
+    MAGISK_ANDROID_RELEASE_GRADLE_EXTRA_ARGS: "-PbuildSplits=true -Pkotlin.incremental=false"
   resource_group: mipush-android-release-apk
   stage: release-build
   tags:
@@ -507,45 +519,12 @@ android:release:apk:
   needs:
     - job: android:release:guard
       artifacts: false
-  script:
-    - |
-      set -euo pipefail
-      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      : "${RELEASE_KEYSTORE:?RELEASE_KEYSTORE is required}"
-      : "${STORE_PASSWORD:?STORE_PASSWORD is required}"
-      : "${KEY_ALIAS:?KEY_ALIAS is required}"
-      : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
-
-      keystore_path="$CI_PROJECT_DIR/release.jks"
-      printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
-      chmod 0600 "$keystore_path"
-      bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
-        --package-name "$MAGISK_ANDROID_RELEASE_PACKAGE_NAME" \
-        --version-file "$CI_PROJECT_DIR/gradle/libs.versions.toml" \
-        --output "$CI_PROJECT_DIR/play-release.env" \
-        --initial-version-code "$MAGISK_PLAY_INITIAL_VERSION_CODE"
-      source "$CI_PROJECT_DIR/play-release.env"
-      KEYSTORE_FILE="$keystore_path" \
-      STORE_PASSWORD="$STORE_PASSWORD" \
-      KEY_ALIAS="$KEY_ALIAS" \
-      KEY_PASSWORD="$KEY_PASSWORD" \
-        bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-          :xmsf:assembleRelease \
-          :mipush:assembleGithubRelease \
-          -PversionName="$MAGISK_PLAY_VERSION_NAME" \
-          -PversionCode="$MAGISK_PLAY_VERSION_CODE" \
-          -PbuildSplits=true \
-          -Pkotlin.incremental=false
-      chmod +x "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
-      MAGISK_ANDROID_RELEASE_APK_ROOTS="${MAGISK_ANDROID_RELEASE_APK_ROOTS:-xmsf/build/outputs/apk}" \
-        bash "$MAGISK_CI_TOOLKIT_DIR/release/validate_android_apk_signatures.sh"
   artifacts:
     name: "MiPushFramework-release-apks-$CI_COMMIT_TAG"
     when: always
     expire_in: 30 days
     paths:
       - xmsf/build/outputs/apk/**/release/*.apk
-      - xmsf/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
       # android:release:modules-repo reads versionCode/versionName from here to
@@ -553,9 +532,10 @@ android:release:apk:
       - play-release.env
 
 android:release:play-bundle:
-  extends:
-    - .magisk_android_base
-    - .magisk_android_release_tag_rules
+  extends: .magisk_android_release_aab
+  variables:
+    MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
+    MAGISK_PLAY_TRACK_OVERRIDE: "production"
   resource_group: mipush-android-release-play
   stage: release-build
   tags:
@@ -566,33 +546,6 @@ android:release:play-bundle:
   needs:
     - job: android:release:guard
       artifacts: false
-  script:
-    - |
-      set -euo pipefail
-      export MAGISK_PLAY_TRACK_OVERRIDE=production
-      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      : "${RELEASE_KEYSTORE:?RELEASE_KEYSTORE is required}"
-      : "${STORE_PASSWORD:?STORE_PASSWORD is required}"
-      : "${KEY_ALIAS:?KEY_ALIAS is required}"
-      : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
-
-      keystore_path="$CI_PROJECT_DIR/release.jks"
-      printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
-      chmod 0600 "$keystore_path"
-      bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
-        --package-name "$MAGISK_ANDROID_RELEASE_PACKAGE_NAME" \
-        --version-file "$CI_PROJECT_DIR/gradle/libs.versions.toml" \
-        --output "$CI_PROJECT_DIR/play-release.env" \
-        --initial-version-code "$MAGISK_PLAY_INITIAL_VERSION_CODE"
-      source "$CI_PROJECT_DIR/play-release.env"
-      KEYSTORE_FILE="$keystore_path" \
-      STORE_PASSWORD="$STORE_PASSWORD" \
-      KEY_ALIAS="$KEY_ALIAS" \
-      KEY_PASSWORD="$KEY_PASSWORD" \
-        bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-          :mipush:bundlePlayRelease \
-          -PversionName="$MAGISK_PLAY_VERSION_NAME" \
-          -PversionCode="$MAGISK_PLAY_VERSION_CODE"
   artifacts:
     name: "MiPushFramework-release-bundle-$CI_COMMIT_TAG"
     when: always
@@ -600,7 +553,6 @@ android:release:play-bundle:
     paths:
       - mipush/build/outputs/bundle/**/*.aab
       - mipush/build/outputs/mapping/**/mapping.txt
-      - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - play-release.env
 
 android:release:gitlab:
@@ -681,7 +633,6 @@ android:ci:play-beta-bundle:
     paths:
       - mipush/build/outputs/bundle/**/*.aab
       - mipush/build/outputs/mapping/**/mapping.txt
-      - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - play-release.env
 
 android:ci:play-beta:
