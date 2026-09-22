@@ -16,6 +16,10 @@ class MainActivityOperation(private val context: Context) {
         openUrl("https://t.me/+NR2QaQ4dlEgxYmNl")
     }
 
+    fun gotoQqChannel() {
+        openUrl("https://pd.qq.com/s/bmleyy1mj")
+    }
+
     fun gotoGitLabProjectPage() {
         openUrl("https://gitlab.com/magisk3171/MiPushFramework")
     }
