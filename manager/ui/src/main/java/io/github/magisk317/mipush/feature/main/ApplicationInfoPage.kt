@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.magisk317.mipush.common.utils.logW
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -370,11 +371,16 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     private fun openSystemAppInfo(context: Context) {
         val uri = Uri.fromParts("package", applicationInfo.packageName, null)
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(uri)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        // The details screen is a Settings activity, which an OEM build can filter out.
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(uri)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { error ->
+            logW("app detail settings launch failed: ${error.javaClass.simpleName}")
+        }
     }
 
     @Composable

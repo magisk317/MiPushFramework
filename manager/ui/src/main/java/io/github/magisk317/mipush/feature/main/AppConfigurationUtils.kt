@@ -8,6 +8,7 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.core.net.toUri
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.notification.NotificationChannelGroupSummary
@@ -42,32 +43,62 @@ class AppConfigurationUtils(
     }
 
     fun gotoRecentEventsPage() {
-        context.startActivity(
-            Intent(context, RecentEventListPage::class.java)
+        startSettingsScreen(
+            intent = Intent(context, RecentEventListPage::class.java)
                 .setData(application.packageName.toUri()),
+            fallbackPackage = application.packageName,
+            label = "recent_events",
         )
     }
 
     fun gotoNotificationSettingPage(isHooked: Boolean) {
-        context.startActivity(
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        startSettingsScreen(
+            intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, configApp(isHooked)),
+            fallbackPackage = application.packageName,
+            label = "app_notification_settings",
         )
     }
 
     fun gotoTargetNotificationSettingPage() {
-        context.startActivity(
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        startSettingsScreen(
+            intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, application.packageName),
+            fallbackPackage = application.packageName,
+            label = "target_notification_settings",
         )
     }
 
     fun gotoNotificationChannelSettingPage(channel: NotificationChannelSummary, isHooked: Boolean) {
-        context.startActivity(
-            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+        startSettingsScreen(
+            intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, configAppFor(channel, isHooked))
                 .putExtra(Settings.EXTRA_CHANNEL_ID, channel.id),
+            fallbackPackage = configAppFor(channel, isHooked),
+            label = "channel_notification_settings",
         )
+    }
+
+    /**
+     * Open a Settings screen without letting a missing handler crash the manager.
+     *
+     * Settings activities are absent on some ROMs and can be filtered out by an OEM build, so
+     * [Context.startActivity] can throw `ActivityNotFoundException`. Degrade to the app detail
+     * page and, if that is unavailable too, log instead of taking the process down.
+     */
+    private fun startSettingsScreen(intent: Intent, fallbackPackage: String, label: String) {
+        runCatching { context.startActivity(intent) }
+            .onFailure { error ->
+                logW("$label launch failed: ${error.javaClass.simpleName}")
+                runCatching {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData("package:$fallbackPackage".toUri()),
+                    )
+                }.onFailure { fallbackError ->
+                    logW("$label fallback launch failed: ${fallbackError.javaClass.simpleName}")
+                }
+            }
     }
 
     fun copyToClipboard(channel: NotificationChannelSummary) {
