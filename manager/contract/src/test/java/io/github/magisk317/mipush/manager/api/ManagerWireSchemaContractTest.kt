@@ -19,6 +19,7 @@ class ManagerWireSchemaContractTest {
             "writeInt(maxPageSize)",
             "writeInt(maxPayloadBytes)",
             "writeString(compatibilityReason)",
+            "writeString(runtimeCommit)",
         )
         assertTrue(handshake.contains("source.readWireFrame"))
 

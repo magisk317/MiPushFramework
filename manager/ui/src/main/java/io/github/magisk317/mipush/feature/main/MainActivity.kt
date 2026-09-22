@@ -4,6 +4,7 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -19,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -27,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 import io.github.magisk317.mipush.manager.R
@@ -36,13 +39,16 @@ import io.github.magisk317.mipush.feature.main.MainActivityUtils
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.main.viewmodel.RuntimeCommitMismatch
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
+import io.github.magisk317.mipush.main.viewmodel.runtimeCommitMismatch
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.LegacyModuleDetector
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
+import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -173,20 +179,54 @@ open class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val runtimeWarning = runtimeAvailability.requiresRuntimeWarning()
                     val managerWarning = legacyModuleInstalled
+                    val commitMismatch = runtimeAvailability.runtimeCommitMismatch(
+                        moduleCommit = CommonBuildConfig.GIT_COMMIT,
+                    )
 
-                    if (runtimeWarning) {
-                        RuntimeCompatibilityWarningDialog(
-                            onExit = { finishAndRemoveTask() },
-                        )
-                    } else if (managerWarning) {
-                        LegacyModuleWarningDialog(
-                            onExit = { finishAndRemoveTask() },
-                        )
-                    } else {
-                        MainScreen(
-                            startDestination = startDestination,
-                            initialRouteOverride = explicitRoute,
-                        )
+                    // 每次冷启动都会重新提醒（rememberSaveable 跟随 Activity 实例），
+                    // app 内切 tab / 重组不会反复弹。
+                    var runtimeWarningDismissed by rememberSaveable { mutableStateOf(false) }
+                    var commitMismatchDismissed by rememberSaveable { mutableStateOf(false) }
+                    var managerWarningDismissed by rememberSaveable { mutableStateOf(false) }
+
+                    // 错配发生时 Toast 简短通知一次。
+                    val toastContext = LocalContext.current
+                    LaunchedEffect(commitMismatch) {
+                        if (commitMismatch != null) {
+                            Toast.makeText(
+                                toastContext,
+                                R.string.runtime_commit_mismatch_toast,
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+
+                    when {
+                        runtimeWarning && !runtimeWarningDismissed -> {
+                            RuntimeCompatibilityWarningDialog(
+                                onDismiss = { runtimeWarningDismissed = true },
+                            )
+                        }
+
+                        commitMismatch != null && !commitMismatchDismissed -> {
+                            RuntimeCommitMismatchDialog(
+                                mismatch = commitMismatch,
+                                onDismiss = { commitMismatchDismissed = true },
+                            )
+                        }
+
+                        managerWarning && !managerWarningDismissed -> {
+                            LegacyModuleWarningDialog(
+                                onDismiss = { managerWarningDismissed = true },
+                            )
+                        }
+
+                        else -> {
+                            MainScreen(
+                                startDestination = startDestination,
+                                initialRouteOverride = explicitRoute,
+                            )
+                        }
                     }
 
                     ThemeRevealOverlay(themeRevealState)
@@ -208,12 +248,12 @@ open class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun RuntimeCompatibilityWarningDialog(onExit: () -> Unit) {
+private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
     AppAlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = onDismiss,
         properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
         ),
         title = {
             Text(text = stringResource(R.string.runtime_missing_dialog_title), color = MaterialTheme.colorScheme.onSurface)
@@ -223,20 +263,53 @@ private fun RuntimeCompatibilityWarningDialog(onExit: () -> Unit) {
         },
         confirmButton = {
             AppTextButton(
-                text = stringResource(R.string.runtime_missing_dialog_exit),
-                onClick = onExit,
+                text = stringResource(R.string.dialog_acknowledge),
+                onClick = onDismiss,
             )
         },
     )
 }
 
 @Composable
-private fun LegacyModuleWarningDialog(onExit: () -> Unit) {
+private fun RuntimeCommitMismatchDialog(
+    mismatch: RuntimeCommitMismatch,
+    onDismiss: () -> Unit,
+) {
     AppAlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = onDismiss,
         properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+        ),
+        title = {
+            Text(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+        },
+        text = {
+            Text(
+                text = stringResource(
+                    R.string.runtime_commit_mismatch_dialog_message,
+                    mismatch.moduleCommit,
+                    mismatch.runtimeCommit,
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        confirmButton = {
+            AppTextButton(
+                text = stringResource(R.string.dialog_acknowledge),
+                onClick = onDismiss,
+            )
+        },
+    )
+}
+
+@Composable
+private fun LegacyModuleWarningDialog(onDismiss: () -> Unit) {
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
         ),
         title = {
             Text(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
@@ -246,8 +319,8 @@ private fun LegacyModuleWarningDialog(onExit: () -> Unit) {
         },
         confirmButton = {
             AppTextButton(
-                text = stringResource(R.string.legacy_module_dialog_exit),
-                onClick = onExit,
+                text = stringResource(R.string.dialog_acknowledge),
+                onClick = onDismiss,
             )
         },
     )

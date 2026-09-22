@@ -13,6 +13,11 @@ data class ManagerHandshake(
     val maxPageSize: Int,
     val maxPayloadBytes: Int,
     val compatibilityReason: String? = null,
+    /**
+     * Short git commit of the runtime (xmsf) build, used by the manager to detect a
+     * module/runtime version mismatch. Null on older runtimes that predate the field.
+     */
+    val runtimeCommit: String? = null,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -24,6 +29,7 @@ data class ManagerHandshake(
             writeInt(maxPageSize)
             writeInt(maxPayloadBytes)
             writeString(compatibilityReason)
+            writeString(runtimeCommit)
         }
     }
 
@@ -45,6 +51,9 @@ data class ManagerHandshake(
                     maxPayloadBytes = readInt(),
                     compatibilityReason = readString(
                         maxLength = ManagerProtocol.MAX_COMPATIBILITY_REASON_LENGTH,
+                    ),
+                    runtimeCommit = readString(
+                        maxLength = ManagerProtocol.MAX_RUNTIME_COMMIT_LENGTH,
                     ),
                 )
             }
