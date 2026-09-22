@@ -8,18 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RectF
-import android.text.TextPaint
-import android.text.TextUtils
 import android.os.Build
 import android.os.SystemClock
-import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.withSave
 import io.github.magisk317.mipush.app.R
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerEvent
@@ -32,12 +24,14 @@ import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.reflect.KClass
 import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+
+/** MIUI/HyperOS proprietary refresh broadcast that drives exposure-based updates. */
+internal const val MIUI_APPWIDGET_UPDATE = "miui.appwidget.action.APPWIDGET_UPDATE"
 
 internal object MiPushWidgetActions {
     const val ACTION_REFRESH_CONNECTION = "io.github.magisk317.mipush.app.widget.REFRESH_CONNECTION"
@@ -53,11 +47,9 @@ internal object MiPushWidgetRunner {
 }
 
 internal object MiPushWidgetDependencies {
-    fun settingsManager(): SettingsManager = get()
+    fun settingsManager(): SettingsManager = ManagerDependencies.get()
 
-    fun eventGateway(): ManagerEventGateway = get()
-
-    private inline fun <reified T : Any> get(): T = ManagerDependencies.get()
+    fun eventGateway(): ManagerEventGateway = ManagerDependencies.get()
 }
 
 internal object MiPushWidgetIntents {
@@ -85,8 +77,8 @@ internal object MiPushWidgetIntents {
         )
     }
 
-    fun refresh(context: Context, providerClass: KClass<*>, action: String, requestCode: Int): PendingIntent {
-        val intent = Intent(context, providerClass.java).setAction(action)
+    fun refresh(context: Context, providerClass: Class<*>, action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(context, providerClass).setAction(action)
         return PendingIntent.getBroadcast(
             context,
             requestCode,
@@ -131,12 +123,12 @@ internal object ConnectionStatusWidgetRenderer {
                 R.layout.mipush_widget_connection_status
             },
         )
-        views.setOnClickPendingIntent(R.id.widget_root, MiPushWidgetIntents.openConnectionStatus(context))
+        views.setOnClickPendingIntent(android.R.id.background, MiPushWidgetIntents.openConnectionStatus(context))
         views.setOnClickPendingIntent(
             R.id.widget_refresh,
             MiPushWidgetIntents.refresh(
                 context,
-                ConnectionStatusWidgetProvider::class,
+                ConnectionStatusWidgetProvider::class.java,
                 MiPushWidgetActions.ACTION_REFRESH_CONNECTION,
                 2001,
             ),
@@ -166,16 +158,10 @@ internal object ConnectionStatusWidgetRenderer {
         )
         views.setTextViewText(R.id.widget_duration_label, context.getString(R.string.widget_connection_duration))
         if (isConnected && snapshot.connectedAtMs > 0L) {
-            // Android 17's launcher host treats a RemoteViews Chronometer base as wall-clock
-            // milliseconds, while Android 16 uses the documented elapsedRealtime base. Passing
-            // the converted elapsed base on API 37 makes the host display the Unix epoch as the
-            // connection duration (the observed ~500k-hour value).
-            val chronometerBase = if (Build.VERSION.SDK_INT >= 37) {
-                snapshot.connectedAtMs
-            } else {
-                val elapsedSinceBoot = System.currentTimeMillis() - SystemClock.elapsedRealtime()
-                snapshot.connectedAtMs - elapsedSinceBoot
-            }
+            // Chronometer 的 base 永远运行在 SystemClock.elapsedRealtime() 时基上，
+            // wall-clock 的 connectedAtMs 必须换算，否则显示为巨大的负值
+            val elapsedSinceBoot = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+            val chronometerBase = snapshot.connectedAtMs - elapsedSinceBoot
             views.setChronometer(R.id.widget_duration_value, chronometerBase, "%s", true)
         } else {
             views.setChronometer(R.id.widget_duration_value, SystemClock.elapsedRealtime(), "%s", false)
@@ -203,6 +189,8 @@ internal object ConnectionStatusWidgetRenderer {
 
 internal object RecentEventsWidgetRenderer {
     private const val QUERY_COUNT = 48
+    private const val MAX_ROWS = 7
+    private const val MIN_ROWS = 3
 
     suspend fun updateAll(context: Context) {
         val appContext = context.applicationContext ?: context
@@ -222,15 +210,16 @@ internal object RecentEventsWidgetRenderer {
                 .filterNot { it.isRegistrationInfo() }
         }.getOrElse { emptyList() }
         widgetIds.forEach { widgetId ->
-            val size = MiPushWidgetCanvas.widgetSizePx(
+            val sizeDp = MiPushWidgetMetrics.widgetSizeDp(
                 appContext,
                 manager,
                 widgetId,
-                fallbackWidthDp = 320,
-                fallbackHeightDp = 210,
+                fallbackWidthDp = 250,
+                fallbackHeightDp = 360,
             )
-            val displayCount = MiPushWidgetCanvas.recentEventsRowCapacity(appContext, size.heightPx)
-            val views = buildViews(appContext, events.take(displayCount), size)
+            val capacity = MiPushWidgetMetrics.recentEventsRowCapacity(sizeDp.heightDp)
+                .coerceIn(MIN_ROWS, MAX_ROWS)
+            val views = buildViews(appContext, events.take(capacity))
             manager.updateAppWidget(widgetId, views)
         }
     }
@@ -238,24 +227,68 @@ internal object RecentEventsWidgetRenderer {
     private fun buildViews(
         context: Context,
         events: List<ManagerEvent>,
-        size: MiPushWidgetCanvas.WidgetSize,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.mipush_widget_recent_events)
-        views.setImageViewBitmap(
-            R.id.widget_image,
-            MiPushWidgetCanvas.drawRecentEvents(context, size.widthPx, size.heightPx, events),
-        )
-        views.setOnClickPendingIntent(R.id.widget_root, MiPushWidgetIntents.openRecentEvents(context))
+        views.setOnClickPendingIntent(android.R.id.background, MiPushWidgetIntents.openRecentEvents(context))
         views.setOnClickPendingIntent(
             R.id.widget_refresh,
             MiPushWidgetIntents.refresh(
                 context,
-                RecentEventsWidgetProvider::class,
+                RecentEventsWidgetProvider::class.java,
                 MiPushWidgetActions.ACTION_REFRESH_RECENT_EVENTS,
                 2002,
             ),
         )
+
+        if (events.isEmpty()) {
+            views.setViewVisibility(R.id.widget_empty, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_empty, View.GONE)
+            val shown = events.take(recentRowIds.size)
+            shown.forEachIndexed { index, event ->
+                views.setViewVisibility(recentRowIds[index], View.VISIBLE)
+                views.setTextViewText(recentTitleIds[index], event.displayTitle(context))
+                views.setTextViewText(recentMetaIds[index], event.displayMetaLine())
+                loadAppIcon(context, event.packageName)?.let {
+                    views.setImageViewBitmap(recentIconIds[index], it)
+                }
+            }
+            for (index in shown.size until recentRowIds.size) {
+                views.setViewVisibility(recentRowIds[index], View.GONE)
+            }
+        }
+        views.setTextViewText(R.id.widget_updated_at, formatUpdatedAt(context))
         return views
+    }
+
+    private val recentRowIds = intArrayOf(
+        R.id.widget_row_0, R.id.widget_row_1, R.id.widget_row_2, R.id.widget_row_3,
+        R.id.widget_row_4, R.id.widget_row_5, R.id.widget_row_6,
+    )
+    private val recentTitleIds = intArrayOf(
+        R.id.row_title_0, R.id.row_title_1, R.id.row_title_2, R.id.row_title_3,
+        R.id.row_title_4, R.id.row_title_5, R.id.row_title_6,
+    )
+    private val recentMetaIds = intArrayOf(
+        R.id.row_meta_0, R.id.row_meta_1, R.id.row_meta_2, R.id.row_meta_3,
+        R.id.row_meta_4, R.id.row_meta_5, R.id.row_meta_6,
+    )
+    private val recentIconIds = intArrayOf(
+        R.id.row_icon_0, R.id.row_icon_1, R.id.row_icon_2, R.id.row_icon_3,
+        R.id.row_icon_4, R.id.row_icon_5, R.id.row_icon_6,
+    )
+
+    private fun loadAppIcon(context: Context, packageName: String): Bitmap? {
+        return runCatching {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            val density = context.resources.displayMetrics.density
+            val size = (36 * density).toInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            bitmap
+        }.getOrNull()
     }
 
     private fun ManagerEvent.isRegistrationInfo(): Boolean {
@@ -265,36 +298,16 @@ internal object RecentEventsWidgetRenderer {
     }
 }
 
-private fun ManagerEvent.displayTitle(context: Context): String {
-    val appLabel = appName?.takeIf { it.isNotBlank() } ?: packageName
-    return if (title.isBlank()) appLabel else context.getString(R.string.widget_event_title_format, appLabel, title)
-}
+private object MiPushWidgetMetrics {
+    data class WidgetSizeDp(val widthDp: Int, val heightDp: Int)
 
-private fun ManagerEvent.displayMeta(): String {
-    return listOf(
-        formatEventTime(receiveDateMs),
-        channel.takeIf { it.isNotBlank() },
-    ).filterNotNull().joinToString("  ")
-}
-
-private object MiPushWidgetCanvas {
-    private const val COLOR_CARD = 0xFF1C1922.toInt()
-    private const val COLOR_CARD_STROKE = 0xFF322D39.toInt()
-    private const val COLOR_DIVIDER = 0xFF34303B.toInt()
-    private const val COLOR_ICON_BACKGROUND = 0xFF28232D.toInt()
-    private const val COLOR_TEXT_PRIMARY = 0xFFF0EBF6.toInt()
-    private const val COLOR_TEXT_SECONDARY = 0xFFB8B0C2.toInt()
-    private const val COLOR_TEXT_TERTIARY = 0xFF8D8498.toInt()
-
-    data class WidgetSize(val widthPx: Int, val heightPx: Int)
-
-    fun widgetSizePx(
+    fun widgetSizeDp(
         context: Context,
         manager: AppWidgetManager,
         widgetId: Int,
         fallbackWidthDp: Int,
         fallbackHeightDp: Int,
-    ): WidgetSize {
+    ): WidgetSizeDp {
         val options = manager.getAppWidgetOptions(widgetId)
         val widthDp = max(
             fallbackWidthDp,
@@ -310,207 +323,27 @@ private object MiPushWidgetCanvas {
                 options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0),
             ),
         )
-        val density = context.resources.displayMetrics.density
-        return WidgetSize(
-            widthPx = (widthDp * density).toInt().coerceAtLeast(240),
-            heightPx = (heightDp * density).toInt().coerceAtLeast(160),
-        )
+        return WidgetSizeDp(widthDp = widthDp, heightDp = heightDp)
     }
 
-    fun widgetMinHeightDp(
-        context: Context,
-        manager: AppWidgetManager,
-        widgetId: Int,
-        fallbackHeightDp: Int,
-    ): Float {
-        val options = manager.getAppWidgetOptions(widgetId)
-        val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-            .takeIf { it > 0 }
-            ?: fallbackHeightDp
-        return max(fallbackHeightDp, heightDp).toFloat()
+    fun recentEventsRowCapacity(heightDp: Int): Int {
+        // header（标题+更新时间+padding）约 80dp，每行（icon 36dp + 上下 padding）约 48dp
+        return ((heightDp - 80f) / 48f).toInt()
     }
+}
 
-    fun recentEventsRowCapacity(context: Context, heightPx: Int): Int {
-        val heightDp = heightDp(context, heightPx)
-        return ((heightDp - 130f) / 58f).toInt().coerceIn(3, 7)
-    }
+private fun ManagerEvent.displayTitle(context: Context): String {
+    val appLabel = appName?.takeIf { it.isNotBlank() } ?: packageName
+    return if (title.isBlank()) appLabel else context.getString(R.string.widget_event_title_format, appLabel, title)
+}
 
-    fun heightDp(context: Context, heightPx: Int): Float {
-        val density = context.resources.displayMetrics.density.coerceAtLeast(1f)
-        return heightPx / density
-    }
-
-    fun drawRecentEvents(context: Context, widthPx: Int, heightPx: Int, events: List<ManagerEvent>): Bitmap {
-        val bitmap = createBitmap(widthPx, heightPx)
-        val canvas = Canvas(bitmap)
-        val density = context.resources.displayMetrics.density
-        val displayMetrics = context.resources.displayMetrics
-
-        fun dp(value: Float) = value * density
-        fun sp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, displayMetrics)
-
-        canvas.drawColor(Color.TRANSPARENT)
-        val cardRect = RectF(1f, 1f, widthPx - 1f, heightPx - 1f)
-        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_CARD
-            style = Paint.Style.FILL
-        }
-        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_CARD_STROKE
-            style = Paint.Style.STROKE
-            strokeWidth = dp(1f)
-        }
-        canvas.drawRoundRect(cardRect, dp(22f), dp(22f), fillPaint)
-        canvas.drawRoundRect(cardRect, dp(22f), dp(22f), strokePaint)
-
-        val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_PRIMARY
-            textSize = sp(20f)
-            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.NORMAL)
-        }
-        val actionPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_SECONDARY
-            textSize = sp(22f)
-            textAlign = Paint.Align.RIGHT
-        }
-        val rowTitlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_PRIMARY
-            textSize = sp(14.5f)
-            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-        }
-        val metaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_TERTIARY
-            textSize = sp(12.5f)
-        }
-
-        val left = dp(20f)
-        val right = widthPx - dp(20f)
-        val headerBaseline = dp(39f)
-        canvas.drawText(context.getString(R.string.widget_recent_events_title), left, headerBaseline, titlePaint)
-        canvas.drawText("↻", right, headerBaseline + dp(1f), actionPaint)
-        canvas.drawLine(left, dp(60f), right, dp(60f), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_DIVIDER
-            strokeWidth = dp(1f)
-        })
-
-        if (events.isEmpty()) {
-            val emptyPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = COLOR_TEXT_SECONDARY
-                textSize = sp(15f)
-                textAlign = Paint.Align.CENTER
-            }
-            canvas.drawText(
-                context.getString(R.string.widget_recent_events_empty),
-                widthPx / 2f,
-                heightPx / 2f + dp(5f),
-                emptyPaint,
-            )
-        } else {
-            val top = dp(92f)
-            val bottomReserve = dp(44f)
-            val rowSlots = recentEventsRowCapacity(context, heightPx)
-            val available = (heightPx - top - bottomReserve).coerceAtLeast(dp(80f))
-            val rowHeight = (available / rowSlots).coerceAtLeast(dp(56f))
-            val iconSize = dp(36f)
-            val textLeft = left + iconSize + dp(12f)
-            events.forEachIndexed { index, event ->
-                val rowTop = top + rowHeight * index
-                val title = event.displayTitle(context)
-                val meta = listOf(
-                    event.displayMeta(),
-                    event.content.ifBlank { event.channel },
-                ).filter { it.isNotBlank() }.joinToString(" · ")
-                drawEventIcon(
-                    context = context,
-                    canvas = canvas,
-                    event = event,
-                    left = left,
-                    top = rowTop - dp(12f),
-                    size = iconSize,
-                    radius = dp(9f),
-                )
-                drawEllipsized(canvas, title, textLeft, rowTop, rowTitlePaint, right - textLeft)
-                drawEllipsized(canvas, meta, textLeft, rowTop + dp(25f), metaPaint, right - textLeft)
-            }
-        }
-
-        val updatedPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_TERTIARY
-            textSize = sp(12f)
-            textAlign = Paint.Align.RIGHT
-        }
-        canvas.drawText(formatUpdatedAt(context), right, heightPx - dp(18f), updatedPaint)
-        return bitmap
-    }
-
-    private fun drawEventIcon(
-        context: Context,
-        canvas: Canvas,
-        event: ManagerEvent,
-        left: Float,
-        top: Float,
-        size: Float,
-        radius: Float,
-    ) {
-        val icon = runCatching {
-            context.packageManager.getApplicationIcon(event.packageName).mutate()
-        }.getOrNull()
-        val iconRect = RectF(left, top, left + size, top + size)
-        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_ICON_BACKGROUND
-            style = Paint.Style.FILL
-        }
-        canvas.drawRoundRect(iconRect, radius, radius, backgroundPaint)
-        if (icon == null) {
-            drawIconPlaceholder(canvas, iconRect, event)
-            return
-        }
-
-        val path = Path().apply {
-            addRoundRect(iconRect, radius, radius, Path.Direction.CW)
-        }
-        canvas.withSave {
-            clipPath(path)
-            icon.setBounds(
-                iconRect.left.toInt(),
-                iconRect.top.toInt(),
-                iconRect.right.toInt(),
-                iconRect.bottom.toInt(),
-            )
-            icon.draw(this)
-        }
-    }
-
-    private fun drawIconPlaceholder(canvas: Canvas, iconRect: RectF, event: ManagerEvent) {
-        val label = (event.appName ?: event.packageName)
-            .trim()
-            .takeIf { it.isNotEmpty() }
-            ?.first()
-            ?.uppercaseChar()
-            ?.toString()
-            ?: "-"
-        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_TEXT_SECONDARY
-            textSize = iconRect.height() * 0.46f
-            textAlign = Paint.Align.CENTER
-            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-        }
-        val centerY = iconRect.centerY() - (paint.descent() + paint.ascent()) / 2f
-        canvas.drawText(label, iconRect.centerX(), centerY, paint)
-    }
-
-    private fun drawEllipsized(
-        canvas: Canvas,
-        text: String,
-        x: Float,
-        baseline: Float,
-        paint: TextPaint,
-        maxWidth: Float,
-    ) {
-        val safeText = text.ifBlank { "-" }
-        val ellipsized = TextUtils.ellipsize(safeText, paint, maxWidth, TextUtils.TruncateAt.END)
-        canvas.drawText(ellipsized.toString(), x, baseline, paint)
-    }
+private fun ManagerEvent.displayMetaLine(): String {
+    val timeChannel = listOf(formatEventTime(receiveDateMs), channel.takeIf { it.isNotBlank() })
+        .filterNotNull()
+        .joinToString("  ")
+    return listOf(timeChannel, content.ifBlank { null })
+        .filterNotNull()
+        .joinToString(" · ")
 }
 
 private fun formatUpdatedAt(context: Context): String {

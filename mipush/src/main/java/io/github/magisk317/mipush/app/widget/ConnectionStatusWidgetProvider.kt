@@ -4,12 +4,12 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.os.Bundle
 
 class ConnectionStatusWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == MiPushWidgetActions.ACTION_REFRESH_CONNECTION ||
-            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
+            intent.action == MIUI_APPWIDGET_UPDATE
         ) {
             val pendingResult = goAsync()
             MiPushWidgetRunner.launch {
@@ -31,7 +31,7 @@ class ConnectionStatusWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        newOptions: Bundle,
+        newOptions: android.os.Bundle,
     ) {
         MiPushWidgetRunner.launch {
             ConnectionStatusWidgetRenderer.update(context, appWidgetManager, intArrayOf(appWidgetId))

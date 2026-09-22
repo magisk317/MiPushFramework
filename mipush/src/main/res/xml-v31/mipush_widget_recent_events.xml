@@ -3,10 +3,10 @@
     android:description="@string/widget_recent_events_description"
     android:initialLayout="@layout/mipush_widget_recent_events"
     android:minWidth="250dp"
-    android:minHeight="180dp"
+    android:minHeight="250dp"
     android:previewLayout="@layout/mipush_widget_recent_events"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="4"
-    android:targetCellHeight="3"
+    android:targetCellHeight="4"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />
