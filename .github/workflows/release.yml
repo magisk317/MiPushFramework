@@ -17,8 +17,18 @@ jobs:
   validate-release:
     name: Validate Release Metadata
     if: ${{ vars.RELEASE_OWNER == '' || vars.RELEASE_OWNER == 'github' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -41,10 +51,20 @@ jobs:
   build-xmsf-apk:
     name: Build XMSF Release APK
     needs: [validate-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -118,10 +138,20 @@ jobs:
   build-mipush-apk:
     name: Build MiPush Release APK
     needs: [validate-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -162,10 +192,20 @@ jobs:
   build-mipush-aab:
     name: Build MiPush Play Bundle
     needs: [validate-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -205,10 +245,20 @@ jobs:
   build-zygisk-module:
     name: Build Zygisk Module
     needs: [validate-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
-      MIPUSH_ZYGISK_REF: 98433879080ed1139f207f2542b6a91571230201
+      MIPUSH_ZYGISK_REF: 78ec9bbdd04c4dffb3452c7eaa69d16096c244e6
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7
         with:
@@ -271,12 +321,22 @@ jobs:
   create-release:
     name: Create Release
     needs: [build-xmsf-apk, build-mipush-apk, build-mipush-aab, build-zygisk-module]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     env:
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -332,7 +392,7 @@ jobs:
   publish-to-modules-repo:
     name: Publish to Xposed-Modules-Repo
     needs: [create-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     continue-on-error: true
     if: startsWith(github.ref, 'refs/tags/')
     env:
@@ -340,6 +400,16 @@ jobs:
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
       MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -398,11 +468,21 @@ jobs:
     name: Publish MiPush Manager to Google Play
     needs: [create-release, build-mipush-aab]
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       HAS_GOOGLE_PLAY_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS != '' }}
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive

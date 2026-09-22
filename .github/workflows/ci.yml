@@ -7,19 +7,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-on:
-  pull_request:
-  push:
-    branches:
-      - beta
-      - master
+on: workflow_dispatch
 
 jobs:
   detekt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -35,10 +40,20 @@ jobs:
           arguments: --warning-mode all qualityGateDetekt -PminifyDebug -Pkotlin.incremental=false
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -62,12 +77,22 @@ jobs:
           bash scripts/ci/run_test_shards.sh "${selected_shards[@]}"
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
       MAGISK_BUILD_TYPE: debug
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -86,7 +111,7 @@ jobs:
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: --warning-mode all :xmsf:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+          arguments: --warning-mode all :xmsf:assembleDebug :mipush:assembleGithubDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -133,7 +158,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-x86
-          path: xmsf/build/outputs/apk/normal/debug/**/*x86_*.apk
+          path: xmsf/build/outputs/apk/normal/debug/**/*x86_[!6]*.apk
       - name: Upload XMSF Normal Debug APK (x86_64)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
@@ -157,7 +182,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-x86
-          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_*.apk
+          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_[!6]*.apk
       - name: Upload XMSF vc105 Debug APK (x86_64)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
@@ -175,38 +200,48 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-arm64-v8a
-          path: mipush/build/outputs/apk/debug/**/*arm64-v8a*.apk
+          path: mipush/build/outputs/apk/github/debug/**/*arm64-v8a*.apk
       - name: Upload MiPush Debug APK (armeabi-v7a)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-armeabi-v7a
-          path: mipush/build/outputs/apk/debug/**/*armeabi-v7a*.apk
+          path: mipush/build/outputs/apk/github/debug/**/*armeabi-v7a*.apk
       - name: Upload MiPush Debug APK (x86)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86
-          path: mipush/build/outputs/apk/debug/**/*x86_*.apk
+          path: mipush/build/outputs/apk/github/debug/**/*x86_[!6]*.apk
       - name: Upload MiPush Debug APK (x86_64)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86_64
-          path: mipush/build/outputs/apk/debug/**/*x86_64*.apk
+          path: mipush/build/outputs/apk/github/debug/**/*x86_64*.apk
       - name: Upload MiPush Debug APK (universal)
         if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-universal
-          path: mipush/build/outputs/apk/debug/**/*universal*.apk
+          path: mipush/build/outputs/apk/github/debug/**/*universal*.apk
 
   build-zygisk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       MAGISK_BUILD_TYPE: debug
-      MIPUSH_ZYGISK_REF: 98433879080ed1139f207f2542b6a91571230201
+      MIPUSH_ZYGISK_REF: 78ec9bbdd04c4dffb3452c7eaa69d16096c244e6
     steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7
         with:
