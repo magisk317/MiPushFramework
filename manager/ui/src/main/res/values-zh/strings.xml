@@ -546,7 +546,7 @@
     <string name="layout_scale_compact">紧凑</string>
     <string name="layout_scale_standard">标准</string>
     <string name="layout_scale_comfortable">舒适</string>
-    <string name="ui_kit_style_expressive">Material</string>
+    <string name="ui_kit_style_expressive">Expressive</string>
     <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">自动（跟随系统）</string>
     <string name="theme_light">浅色</string>

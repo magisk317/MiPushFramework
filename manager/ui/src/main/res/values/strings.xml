@@ -562,7 +562,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="layout_scale_compact">Compact</string>
     <string name="layout_scale_standard">Standard</string>
     <string name="layout_scale_comfortable">Comfortable</string>
-    <string name="ui_kit_style_expressive">Material</string>
+    <string name="ui_kit_style_expressive">Expressive</string>
     <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">Automatic (Follow System)</string>
     <string name="theme_light">Light</string>
