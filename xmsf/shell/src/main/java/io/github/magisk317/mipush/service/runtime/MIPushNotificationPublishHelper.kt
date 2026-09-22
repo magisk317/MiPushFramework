@@ -11,6 +11,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.annotation.NonNull
 import androidx.core.app.NotificationCompat
@@ -47,7 +48,6 @@ import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.utils.IconConfigurations
-import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
@@ -77,6 +77,10 @@ class MIPushNotificationPublishHelper {
         private const val CONFIGURATION_RETRY_DELAY_MS = 30_000L
         private const val NOTIFICATION_QUEUE_CAPACITY = 16
 
+        /** A sender that sets the `wake` operation cannot hold a wake lock more than once per window. */
+        private const val NOTIFICATION_WAKE_MIN_INTERVAL_MS = 5_000L
+        private const val NOTIFICATION_WAKE_MAX_ENTRIES = 128
+
         @Volatile
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
         private val configurationLoadGate = ConfigurationLoadGate(CONFIGURATION_RETRY_DELAY_MS)
@@ -94,6 +98,11 @@ class MIPushNotificationPublishHelper {
         )
         private val nonDisplayDispatchLock = Any()
         private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
+        private val wakeScreenThrottle = WakeScreenThrottle(
+            clock = { SystemClock.elapsedRealtime() },
+            minimumIntervalMillis = NOTIFICATION_WAKE_MIN_INTERVAL_MS,
+            maxEntries = NOTIFICATION_WAKE_MAX_ENTRIES,
+        )
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
             notificationSessionStartedAtMs = nowMs
@@ -321,23 +330,53 @@ class MIPushNotificationPublishHelper {
             sendMessage: XmPushActionSendMessage?,
             dispatchMessageArrived: Boolean,
         ): MockReplayOutcome {
-            return try {
-                val messageId = MessageIdentity.fromContainer(container)
-                val isMockReplay = MockMessageRegistry.isMarked(container)
-                val operations = Configurations.getInstance().handle(packageName, container)
-                logD(
-                    "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
-                        "messageId=$messageId operations=$operations"
+            val messageId = MessageIdentity.fromContainer(container)
+            val isMockReplay = MockMessageRegistry.isMarked(container)
+            // Configuration evaluation is isolated from delivery: an unreadable or malformed
+            // per-package configuration must not swallow a valid payload. Stock delivers the
+            // message whenever the payload itself is valid, so a failure here degrades to
+            // notify-only (no wake, no open) instead of aborting the whole dispatch.
+            val operations: Set<String>? = try {
+                Configurations.getInstance().handle(packageName, container)
+            } catch (error: Exception) {
+                logW(
+                    "configuration evaluation failed pkg=$packageName messageId=$messageId; " +
+                        "falling back to notify-only",
+                    error,
                 )
-                if (operations.contains(PackageConfig.OPERATION_WAKE)) {
+                PushRuntime.observeNotificationEvent(
+                    packageName = packageName,
+                    action = "policy_evaluation_failed",
+                    source = "MIPushNotificationPublishHelper.handleNotificationByConfigurations"
+                )
+                null
+            }
+            val plan = MIPushNotificationPolicy.resolveDispatchPlan(operations)
+            logD(
+                "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
+                    "messageId=$messageId operations=$operations plan=$plan"
+            )
+            return try {
+                if (plan.wake) {
                     PushRuntime.observeNotificationEvent(
                         packageName = packageName,
                         action = "policy_wake",
                         source = "MIPushNotificationPublishHelper.handleNotificationByConfigurations"
                     )
-                    wakeScreen(context, packageName)
+                    // Wake is an optional side effect: a wake-lock failure must not stop the
+                    // notification from being posted.
+                    try {
+                        wakeScreen(context, packageName)
+                    } catch (error: Exception) {
+                        logW("wake screen failed pkg=$packageName messageId=$messageId", error)
+                        PushRuntime.observeNotificationEvent(
+                            packageName = packageName,
+                            action = "policy_wake_failed",
+                            source = "MIPushNotificationPublishHelper.handleNotificationByConfigurations"
+                        )
+                    }
                 }
-                val notificationOutcome = if (!operations.contains(PackageConfig.OPERATION_IGNORE)) {
+                val notificationOutcome = if (plan.notify) {
                     PushRuntime.observeNotificationEvent(
                         packageName = packageName,
                         action = "policy_notify",
@@ -390,7 +429,7 @@ class MIPushNotificationPublishHelper {
                     }
                     MockReplayOutcome.BlockedByPermission
                 }
-                if (operations.contains(PackageConfig.OPERATION_OPEN)) {
+                if (plan.open) {
                     PushRuntime.observeNotificationEvent(
                         packageName = packageName,
                         action = "policy_open",
@@ -649,6 +688,10 @@ class MIPushNotificationPublishHelper {
         }
 
         private fun wakeScreen(context: Context, sourcePackage: String) {
+            if (!wakeScreenThrottle.tryAcquire(sourcePackage)) {
+                logD("wake screen throttled source=$sourcePackage")
+                return
+            }
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val fullWakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
