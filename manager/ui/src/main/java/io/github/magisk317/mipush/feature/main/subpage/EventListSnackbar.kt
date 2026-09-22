@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import io.github.magisk317.uikit.common.AppSnackbarHost
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 
 /** Shared event-tab snackbar host used by both Miuix and Expressive chrome. */
 @Composable

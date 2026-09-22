@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -64,7 +65,7 @@ import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.core.configuration.ConfigContentSource
@@ -215,6 +216,7 @@ fun Configurations(
         }
     }
     val listState = rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
     ReportLazyListScrollToChrome(listState, scrollChromeState)
 
     if (editingRemoteSourceType != null) {
@@ -388,6 +390,7 @@ fun Configurations(
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
             listState = listState,
+            scrollScope = scrollScope,
             body = body,
         )
 
@@ -396,6 +399,7 @@ fun Configurations(
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
             listState = listState,
+            scrollScope = scrollScope,
             body = body,
         )
     }

@@ -45,7 +45,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.preference.AppSwitch
 import io.github.magisk317.uikit.surface.DetailDivider
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppIconImage
@@ -78,6 +78,7 @@ class ZygiskConfigPage : ComponentActivity() {
         val snackbarHostState = remember { AppSnackbarHostState() }
         val scope = rememberCoroutineScope()
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val scrollScope = rememberCoroutineScope()
         val saveSuccessMessage = stringResource(R.string.zygisk_save_success)
         val saveFailedMessage = stringResource(R.string.zygisk_save_failed)
         
@@ -184,6 +185,8 @@ class ZygiskConfigPage : ComponentActivity() {
         when (currentUiKitStyle()) {
             UiKitStyle.Miuix -> ZygiskConfigMiuix(
                 title = stringResource(R.string.zygisk_status),
+                listState = listState,
+                scrollScope = scrollScope,
                 snackbarHostState = snackbarHostState,
                 floatingActionButton = saveFab,
                 body = body,
@@ -191,6 +194,8 @@ class ZygiskConfigPage : ComponentActivity() {
 
             UiKitStyle.Expressive -> ZygiskConfigExpressive(
                 title = stringResource(R.string.zygisk_status),
+                listState = listState,
+                scrollScope = scrollScope,
                 snackbarHostState = snackbarHostState,
                 floatingActionButton = saveFab,
                 body = body,

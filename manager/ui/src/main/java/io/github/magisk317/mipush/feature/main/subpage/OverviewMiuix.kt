@@ -46,8 +46,6 @@ import io.github.magisk317.uikit.common.AppSnackbarHost
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.surface.AppCard
 import io.github.magisk317.uikit.surface.chromeSurfaceColor
-import io.github.magisk317.uikit.surface.surfaceBlurContainerColor
-import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -92,7 +90,7 @@ internal fun OverviewMiuix(
                 // The status card below owns the connection readout now, so the old top-bar
                 // dot/label indicator would only repeat it.
                 scrollBehavior = scrollBehavior,
-                color = if (glassOn) Color.Transparent else MiuixTheme.colorScheme.surface,
+                color = if (glassOn) Color.Transparent else chromeSurfaceColor(),
                 defaultWindowInsetsPadding = true,
             )
         },

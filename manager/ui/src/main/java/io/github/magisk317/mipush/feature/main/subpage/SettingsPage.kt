@@ -20,6 +20,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -34,7 +35,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.xposed.permission.PermissionBridge
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,7 @@ fun Settings(
 ) {
     val snackbarHostState = remember { AppSnackbarHostState() }
     val scrollState = rememberScrollState()
+    val scrollScope = rememberCoroutineScope()
 
     val body: @Composable (PaddingValues, Modifier) -> Unit = { listPadding, scrollModifier ->
         SettingsBody(
@@ -82,6 +84,7 @@ fun Settings(
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
             scrollState = scrollState,
+            scrollScope = scrollScope,
             snackbarHostState = snackbarHostState,
             body = body,
         )
@@ -90,6 +93,7 @@ fun Settings(
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
             scrollState = scrollState,
+            scrollScope = scrollScope,
             snackbarHostState = snackbarHostState,
             body = body,
         )

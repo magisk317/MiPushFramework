@@ -50,7 +50,7 @@ import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
 import io.github.magisk317.uikit.surface.InfoPill
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import java.time.Instant
 import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel

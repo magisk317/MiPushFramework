@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.billing.BillingProvider

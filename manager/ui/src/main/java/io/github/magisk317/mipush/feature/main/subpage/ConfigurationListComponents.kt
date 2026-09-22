@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceListItem
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.core.configuration.ConfigListItem
 
