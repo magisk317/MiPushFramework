@@ -3,6 +3,14 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.5] - 2026-09-22
+- 版本：`versionCode 16` / `versionName 1.0.5`。
+- 待补充。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.4...v1.0.5
+
+---
+
 ## [v1.0.4] - 2026-09-22
 - 版本：`versionCode 15` / `versionName 1.0.4`。
 - `[overview]` 管理端首页新增连接状态卡片。
