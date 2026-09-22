@@ -126,6 +126,11 @@ class RuntimeSettingsAdapter constructor(
             lastReconnectLatencyMs = snapshot.lastReconnectLatencyMs,
             lastDisconnectToReconnectLatencyMs = snapshot.lastDisconnectToReconnectLatencyMs,
             lastReconnectToConnectedLatencyMs = snapshot.lastReconnectToConnectedLatencyMs,
+            // Read directly from the runtime process: HookPushNC flips this to true only after the
+            // notification takeover hooks are actually installed, so it is the authoritative
+            // "module is active" signal for the manager UI.
+            moduleHooked = io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked,
+            identityHooked = com.xiaomi.push.service.NotificationIdentityBridge.isHooked,
         )
     }
 }

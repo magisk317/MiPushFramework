@@ -153,6 +153,7 @@ private fun ConnectionStatusBody(
             )
         } else {
             ConnectionStateHeader(data)
+            ModuleHookSection(data)
             XmppServerEditor { uiState, onEditHost ->
                 ServerSection(
                     data = data,
@@ -210,6 +211,29 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * Xposed hook readiness. These two flags are the difference between MiPush owning notification
+ * delivery through the system hooks and falling back to posting locally as XMSF, so they belong in
+ * diagnostics rather than on the home card.
+ */
+@Composable
+private fun ModuleHookSection(data: ManagerConnectionSnapshot) {
+    val active = stringResource(R.string.connection_status_module_hooked)
+    val inactive = stringResource(R.string.connection_status_module_not_hooked)
+    DetailSectionCard(title = stringResource(R.string.connection_status_section_module)) {
+        InfoRow(
+            label = stringResource(R.string.connection_status_module_notification_hook),
+            value = if (data.moduleHooked) active else inactive,
+            summary = stringResource(R.string.connection_status_module_notification_hook_summary),
+        )
+        InfoRow(
+            label = stringResource(R.string.connection_status_module_identity_hook),
+            value = if (data.identityHooked) active else inactive,
+            summary = stringResource(R.string.connection_status_module_identity_hook_summary),
+        )
     }
 }
 

@@ -50,4 +50,11 @@ data class ManagerConnectionSnapshot(
     val lastReconnectLatencyMs: Long = 0L,
     val lastDisconnectToReconnectLatencyMs: Long = 0L,
     val lastReconnectToConnectedLatencyMs: Long = 0L,
+    /**
+     * True when the Xposed notification takeover hooks are installed in the runtime
+     * (`NotificationManagerEx.isHooked`). This is the manager-visible "module active" signal.
+     */
+    val moduleHooked: Boolean = false,
+    /** True when the notification identity bridge is hooked (`NotificationIdentityBridge.isHooked`). */
+    val identityHooked: Boolean = false,
 )

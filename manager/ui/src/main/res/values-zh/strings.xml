@@ -259,10 +259,10 @@
     <string name="settings_XMPP_server_save_failed">XMPP 服务器更新失败</string>
     <string name="settings_permission_check">权限检查</string>
     <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
-    <string name="settings_connection_status">连接状态</string>
+    <string name="settings_connection_status">诊断</string>
     <string name="settings_connection_status_summary">查看实时 XMPP 连接详情与统计数据。</string>
 
-    <string name="connection_status_title">连接状态</string>
+    <string name="connection_status_title">诊断</string>
     <string name="connection_status_loading">加载中…</string>
     <string name="connection_status_state_connected">已连接</string>
     <string name="connection_status_state_connecting">连接中</string>
@@ -272,6 +272,13 @@
     <string name="connection_status_reconnect_requested">已请求重新连接</string>
     <string name="connection_status_reconnect_failed">无法请求重新连接</string>
     <string name="connection_status_session_count">会话 #%1$d</string>
+    <string name="connection_status_section_module">模块挂钩</string>
+    <string name="connection_status_module_notification_hook">通知接管</string>
+    <string name="connection_status_module_notification_hook_summary">NotificationManagerEx 已挂钩，系统以目标应用身份发送通知。</string>
+    <string name="connection_status_module_identity_hook">身份桥</string>
+    <string name="connection_status_module_identity_hook_summary">NotificationIdentityBridge 已挂钩，渠道身份按目标应用解析。</string>
+    <string name="connection_status_module_hooked">已生效</string>
+    <string name="connection_status_module_not_hooked">未生效</string>
     <string name="connection_status_section_server">服务器</string>
     <string name="connection_status_host">主机</string>
     <string name="connection_status_host_summary">XMPP 服务器主机名</string>
@@ -637,6 +644,8 @@
     <string name="app_detail_notifications">通知与渠道</string>
     <string name="app_detail_block">拉黑此应用</string>
     <string name="app_detail_block_summary">拉黑后，该应用的所有推送消息、注册请求和事件记录都将被忽略。</string>
+    <string name="app_detail_click_fallback">点击兜底（打开应用主页）</string>
+    <string name="app_detail_click_fallback_summary">点击该应用的通知时打开应用主页，而不是跟随推送的深度链接。默认关闭；仅当正常跳转异常时开启。</string>
     <string name="app_detail_redirect_click">点击打开其他应用</string>
     <string name="app_detail_redirect_click_summary">通知仍显示为当前应用；点击后打开你指定的应用。功能开发中。</string>
     <string name="app_detail_redirect_click_in_development">「点击打开其他应用」功能开发中</string>
@@ -655,6 +664,8 @@
     <string name="overview_chart_not_integrated_label">未接入</string>
     <string name="overview_chart_registered_label">已注册</string>
     <string name="overview_chart_unregistered_label">未注册</string>
+    <string name="overview_status_working">工作中</string>
+    <string name="overview_status_not_connected">未连接</string>
     <string name="overview_version_format">版本 %1$s</string>
     <string name="overview_version_code_label">版本号</string>
     <string name="commit_info">提交信息</string>
@@ -755,10 +766,12 @@
     <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
     <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
     <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
-    <string name="runtime_missing_dialog_exit">退出</string>
+    <string name="dialog_acknowledge">我知道了</string>
     <string name="legacy_module_dialog_title">检测到旧版 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到旧模块 com.nihility.mipush，请卸载后重新打开管理器</string>
-    <string name="legacy_module_dialog_exit">退出管理器</string>
+    <string name="runtime_commit_mismatch_dialog_title">模块与 xmsf 版本不匹配</string>
+    <string name="runtime_commit_mismatch_dialog_message">检测到管理器模块与 xmsf 运行时的构建提交不一致（模块 %1$s，运行时 %2$s）。版本错配可能导致通知重复、点击无响应等问题，请安装配套版本的两个 APK。</string>
+    <string name="runtime_commit_mismatch_toast">模块与 xmsf 版本不匹配，通知功能可能异常</string>
 
     <string name="pref_theme_group_color">色彩</string>
     <string name="pref_theme_group_navigation">导航栏</string>

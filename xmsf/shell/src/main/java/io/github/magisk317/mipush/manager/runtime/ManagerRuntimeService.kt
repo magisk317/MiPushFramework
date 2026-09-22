@@ -8,6 +8,7 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Process
 import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
@@ -109,11 +110,13 @@ class ManagerRuntimeService : Service() {
                     maxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
                     compatibilityReason = compatibility.reason,
+                    runtimeCommit = BuildConfig.GIT_COMMIT,
                 ).also { handshake ->
                     val durationMs = android.os.SystemClock.elapsedRealtime() - started
                     logI(
                         "ManagerRuntime handshake client=$clientMajor.$clientMinor " +
                             "compat=${handshake.compatibilityReason} " +
+                            "commit=${handshake.runtimeCommit} " +
                             "caps=${handshake.supportedCapabilities.size} " +
                             "tookMs=$durationMs",
                     )
@@ -445,6 +448,8 @@ internal fun ManagerConnectionSnapshot.toWireDto(): ManagerConnectionSnapshotDto
         lastReconnectLatencyMs = lastReconnectLatencyMs,
         lastDisconnectToReconnectLatencyMs = lastDisconnectToReconnectLatencyMs,
         lastReconnectToConnectedLatencyMs = lastReconnectToConnectedLatencyMs,
+        moduleHooked = moduleHooked,
+        identityHooked = identityHooked,
     )
 
 private fun io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot.toWireDto():
@@ -493,6 +498,7 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
         registeredType = registeredType,
         existServices = existServices,
         appName = appName,
@@ -510,6 +516,7 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
         registeredType = registeredType,
         existServices = existServices,
         appName = appName,

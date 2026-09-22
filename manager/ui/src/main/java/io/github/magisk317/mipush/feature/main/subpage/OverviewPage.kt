@@ -83,6 +83,12 @@ internal data class OverviewUiState(
     val runtimeVersionName: String?,
     val appVersionName: String?,
     val appVersionCode: String,
+    /**
+     * Raw runtime connection state (`ManagerProtocol.CONNECTION_STATE_*`). The Miuix status card is
+     * driven by this rather than by the hook flag: hook state is a diagnostic detail and now lives
+     * on the diagnostics page, while the home card answers "is push actually connected".
+     */
+    val connectionState: String? = null,
 )
 
 /**
@@ -92,8 +98,10 @@ internal data class OverviewUiState(
 internal class OverviewActions(
     val onConnectionStatusClick: () -> Unit,
     val onJoinTelegram: () -> Unit,
+    val onJoinQqChannel: () -> Unit,
     val onSourceCode: () -> Unit,
     val onDonate: () -> Unit,
+    val onStatusCardClick: () -> Unit = {},
 )
 
 @Composable
@@ -113,6 +121,16 @@ fun Overview(
     val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
     val runtimeVersionName by overviewViewModel.runtimeVersionName.collectAsState()
+    // Same activity-scoped instance that drives the diagnostics page, so the status card rides
+    // along with the auto-refreshing connection snapshot instead of adding a second remote poll.
+    val connectionStatusViewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
+        koinViewModel()
+    val connectionSnapshot by connectionStatusViewModel.snapshot.collectAsState()
+    // The Miuix card is the only connection readout on this page now that the top-bar indicator is
+    // gone, so the page itself has to keep the snapshot fresh.
+    LaunchedEffect(Unit) {
+        connectionStatusViewModel.startAutoRefresh()
+    }
     var hasLoadedStats by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(isActive) {
         if (!isActive || hasLoadedStats) return@LaunchedEffect
@@ -134,12 +152,15 @@ fun Overview(
         runtimeVersionName = runtimeVersionName,
         appVersionName = appVersionName,
         appVersionCode = appVersionCode,
+        connectionState = connectionSnapshot?.connectionState,
     )
     val actions = OverviewActions(
         onConnectionStatusClick = onNavigateToConnectionStatus,
         onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
+        onJoinQqChannel = { mainActivityOperation.gotoQqChannel() },
         onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
         onDonate = { showDonateDialog = true },
+        onStatusCardClick = onNavigateToConnectionStatus,
     )
 
     when (currentUiKitStyle()) {

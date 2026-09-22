@@ -46,7 +46,7 @@ object ManagerProtocol {
     const val CAPABILITY_CONFIGURATION_UPLOAD = "configuration_upload"
     const val CAPABILITY_WRITE_COMMANDS = "write_commands"
     const val CAPABILITY_RUNTIME_ENVIRONMENT = "runtime_environment"
-    const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 1
+    const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 2
     const val RUNTIME_ENVIRONMENT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
@@ -162,6 +162,7 @@ object ManagerProtocol {
     const val MAX_CAPABILITY_LENGTH = ManagerContractLimits.MAX_CAPABILITY_LENGTH
     const val MAX_RUNTIME_VERSION_NAME_LENGTH = ManagerContractLimits.MAX_RUNTIME_VERSION_NAME_LENGTH
     const val MAX_COMPATIBILITY_REASON_LENGTH = ManagerContractLimits.MAX_COMPATIBILITY_REASON_LENGTH
+    const val MAX_RUNTIME_COMMIT_LENGTH = ManagerContractLimits.MAX_RUNTIME_COMMIT_LENGTH
     const val MAX_WIRE_STRING_LENGTH = ManagerContractLimits.MAX_WIRE_STRING_LENGTH
     const val MAX_APPLICATION_QUERY_LENGTH = ManagerContractLimits.MAX_APPLICATION_QUERY_LENGTH
     const val MAX_PACKAGE_NAME_LENGTH = ManagerContractLimits.MAX_PACKAGE_NAME_LENGTH

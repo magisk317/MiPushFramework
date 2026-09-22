@@ -121,6 +121,8 @@ private fun ManagerConnectionSnapshotDto.toManagerConnectionSnapshot(): ManagerC
         lastReconnectLatencyMs = lastReconnectLatencyMs,
         lastDisconnectToReconnectLatencyMs = lastDisconnectToReconnectLatencyMs,
         lastReconnectToConnectedLatencyMs = lastReconnectToConnectedLatencyMs,
+        moduleHooked = moduleHooked,
+        identityHooked = identityHooked,
     )
 
 private fun ManagerRuntimeAvailability.toConnectionSnapshotSourceStatus(): ConnectionSnapshotSourceStatus =

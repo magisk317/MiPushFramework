@@ -300,10 +300,10 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_XMPP_server_save_failed">Could not update XMPP server</string>
     <string name="settings_permission_check">Permission check</string>
     <string name="settings_permission_check_summary">Re-open the permission guide and grant missing permissions.</string>
-    <string name="settings_connection_status">Connection status</string>
+    <string name="settings_connection_status">Diagnostics</string>
     <string name="settings_connection_status_summary">View real-time XMPP connection details and statistics.</string>
 
-    <string name="connection_status_title">Connection Status</string>
+    <string name="connection_status_title">Diagnostics</string>
     <string name="connection_status_loading">Loading…</string>
     <string name="connection_status_state_connected">Connected</string>
     <string name="connection_status_state_connecting">Connecting</string>
@@ -313,6 +313,13 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="connection_status_reconnect_requested">Reconnect requested</string>
     <string name="connection_status_reconnect_failed">Unable to request reconnect</string>
     <string name="connection_status_session_count">Session #%1$d</string>
+    <string name="connection_status_section_module">Module hooks</string>
+    <string name="connection_status_module_notification_hook">Notification takeover</string>
+    <string name="connection_status_module_notification_hook_summary">NotificationManagerEx is hooked, so the system posts notifications as the target app.</string>
+    <string name="connection_status_module_identity_hook">Identity bridge</string>
+    <string name="connection_status_module_identity_hook_summary">NotificationIdentityBridge is hooked, so channel identity resolves against the target app.</string>
+    <string name="connection_status_module_hooked">Active</string>
+    <string name="connection_status_module_not_hooked">Inactive</string>
     <string name="connection_status_section_server">Server</string>
     <string name="connection_status_host">Host</string>
     <string name="connection_status_host_summary">XMPP server hostname</string>
@@ -653,6 +660,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_notifications">Notifications &amp; channels</string>
     <string name="app_detail_block">Block this app</string>
     <string name="app_detail_block_summary">Block all push messages, registrations, and event records for this app.</string>
+    <string name="app_detail_click_fallback">Launcher fallback on click</string>
+    <string name="app_detail_click_fallback_summary">When this app\'s notification is tapped, open its home screen instead of following the pushed deep link. Off by default; enable it only if the normal route misbehaves.</string>
     <string name="app_detail_redirect_click">Open another app on click</string>
     <string name="app_detail_redirect_click_summary">Keep this app notification appearance; open a chosen app when tapped. Coming soon.</string>
     <string name="app_detail_redirect_click_in_development">Open another app on click is under development</string>
@@ -671,6 +680,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_chart_not_integrated_label">Not integrated</string>
     <string name="overview_chart_registered_label">Registered</string>
     <string name="overview_chart_unregistered_label">Not registered</string>
+    <string name="overview_status_working">Working</string>
+    <string name="overview_status_not_connected">Not connected</string>
     <string name="overview_version_format">Version %1$s</string>
     <string name="overview_version_code_label">Version code</string>
     <string name="commit_info">Commit information</string>
@@ -765,10 +776,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_enable_analytics_summary">Allow anonymous analytics for channel usage, success rates, crashes and technical diagnostics.</string>
     <string name="runtime_missing_dialog_title">Usable xmsf not detected</string>
     <string name="runtime_missing_dialog_message">The xmsf runtime may be missing or incompatible. Install the matching xmsf runtime, then reopen Manager.</string>
-    <string name="runtime_missing_dialog_exit">Exit</string>
+    <string name="dialog_acknowledge">Got it</string>
     <string name="legacy_module_dialog_title">Legacy MiPush module detected</string>
     <string name="legacy_module_dialog_message">Legacy module com.nihility.mipush detected. Uninstall it, then reopen Manager.</string>
-    <string name="legacy_module_dialog_exit">Exit</string>
+    <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
+    <string name="runtime_commit_mismatch_dialog_message">The manager module and the xmsf runtime were built from different commits (module %1$s, runtime %2$s). A mismatch can cause duplicate notifications or dead notification clicks. Install matching builds of both APKs.</string>
+    <string name="runtime_commit_mismatch_toast">Module and xmsf versions mismatch; notifications may misbehave</string>
 
     <string name="pref_theme_group_color">Color</string>
     <string name="pref_theme_group_navigation">Navigation bar</string>

@@ -46,6 +46,10 @@ data class ManagerConnectionSnapshotDto(
     val lastReconnectLatencyMs: Long = 0L,
     val lastDisconnectToReconnectLatencyMs: Long = 0L,
     val lastReconnectToConnectedLatencyMs: Long = 0L,
+    /** Runtime-side `NotificationManagerEx.isHooked`: the Xposed takeover is installed. */
+    val moduleHooked: Boolean = false,
+    /** Runtime-side `NotificationIdentityBridge.isHooked`: the identity bridge is hooked. */
+    val identityHooked: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -90,6 +94,8 @@ data class ManagerConnectionSnapshotDto(
             writeLong(lastReconnectLatencyMs)
             writeLong(lastDisconnectToReconnectLatencyMs)
             writeLong(lastReconnectToConnectedLatencyMs)
+            writeWireBoolean(moduleHooked)
+            writeWireBoolean(identityHooked)
         }
     }
 
@@ -142,6 +148,10 @@ data class ManagerConnectionSnapshotDto(
                         lastReconnectLatencyMs = readLong(),
                         lastDisconnectToReconnectLatencyMs = readLong(),
                         lastReconnectToConnectedLatencyMs = readLong(),
+                        // Appended after schema 1: a runtime that predates this field simply
+                        // truncates the frame here and the manager falls back to "not hooked".
+                        moduleHooked = readBoolean(false),
+                        identityHooked = readBoolean(false),
                     )
                 }
 

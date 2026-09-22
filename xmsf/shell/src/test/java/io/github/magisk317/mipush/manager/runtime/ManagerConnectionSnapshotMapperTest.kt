@@ -24,6 +24,8 @@ class ManagerConnectionSnapshotMapperTest {
             registeredPackageCount = 20,
             trackedChannelCount = 21,
             boundChannelCount = 22,
+            moduleHooked = true,
+            identityHooked = true,
         )
 
         val wire = source.toWireDto()
@@ -44,5 +46,7 @@ class ManagerConnectionSnapshotMapperTest {
         assertEquals(source.registeredPackageCount, wire.registeredPackageCount)
         assertEquals(source.trackedChannelCount, wire.trackedChannelCount)
         assertEquals(source.boundChannelCount, wire.boundChannelCount)
+        assertEquals(source.moduleHooked, wire.moduleHooked)
+        assertEquals(source.identityHooked, wire.identityHooked)
     }
 }
