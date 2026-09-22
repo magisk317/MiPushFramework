@@ -33,6 +33,15 @@ internal object StockNotificationMetadataBridge {
     private const val DISABLE_NOTIFICATION_FLAGS = "disable_notification_flags"
     private const val MILLIS_PER_SECOND = 1_000L
 
+    /**
+     * Payload metadata keys copied verbatim under the stock SystemUI names.
+     *
+     * `use_clicked_activity` is the only carrier of the "click opens an activity rather than a
+     * service" decision. Stock reads it through `CustomConfiguration.useClickedActivity`; this
+     * product owns the click route itself (the pending intent shape follows the payload, and the
+     * fallback follows the per-app `click_fallback_enabled` switch), so the field is forwarded to
+     * SystemUI here and deliberately has no `CustomConfiguration` accessor.
+     */
     private val stringMappings = mapOf(
         "use_clicked_activity" to "xmsf.stat.useNCA",
         "high_priority_event" to "xmsf.stat.highPriorityEvent",
