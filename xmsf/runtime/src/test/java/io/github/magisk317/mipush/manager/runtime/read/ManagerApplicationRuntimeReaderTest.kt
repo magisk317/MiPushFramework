@@ -407,6 +407,7 @@ class ManagerApplicationRuntimeReaderTest {
                 blocked = false,
                 islandEnabled = true,
                 islandFocusNotification = false,
+                clickFallbackEnabled = false,
                 registeredType = registeredType,
                 appName = appName,
             )

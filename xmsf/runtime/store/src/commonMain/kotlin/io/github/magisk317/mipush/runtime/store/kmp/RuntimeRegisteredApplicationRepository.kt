@@ -21,6 +21,10 @@ interface RuntimeRegisteredApplicationStore {
     suspend fun updateBlocked(id: Long, blocked: Boolean, userId: Int): Int
 
     suspend fun isBlocked(packageName: String, userId: Int): Boolean?
+
+    suspend fun isClickFallbackEnabled(packageName: String, userId: Int): Boolean?
+
+    suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
 }
 
 data class RuntimeRegisteredApplicationRegistration(
@@ -97,6 +101,12 @@ class RuntimeRegisteredApplicationRepository(
 
     suspend fun isBlocked(packageName: String): Boolean =
         store.isBlocked(packageName, userId) ?: false
+
+    suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean): Int =
+        store.updateClickFallbackEnabled(id, enabled, userId)
+
+    suspend fun isClickFallbackEnabled(packageName: String): Boolean =
+        store.isClickFallbackEnabled(packageName, userId) ?: false
 
     suspend fun getIslandSettings(packageName: String): RuntimeIslandSettings? =
         store.getByPackageName(packageName, userId)?.let {

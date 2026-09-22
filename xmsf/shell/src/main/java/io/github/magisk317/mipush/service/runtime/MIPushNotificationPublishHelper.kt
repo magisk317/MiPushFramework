@@ -53,7 +53,6 @@ import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
-import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.CoroutineScope

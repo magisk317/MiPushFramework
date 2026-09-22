@@ -145,5 +145,6 @@ internal fun ManagerApplication.toRegisteredApplicationRow(): RuntimeRegisteredA
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
         userId = userId,
     )

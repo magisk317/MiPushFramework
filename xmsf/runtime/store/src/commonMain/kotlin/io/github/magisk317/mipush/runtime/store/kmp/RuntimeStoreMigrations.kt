@@ -9,7 +9,7 @@ import androidx.sqlite.execSQL
  *
  * The SQL is intentionally kept in the KMP storage module so the database definition,
  * driver, and migration contract share one owner. The schema is unchanged from xmsf's
- * former Android Room database (v9), which allows existing `db` files to be opened in
+ * former Android Room database (v10), which allows existing `db` files to be opened in
  * place without a copy or destructive fallback.
  */
 object RuntimeStoreMigrations {
@@ -152,6 +152,19 @@ object RuntimeStoreMigrations {
         }
     }
 
+    /**
+     * v10 adds the per-app click-fallback flag. Existing rows default to 0 (off), which keeps
+     * every app on the normal SDK click route until the user opts in from the manager's app
+     * detail page.
+     */
+    val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN click_fallback_enabled INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -161,5 +174,6 @@ object RuntimeStoreMigrations {
         MIGRATION_6_7,
         MIGRATION_7_8,
         MIGRATION_8_9,
+        MIGRATION_9_10,
     )
 }

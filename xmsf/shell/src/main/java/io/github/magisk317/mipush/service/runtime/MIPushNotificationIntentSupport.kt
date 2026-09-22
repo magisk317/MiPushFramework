@@ -11,6 +11,7 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.net.Uri
@@ -18,8 +19,9 @@ import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
-import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -36,12 +38,23 @@ internal object MIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
     internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
 
-    internal fun shouldUseLauncherFallback(packageName: String?): Boolean =
-        NotificationClickFallbackContract.shouldUseLauncherFallback(packageName)
+    internal fun shouldUseLauncherFallback(packageName: String?): Boolean {
+        val pkg = packageName?.takeIf(String::isNotBlank) ?: return false
+        // Per-app fallback lives in the runtime store (REGISTERED_APPLICATION.click_fallback_enabled,
+        // default off). A store failure must never break click routing, so it degrades to the
+        // normal SDK route instead of the fallback.
+        return runCatching { RegisteredApplicationDb.isClickFallbackEnabled(pkg) }.getOrDefault(false)
+    }
 
     private const val BRIDGE_ACTIVITY_CLASS = "com.xiaomi.mipush.sdk.BridgeActivity"
     private val BRIDGE_ACTIVITY_FLAGS =
         Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+
+    // In-app push SDKs whose click targets must be rebuilt by the target app's own message
+    // receiver instead of being carried by the payload (see isReceiverBuiltClickTarget).
+    // Extend only when another SDK shows the same "bare component needs receiver-built
+    // data" signature.
+    private val RECEIVER_BUILT_CLICK_TARGET_PREFIXES = listOf("cn.richinfo.richpush.")
 
     private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
     private const val STYLE_TYPE_VOIP = "6"
@@ -146,6 +159,7 @@ internal object MIPushNotificationIntentSupport {
         notificationId: Int,
         extra: Bundle?,
         sendMessage: XmPushActionSendMessage?,
+        targetPackageName: String = MIPushNotificationHelper.getTargetPackage(container),
     ): PendingIntent? {
         val metaInfo = container.metaInfo ?: return null
         val messageId = metaInfo.id.orEmpty()
@@ -182,14 +196,14 @@ internal object MIPushNotificationIntentSupport {
             applyPendingIntentIdentity(this, container.packageName, notificationId, messageId)
         }
 
-        if (NotificationClickFallbackContract.shouldUseLauncherFallback(container.packageName)) {
+        if (shouldUseLauncherFallback(targetPackageName)) {
             buildLauncherFallbackPendingIntent(
                 context = context,
-                packageName = container.packageName,
+                packageName = targetPackageName,
                 notificationId = notificationId,
                 messageId = messageId,
             )?.let {
-                logClickRoute("launcher_fallback", container.packageName, notificationId)
+                logClickRoute("launcher_fallback", targetPackageName, notificationId)
                 return it
             }
         }
@@ -203,8 +217,37 @@ internal object MIPushNotificationIntentSupport {
                 activityIntent.putExtra(PushMessageHelper.KEY_MESSAGE, message)
             }
             applyPendingIntentIdentity(activityIntent, container.packageName, notificationId, messageId)
-            logClickRoute("sdk_activity", container.packageName, notificationId)
-            return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            // applyPendingIntentIdentity stamps data=mipush-action://... onto payload intents that
+            // carry no data of their own. Intent filters without any <data> declaration (for
+            // example Meituan's HWPushDetailActivity for dpmtpush.action.xiaomipush) stop matching
+            // once that URI is attached, so AMS fails the click with "unable to resolve Intent"
+            // (result code=-91) even though the same intent resolved cleanly inside getSdkIntent
+            // before the identity was applied. Re-resolve the final intent here; if the identity
+            // broke matching, drop the data (keeping the identity as Intent.identifier, which
+            // never participates in filter matching) and re-check. If it still does not resolve,
+            // fall through to the app-side BridgeActivity / XMSF service dispatch routes.
+            if (isClickIntentResolvable(context, activityIntent)) {
+                logClickRoute("sdk_activity", container.packageName, notificationId)
+                return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            }
+            val identity = pendingIntentIdentity(
+                container.packageName,
+                notificationId,
+                messageId,
+            ).toString()
+            activityIntent.data = null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                activityIntent.identifier = identity
+            }
+            if (isClickIntentResolvable(context, activityIntent)) {
+                logW(
+                    "$TAG sdk click identity data dropped to keep resolution: pkg=${container.packageName} " +
+                        "action=${activityIntent.action}"
+                )
+                logClickRoute("sdk_activity_nodata", container.packageName, notificationId)
+                return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            }
+            logW("$TAG sdk click intent unresolved after identity drop, fall through: pkg=${container.packageName}")
         }
 
         // Prefer the target app's own BridgeActivity so the click launches in the target
@@ -353,18 +396,105 @@ internal object MIPushNotificationIntentSupport {
         }
 
         val intent = buildIntentFromEffect(context, pkgName, extra) ?: return null
+        if (isReceiverBuiltClickTarget(intent)) {
+            // A payload pointing at a receiver-built click target carries no landing parameters
+            // of its own; starting that activity from XMSF lands the click in an activity that
+            // cannot resolve its target and dies silently. Report the intent as unavailable so
+            // callers fall back to the app-side routes (BridgeActivity, the XMSF service click
+            // dispatch, or the launcher pull-up), where the app's own receiver rebuilds the
+            // intent. Known case: China Mobile's cn.richinfo.richpush.ClickResultActivity.
+            logW(
+                "$TAG receiver-built click target, skip: pkg=$pkgName " +
+                    "component=${intent.component?.flattenToShortString()}"
+            )
+            return null
+        }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val available = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+        val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         ExplicitHookBridge.onIntentAvailabilityChecked(
             intent,
-            available,
+            resolveInfo != null,
             "MIPushNotificationIntentSupport.getSdkIntent"
         )
-        if (!available || inFetchIntentBlackList(pkgName)) {
+        val activityInfo = resolveInfo?.activityInfo
+        if (activityInfo == null) {
+            return null
+        }
+        if (!isStartableFromXmsfProcess(context, activityInfo)) {
+            // The payload-declared click activity lives in the target app's UID while XMSF runs
+            // as its own, non-platform-signed UID. A non-exported component (for example Baidu
+            // push's com.baidu.android.pushservice.xmproxy.XmNotifyActivity) rejects the cross-UID
+            // start with SecurityException, which consumes the click and launches nothing. Report
+            // the intent as unavailable so callers fall through to the app-side delivery routes
+            // (BridgeActivity, then the XMSF PushMessageHandler click dispatch) instead.
+            logW(
+                "$TAG sdk activity not startable from xmsf, skip: pkg=$pkgName " +
+                    "component=${activityInfo.packageName}/${activityInfo.name} " +
+                    "exported=${activityInfo.exported} permission=${activityInfo.permission}"
+            )
             return null
         }
         return intent
     }
+
+    /**
+     * Detects click targets owned by a third-party in-app push SDK whose landing intent is
+     * rebuilt by the target app's own message receiver instead of being carried by the payload.
+     *
+     * The RichPush SDK (package prefix `cn.richinfo.richpush`, embedded by apps such as China
+     * Mobile) delivers notification clicks through `ClickResultActivity`, which reads a
+     * `richpush://` data URI that only the app's own `XiaoMiMessageReceiver` constructs from the
+     * push payload. When the payload's `intent_uri` names such an activity as a bare component —
+     * no data, no extras — the direct sdk_activity route can never reproduce the landing
+     * parameters (and [applyPendingIntentIdentity] occupies the data slot with the tracking
+     * identity anyway), so the click must be dispatched to the app-side receiver instead.
+     * Bare-component payloads of other SDKs (QQ's JumpActivity, Alipay's MPaaSNcActivity) are
+     * not affected: they consume the MiPush SDK extras attached by the sdk_activity route.
+     */
+    private fun isReceiverBuiltClickTarget(intent: Intent): Boolean {
+        if (intent.data != null) return false
+        val extras = intent.extras
+        if (extras != null && !extras.isEmpty) return false
+        val className = intent.component?.className ?: return false
+        return RECEIVER_BUILT_CLICK_TARGET_PREFIXES.any { className.startsWith(it) }
+    }
+
+    /**
+     * XMSF starts payload-declared click activities from its own UID, which is not
+     * platform-signed and holds no START_ANY_ACTIVITY privilege. Such an activity is only usable
+     * when it is exported and, when permission-guarded, when XMSF holds that permission.
+     */
+    private fun isStartableFromXmsfProcess(context: Context, activityInfo: ActivityInfo): Boolean {
+        if (!activityInfo.exported) return false
+        val permission = activityInfo.permission
+        if (permission.isNullOrBlank()) return true
+        return ContextCompat.checkSelfPermission(context, permission) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * Re-resolves a fully built click intent (identity data included) against PackageManager.
+     *
+     * Guards the sdk_activity route against the tracking identity added by
+     * [applyPendingIntentIdentity]: a payload-declared activity whose intent filter declares no
+     * <data> (Meituan HWPushDetailActivity is the known case) resolves before the identity is
+     * attached and fails afterwards, which only surfaces as an AMS "unable to resolve Intent"
+     * (result code=-91) at click time.
+     */
+    private fun isClickIntentResolvable(context: Context, intent: Intent): Boolean =
+        try {
+            val resolveInfo =
+                context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            ExplicitHookBridge.onIntentAvailabilityChecked(
+                intent,
+                resolveInfo != null,
+                "MIPushNotificationIntentSupport.isClickIntentResolvable",
+            )
+            resolveInfo != null
+        } catch (e: Exception) {
+            logE("Failed to resolve sdk click intent: ${e.message}", e)
+            false
+        }
 
     /**
      * Returns the Activity intent shape that can safely be persisted by the stock BoxMessage
@@ -722,12 +852,4 @@ internal object MIPushNotificationIntentSupport {
         }
     }
 
-    private fun inFetchIntentBlackList(pkg: String): Boolean {
-        // Known problematic packages: sdk_activity click either shows white screen
-        // (cold start before initialization) or silently fails to open.
-        // Idlefish is intentionally not listed here: its Agoo notification click
-        // requires the sdk_activity deep link and the serializable key_message extra.
-        return pkg.contains("youku") || pkg.contains("tudou") ||
-            pkg.contains("baidu.tieba")
-    }
 }

@@ -85,6 +85,8 @@ data class RuntimeRegisteredApplicationRow(
     val islandEnabled: Boolean = true,
     @ColumnInfo(name = "island_focus_notification", defaultValue = "0")
     val islandFocusNotification: Boolean = false,
+    @ColumnInfo(name = "click_fallback_enabled", defaultValue = "0")
+    val clickFallbackEnabled: Boolean = false,
     @ColumnInfo(name = "registered_type")
     val registeredType: Int,
     @ColumnInfo(name = "app_name")

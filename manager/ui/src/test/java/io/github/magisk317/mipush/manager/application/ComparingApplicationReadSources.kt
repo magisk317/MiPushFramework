@@ -115,6 +115,7 @@ enum class ApplicationField {
     BLOCKED,
     ISLAND_ENABLED,
     ISLAND_FOCUS_NOTIFICATION,
+    CLICK_FALLBACK_ENABLED,
     REGISTERED_TYPE,
     EXIST_SERVICES,
     APP_NAME,
@@ -191,6 +192,9 @@ private fun compareApplicationDetails(
         if (primary.islandEnabled != remote.islandEnabled) add(ApplicationField.ISLAND_ENABLED)
         if (primary.islandFocusNotification != remote.islandFocusNotification) {
             add(ApplicationField.ISLAND_FOCUS_NOTIFICATION)
+        }
+        if (primary.clickFallbackEnabled != remote.clickFallbackEnabled) {
+            add(ApplicationField.CLICK_FALLBACK_ENABLED)
         }
         if (primary.registeredType != remote.registeredType) add(ApplicationField.REGISTERED_TYPE)
         if (primary.existServices != remote.existServices) add(ApplicationField.EXIST_SERVICES)

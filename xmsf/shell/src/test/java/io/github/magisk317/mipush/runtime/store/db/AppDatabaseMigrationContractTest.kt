@@ -10,7 +10,7 @@ import java.io.File
 class RuntimeStoreMigrationContractTest {
     @Test
     fun `migration registry covers every production schema version`() {
-        assertEquals(8, RuntimeStoreMigrations.ALL.size)
+        assertEquals(9, RuntimeStoreMigrations.ALL.size)
         RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
             assertEquals(index + 1, migration.startVersion)
             assertEquals(index + 2, migration.endVersion)
@@ -18,14 +18,14 @@ class RuntimeStoreMigrationContractTest {
     }
 
     @Test
-    fun `runtime store database declares the production v9 entities`() {
+    fun `runtime store database declares the production v10 entities`() {
         val source = readSource(
             "../runtime/store/src/commonMain/kotlin/" +
                 "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
 
         assertTrue(source.contains("@Database("))
-        assertTrue(source.contains("version = 9"))
+        assertTrue(source.contains("version = 10"))
         listOf(
             "RuntimeEventRow::class",
             "RuntimeDeletedEventRow::class",
@@ -66,6 +66,7 @@ class RuntimeStoreMigrationContractTest {
             "ALTER TABLE `EVENT` ADD COLUMN `user_id` INTEGER NOT NULL DEFAULT 0",
             "CREATE TABLE IF NOT EXISTS `DELETED_EVENT`",
             "ALTER TABLE `DELETED_EVENT` ADD COLUMN `deleted_at` INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN click_fallback_enabled",
         ).forEach { sqlFragment ->
             assertTrue(source.contains(sqlFragment), "Missing migration SQL: $sqlFragment")
         }
@@ -121,6 +122,7 @@ class RuntimeStoreMigrationContractTest {
             "WHERE pkg = :pkg AND user_id = :userId LIMIT 1",
             "WHERE user_id = :userId ORDER BY pkg",
             "SET blocked = :blocked WHERE id = :id AND user_id = :userId",
+            "SET click_fallback_enabled = :enabled WHERE id = :id AND user_id = :userId",
         ).forEach { queryFragment ->
             assertTrue(dao.contains(queryFragment), "Missing user-scoped DAO query: $queryFragment")
         }

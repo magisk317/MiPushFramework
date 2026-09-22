@@ -93,7 +93,8 @@ object ManagerWireSizeCore {
     private const val INTEGER_BYTES = 4L
     private const val LONG_BYTES = 8L
     private const val APPLICATION_PAGE_FIXED_BYTES = 4L + 4L + 4L + 4L
-    private const val APPLICATION_SUMMARY_FRAME_BYTES = 4L + 4L + 4L + 28L + 8L
+    // Includes the userId and trailing clickFallbackEnabled fields in every summary frame.
+    private const val APPLICATION_SUMMARY_FRAME_BYTES = 4L + 4L + 4L + 28L + 8L + 4L + 4L
     private const val APPLICATION_STATS_FRAME_BYTES = 4L + 6L * 4L
     private const val EVENT_PAGE_FIXED_BYTES = 4L + 4L
     private const val EVENT_SUMMARY_FRAME_BYTES = 4L + 8L + 8L + 8L + 8L + 8L

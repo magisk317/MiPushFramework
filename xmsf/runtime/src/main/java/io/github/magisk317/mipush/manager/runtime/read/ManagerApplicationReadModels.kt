@@ -13,6 +13,7 @@ data class StoredApplicationSnapshot(
     val blocked: Boolean,
     val islandEnabled: Boolean,
     val islandFocusNotification: Boolean,
+    val clickFallbackEnabled: Boolean,
     val registeredType: Int,
     val appName: String,
 )
@@ -139,6 +140,7 @@ fun StoredApplicationSnapshot.toManagerApplication(
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
         registeredType = registeredType,
         existServices = installed?.hasMiPushServices == true,
         appName = displayName,
@@ -184,6 +186,7 @@ fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplica
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
         registeredType = registeredType,
         appName = appName,
     )

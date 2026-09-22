@@ -76,6 +76,24 @@ class RuntimeRegisteredApplicationRepositoryTest {
     }
 
     @Test
+    fun `click fallback flag defaults off and updates through the scoped store`() = runBlocking {
+        val store = FakeStore(
+            rows = mutableListOf(
+                row(id = 5, packageName = "com.example.app", userId = 7),
+            ),
+        )
+        val repository = repository(store)
+
+        assertFalse(repository.isClickFallbackEnabled("com.example.app"))
+        assertFalse(repository.isClickFallbackEnabled("com.missing.app"))
+        assertEquals(1, repository.updateClickFallbackEnabled(5, true))
+        assertTrue(repository.isClickFallbackEnabled("com.example.app"))
+        assertEquals(1, repository.updateClickFallbackEnabled(5, false))
+        assertFalse(repository.isClickFallbackEnabled("com.example.app"))
+        assertEquals(0, repository.updateClickFallbackEnabled(999, true))
+    }
+
+    @Test
     fun `unregistration reports missing, idempotent and updated transitions`() = runBlocking {
         val store = FakeStore(
             rows = mutableListOf(
@@ -179,6 +197,16 @@ class RuntimeRegisteredApplicationRepositoryTest {
 
         override suspend fun isBlocked(packageName: String, userId: Int): Boolean? =
             getByPackageName(packageName, userId)?.blocked
+
+        override suspend fun isClickFallbackEnabled(packageName: String, userId: Int): Boolean? =
+            getByPackageName(packageName, userId)?.clickFallbackEnabled
+
+        override suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int {
+            val index = rows.indexOfFirst { it.id == id && it.userId == userId }
+            if (index < 0) return 0
+            rows[index] = rows[index].copy(clickFallbackEnabled = enabled)
+            return 1
+        }
 
         fun require(packageName: String): RuntimeRegisteredApplicationRow =
             rows.first { it.packageName == packageName }

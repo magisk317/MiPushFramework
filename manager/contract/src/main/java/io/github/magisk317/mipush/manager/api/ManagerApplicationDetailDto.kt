@@ -13,6 +13,7 @@ data class ManagerApplicationDetailDto(
     val blocked: Boolean = false,
     val islandEnabled: Boolean = true,
     val islandFocusNotification: Boolean = false,
+    val clickFallbackEnabled: Boolean = false,
     val registeredType: Int = 0,
     val existServices: Boolean = false,
     val appName: String = "",
@@ -36,6 +37,9 @@ data class ManagerApplicationDetailDto(
             writeString(appNamePinYin)
             writeLong(lastReceiveTimeMs)
             writeInt(userId)
+            // Appended at the frame tail: readWireFrame defaults keep older frames (for example a
+            // not-yet-reloaded module dex on the runtime side) readable without the new field.
+            writeWireBoolean(clickFallbackEnabled)
         }
     }
 
@@ -61,6 +65,7 @@ data class ManagerApplicationDetailDto(
                         appNamePinYin = readString().orEmpty(),
                         lastReceiveTimeMs = readLong(),
                         userId = readInt(-1),
+                        clickFallbackEnabled = readBoolean(),
                     )
                 }
 

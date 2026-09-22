@@ -73,6 +73,16 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
+    fun isClickFallbackEnabled(pkg: String): Boolean = runBlocking {
+        repository().isClickFallbackEnabled(pkg)
+    }
+
+    @JvmStatic
+    fun updateClickFallbackEnabled(id: Long, enabled: Boolean): Int = runBlocking {
+        repository().updateClickFallbackEnabled(id, enabled)
+    }
+
+    @JvmStatic
     fun getIslandEnabled(pkg: String): Boolean? = runCatching {
         getIslandSettings(pkg)?.enabled
     }.getOrNull()
@@ -155,6 +165,12 @@ object RegisteredApplicationDb {
 
         override suspend fun isBlocked(packageName: String, userId: Int): Boolean? =
             DatabaseUtils.registeredApplicationDao.isBlocked(packageName, userId)
+
+        override suspend fun isClickFallbackEnabled(packageName: String, userId: Int): Boolean? =
+            DatabaseUtils.registeredApplicationDao.isClickFallbackEnabled(packageName, userId)
+
+        override suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int =
+            DatabaseUtils.registeredApplicationDao.updateClickFallbackEnabled(id, enabled, userId)
     }
 }
 

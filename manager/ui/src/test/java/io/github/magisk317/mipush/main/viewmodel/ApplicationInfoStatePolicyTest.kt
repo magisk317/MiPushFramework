@@ -21,6 +21,7 @@ class ApplicationInfoStatePolicyTest {
         assertTrue(controls.recentActivityEnabled)
         assertTrue(controls.islandEnabled)
         assertTrue(controls.islandFocusEnabled)
+        assertTrue(controls.clickFallbackEnabled)
     }
 
     @Test
@@ -37,8 +38,10 @@ class ApplicationInfoStatePolicyTest {
         assertFalse(controls.recentActivityEnabled)
         assertFalse(controls.islandEnabled)
         assertFalse(controls.islandFocusEnabled)
+        assertFalse(controls.clickFallbackEnabled)
         assertNull(ApplicationInfoStatePolicy.withIslandEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withIslandFocusEnabled(info, enabled = true))
+        assertNull(ApplicationInfoStatePolicy.withClickFallbackEnabled(info, enabled = true))
     }
 
     @Test
@@ -54,6 +57,7 @@ class ApplicationInfoStatePolicyTest {
         assertTrue(blocked.blocked)
         assertFalse(blocked.islandEnabled)
         assertFalse(blocked.islandFocusNotification)
+        assertFalse(blocked.clickFallbackEnabled)
         assertFalse(unblocked.blocked)
         assertFalse(unblocked.islandEnabled)
         assertFalse(unblocked.islandFocusNotification)
@@ -87,6 +91,21 @@ class ApplicationInfoStatePolicyTest {
     }
 
     @Test
+    fun `click fallback toggle follows the block gate`() {
+        val info = app(clickFallbackEnabled = true)
+
+        assertNull(ApplicationInfoStatePolicy.withClickFallbackEnabled(app(blocked = true), enabled = true))
+
+        val disabled = ApplicationInfoStatePolicy.withClickFallbackEnabled(info, enabled = false)
+        requireNotNull(disabled)
+        assertFalse(disabled.clickFallbackEnabled)
+
+        val enabled = ApplicationInfoStatePolicy.withClickFallbackEnabled(disabled, enabled = true)
+        requireNotNull(enabled)
+        assertTrue(enabled.clickFallbackEnabled)
+    }
+
+    @Test
     fun `invalid package is never Zygisk configurable`() {
         val controls = ApplicationInfoStatePolicy.controls(app(packageName = "not-a-package"))
         assertFalse(controls.zygiskConfigurable)
@@ -97,10 +116,12 @@ class ApplicationInfoStatePolicyTest {
         blocked: Boolean = false,
         islandEnabled: Boolean = false,
         islandFocusNotification: Boolean = false,
+        clickFallbackEnabled: Boolean = false,
     ) = ManagerApplication(
         packageName = packageName,
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        clickFallbackEnabled = clickFallbackEnabled,
     )
 }

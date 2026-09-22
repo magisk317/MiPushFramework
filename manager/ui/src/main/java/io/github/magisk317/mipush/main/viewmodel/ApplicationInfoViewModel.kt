@@ -33,6 +33,7 @@ internal data class ApplicationInfoControlState(
     val recentActivityEnabled: Boolean,
     val islandEnabled: Boolean,
     val islandFocusEnabled: Boolean,
+    val clickFallbackEnabled: Boolean,
 )
 
 internal object ApplicationInfoStatePolicy {
@@ -43,6 +44,7 @@ internal object ApplicationInfoStatePolicy {
             recentActivityEnabled = !info.blocked,
             islandEnabled = !info.blocked,
             islandFocusEnabled = !info.blocked && info.islandEnabled,
+            clickFallbackEnabled = !info.blocked,
         )
 
     fun withBlocked(info: ManagerApplication, blocked: Boolean): ManagerApplication =
@@ -51,6 +53,7 @@ internal object ApplicationInfoStatePolicy {
                 blocked = true,
                 islandEnabled = false,
                 islandFocusNotification = false,
+                clickFallbackEnabled = false,
             )
         } else {
             info.copy(blocked = false)
@@ -67,6 +70,11 @@ internal object ApplicationInfoStatePolicy {
     fun withIslandFocusEnabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
         if (!controls(info).islandFocusEnabled) return null
         return info.copy(islandFocusNotification = enabled)
+    }
+
+    fun withClickFallbackEnabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
+        if (!controls(info).clickFallbackEnabled) return null
+        return info.copy(clickFallbackEnabled = enabled)
     }
 }
 
@@ -254,6 +262,13 @@ class ApplicationInfoViewModel constructor(
     fun updateIslandFocusEnabled(enabled: Boolean) {
         val current = _applicationInfo.value ?: return
         val updated = ApplicationInfoStatePolicy.withIslandFocusEnabled(current, enabled) ?: return
+        _applicationInfo.value = updated
+        persistApplication(current, updated)
+    }
+
+    fun updateClickFallbackEnabled(enabled: Boolean) {
+        val current = _applicationInfo.value ?: return
+        val updated = ApplicationInfoStatePolicy.withClickFallbackEnabled(current, enabled) ?: return
         _applicationInfo.value = updated
         persistApplication(current, updated)
     }

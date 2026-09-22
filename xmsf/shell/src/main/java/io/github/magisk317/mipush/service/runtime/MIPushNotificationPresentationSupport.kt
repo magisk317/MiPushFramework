@@ -61,6 +61,7 @@ internal object MIPushNotificationPresentationSupport {
             notificationId,
             intentExtra.extras,
             sendMessage,
+            targetPackageName = packageName,
         )
 
         val voipBuilder = if (VoipNotificationHelper.isVoipNotification(metaInfo)) {

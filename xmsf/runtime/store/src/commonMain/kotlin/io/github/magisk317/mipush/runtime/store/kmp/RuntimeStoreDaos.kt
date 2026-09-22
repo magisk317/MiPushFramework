@@ -269,6 +269,12 @@ interface RuntimeRegisteredApplicationDao {
     @Query("SELECT island_focus_notification FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
     suspend fun isIslandFocusNotificationEnabled(pkg: String, userId: Int): Boolean?
 
+    @Query("SELECT click_fallback_enabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
+    suspend fun isClickFallbackEnabled(pkg: String, userId: Int): Boolean?
+
+    @Query("UPDATE REGISTERED_APPLICATION SET click_fallback_enabled = :enabled WHERE id = :id AND user_id = :userId")
+    suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
+
     // -- existing simple query (preserved from original KMP DAO) ---------------
 
     @Query("SELECT * FROM REGISTERED_APPLICATION WHERE user_id = :userId ORDER BY pkg")

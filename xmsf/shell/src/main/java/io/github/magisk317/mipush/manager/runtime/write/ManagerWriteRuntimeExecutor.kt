@@ -231,6 +231,8 @@ class ManagerWriteRuntimeExecutor(
                 ?: current.islandFocusNotification,
             notificationOnRegister = parts.getOrNull(4)?.toBooleanStrictOrNull()
                 ?: current.notificationOnRegister,
+            clickFallbackEnabled = parts.getOrNull(5)?.toBooleanStrictOrNull()
+                ?: current.clickFallbackEnabled,
         )
         applicationGateway.updateApplication(updated)
         return success(request.requestId, "application_updated")

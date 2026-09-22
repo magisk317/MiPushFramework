@@ -454,6 +454,18 @@ open class ApplicationInfoPage : ComponentActivity() {
                 showSwitchFeedback(blockTitle, enabled)
             }
 
+            val clickFallbackTitle = stringResource(R.string.app_detail_click_fallback)
+            SettingSwitchRow(
+                title = clickFallbackTitle,
+                summary = stringResource(R.string.app_detail_click_fallback_summary),
+                checked = currentInfo?.clickFallbackEnabled ?: applicationInfo.clickFallbackEnabled,
+                enabled = !blocked,
+                showDivider = true,
+            ) { enabled ->
+                infoViewModel.updateClickFallbackEnabled(enabled)
+                showSwitchFeedback(clickFallbackTitle, enabled)
+            }
+
             val redirectClickTitle = stringResource(R.string.app_detail_redirect_click)
             val redirectInDevelopment = stringResource(R.string.app_detail_redirect_click_in_development)
             val scope = rememberCoroutineScope()
