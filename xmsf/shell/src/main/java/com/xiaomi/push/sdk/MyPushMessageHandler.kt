@@ -114,13 +114,20 @@ class MyPushMessageHandler : Service() {
             return
         }
         try {
+            // A payload reaching this handler always originates from a notification click:
+            // buildClickedPendingIntent marks the service intent with FROM_NOTIFICATION
+            // (whose value is the stock SDK click marker "mipush_notified"). Propagate it so
+            // the downstream dispatch tags the delivery as a click; without it the target app
+            // runs its arrival branch and never opens the payload's notify target.
+            val notified = intent.getBooleanExtra(MIPushNotificationHelper.FROM_NOTIFICATION, false)
             val dispatch = PushRuntime.dispatchDownstreamPayload(
                 packageName = container.packageName,
                 action = container.action?.name ?: "Unknown",
                 messageId = MessageIdentity.fromContainer(container),
                 payload = payload,
                 source = "MyPushMessageHandler.onHandleIntent",
-                launchApp = true
+                launchApp = true,
+                notified = notified
             )
             if (dispatch.dispatched) {
                 val extras = intent.extras ?: Bundle()

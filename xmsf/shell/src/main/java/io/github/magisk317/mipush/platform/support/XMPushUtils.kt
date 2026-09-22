@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.platform.support
 
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.push.service.MIPushEventProcessor
+import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import android.content.Context
@@ -120,15 +121,17 @@ object XMPushUtils {
         context: Context,
         packageName: String,
         payload: ByteArray,
-        fromNotification: Boolean = false
-    ): Boolean = dispatchToApplicationResult(context, packageName, payload, fromNotification).dispatched
+        fromNotification: Boolean = false,
+        notified: Boolean = false
+    ): Boolean = dispatchToApplicationResult(context, packageName, payload, fromNotification, notified).dispatched
 
     @JvmStatic
     fun dispatchToApplicationResult(
         context: Context,
         packageName: String,
         payload: ByteArray,
-        fromNotification: Boolean = false
+        fromNotification: Boolean = false,
+        notified: Boolean = false
     ): DispatchResult {
         val startedAt = System.nanoTime()
         fun finish(result: DispatchResult): DispatchResult {
@@ -149,6 +152,7 @@ object XMPushUtils {
                     "target_package" to packageName.ifBlank { "unknown" },
                     "payload_size" to payload.size.toString(),
                     "source" to if (fromNotification) "notification" else "payload",
+                    "notified" to notified.toString(),
                 ),
                 statusOk = result.dispatched,
             )
@@ -163,6 +167,14 @@ object XMPushUtils {
             putExtra("mipush_receive_time", System.currentTimeMillis())
             if (fromNotification) {
                 putExtra("from_notification", true)
+            }
+            // The stock SDK marks a delivery as a notification click with "mipush_notified".
+            // Without it the app-side processor runs the arrival branch (re-posting its own
+            // notification and never firing onNotificationMessageClicked); with it the app
+            // runs its native click branch, which starts the payload-declared notify target
+            // (e.g. Baidu XmNotifyActivity) inside its own process and opens the content.
+            if (notified) {
+                putExtra("mipush_notified", true)
             }
             // Try to add category if it's a notification
             val notifyId = packToContainer(payload)?.metaInfo?.notifyId
@@ -228,6 +240,80 @@ object XMPushUtils {
             sendAccepted = genericSent,
             serviceStartError = serviceStartError,
         ))
+    }
+
+    /**
+     * Force-register delivery, aligned with upstream `RegistrationHelper.tryForceRegister`:
+     * a single package-scoped broadcast carrying the fake RegIdExpired payload.
+     *
+     * Broadcast-first is mandatory here. The framework process runs in the background, so
+     * `startService(PushMessageHandler)` is refused on modern Android, and an app that was
+     * force-stopped has no live process hosting a runtime receiver. A package-scoped broadcast
+     * reaches the app's manifest-declared `PushMessageReceiver` without any background-start
+     * exemption, and `FLAG_INCLUDE_STOPPED_PACKAGES` lets it wake a stopped app.
+     *
+     * When the target has no enabled manifest receiver (callback-mode apps), the unified
+     * 3-channel dispatch still gets its chance through the service channel, which succeeds
+     * once the caller has pulled the app to the foreground.
+     */
+    @JvmStatic
+    fun dispatchForceRegister(
+        context: Context,
+        packageName: String,
+        payload: ByteArray
+    ): Boolean {
+        if (packageName.isBlank()) return false
+        val startedAt = System.nanoTime()
+        val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
+            `package` = packageName
+            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+            putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
+            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+        }
+        val manifestReceivers = runCatching {
+            context.packageManager.queryBroadcastReceivers(intent, PackageManager.MATCH_DISABLED_COMPONENTS)
+        }.getOrDefault(emptyList())
+            .mapNotNull { resolveInfo -> resolveInfo.activityInfo }
+            .filter { info -> info.packageName == packageName && info.enabled && info.exported }
+        val sent = runCatching {
+            context.sendBroadcast(intent)
+            true
+        }.getOrDefault(false)
+        if (sent && manifestReceivers.isNotEmpty()) {
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "xmsf",
+                    "stage" to "app_dispatch",
+                    "reason" to "force_register_broadcast",
+                    "target_package" to packageName,
+                    "payload_size" to payload.size.toString(),
+                ),
+                statusOk = true,
+            )
+            return true
+        }
+        // No enabled manifest receiver can take the broadcast (callback-mode app): give the
+        // service-first dispatch its chance instead of reporting a bare broadcast as success.
+        val dispatched = dispatchToApplication(context, packageName, payload)
+        if (!dispatched) {
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "xmsf",
+                    "stage" to "app_dispatch",
+                    "reason" to "force_register_no_receiver",
+                    "target_package" to packageName,
+                    "payload_size" to payload.size.toString(),
+                ),
+                statusOk = false,
+            )
+        }
+        return dispatched
     }
 
     internal fun genericBroadcastResult(

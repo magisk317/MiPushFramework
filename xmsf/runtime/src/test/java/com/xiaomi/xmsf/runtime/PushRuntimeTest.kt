@@ -129,6 +129,7 @@ class PushRuntimeTest {
                 payload = byteArrayOf(1, 2, 3),
                 source = "test",
                 launchApp = true,
+                notified = true,
                 androidUserId = 0,
             )
             val cancelled = AndroidPushRuntime.cancelNotificationForPayload(
@@ -145,6 +146,8 @@ class PushRuntimeTest {
             assertEquals(1, snapshot.deliveredToAppCount)
             assertEquals(1, snapshot.broadcastFallbackDeliveryCount)
             assertEquals(1, snapshot.notificationCancelCount)
+            // The notified (click) marker must survive the facade -> runtime -> host chain.
+            assertTrue(host.downstreamDispatches.single().contains(":true:"))
         } finally {
             AndroidPushRuntime.detachExecutionHost(host)
         }
@@ -743,9 +746,10 @@ class PushRuntimeTest {
         override fun dispatchDownstreamPayload(
             payload: ByteArray,
             source: String,
-            launchApp: Boolean
+            launchApp: Boolean,
+            notified: Boolean
         ): PushRuntimeApplicationDispatchResult {
-            downstreamDispatches += "$source:$launchApp:${payload.size}"
+            downstreamDispatches += "$source:$launchApp:$notified:${payload.size}"
             return downstreamDispatchResult
         }
 

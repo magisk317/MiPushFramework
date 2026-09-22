@@ -387,6 +387,7 @@ object AndroidPushRuntime {
         payload: ByteArray,
         source: String,
         launchApp: Boolean,
+        notified: Boolean = false,
         androidUserId: Int,
     ): PushRuntimeApplicationDispatchResult {
         val host = state.withLock { executionHost } ?: run {
@@ -409,7 +410,8 @@ object AndroidPushRuntime {
             host.dispatchDownstreamPayload(
                 payload = payload,
                 source = RuntimeDeterministicCoordinator.buildReason(source, if (launchApp) "launch_app" else "direct_deliver"),
-                launchApp = launchApp
+                launchApp = launchApp,
+                notified = notified
             )
         }.getOrElse {
             logE("dispatchDownstreamPayload failed", it)

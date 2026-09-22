@@ -193,7 +193,8 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     override fun dispatchDownstreamPayload(
         payload: ByteArray,
         source: String,
-        launchApp: Boolean
+        launchApp: Boolean,
+        notified: Boolean
     ): PushRuntimeApplicationDispatchResult {
         val context = appContext ?: return PushRuntimeApplicationDispatchResult()
         val startedAt = System.nanoTime()
@@ -224,6 +225,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 container = container,
                 payload = payload,
                 launchApp = launchApp,
+                notified = notified,
                 notifyRuntime = false
             )
             emitBridge(

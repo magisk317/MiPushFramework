@@ -174,7 +174,7 @@ class RegistrationHelper(
                 return false
             }
             
-            val dispatched = XMPushUtils.dispatchToApplication(Utils.getApplication() ?: return false, packageName, msgBytes)
+            val dispatched = XMPushUtils.dispatchForceRegister(Utils.getApplication() ?: return false, packageName, msgBytes)
             if (dispatched) {
                 AndroidPushRuntime.observeRegistrationRequest(
                     packageName,
@@ -216,7 +216,10 @@ class RegistrationHelper(
         fun tryForceRegister(packageName: String): Boolean {
             val app = Utils.getApplication() ?: return false
             val plan = inspectForceRegisterPlan(packageName)
-            if (!plan.supportsServiceDispatch) {
+            // Broadcast-first delivery (aligned with upstream tryForceRegister) also lands in a
+            // manifest-declared receiver, so a receiver-only app is a valid force-register target.
+            // Only apps with neither service nor receiver nor bridge candidates are hopeless.
+            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback && plan.bridgeCandidates.isEmpty()) {
                 runBlocking {
                     EventDb.insertEventAsync(
                         EventRowResultType.DENY_DISABLED,
@@ -234,8 +237,8 @@ class RegistrationHelper(
 
             val container = createForceRegisterMessage(packageName)
             val msgBytes = XMPushUtils.packToBytes(container)
-            
-            val dispatched = XMPushUtils.dispatchToApplication(app, packageName, msgBytes)
+
+            val dispatched = XMPushUtils.dispatchForceRegister(app, packageName, msgBytes)
             if (dispatched) {
                 AndroidPushRuntime.observeRegistrationRequest(
                     packageName,

@@ -52,6 +52,7 @@ import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import com.xiaomi.push.sdk.MyPushMessageHandler
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
@@ -81,8 +82,10 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
 
@@ -301,34 +304,11 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable),
             )
         }
-        val forceStopOk = runCatching {
-            io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-                .runRootCommand("am force-stop $packageName")
-                .isSuccess
-        }.getOrDefault(false)
-        if (!forceStopOk) {
-            logW("force register: force-stop failed for $packageName; continuing with relaunch anyway")
-        }
-        recordForceRegisterStage(packageName, "force_register_relaunch forceStop=$forceStopOk")
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-            ?: run {
-                logW("force register aborted for $packageName: no launch intent")
-                recordForceRegisterStage(
-                    packageName,
-                    "force_register_abort_no_launch_intent",
-                    EventRowResultType.DENY_DISABLED,
-                )
-                return ManagerForceRegisterResult(
-                    succeeded = false,
-                    message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
-                )
-            }
-        launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (runCatching { context.startActivity(launchIntent) }.isFailure) {
-            logW("force register aborted for $packageName: failed to start launch intent")
+        if (context.packageManager.getLaunchIntentForPackage(packageName) == null) {
+            logW("force register aborted for $packageName: no launch intent")
             recordForceRegisterStage(
                 packageName,
-                "force_register_abort_launch_failed",
+                "force_register_abort_no_launch_intent",
                 EventRowResultType.DENY_DISABLED,
             )
             return ManagerForceRegisterResult(
@@ -336,7 +316,23 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
             )
         }
-        kotlinx.coroutines.delay(500)
+        // Align with upstream MyPushMessageHandler.launchApp(): thaw the target (pm enable /
+        // IceBox), pull it to the foreground and wait until it is actually foreground before
+        // dispatching the fake RegIdExpired. Never force-stop: a stopped app has no live
+        // process, so its runtime receiver is gone and every dispatch channel fails — that
+        // was the "已拒绝" (DENY_DISABLED) force-register case.
+        recordForceRegisterStage(packageName, "force_register_relaunch")
+        runCatching {
+            withContext(Dispatchers.IO) {
+                MyPushMessageHandler.launchApp(
+                    context,
+                    RegistrationHelper.createForceRegisterMessage(packageName),
+                )
+            }
+        }.onFailure {
+            logW("force register: pull up failed for $packageName: ${it.localizedMessage}")
+            recordForceRegisterStage(packageName, "force_register_relaunch_failed")
+        }
         return forceRegisterWithFeedback(context, packageName, registeredType)
     }
 

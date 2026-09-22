@@ -97,6 +97,7 @@ object PushRuntime {
         payload: ByteArray,
         source: String,
         launchApp: Boolean,
+        notified: Boolean = false,
         androidUserId: Int = io.github.magisk317.mipush.common.utils.Utils.requireValidUserId(
             io.github.magisk317.mipush.common.utils.Utils.myUserId(),
         ),
@@ -108,6 +109,7 @@ object PushRuntime {
             payload,
             source,
             launchApp,
+            notified,
             androidUserId,
         )
 

@@ -145,7 +145,8 @@ class AppPushMessageProcessor constructor(
         container: XmPushActionContainer,
         payload: ByteArray,
         launchApp: Boolean,
-        notifyRuntime: Boolean
+        notifyRuntime: Boolean,
+        notified: Boolean = false
     ): ApplicationDeliveryResult {
         if (launchApp) {
             launchApp(context, container)
@@ -153,14 +154,16 @@ class AppPushMessageProcessor constructor(
         return forwardToTargetApplicationResult(
             context = context,
             payload = payload,
-            notifyRuntime = notifyRuntime
+            notifyRuntime = notifyRuntime,
+            notified = notified
         )
     }
 
     fun forwardToTargetApplicationResult(
         context: Context,
         payload: ByteArray,
-        notifyRuntime: Boolean
+        notifyRuntime: Boolean,
+        notified: Boolean = false
     ): ApplicationDeliveryResult {
         val startedAt = System.nanoTime()
         val container = XMPushUtils.packToContainer(payload)
@@ -186,7 +189,13 @@ class AppPushMessageProcessor constructor(
         }
 
         // Use unified dispatch logic from XMPushUtils
-        val result = XMPushUtils.dispatchToApplicationResult(context, targetPackage, payload, fromNotification = true)
+        val result = XMPushUtils.dispatchToApplicationResult(
+            context,
+            targetPackage,
+            payload,
+            fromNotification = true,
+            notified = notified,
+        )
         val resultTag = dispatchResultTag(result)
         logD("$tag forwardToTargetApplication pkg=$targetPackage dispatch result=$resultTag")
         val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
@@ -202,6 +211,7 @@ class AppPushMessageProcessor constructor(
                 "reason" to resultTag,
                 "target_package" to targetPackage.orEmpty(),
                 "payload_size" to payload.size.toString(),
+                "notified" to notified.toString(),
             ),
             statusOk = delivered,
         )
@@ -261,12 +271,34 @@ class AppPushMessageProcessor constructor(
             if (!topActivity.isEnabled(context)) {
                 logW { packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification") }
                 startJumpIntent(context, targetPackage, getJumpIntent(context, container))
+                // Without a foreground detector we cannot verify the pull-up, but the caller is
+                // about to dispatch a payload that needs a live app process. Give a just-launched
+                // app a bounded settle window instead of returning instantly.
+                Thread.sleep(appCheckSleepDurationMs * 2)
                 return System.currentTimeMillis() - start
             }
 
             if (!topActivity.isAppForeground(context, targetPackage)) {
                 logD { packageInfo(targetPackage, "app is not at front, pull up") }
                 startJumpIntent(context, targetPackage, getJumpIntentFromPkg(context, targetPackage))
+                // Wait until the app actually reaches the foreground before returning. A blind
+                // fixed delay lets the downstream dispatch race the app start: a stopped app
+                // whose process never came up has no runtime receiver, so every dispatch
+                // channel fails (the "已拒绝"/DENY_DISABLED force-register case).
+                // Mirrors upstream pullUpApp: poll, re-launch once at half the budget.
+                for (i in 0 until appCheckFrontMaxRetry) {
+                    if (topActivity.isAppForeground(context, targetPackage)) {
+                        break
+                    }
+                    Thread.sleep(appCheckSleepDurationMs)
+                    if (i == appCheckFrontMaxRetry / 2) {
+                        logD { packageInfo(targetPackage, "still not at front, relaunch") }
+                        startJumpIntent(context, targetPackage, getJumpIntentFromPkg(context, targetPackage))
+                    }
+                }
+                if (System.currentTimeMillis() - start >= appCheckSleepMaxTimeoutMs) {
+                    logW { packageInfo(targetPackage, "pull up app timeout") }
+                }
             } else {
                 logD { packageInfo(targetPackage, "app is at foreground") }
             }

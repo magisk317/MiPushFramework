@@ -108,7 +108,8 @@ interface PushRuntimeExecutionHost {
     fun dispatchDownstreamPayload(
         payload: ByteArray,
         source: String,
-        launchApp: Boolean
+        launchApp: Boolean,
+        notified: Boolean = false
     ): PushRuntimeApplicationDispatchResult
 
     fun cancelNotificationForPayload(
