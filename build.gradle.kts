@@ -5,6 +5,27 @@ import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    configurations.all {
+        resolutionStrategy {
+            // Java 27 bytecode target: AGP 9.4.1 bundles ASM 9.9 (V26 max) and
+            // rejects major 71. ASM 9.10.1 adds V27; force the family here because
+            // this is the classpath AGP actually runs on (project-level forces do
+            // not reach the plugin classpath).
+            force("org.ow2.asm:asm:9.10.1")
+            force("org.ow2.asm:asm-analysis:9.10.1")
+            force("org.ow2.asm:asm-commons:9.10.1")
+            force("org.ow2.asm:asm-tree:9.10.1")
+            force("org.ow2.asm:asm-util:9.10.1")
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
