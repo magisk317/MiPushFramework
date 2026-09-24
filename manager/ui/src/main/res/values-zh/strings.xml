@@ -122,7 +122,6 @@
     <string name="config_remote_accelerator_label">原始文件加速源</string>
     <string name="config_remote_source_default_hint">内置默认：%1$s</string>
     <string name="config_remote_source_config_suffix">（配置源）</string>
-    <string name="config_remote_source_icon_suffix">（图标源）</string>
     <string name="config_icon_source_title">图标资源</string>
     <string name="config_icon_source_value">点击更新（%1$s）</string>
     <string name="config_icons_updating">正在更新图标资源…</string>

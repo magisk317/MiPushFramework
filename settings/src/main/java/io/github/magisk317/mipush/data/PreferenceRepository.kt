@@ -131,9 +131,6 @@ class PreferenceRepository constructor(
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
     private val CONFIG_REMOTE_ACCELERATOR = stringPreferencesKey("config_remote_accelerator")
-    private val ICON_REMOTE_REPOSITORY = stringPreferencesKey("icon_remote_repository")
-    private val ICON_REMOTE_BRANCH = stringPreferencesKey("icon_remote_branch")
-    private val ICON_REMOTE_ACCELERATOR = stringPreferencesKey("icon_remote_accelerator")
     private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
     private val COLOR_STATUS_BAR_ICON_GLOBAL = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_GLOBAL_KEY)
     private val DUAL_APP_ENABLED = booleanPreferencesKey(DUAL_APP_ENABLED_KEY)
@@ -231,15 +228,6 @@ class PreferenceRepository constructor(
     }
     val configRemoteAccelerator: Flow<String> = dataStore.data.map {
         it[CONFIG_REMOTE_ACCELERATOR] ?: ConfigDefaults.REMOTE_ACCELERATOR
-    }
-    val iconRemoteRepository: Flow<String> = dataStore.data.map {
-        it[ICON_REMOTE_REPOSITORY] ?: ConfigDefaults.ICON_REMOTE_REPOSITORY
-    }
-    val iconRemoteBranch: Flow<String> = dataStore.data.map {
-        it[ICON_REMOTE_BRANCH] ?: ConfigDefaults.ICON_REMOTE_BRANCH
-    }
-    val iconRemoteAccelerator: Flow<String> = dataStore.data.map {
-        it[ICON_REMOTE_ACCELERATOR] ?: ConfigDefaults.ICON_REMOTE_ACCELERATOR
     }
     val lastWelcomeNotifiedUpdateTime: Flow<Long> = dataStore.data.map {
         it[LAST_WELCOME_NOTIFIED_UPDATE_TIME] ?: 0L
@@ -490,15 +478,6 @@ class PreferenceRepository constructor(
             it[CONFIG_REMOTE_ACCELERATOR] = accelerator
         }
     }
-
-    suspend fun setIconRemoteSource(repository: String, branch: String, accelerator: String) {
-        dataStore.edit {
-            it[ICON_REMOTE_REPOSITORY] = repository
-            it[ICON_REMOTE_BRANCH] = branch
-            it[ICON_REMOTE_ACCELERATOR] = accelerator
-        }
-    }
-
 
     private val MANAGER_MIGRATION_APPLIED = booleanPreferencesKey("manager_migration_applied")
 

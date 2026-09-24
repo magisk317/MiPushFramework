@@ -45,12 +45,6 @@ class ConfigCatalogService constructor(
         accelerator = preferenceRepository.configRemoteAccelerator.first(),
     )
 
-    suspend fun getIconRemoteSource(): ConfigRemoteSource = ConfigRemoteSource(
-        repository = preferenceRepository.iconRemoteRepository.first(),
-        branch = preferenceRepository.iconRemoteBranch.first(),
-        accelerator = preferenceRepository.iconRemoteAccelerator.first(),
-    )
-
     private fun fetchText(urlString: String): String {
         val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"

@@ -105,7 +105,6 @@
     <string name="config_remote_accelerator_label">Raw URL accelerator</string>
     <string name="config_remote_source_default_hint">Built-in default: %1$s</string>
     <string name="config_remote_source_config_suffix"> (configuration source)</string>
-    <string name="config_remote_source_icon_suffix"> (icon source)</string>
     <string name="config_icon_source_title">Icon resources</string>
     <string name="config_icon_source_value">Tap to update from %1$s</string>
     <string name="config_icons_updating">Updating icon resources…</string>
