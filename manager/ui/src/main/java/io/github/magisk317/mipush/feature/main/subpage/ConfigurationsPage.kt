@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.rememberScrollState
@@ -151,9 +152,7 @@ fun Configurations(
 
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportIsIcon by rememberSaveable { mutableStateOf(false) }
-    var configPreviewExpanded by rememberSaveable { mutableStateOf(false) }
     var iconPreviewExpanded by rememberSaveable { mutableStateOf(false) }
-    var expandedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     val openDirectoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -173,6 +172,12 @@ fun Configurations(
         }
     }
 
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        if (initialQuery.isEmpty()) {
+            focusManager.clearFocus()
+        }
+    }
     LaunchedEffect(isActive, initialQuery) {
         if (!isActive) return@LaunchedEffect
         viewModel.setQuery(initialQuery)
@@ -266,22 +271,24 @@ fun Configurations(
             title = { Text(stringResource(R.string.config_import_dialog_title)) },
             text = { Text(stringResource(R.string.config_import_dialog_message)) },
             confirmButton = {
-                AppPrimaryButton(onClick = {
-                    showImportDialog = false
-                    pendingImportIsIcon = false
-                    importLauncher.launch(arrayOf("application/json", "*/*"))
-                }) {
-                    Text(stringResource(R.string.config_import_configuration))
-                }
+                AppPrimaryButton(
+                    text = stringResource(R.string.config_import_configuration),
+                    onClick = {
+                        showImportDialog = false
+                        pendingImportIsIcon = false
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    },
+                )
             },
             dismissButton = {
-                AppPrimaryButton(onClick = {
-                    showImportDialog = false
-                    pendingImportIsIcon = true
-                    importLauncher.launch(arrayOf("application/json", "*/*"))
-                }) {
-                    Text(stringResource(R.string.config_import_icons))
-                }
+                AppSecondaryButton(
+                    text = stringResource(R.string.config_import_icons),
+                    onClick = {
+                        showImportDialog = false
+                        pendingImportIsIcon = true
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    },
+                )
             }
         )
     }
@@ -322,34 +329,13 @@ fun Configurations(
                     )
                 }
             } else {
-                item {
-                    WorkspaceListItem(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { expandedCategory = null },
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "返回",
-                            )
-                        }
-                    ) {
-                        val categoryItems = filteredItems.filter { !it.path.startsWith("icon/") }
-                        if (categoryItems.isEmpty()) {
-                            WorkspaceEmptyState(
-                                title = stringResource(R.string.config_empty_title),
-                                summary = stringResource(R.string.config_empty_summary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 180.dp),
-                            )
-                        } else {
-                            categoryItems.forEach { configItem ->
-                                ConfigListEntry(
-                                    item = configItem,
-                                    onClick = { onOpenEditor(configItem.path) },
-                                )
-                            }
-                        }
+                val categoryItems = filteredItems.filter { !it.path.startsWith("icon/") }
+                if (categoryItems.isNotEmpty()) {
+                    items(categoryItems, key = { it.path }) { configItem ->
+                        ConfigListEntry(
+                            item = configItem,
+                            onClick = { onOpenEditor(configItem.path) },
+                        )
                     }
                 }
                 item {
@@ -361,8 +347,8 @@ fun Configurations(
                             iconPreviewExpanded = !iconPreviewExpanded
                         },
                     ) {
-                        val categoryItems = filteredItems.filter { it.path.startsWith("icon/") }
-                        if (categoryItems.isEmpty()) {
+                        val iconItems = filteredItems.filter { it.path.startsWith("icon/") }
+                        if (iconItems.isEmpty()) {
                             WorkspaceEmptyState(
                                 title = stringResource(R.string.config_empty_title),
                                 summary = stringResource(R.string.config_empty_summary),
@@ -371,7 +357,7 @@ fun Configurations(
                                     .heightIn(min = 180.dp),
                             )
                         } else {
-                            categoryItems.forEach { configItem ->
+                            iconItems.forEach { configItem ->
                                 ConfigListEntry(
                                     item = configItem,
                                     onClick = { onOpenEditor(configItem.path) },
