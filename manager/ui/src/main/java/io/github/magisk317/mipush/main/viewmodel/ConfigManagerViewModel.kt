@@ -287,11 +287,15 @@ class ConfigManagerViewModel constructor(
         runCatching { syncGateway.loadRemoteSnapshot(treeUri) }
             .onSuccess { snapshot ->
                 if (generation != refreshGeneration) return
-                failedRemoteSourceKey = null
-                _uiState.update {
-                    it.copy(
-                        items = snapshot.items,
-                        remoteError = null,
+                if (snapshot.remoteError == null) {
+                    failedRemoteSourceKey = null
+                } else {
+                    failedRemoteSourceKey = remoteSourceKey
+                }
+                _uiState.update { current ->
+                    current.copy(
+                        items = if (snapshot.items.isEmpty() && current.items.isNotEmpty()) current.items else snapshot.items,
+                        remoteError = snapshot.remoteError,
                     )
                 }
             }
