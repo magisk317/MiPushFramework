@@ -97,17 +97,31 @@ object FakeDevice {
             DouyinMiuiGateHook.install(lpparam)
         }
 
-        if (android.os.Build.BRAND.equals("Xiaomi", ignoreCase = true) || android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
-            XLog.i(TAG, "Zygisk spoofing detected (or native Xiaomi device) for $packageName, skipping FakeDevice pipelines")
-            emit(result = "skip", reason = "xiaomi_device", pipelineCount = pipelines.size)
-            return
+        val skipPropertySpoofing =
+            android.os.Build.BRAND.equals("Xiaomi", ignoreCase = true) ||
+                android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+        if (skipPropertySpoofing) {
+            XLog.i(
+                TAG,
+                "Zygisk spoofing detected (or native Xiaomi device) for $packageName; " +
+                    "skipping identity properties while retaining class and vendor gates",
+            )
         }
 
         LegacyHuaweiSignatureCompat.hook(lpparam)
         val distinctPipelines = pipelines.distinct()
         distinctPipelines.forEach { pipelineId ->
             runCatching {
-                createPipelineHook(pipelineId).fake(lpparam)
+                val pipeline = createPipelineHook(pipelineId)
+                when {
+                    skipPropertySpoofing && pipelineId == HookPipelineId.FAKE_MIUI_ONLY -> {
+                        XLog.d(TAG, "skip property-only pipeline for Xiaomi identity: $pipelineId")
+                    }
+                    skipPropertySpoofing && pipeline is Common -> {
+                        pipeline.fakeWithoutPropertySpoofing(lpparam)
+                    }
+                    else -> pipeline.fake(lpparam)
+                }
             }.onFailure { throwable ->
                 XLog.w(
                     TAG,
@@ -116,7 +130,11 @@ object FakeDevice {
                 )
             }
         }
-        emit(result = "ok", reason = "pipelines_installed", pipelineCount = distinctPipelines.size)
+        emit(
+            result = "ok",
+            reason = if (skipPropertySpoofing) "xiaomi_identity_skip" else "pipelines_installed",
+            pipelineCount = distinctPipelines.size,
+        )
     }
 }
 

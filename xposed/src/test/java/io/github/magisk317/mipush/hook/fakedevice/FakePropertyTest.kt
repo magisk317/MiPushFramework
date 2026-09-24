@@ -1,12 +1,69 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
+import io.github.magisk317.mipush.hook.XLog
+import io.mockk.Runs
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class FakePropertyTest {
+    @BeforeEach
+    fun setUpLogging() {
+        mockkObject(XLog)
+        every { XLog.d(any(), any()) } just Runs
+        every { XLog.i(any(), any()) } just Runs
+        every { XLog.w(any(), any()) } just Runs
+    }
+
+    @AfterEach
+    fun tearDownLogging() {
+        unmockkObject(XLog)
+    }
+
+    @Test
+    fun `safe property application records an unknown field failure and continues`() {
+        val unknownKey = "ro.build.hw_emui_api_level"
+        val attemptedKeys = mutableListOf<String>()
+        val failedKeys = mutableListOf<String>()
+
+        assertDoesNotThrow {
+            fakePropertiesSafely(
+                properties = linkedMapOf(
+                    unknownKey to "",
+                    "ro.product.brand" to "Xiaomi",
+                ),
+                propertyWriter = { (key, _) ->
+                    attemptedKeys += key
+                    if (key == unknownKey) {
+                        throw NoSuchFieldException(key)
+                    }
+                },
+                failureReporter = { key, _ -> failedKeys += key },
+            )
+        }
+
+        assertEquals(listOf(unknownKey, "ro.product.brand"), attemptedKeys)
+        assertEquals(listOf(unknownKey), failedKeys)
+    }
+
+    @Test
+    fun `all built in properties execute without propagating unknown fields`() {
+        assertDoesNotThrow { fakeAllBuildInProperties() }
+        assertFalse(
+            mapOf("ro.build.hw_emui_api_level" to "").buildFieldOverrides()
+                .any { it.fieldName == "ro.build.hw_emui_api_level" },
+        )
+    }
+
     @Test
     fun `build field overrides only include known Build fields`() {
         val overrides = mapOf(

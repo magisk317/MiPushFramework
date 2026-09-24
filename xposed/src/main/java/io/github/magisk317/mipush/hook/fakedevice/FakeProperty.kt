@@ -119,7 +119,9 @@ fun fakeAllBuildInProperties() {
             }
         }
         .forEach { prop ->
-            baseProps[prop.key] = prop.value
+            // Use Map.put explicitly: the Xposed wildcard import also exposes an Any.set
+            // reflection operator, which would treat each property key as a field name.
+            baseProps.put(prop.key, prop.value)
         }
 
     val propsToFake = MiPushResetpropTemplate.mergedCustomProps(baseProps)
@@ -248,12 +250,18 @@ fun fakeProperty(vararg properties: Pair<String, String>) {
     }
 }
 
-private fun fakePropertiesSafely(properties: Map<String, String>) {
+internal fun fakePropertiesSafely(
+    properties: Map<String, String>,
+    propertyWriter: (Pair<String, String>) -> Unit = { property -> fakeProperty(property) },
+    failureReporter: (String, Throwable) -> Unit = { key, throwable ->
+        XLog.w(TAG, "skip fake property $key: ${throwable.javaClass.simpleName}: ${throwable.message}")
+    },
+) {
     properties.forEach { (key, value) ->
         runCatching {
-            fakeProperty(key to value)
-        }.onFailure {
-            XLog.w(TAG, "skip fake property $key: ${it.javaClass.simpleName}: ${it.message}")
+            propertyWriter(key to value)
+        }.onFailure { throwable ->
+            failureReporter(key, throwable)
         }
     }
 }

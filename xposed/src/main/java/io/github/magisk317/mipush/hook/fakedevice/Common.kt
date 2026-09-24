@@ -12,15 +12,37 @@ open class Common : IFakeDevice {
         private const val TAG = "Common"
     }
 
+    private var skipPropertySpoofing: Boolean = false
+
     override fun fake(lpparam: LoadParam): Boolean {
         XLog.d(TAG, "fake() called with: packageName = ${lpparam.packageName}")
-        fakeAllBuildInProperties()
-        enableAliMiPushBridge(lpparam)
-        fakeClass(lpparam)
-        return true
+        var anyStepSucceeded = false
+        if (skipPropertySpoofing) {
+            XLog.i(TAG, "skipping property spoofing for Xiaomi identity: ${lpparam.packageName}")
+        } else {
+            anyStepSucceeded = runStep("build properties") { fakeBuildProperties() }
+        }
+        anyStepSucceeded = runStep("Ali MiPush bridge") { enableAliMiPushBridge(lpparam) } || anyStepSucceeded
+        anyStepSucceeded = runStep("MIUI class bridge") { fakeClass(lpparam) } || anyStepSucceeded
+        return anyStepSucceeded
     }
 
-    private fun enableAliMiPushBridge(lpparam: LoadParam) {
+    /** Runs this pipeline while retaining class and vendor gates but omitting property spoofing. */
+    internal fun fakeWithoutPropertySpoofing(lpparam: LoadParam): Boolean {
+        val previousValue = skipPropertySpoofing
+        skipPropertySpoofing = true
+        return try {
+            fake(lpparam)
+        } finally {
+            skipPropertySpoofing = previousValue
+        }
+    }
+
+    protected open fun fakeBuildProperties() {
+        fakeAllBuildInProperties()
+    }
+
+    protected open fun enableAliMiPushBridge(lpparam: LoadParam) {
         runCatching {
             lpparam.classLoader.findClass("com.alibaba.sdk.android.push.channel.XiaomiPushUtils")
                 .hookMethod("isMiui") {
@@ -35,7 +57,7 @@ open class Common : IFakeDevice {
         }
     }
 
-    private fun fakeClass(lpparam: LoadParam) {
+    protected open fun fakeClass(lpparam: LoadParam) {
         var isMIUI = false
         try {
             // check MIUI environment
@@ -68,5 +90,18 @@ open class Common : IFakeDevice {
                 }
             }
         }
+    }
+
+    private inline fun runStep(stepName: String, action: () -> Unit): Boolean {
+        return runCatching(action).fold(
+            onSuccess = { true },
+            onFailure = { throwable ->
+                XLog.w(
+                    TAG,
+                    "$stepName failed: ${throwable.javaClass.simpleName}: ${throwable.message}",
+                )
+                false
+            },
+        )
     }
 }
