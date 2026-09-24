@@ -6,7 +6,7 @@ package io.github.magisk317.mipush.utils
  */
 object ConfigDefaults {
     const val REMOTE_REPOSITORY = "gitlab:magisk3171/MiPushConfigurations"
-    const val REMOTE_BRANCH = "dev"
+    const val REMOTE_BRANCH = "beta"
     const val REMOTE_ACCELERATOR = ""
 
     const val ICON_REMOTE_REPOSITORY = "fankes/AndroidNotifyIconAdapt"
