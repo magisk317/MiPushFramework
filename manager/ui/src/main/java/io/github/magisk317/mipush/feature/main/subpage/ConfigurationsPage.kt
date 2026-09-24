@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,8 +22,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -32,19 +35,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.FloatingActionButton
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.AppSurface
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -55,8 +64,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -153,7 +165,12 @@ fun Configurations(
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportIsIcon by rememberSaveable { mutableStateOf(false) }
     var configPreviewExpanded by rememberSaveable { mutableStateOf(true) }
-    var iconPreviewExpanded by rememberSaveable { mutableStateOf(false) }
+    var iconPreviewExpanded by rememberSaveable { mutableStateOf(true) }
+    // Icon categories default collapsed: only headers compose on page entry, which keeps
+    // the section card light and defers bitmap requests until a category is opened.
+    var iconAppExpanded by rememberSaveable { mutableStateOf(false) }
+    var iconGameExpanded by rememberSaveable { mutableStateOf(false) }
+    var iconSystemExpanded by rememberSaveable { mutableStateOf(false) }
     val openDirectoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -196,15 +213,11 @@ fun Configurations(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.clearMessage()
     }
-    LaunchedEffect(editingRemoteSourceType, uiState.remoteSource, uiState.iconRemoteSource) {
+    LaunchedEffect(editingRemoteSourceType, uiState.remoteSource) {
         if (editingRemoteSourceType == "config") {
             remoteRepositoryDraft = uiState.remoteSource.repository
             remoteBranchDraft = uiState.remoteSource.branch
             remoteAcceleratorDraft = uiState.remoteSource.accelerator
-        } else if (editingRemoteSourceType == "icon") {
-            remoteRepositoryDraft = uiState.iconRemoteSource.repository
-            remoteBranchDraft = uiState.iconRemoteSource.branch
-            remoteAcceleratorDraft = uiState.iconRemoteSource.accelerator
         }
     }
 
@@ -230,37 +243,23 @@ fun Configurations(
             repository = remoteRepositoryDraft,
             branch = remoteBranchDraft,
             accelerator = remoteAcceleratorDraft,
-            defaultRepository = if (editingRemoteSourceType == "icon") ConfigDefaults.ICON_REMOTE_REPOSITORY else ConfigDefaults.REMOTE_REPOSITORY,
-            defaultBranch = if (editingRemoteSourceType == "icon") ConfigDefaults.ICON_REMOTE_BRANCH else ConfigDefaults.REMOTE_BRANCH,
+            defaultRepository = ConfigDefaults.REMOTE_REPOSITORY,
+            defaultBranch = ConfigDefaults.REMOTE_BRANCH,
             onRepositoryChange = { remoteRepositoryDraft = it },
             onBranchChange = { remoteBranchDraft = it },
             onAcceleratorChange = { remoteAcceleratorDraft = it },
             onDismiss = { editingRemoteSourceType = null },
             onResetDefault = {
-                if (editingRemoteSourceType == "icon") {
-                    remoteRepositoryDraft = ConfigDefaults.ICON_REMOTE_REPOSITORY
-                    remoteBranchDraft = ConfigDefaults.ICON_REMOTE_BRANCH
-                    remoteAcceleratorDraft = ConfigDefaults.ICON_REMOTE_ACCELERATOR
-                } else {
-                    remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
-                    remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
-                    remoteAcceleratorDraft = ConfigDefaults.REMOTE_ACCELERATOR
-                }
+                remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
+                remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
+                remoteAcceleratorDraft = ConfigDefaults.REMOTE_ACCELERATOR
             },
             onConfirm = {
-                if (editingRemoteSourceType == "config") {
-                    viewModel.updateRemoteSource(
-                        remoteRepositoryDraft,
-                        remoteBranchDraft,
-                        remoteAcceleratorDraft,
-                    )
-                } else if (editingRemoteSourceType == "icon") {
-                    viewModel.updateIconRemoteSource(
-                        remoteRepositoryDraft,
-                        remoteBranchDraft,
-                        remoteAcceleratorDraft,
-                    )
-                }
+                viewModel.updateRemoteSource(
+                    remoteRepositoryDraft,
+                    remoteBranchDraft,
+                    remoteAcceleratorDraft,
+                )
                 editingRemoteSourceType = null
             },
         )
@@ -295,6 +294,10 @@ fun Configurations(
     }
 
     val body: @Composable (PaddingValues, Modifier) -> Unit = { listPadding, scrollModifier ->
+        Box(modifier = Modifier.fillMaxSize()) {
+        LaunchedEffect(iconPreviewExpanded) {
+            if (iconPreviewExpanded) viewModel.ensureIconLibraryLoaded()
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -311,7 +314,7 @@ fun Configurations(
             configListHeader(
                 uiState = uiState,
                 onClickRemoteSource = { editingRemoteSourceType = "config" },
-                onClickIconRemoteSource = { editingRemoteSourceType = "icon" },
+                onUpdateIcons = viewModel::updateIconResources,
                 onChooseDirectory = { openDirectoryLauncher.launch(null) },
                 onImportLocal = { showImportDialog = true },
                 onPullRemote = viewModel::pullRemote,
@@ -331,7 +334,6 @@ fun Configurations(
                 }
             } else {
                 val categoryItems = filteredItems.filter { !it.path.startsWith("icon/") }
-                val iconItems = filteredItems.filter { it.path.startsWith("icon/") }
 
                 item {
                     SettingsSectionCard(
@@ -361,35 +363,182 @@ fun Configurations(
                     }
                 }
 
+                // Icon preview uses the same section-card shell as the configuration list so
+                // styling and the accordion expand animation match in both MD and Miuix styles.
+                val libraryQuery = uiState.query.trim()
+                val libraryItems = if (libraryQuery.isEmpty()) {
+                    uiState.iconLibraryItems
+                } else {
+                    uiState.iconLibraryItems.filter { entry ->
+                        entry.packageName.contains(libraryQuery, ignoreCase = true) ||
+                            entry.label.contains(libraryQuery, ignoreCase = true)
+                    }
+                }
                 item {
                     SettingsSectionCard(
                         title = stringResource(R.string.icon_preview_title),
-                        summary = stringResource(R.string.icon_preview_summary),
+                        summary = "",
                         expanded = iconPreviewExpanded,
-                        onExpandedChange = {
-                            iconPreviewExpanded = !iconPreviewExpanded
-                        },
+                        onExpandedChange = { iconPreviewExpanded = !iconPreviewExpanded },
                     ) {
-                        if (iconItems.isEmpty()) {
-                            WorkspaceEmptyState(
-                                title = stringResource(R.string.config_empty_title),
-                                summary = stringResource(R.string.config_empty_summary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 180.dp),
-                            )
-                        } else {
-                            iconItems.forEach { configItem ->
-                                ConfigListEntry(
-                                    item = configItem,
-                                    onClick = { onOpenEditor(configItem.path) },
+                        when {
+                            uiState.iconLibraryItems.isEmpty() && uiState.iconLibraryError != null -> {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(MaterialTheme.spacing.medium),
+                                ) {
+                                    WorkspaceEmptyState(
+                                        title = stringResource(R.string.icon_library_error_title),
+                                        summary = stringResource(R.string.icon_library_error_summary),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    uiState.iconLibraryError?.let { trace ->
+                                        Text(
+                                            text = trace,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = MaterialTheme.spacing.small),
+                                        )
+                                    }
+                                    TextButton(onClick = { viewModel.ensureIconLibraryLoaded() }) {
+                                        Text(stringResource(R.string.icon_library_retry))
+                                    }
+                                }
+                            }
+                            uiState.iconLibraryItems.isEmpty() && uiState.isIconLibraryLoading -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 120.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            uiState.iconLibraryItems.isEmpty() -> {
+                                WorkspaceEmptyState(
+                                    title = stringResource(R.string.icon_library_unavailable_title),
+                                    summary = stringResource(R.string.icon_library_unavailable_summary),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 180.dp),
                                 )
+                            }
+                            else -> {
+                                if (libraryItems.isEmpty()) {
+                                    WorkspaceEmptyState(
+                                        title = stringResource(R.string.config_empty_title),
+                                        summary = stringResource(R.string.config_empty_summary),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 180.dp),
+                                    )
+                                } else {
+                                    for (category in listOf("app", "game", "system")) {
+                                        val entries = libraryItems.filter { it.category == category }
+                                        if (entries.isEmpty()) continue
+                                        val expanded = when (category) {
+                                            "app" -> iconAppExpanded
+                                            "game" -> iconGameExpanded
+                                            else -> iconSystemExpanded
+                                        }
+                                        CategoryHeader(
+                                            label = iconCategoryLabel(category),
+                                            count = entries.size,
+                                            expanded = expanded,
+                                            onToggle = {
+                                                when (category) {
+                                                    "app" -> iconAppExpanded = !iconAppExpanded
+                                                    "game" -> iconGameExpanded = !iconGameExpanded
+                                                    else -> iconSystemExpanded = !iconSystemExpanded
+                                                }
+                                            },
+                                        )
+                                        if (expanded) {
+                                            entries.forEach { entry ->
+                                                val bitmap = uiState.iconBitmaps[entry.packageName]
+                                                LaunchedEffect(entry.packageName) {
+                                                    viewModel.requestIconBitmap(entry.packageName)
+                                                }
+                                                IconLibraryEntryRow(
+                                                    entry = entry,
+                                                    bitmap = bitmap,
+                                                    updatedAtLabel = stringResource(
+                                                        R.string.icon_item_updated,
+                                                        formatIconUpdateTime(entry.updatedAt),
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    when {
+                                        uiState.isIconLibraryLoading -> Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = MaterialTheme.spacing.small),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                            )
+                                        }
+                                        uiState.iconLibraryNextOffset != null ->
+                                            AppSecondaryButton(
+                                                text = stringResource(R.string.icon_library_load_more),
+                                                onClick = viewModel::ensureIconLibraryLoaded,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                        else -> Text(
+                                            text = stringResource(R.string.icon_library_loaded_all),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = MaterialTheme.spacing.small),
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+
             }
         }
+        var fabVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(listState) {
+            var previousIndex = 0
+            var previousOffset = 0
+            snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+                .collect { (index, offset) ->
+                    val atTop = index == 0 && offset < 80
+                    val scrollingDown = if (index != previousIndex) index > previousIndex else offset > previousOffset
+                    fabVisible = if (atTop) false else !scrollingDown
+                    previousIndex = index
+                    previousOffset = offset
+                }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(MaterialTheme.spacing.medium)
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.BottomEnd,
+        ) {
+            if (fabVisible) {
+                FloatingActionButton(
+                    onClick = { scrollScope.launch { listState.scrollToItem(0) } },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Icon(Icons.Filled.ArrowUpward, contentDescription = "置顶")
+                }
+            }
+        }
+    }
     }
 
     when (currentUiKitStyle()) {
