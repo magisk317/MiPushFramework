@@ -120,6 +120,30 @@ variables:
 cancel:older:mr:pipelines:
   extends: .magisk_cancel_older_mr_pipelines
 
+# ---------------------------------------------------------------------------
+# ANIP icon bundle: pull the latest release before every build.
+# The script is fault-tolerant — a network failure keeps the pre-committed
+# xmsf/shell/src/main/assets/anip-bundle.zip and never fails the pipeline.
+# ---------------------------------------------------------------------------
+update:anip-bundle:
+  stage: build
+  tags:
+    - magisk-arm64-linux
+  rules:
+    - !reference [.mipush_signed_android_rules, rules]
+  image: alpine:3.22
+  variables:
+    GIT_STRATEGY: fetch
+  before_script:
+    - apk add --no-cache curl python3 file bash coreutils
+  script:
+    - bash scripts/update_anip_bundle.sh xmsf/shell/src/main/assets
+  artifacts:
+    paths:
+      - xmsf/shell/src/main/assets/anip-bundle.zip
+    expire_in: 1 day
+  allow_failure: true
+
 android:build:
   extends:
     - .magisk_android_build
@@ -142,6 +166,10 @@ android:build:
   # The runner provides persistent SDK/Gradle directories outside the project;
   # the inherited project-relative cache paths only produce empty-cache warnings.
   cache: []
+  needs:
+    - job: update:anip-bundle
+      artifacts: true
+      optional: true
   artifacts:
     name: "MiPushFramework-debug-$CI_COMMIT_REF_SLUG"
     when: always
@@ -519,6 +547,9 @@ android:release:apk:
   needs:
     - job: android:release:guard
       artifacts: false
+    - job: update:anip-bundle
+      artifacts: true
+      optional: true
   artifacts:
     name: "MiPushFramework-release-apks-$CI_COMMIT_TAG"
     when: always
@@ -715,7 +746,7 @@ sync:github:
   needs:
     - job: android:release:guard
       optional: true
-  image: alpine:latest
+  image: alpine:3.22
   tags:
     - magisk-arm64-linux
   rules:
