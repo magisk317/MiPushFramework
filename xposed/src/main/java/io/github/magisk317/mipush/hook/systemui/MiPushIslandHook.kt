@@ -85,45 +85,52 @@ class MiPushIslandHook : BaseHook() {
         ) ?: title
 
         val context = currentApplication()?.applicationContext ?: return
-        if (!options.showOriginalNotification) {
-            runCatching {
-                val manager = context.getSystemService(NotificationManager::class.java) ?: return@runCatching
-                manager.cancel(sbn.tag, sbn.id)
-                XLog.d(TAG, "dropped original notification pkg=$sourcePackage key=${sbn.key}")
-            }.onFailure {
-                XLog.w(TAG, "failed to cancel original notification: ${it.message}")
-            }
-        }
         val icon = resolveIcon(context, sourcePackage, notification, extras)
         val channelId = notification.channelId
         val proxyId = proxyNotificationId(sbn)
         if (recentProxyPosts.shouldSkip(dedupKeyFor(sbn))) return
-        IslandDispatcher.post(
-            context,
-            IslandRequest(
-                title = title,
-                content = content,
-                icon = icon,
-                notificationId = proxyId,
-                timeoutSecs = options.timeoutSecs,
-                firstFloat = options.firstFloat,
-                enableFloat = options.enableFloat,
-                showNotification = options.showNotification,
-                sourcePackage = sourcePackage,
-                userId = sbn.userId,
-                sourceChannelId = channelId,
-                contentIntent = resolveClickIntent(
-                    context = context,
+        // Post the island proxy first. Only drop the original notification once the proxy is
+        // confirmed posted, so a proxy that fails to display (focus auth lost, float mode off,
+        // etc.) never leaves the user with zero notifications - the same "island off + show-original
+        // off -> fully silent" regression fixed by islandProxyTookOver gating in NotificationController.
+        val proxyPosted = runCatching {
+            IslandDispatcher.post(
+                context,
+                IslandRequest(
+                    title = title,
+                    content = content,
+                    icon = icon,
+                    notificationId = proxyId,
+                    timeoutSecs = options.timeoutSecs,
+                    firstFloat = options.firstFloat,
+                    enableFloat = options.enableFloat,
+                    showNotification = options.showNotification,
                     sourcePackage = sourcePackage,
-                    notification = notification,
-                    notificationId = sbn.id,
                     userId = sbn.userId,
+                    sourceChannelId = channelId,
+                    contentIntent = resolveClickIntent(
+                        context = context,
+                        sourcePackage = sourcePackage,
+                        notification = notification,
+                        notificationId = sbn.id,
+                        userId = sbn.userId,
+                    ),
+                    isOngoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0,
+                    actions = notification.actions?.toList().orEmpty(),
+                    clearBeforePost = true,
                 ),
-                isOngoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0,
-                actions = notification.actions?.toList().orEmpty(),
-                clearBeforePost = true,
-            ),
-        )
+            )
+            true
+        }.getOrDefault(false)
+        if (!options.showOriginalNotification && proxyPosted) {
+            runCatching {
+                val manager = context.getSystemService(NotificationManager::class.java) ?: return@runCatching
+                manager.cancel(sbn.tag, sbn.id)
+                XLog.d(TAG, "dropped original notification pkg=$sourcePackage key=${sbn.key} proxyPosted=$proxyPosted")
+            }.onFailure {
+                XLog.w(TAG, "failed to cancel original notification: ${it.message}")
+            }
+        }
         // Track source → proxy mapping so we can cancel proxy when source is removed.
         val sourceKey = sourceKeyFor(sbn)
         trackedForCancel.record(sourceKey, proxyId)

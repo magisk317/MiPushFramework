@@ -294,7 +294,10 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     SettingsSwitchItem(
         title = islandShowOriginalNotificationTitle,
         summary = stringResource(R.string.pref_island_show_original_notification_summary),
-        checked = islandShowOriginalNotification,
+        // Reflect the effective value: when the dynamic island is disabled the original is always
+        // shown (no proxy can take over), so the toggle reads as enabled/on instead of a misleading
+        // greyed-off state. See the island-disabled convergence in IslandOptionsSnapshotReader.merge.
+        checked = !islandEnabled || islandShowOriginalNotification,
         enabled = islandEnabled,
     ) { enabled ->
         viewModel.setIslandShowOriginalNotification(enabled) { success ->

@@ -355,20 +355,34 @@ object IslandPreferences {
         val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
         LogSanitizerConfig.syncFromVerboseMode(!logSanitizationEnabled)
 
-        IslandOptions(
-            enabled = values.booleanValue(ISLAND_PREF_ENABLED, true),
+        buildOptionsFromValues(values)
+    }.onFailure {
+        LogSanitizerConfig.syncFromVerboseMode(null)
+    }
+
+    /**
+     * Build the [IslandOptions] snapshot from a raw preference [values] map.
+     *
+     * The "show original notification" sub-option is forced true whenever the dynamic island is
+     * disabled: with no island proxy available to take over, suppressing the original would leave
+     * the user with zero notifications. This is the xposed-side counterpart of the shell reading
+     * convergence in [IslandOptionsSnapshotReader.merge].
+     */
+    internal fun buildOptionsFromValues(values: Map<String, String>): IslandOptions {
+        val islandEnabled = values.booleanValue(ISLAND_PREF_ENABLED, true)
+        return IslandOptions(
+            enabled = islandEnabled,
             timeoutSecs = values.intValue(ISLAND_PREF_TIMEOUT, 5).coerceAtLeast(1),
             firstFloat = values.booleanValue(ISLAND_PREF_FIRST_FLOAT, true),
             enableFloat = values.booleanValue(ISLAND_PREF_ENABLE_FLOAT, true),
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
-            showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
+            showOriginalNotification = !islandEnabled ||
+                values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
             colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, false),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
-    }.onFailure {
-        LogSanitizerConfig.syncFromVerboseMode(null)
     }
 
     private fun Map<String, String>.booleanValue(key: String, default: Boolean): Boolean {

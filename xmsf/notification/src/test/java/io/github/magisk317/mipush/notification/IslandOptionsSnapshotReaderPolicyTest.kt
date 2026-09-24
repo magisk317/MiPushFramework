@@ -87,17 +87,48 @@ class IslandOptionsSnapshotReaderPolicyTest {
         enabled: Boolean = true,
         timeoutSecs: Int = 5,
         focusNotification: Boolean = false,
+        showOriginalNotification: Boolean = true,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
         timeoutSecs = timeoutSecs,
         firstFloat = true,
         enableFloat = true,
         showNotification = true,
-        showOriginalNotification = true,
+        showOriginalNotification = showOriginalNotification,
         focusNotification = focusNotification,
         colorStatusBarIcon = false,
         colorStatusBarIconGlobal = false,
         dualAppEnabled = false,
         logSanitizationEnabled = false,
     )
+
+    @Test
+    fun `island disabled forces showOriginalNotification true to avoid silent suppression`() {
+        val snapshot = IslandOptionsSnapshotReader.merge(
+            settings = settings(enabled = false, showOriginalNotification = false),
+            appEnabled = null,
+            appFocusNotification = null,
+        )
+        assertTrue(snapshot.options.showOriginalNotification) {
+            "island disabled must treat showOriginalNotification as true so the original is preserved"
+        }
+    }
+
+    @Test
+    fun `island enabled preserves user showOriginalNotification preference`() {
+        assertFalse(
+            IslandOptionsSnapshotReader.merge(
+                settings = settings(enabled = true, showOriginalNotification = false),
+                appEnabled = null,
+                appFocusNotification = null,
+            ).options.showOriginalNotification,
+        )
+        assertTrue(
+            IslandOptionsSnapshotReader.merge(
+                settings = settings(enabled = true, showOriginalNotification = true),
+                appEnabled = null,
+                appFocusNotification = null,
+            ).options.showOriginalNotification,
+        )
+    }
 }

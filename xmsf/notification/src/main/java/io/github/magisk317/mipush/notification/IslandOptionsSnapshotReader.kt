@@ -118,22 +118,30 @@ object IslandOptionsSnapshotReader {
         appEnabled: Boolean?,
         appFocusNotification: Boolean?,
         packageScoped: Boolean = appFocusNotification != null,
-    ): IslandOptionsSnapshot = IslandOptionsSnapshot(
-        options = IslandOptions(
-            enabled = settings.enabled && (appEnabled ?: true),
-            timeoutSecs = settings.timeoutSecs.coerceAtLeast(1),
-            firstFloat = settings.firstFloat,
-            enableFloat = settings.enableFloat,
-            showNotification = settings.showNotification,
-            showOriginalNotification = settings.showOriginalNotification,
-            // The global snapshot drives SystemUI's authorization bypass. Only a package-scoped
-            // read needs the registered-app focus opt-in to narrow generated payloads.
-            focusNotification = settings.focusNotification &&
-                (!packageScoped || appFocusNotification == true),
-            colorStatusBarIcon = settings.colorStatusBarIcon,
-            colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
-            dualAppEnabled = settings.dualAppEnabled,
-        ),
-        logSanitizationEnabled = settings.logSanitizationEnabled,
-    )
+    ): IslandOptionsSnapshot {
+        // The island is considered available only when the global switch is on AND the package is
+        // not opted out. When it is unavailable, the "show original notification" sub-option must
+        // not suppress the original: with no island proxy to take over, suppressing it would leave
+        // the user with zero notifications. So showOriginalNotification is forced true while the
+        // island is off, preserving the user's visible notification.
+        val islandEnabled = settings.enabled && (appEnabled ?: true)
+        return IslandOptionsSnapshot(
+            options = IslandOptions(
+                enabled = islandEnabled,
+                timeoutSecs = settings.timeoutSecs.coerceAtLeast(1),
+                firstFloat = settings.firstFloat,
+                enableFloat = settings.enableFloat,
+                showNotification = settings.showNotification,
+                showOriginalNotification = !islandEnabled || settings.showOriginalNotification,
+                // The global snapshot drives SystemUI's authorization bypass. Only a package-scoped
+                // read needs the registered-app focus opt-in to narrow generated payloads.
+                focusNotification = settings.focusNotification &&
+                    (!packageScoped || appFocusNotification == true),
+                colorStatusBarIcon = settings.colorStatusBarIcon,
+                colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
+                dualAppEnabled = settings.dualAppEnabled,
+            ),
+            logSanitizationEnabled = settings.logSanitizationEnabled,
+        )
+    }
 }
