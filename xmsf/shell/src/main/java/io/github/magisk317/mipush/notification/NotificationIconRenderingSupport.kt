@@ -144,6 +144,17 @@ internal object NotificationIconRenderingSupport {
                 return
             }
 
+            // When an ANIP or user-configured icon was already applied as the
+            // smallIcon by processIcon / applyIconPackSmallIcon, do NOT
+            // overwrite it with the launcher icon (which may carry badges like
+            // Alipay's AI corner mark or render at the wrong size like Zhihu).
+            val anipConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
+            val anipBitmap = anipConfig?.bitmap()
+            if (anipConfig?.isEnabled == true && anipBitmap != null && !anipBitmap.isRecycled) {
+                logD("Skipped mSmallIcon injection: ANIP/configured icon already applied for $packageName")
+                return
+            }
+
             val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
             fieldSmallIcon.isAccessible = true
 

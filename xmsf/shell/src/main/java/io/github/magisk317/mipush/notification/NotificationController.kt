@@ -821,6 +821,31 @@ object NotificationController {
                 )
             }
         }
+        // --- ANIP / configured icon takes top priority in monochrome mode ---
+        // The ANIP SDK provides clean, properly-sized monochrome icons that
+        // render perfectly in the status bar.  Without this check the method
+        // falls through to IconCache which may return the app's launcher icon
+        // (e.g. Alipay with its AI badge, or a tiny Zhihu logo).
+        val iconConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
+        val configuredBitmap = iconConfig?.bitmap()
+        if (iconConfig?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
+            // ANIP monochrome icons are often pure white; the transparent-and-white rework may
+            // classify every pixel as background. If the rework cannot produce a usable silhouette,
+            // fall back to the original bitmap — icon processing must never break notification
+            // publishing.
+            val monoBitmap = runCatching { ImgUtils.convertToTransparentAndWhite(configuredBitmap) }
+                .onFailure {
+                    Logger.withTag(TAG).w(it) {
+                        "processMonochromeStatusBarIcon: ANIP rework failed for $packageName, using raw bitmap"
+                    }
+                }
+                .getOrNull()
+                ?.takeIf { it.width > 0 && it.height > 0 }
+                ?: configuredBitmap
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(monoBitmap))
+            logI("processMonochromeStatusBarIcon: applied ANIP/configured icon for $packageName")
+            return color
+        }
         // Prefer package white-alpha silhouette. Never seed Material bell first — that seed became
         // the status-bar icon for WeWork/xinyi when IconCache missed.
         val whiteStatusBarIcon = Global.iconCache().getIconCache(
