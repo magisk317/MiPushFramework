@@ -18,6 +18,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
 import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -482,6 +483,31 @@ object LogBundleExporter {
         if (!copiedAny) {
             details += "app log missing"
             details += "runtime log files: 0"
+        }
+        // Best-effort: also pull the manager UI process logs so a single runtime-built bundle is
+        // self-contained even when the manager-side merge step is skipped. Cross-UID read is not
+        // guaranteed, so failures here are non-fatal.
+        copyManagerPackageLogs(context, stagingDir, details)
+    }
+
+    private fun copyManagerPackageLogs(context: Context, stagingDir: File, details: MutableList<String>) {
+        val managerDir = runCatching {
+            val foreign = context.createPackageContext(ManagerProtocol.MANAGER_PACKAGE, Context.CONTEXT_IGNORE_SECURITY)
+            File(foreign.filesDir, PRIVATE_LOG_DIR_NAME)
+        }.getOrNull() ?: return
+        if (!managerDir.exists() || !managerDir.isDirectory) return
+        val staged = File(stagingDir, "app/log/manager")
+        val files = managerDir.listFiles().orEmpty().filter {
+            it.isFile && it.name.endsWith(".jsonl") && it.name.startsWith("runtime.manager")
+        }
+        if (files.isEmpty()) return
+        copyDirectory(managerDir, staged) { file ->
+            file.name.endsWith(".jsonl") && file.name.startsWith("runtime.manager")
+        }
+        val copied = staged.walkTopDown().any { it.isFile }
+        if (copied) {
+            details += "manager log: ${managerDir.absolutePath}"
+            details += summarizeRuntimeLogFiles(staged)
         }
     }
 
