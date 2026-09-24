@@ -152,7 +152,6 @@ fun Configurations(
 
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportIsIcon by rememberSaveable { mutableStateOf(false) }
-    var iconPreviewExpanded by rememberSaveable { mutableStateOf(false) }
     val openDirectoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -329,42 +328,11 @@ fun Configurations(
                     )
                 }
             } else {
-                val categoryItems = filteredItems.filter { !it.path.startsWith("icon/") }
-                if (categoryItems.isNotEmpty()) {
-                    items(categoryItems, key = { it.path }) { configItem ->
-                        ConfigListEntry(
-                            item = configItem,
-                            onClick = { onOpenEditor(configItem.path) },
-                        )
-                    }
-                }
-                item {
-                    SettingsSectionCard(
-                        title = stringResource(R.string.icon_preview_title),
-                        summary = stringResource(R.string.icon_preview_summary),
-                        expanded = iconPreviewExpanded,
-                        onExpandedChange = {
-                            iconPreviewExpanded = !iconPreviewExpanded
-                        },
-                    ) {
-                        val iconItems = filteredItems.filter { it.path.startsWith("icon/") }
-                        if (iconItems.isEmpty()) {
-                            WorkspaceEmptyState(
-                                title = stringResource(R.string.config_empty_title),
-                                summary = stringResource(R.string.config_empty_summary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 180.dp),
-                            )
-                        } else {
-                            iconItems.forEach { configItem ->
-                                ConfigListEntry(
-                                    item = configItem,
-                                    onClick = { onOpenEditor(configItem.path) },
-                                )
-                            }
-                        }
-                    }
+                items(filteredItems, key = { it.path }) { configItem ->
+                    ConfigListEntry(
+                        item = configItem,
+                        onClick = { onOpenEditor(configItem.path) },
+                    )
                 }
             }
         }

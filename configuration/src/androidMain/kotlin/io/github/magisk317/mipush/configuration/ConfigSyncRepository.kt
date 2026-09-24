@@ -25,18 +25,13 @@ class ConfigSyncRepository constructor(
     suspend fun loadLocalSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
         val remoteSource = catalogService.getRemoteSource()
-        val iconRemoteSource = catalogService.getIconRemoteSource()
         val cachedCatalog = syncStateStore.getCachedCatalog(remoteSource)
-        val cachedIconCatalog = syncStateStore.getCachedCatalog(iconRemoteSource)
         val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
-
-        val mappedIconFiles = cachedIconCatalog?.files?.map { it.copy(path = "icon/${it.path.replace('/', '_')}") }.orEmpty()
-        val combinedRemoteFiles = cachedCatalog?.files.orEmpty() + mappedIconFiles
 
         return ConfigListSnapshot(
             catalog = cachedCatalog,
             items = mergeConfigEntries(
-                remoteFiles = combinedRemoteFiles,
+                remoteFiles = cachedCatalog?.files.orEmpty(),
                 localFiles = localFiles,
                 syncRecords = records,
             ),
@@ -46,20 +41,14 @@ class ConfigSyncRepository constructor(
     suspend fun loadRemoteSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
         val remoteSource = catalogService.getRemoteSource()
-        val iconRemoteSource = catalogService.getIconRemoteSource()
         val catalog = catalogService.fetchCatalog(remoteSource)
-        val iconCatalog = catalogService.fetchCatalog(iconRemoteSource)
         syncStateStore.cacheCatalog(remoteSource, catalog)
-        syncStateStore.cacheCatalog(iconRemoteSource, iconCatalog)
         val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
-
-        val mappedIconFiles = iconCatalog.files.map { it.copy(path = "icon/${it.path.replace('/', '_')}") }
-        val combinedRemoteFiles = catalog.files + mappedIconFiles
 
         return ConfigListSnapshot(
             catalog = catalog,
             items = mergeConfigEntries(
-                remoteFiles = combinedRemoteFiles,
+                remoteFiles = catalog.files,
                 localFiles = localFiles,
                 syncRecords = records,
             ),
@@ -245,18 +234,14 @@ class ConfigSyncRepository constructor(
     suspend fun resolvePackageConfigPath(packageName: String, treeUri: Uri?): String? {
         val localPaths = localConfigRepository.listLocalFiles(treeUri).map { it.path }
         val remoteSource = catalogService.getRemoteSource()
-        val iconRemoteSource = catalogService.getIconRemoteSource()
         
         val cachedConfigPaths = syncStateStore.getCachedCatalog(remoteSource)?.files?.map { it.path }.orEmpty()
-        val cachedIconPaths = syncStateStore.getCachedCatalog(iconRemoteSource)?.files?.map { "icon/${it.path.replace('/', '_')}" }.orEmpty()
         
         val remotePaths = runCatching {
             val catalog = catalogService.fetchCatalog(remoteSource)
-            val iconCatalog = catalogService.fetchCatalog(iconRemoteSource)
             syncStateStore.cacheCatalog(remoteSource, catalog)
-            syncStateStore.cacheCatalog(iconRemoteSource, iconCatalog)
-            catalog.files.map { it.path } + iconCatalog.files.map { "icon/${it.path.replace('/', '_')}" }
-        }.getOrDefault(cachedConfigPaths + cachedIconPaths)
+            catalog.files.map { it.path }
+        }.getOrDefault(cachedConfigPaths)
         
         return guessPackageConfigPath(packageName, localPaths + remotePaths)
     }

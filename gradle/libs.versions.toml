@@ -52,7 +52,6 @@ billing = "9.1.0"
 kermit = "2.2.0"
 timber = "5.0.1"
 gson = "2.14.0"
-google-id = "1.2.1"
 jakarta-mail = "2.0.2"
 guava = "33.6.0-jre"
 conscrypt = "2.7.0"
@@ -69,7 +68,6 @@ play-app-update = "2.1.0"
 play-feature-delivery = "2.1.0"
 play-services-auth = "22.0.0"
 play-services-code-scanner = "16.1.0"
-mobile-entitlement = "0.1.16"
 hiddenapibypass = "6.1"
 hyperisland-kit = "0.4.4"
 libsu = "6.0.0"
@@ -79,11 +77,15 @@ metrics-performance = "1.0.0"
 version-catalog-update = "1.1.1"
 miuix-blur = "0.9.4"
 material-kolor = "5.0.1"
+google-id = "1.2.1"
+mobile-entitlement = "0.1.16"
+anip-sdk = "1.0.0"
 versionCode = "16"
 versionName = "1.0.5"
 pushVersionCode = "1003003000"
 
 [libraries]
+anip-sdk = { module = "com.highcapable.anip:anip-sdk", version.ref = "anip-sdk" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }

@@ -9,7 +9,7 @@ object ConfigDefaults {
     const val REMOTE_BRANCH = "beta"
     const val REMOTE_ACCELERATOR = ""
 
-    const val ICON_REMOTE_REPOSITORY = "fankes/AndroidNotifyIconAdapt"
+    const val ICON_REMOTE_REPOSITORY = "BetterAndroid/android-notification-icon-project"
     const val ICON_REMOTE_BRANCH = "main"
     const val ICON_REMOTE_ACCELERATOR = ""
 }

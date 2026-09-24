@@ -35,4 +35,21 @@ class IconConfigurationsTest {
             configurations.parse("[{not-json}]")
         }
     }
+
+    @Test
+    fun `IconConfig constructor handles preloaded properties`() {
+        val config = IconConfigurations.IconConfig(
+            appName = "Custom App",
+            packageName = "com.custom.app",
+            bitmap = null,
+            colorInt = 0x123456,
+            overlay = true,
+        )
+
+        assertEquals("Custom App", config.appName)
+        assertEquals("com.custom.app", config.packageName)
+        assertEquals("#123456", config.iconColor)
+        assertEquals(true, config.isEnabled)
+        assertEquals(true, config.isEnabledAll)
+    }
 }

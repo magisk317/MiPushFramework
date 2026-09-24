@@ -31,39 +31,8 @@ class ConfigCatalogService constructor(
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun fetchCatalog(source: ConfigRemoteSource): RemoteConfigCatalog = withContext(Dispatchers.IO) {
-        try {
-            val text = fetchText(source.rawUrl(INDEX_PATH))
-            json.decodeFromString(RemoteConfigCatalog.serializer(), text)
-        } catch (e: IOException) {
-            // Fallback for AndroidNotifyIconAdapt which does not use catalog.json
-            val fallbackPaths = listOf(
-                "APP/NotifyIconsSupportConfig.json",
-                "OS/ColorOS/NotifyIconsSupportConfig.json",
-                "OS/MIUI/NotifyIconsSupportConfig.json"
-            )
-            val isAndroidNotifyIconAdapt = try {
-                fetchText(source.rawUrl(fallbackPaths.first())).isNotEmpty()
-            } catch (_: Exception) { false }
-            
-            if (isAndroidNotifyIconAdapt) {
-                RemoteConfigCatalog(
-                    sourceRepo = source.repository,
-                    branch = source.branch,
-                    generatedAt = "1970-01-01T00:00:00Z",
-                    files = fallbackPaths.map {
-                        io.github.magisk317.mipush.core.configuration.RemoteConfigFile(
-                            path = it,
-                            name = it.substringAfterLast("/"),
-                            sha = "virtual_fankes_repo",
-                            size = 1000,
-                            updatedAt = "1970-01-01T00:00:00Z"
-                        )
-                    }
-                )
-            } else {
-                throw e
-            }
-        }
+        val text = fetchText(source.rawUrl(INDEX_PATH))
+        json.decodeFromString(RemoteConfigCatalog.serializer(), text)
     }
 
     suspend fun fetchRemoteFile(source: ConfigRemoteSource, path: String): String = withContext(Dispatchers.IO) {
