@@ -527,6 +527,7 @@ android:release:apk:
       - xmsf/build/outputs/apk/**/release/*.apk
       - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
+      - mipush/build/outputs/mapping/**/mapping.txt
       # android:release:modules-repo reads versionCode/versionName from here to
       # build its "<versionCode>-<versionName>" release tag.
       - play-release.env

@@ -182,12 +182,29 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+      - name: Package MiPush release debug files
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        run: |
+          mkdir -p release-debug-files
+          copy_optional() {
+            local source_file="$1"
+            local target_file="$2"
+            if [[ -f "$source_file" ]]; then
+              cp "$source_file" "release-debug-files/$target_file"
+            else
+              echo "SKIP optional release asset: $source_file"
+            fi
+          }
+          copy_optional mipush/build/outputs/mapping/githubRelease/mapping.txt mapping-mipush-release.txt
+
       - name: Upload MiPush release artifact
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: apks-mipush
-          path: mipush/build/outputs/apk/github/release/**/*.apk
+          path: |
+            mipush/build/outputs/apk/github/release/**/*.apk
+            release-debug-files/
 
   build-mipush-aab:
     name: Build MiPush Play Bundle

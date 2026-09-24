@@ -3,11 +3,15 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_FILES=()
+TMP_DIRS=()
 
 cleanup_tmp_files() {
-  local file
+  local file dir
   for file in "${TMP_FILES[@]}"; do
     rm -f "$file"
+  done
+  for dir in "${TMP_DIRS[@]}"; do
+    rm -rf "$dir"
   done
 }
 trap cleanup_tmp_files EXIT
@@ -20,6 +24,14 @@ make_tmp_file() {
   printf -v "$output_var" '%s' "$file"
 }
 
+make_tmp_dir() {
+  local output_var="$1"
+  local dir
+  dir="$(mktemp -d)"
+  TMP_DIRS+=("$dir")
+  printf -v "$output_var" '%s' "$dir"
+}
+
 usage() {
   cat >&2 <<'EOF'
 Usage:
@@ -29,8 +41,8 @@ Usage:
 
 Modes:
   release-notes   Extract the current tag section from docs/CHANGELOG.md.
-  validate-assets Validate the required APK/optional Zygisk asset set.
-  gitlab-release  Publish XMSF APK, MiPush APK, Zygisk zip, and debug files to GitLab Release.
+  validate-assets Validate APK, mapping, R8 map-id, and optional Zygisk assets.
+  gitlab-release  Publish APKs, mappings, Zygisk zips, debug files, and build metadata.
 EOF
 }
 
@@ -152,13 +164,65 @@ require_asset_basename() {
   fi
 }
 
+validate_apk_mapping_ids() {
+  local mapping_file="$1"
+  shift
+  python3 - "$mapping_file" "$@" <<'PY'
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+mapping_path = Path(sys.argv[1])
+apk_paths = [Path(value) for value in sys.argv[2:]]
+map_id_match = next(
+    (
+        match
+        for line in mapping_path.read_text(errors="replace").splitlines()
+        if (match := re.match(r"^# pg_map_id:\s*([0-9a-fA-F]+)\s*$", line))
+    ),
+    None,
+)
+if map_id_match is None:
+    raise SystemExit(f"ERROR: mapping has no # pg_map_id header: {mapping_path}")
+expected_map_id = map_id_match.group(1).lower()
+
+for apk_path in apk_paths:
+    embedded_ids = set()
+    try:
+        with zipfile.ZipFile(apk_path) as archive:
+            for entry_name in archive.namelist():
+                if re.fullmatch(r"classes(?:[0-9]+)?[.]dex", entry_name):
+                    dex_bytes = archive.read(entry_name)
+                    embedded_ids.update(
+                        value.decode("ascii").lower()
+                        for value in re.findall(rb"r8-map-id-([0-9a-fA-F]+)", dex_bytes)
+                    )
+    except (OSError, zipfile.BadZipFile) as error:
+        raise SystemExit(f"ERROR: cannot inspect R8 map id in {apk_path}: {error}") from error
+    if embedded_ids != {expected_map_id}:
+        actual = ",".join(sorted(embedded_ids)) or "missing"
+        raise SystemExit(
+            f"ERROR: R8 map id mismatch for {apk_path}: "
+            f"mapping={expected_map_id} apk={actual}"
+        )
+PY
+}
+
 collect_and_validate_release_assets() {
   local tag_name="$1"
   local version_name="${tag_name#v}"
-  local abi flavor expected_name
+  local abi flavor expected_name path
   local zygisk_asset_dir="${MIPUSH_ZYGISK_ASSET_DIR:-MiPushZygisk/build}"
   local zygisk_skip_marker="$zygisk_asset_dir/.zygisk-skip"
+  local xmsf_normal_mapping="xmsf/build/outputs/mapping/normalRelease/mapping.txt"
+  local xmsf_vc105_mapping="xmsf/build/outputs/mapping/vc105Release/mapping.txt"
+  local mipush_mapping="mipush/build/outputs/mapping/githubRelease/mapping.txt"
   local -a expected_abis=(arm64-v8a armeabi-v7a universal x86 x86_64)
+  local -a xmsf_normal_release_assets=()
+  local -a xmsf_vc105_release_assets=()
+  local -a mipush_github_release_assets=()
+  local -a xmsf_native_debug_assets=()
 
   mapfile -t xmsf_release_assets < <(
     find_if_dir xmsf/build/outputs/apk -type f -path '*/release/*.apk' | sort
@@ -169,11 +233,21 @@ collect_and_validate_release_assets() {
   mapfile -t zygisk_release_assets < <(
     find_if_dir "$zygisk_asset_dir" -maxdepth 1 -type f -name '*.zip' | sort
   )
-  mapfile -t release_support_assets < <(
-    {
-      find_if_dir xmsf/build/outputs/mapping -type f -name mapping.txt
-      find_if_dir xmsf/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip
-    } | sort
+  mapfile -t xmsf_native_debug_assets < <(
+    find_if_dir xmsf/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip | sort
+  )
+
+  for path in "$xmsf_normal_mapping" "$xmsf_vc105_mapping" "$mipush_mapping"; do
+    if [[ ! -f "$path" ]]; then
+      echo "ERROR: required release mapping is missing: $path" >&2
+      return 1
+    fi
+  done
+  release_support_assets=(
+    "$xmsf_normal_mapping"
+    "$xmsf_vc105_mapping"
+    "$mipush_mapping"
+    "${xmsf_native_debug_assets[@]}"
   )
 
   if [[ "${#xmsf_release_assets[@]}" -ne 10 ]]; then
@@ -186,6 +260,16 @@ collect_and_validate_release_assets() {
       require_asset_basename "$expected_name" "${xmsf_release_assets[@]}" || return 1
     done
   done
+  for path in "${xmsf_release_assets[@]}"; do
+    case "$(basename "$path")" in
+      *_normal_xmsf_*) xmsf_normal_release_assets+=("$path") ;;
+      *_vc105_xmsf_*) xmsf_vc105_release_assets+=("$path") ;;
+      *)
+        echo "ERROR: unrecognized XMSF release APK: $path" >&2
+        return 1
+        ;;
+    esac
+  done
 
   if [[ "${#mipush_release_assets[@]}" -ne 5 ]]; then
     echo "ERROR: expected 5 MiPush release APKs, found ${#mipush_release_assets[@]}" >&2
@@ -195,6 +279,11 @@ collect_and_validate_release_assets() {
     expected_name="${abi}_MiPush_v${version_name}_release.apk"
     require_asset_basename "$expected_name" "${mipush_release_assets[@]}" || return 1
   done
+  mipush_github_release_assets=("${mipush_release_assets[@]}")
+
+  validate_apk_mapping_ids "$xmsf_normal_mapping" "${xmsf_normal_release_assets[@]}" || return 1
+  validate_apk_mapping_ids "$xmsf_vc105_mapping" "${xmsf_vc105_release_assets[@]}" || return 1
+  validate_apk_mapping_ids "$mipush_mapping" "${mipush_github_release_assets[@]}" || return 1
 
   if [[ "${#zygisk_release_assets[@]}" -eq 0 ]]; then
     if [[ -f "$zygisk_skip_marker" ]] && grep -Fxq "source-unavailable" "$zygisk_skip_marker"; then
@@ -226,6 +315,33 @@ collect_and_validate_release_assets() {
   )
 }
 
+release_asset_name() {
+  local source_file="$1"
+  local relative_path="${source_file#./}"
+  local variant
+  case "$relative_path" in
+    xmsf/build/outputs/mapping/normalRelease/mapping.txt)
+      printf '%s\n' 'xmsf-mapping.txt'
+      ;;
+    xmsf/build/outputs/mapping/*Release/mapping.txt)
+      variant="$(basename "$(dirname "$source_file")")"
+      variant="${variant%Release}"
+      printf 'xmsf-%s-mapping.txt\n' "$variant"
+      ;;
+    mipush/build/outputs/mapping/githubRelease/mapping.txt)
+      printf '%s\n' 'mipush-mapping.txt'
+      ;;
+    mipush/build/outputs/mapping/*Release/mapping.txt)
+      variant="$(basename "$(dirname "$source_file")")"
+      variant="${variant%Release}"
+      printf 'mipush-%s-mapping.txt\n' "$variant"
+      ;;
+    *)
+      basename "$source_file"
+      ;;
+  esac
+}
+
 copy_assets() {
   local output_dir="$1"
   shift
@@ -236,7 +352,7 @@ copy_assets() {
   local source_file base_name asset_name prefix
   for source_file in "$@"; do
     base_name="$(basename "$source_file")"
-    asset_name="$base_name"
+    asset_name="$(release_asset_name "$source_file")"
     if [[ -n "${used_names[$asset_name]:-}" ]]; then
       prefix="$(dirname "$source_file" | tr '/[:space:]' '__')"
       asset_name="${prefix}_${base_name}"
@@ -244,6 +360,104 @@ copy_assets() {
     used_names[$asset_name]=1
     cp "$source_file" "$output_dir/$asset_name"
   done
+}
+
+resolve_commit_sha() {
+  if [[ -n "${CI_COMMIT_SHA:-}" ]]; then
+    printf '%s\n' "$CI_COMMIT_SHA"
+  else
+    git -C "$ROOT_DIR" rev-parse HEAD
+  fi
+}
+
+generate_build_info() {
+  local output_dir="$1"
+  local output_file="$output_dir/build-info.json"
+  local commit_sha
+  commit_sha="$(resolve_commit_sha)"
+  if [[ -z "$commit_sha" ]]; then
+    echo "ERROR: unable to resolve release commit SHA" >&2
+    return 1
+  fi
+
+  python3 - "$output_dir" "$output_file" "$commit_sha" <<'PY'
+import hashlib
+import json
+import os
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+output_dir = Path(sys.argv[1])
+output_file = Path(sys.argv[2])
+commit_sha = sys.argv[3]
+assets = []
+for asset_path in sorted(output_dir.iterdir(), key=lambda item: item.name):
+    if not asset_path.is_file() or asset_path == output_file:
+        continue
+    record = {
+        "file_name": asset_path.name,
+        "sha256": hashlib.sha256(asset_path.read_bytes()).hexdigest(),
+    }
+    if asset_path.suffix == ".apk":
+        embedded_ids = set()
+        with zipfile.ZipFile(asset_path) as archive:
+            for entry_name in archive.namelist():
+                if re.fullmatch(r"classes(?:[0-9]+)?[.]dex", entry_name):
+                    embedded_ids.update(
+                        value.decode("ascii").lower()
+                        for value in re.findall(
+                            rb"r8-map-id-([0-9a-fA-F]+)",
+                            archive.read(entry_name),
+                        )
+                    )
+        if len(embedded_ids) != 1:
+            actual = ",".join(sorted(embedded_ids)) or "missing"
+            raise SystemExit(f"ERROR: expected one R8 map id in {asset_path}, found {actual}")
+        record["r8_map_id"] = next(iter(embedded_ids))
+    elif asset_path.name.endswith("mapping.txt"):
+        map_ids = {
+            match.group(1).lower()
+            for line in asset_path.read_text(errors="replace").splitlines()
+            if (match := re.match(r"^# pg_map_id:\s*([0-9a-fA-F]+)\s*$", line))
+        }
+        if len(map_ids) != 1:
+            actual = ",".join(sorted(map_ids)) or "missing"
+            raise SystemExit(f"ERROR: expected one pg_map_id in {asset_path}, found {actual}")
+        record["pg_map_id"] = next(iter(map_ids))
+    assets.append(record)
+
+if not assets:
+    raise SystemExit("ERROR: cannot generate build-info.json without release assets")
+ci_environment = {
+    "job_id": "CI_JOB_ID",
+    "job_name": "CI_JOB_NAME",
+    "job_stage": "CI_JOB_STAGE",
+    "job_url": "CI_JOB_URL",
+    "pipeline_id": "CI_PIPELINE_ID",
+    "pipeline_url": "CI_PIPELINE_URL",
+}
+ci = {
+    output_key: os.environ[environment_key]
+    for output_key, environment_key in ci_environment.items()
+    if os.environ.get(environment_key)
+}
+payload = {
+    "commit_sha": commit_sha,
+    "ci": ci,
+    "assets": assets,
+}
+output_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+PY
+}
+
+prepare_release_assets() {
+  local tag_name="$1"
+  local output_dir="$2"
+  collect_and_validate_release_assets "$tag_name"
+  copy_assets "$output_dir" "${release_assets[@]}"
+  generate_build_info "$output_dir"
 }
 
 verify_existing_package_asset() {
@@ -309,8 +523,7 @@ publish_gitlab_release() {
 
   generate_release_notes "$tag_name" "$notes_file" gitlab
 
-  collect_and_validate_release_assets "$tag_name"
-  copy_assets "$asset_dir" "${release_assets[@]}"
+  prepare_release_assets "$tag_name" "$asset_dir"
 
   MAGISK_RELEASE_NOTES_FILE="$notes_file" \
   MAGISK_RELEASE_NAME="$tag_name" \
@@ -331,8 +544,12 @@ case "$mode" in
     ;;
   validate-assets)
     current_tag="$(release_tag)"
-    collect_and_validate_release_assets "$current_tag"
-    echo "Validated release asset set: $current_tag"
+    validation_asset_dir="${MAGISK_RELEASE_VALIDATE_ASSET_DIR:-}"
+    if [[ -z "$validation_asset_dir" ]]; then
+      make_tmp_dir validation_asset_dir
+    fi
+    prepare_release_assets "$current_tag" "$validation_asset_dir"
+    echo "Validated release asset set and build metadata: $current_tag"
     ;;
   gitlab-release)
     publish_gitlab_release
