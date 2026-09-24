@@ -152,6 +152,8 @@ fun Configurations(
 
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportIsIcon by rememberSaveable { mutableStateOf(false) }
+    var configPreviewExpanded by rememberSaveable { mutableStateOf(true) }
+    var iconPreviewExpanded by rememberSaveable { mutableStateOf(false) }
     val openDirectoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -328,11 +330,63 @@ fun Configurations(
                     )
                 }
             } else {
-                items(filteredItems, key = { it.path }) { configItem ->
-                    ConfigListEntry(
-                        item = configItem,
-                        onClick = { onOpenEditor(configItem.path) },
-                    )
+                val categoryItems = filteredItems.filter { !it.path.startsWith("icon/") }
+                val iconItems = filteredItems.filter { it.path.startsWith("icon/") }
+
+                item {
+                    SettingsSectionCard(
+                        title = stringResource(R.string.config_preview_title),
+                        summary = stringResource(R.string.config_preview_summary),
+                        expanded = configPreviewExpanded,
+                        onExpandedChange = {
+                            configPreviewExpanded = !configPreviewExpanded
+                        },
+                    ) {
+                        if (categoryItems.isEmpty()) {
+                            WorkspaceEmptyState(
+                                title = stringResource(R.string.config_empty_title),
+                                summary = stringResource(R.string.config_empty_summary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 180.dp),
+                            )
+                        } else {
+                            categoryItems.forEach { configItem ->
+                                ConfigListEntry(
+                                    item = configItem,
+                                    onClick = { onOpenEditor(configItem.path) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    SettingsSectionCard(
+                        title = stringResource(R.string.icon_preview_title),
+                        summary = stringResource(R.string.icon_preview_summary),
+                        expanded = iconPreviewExpanded,
+                        onExpandedChange = {
+                            iconPreviewExpanded = !iconPreviewExpanded
+                        },
+                    ) {
+                        if (iconItems.isEmpty()) {
+                            WorkspaceEmptyState(
+                                title = stringResource(R.string.config_empty_title),
+                                summary = stringResource(R.string.config_empty_summary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 180.dp),
+                            )
+                        } else {
+                            iconItems.forEach { configItem ->
+                                ConfigListEntry(
+                                    item = configItem,
+                                    onClick = { onOpenEditor(configItem.path) },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
