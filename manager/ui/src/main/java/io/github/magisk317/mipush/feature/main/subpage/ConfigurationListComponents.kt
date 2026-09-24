@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -105,18 +106,16 @@ internal fun LazyListScope.configListHeader(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
                 AppPrimaryButton(
+                    text = stringResource(R.string.config_choose_directory),
                     onClick = onChooseDirectory,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.config_choose_directory), maxLines = 1)
-                }
+                )
                 AppSecondaryButton(
+                    text = stringResource(R.string.config_import_local),
                     onClick = onImportLocal,
                     enabled = !uiState.directoryUri.isNullOrBlank(),
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.config_import_local), maxLines = 1)
-                }
+                )
             }
 
             Row(
@@ -124,18 +123,16 @@ internal fun LazyListScope.configListHeader(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
                 AppSecondaryButton(
+                    text = stringResource(R.string.config_pull_remote),
                     onClick = onPullRemote,
                     enabled = !uiState.directoryUri.isNullOrBlank() && !uiState.isSyncing,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.config_pull_remote), maxLines = 1)
-                }
+                )
                 AppSecondaryButton(
+                    text = stringResource(R.string.config_reload),
                     onClick = onReload,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.config_reload), maxLines = 1)
-                }
+                )
             }
 
             if (uiState.isSyncing && uiState.syncTotal > 0) {
@@ -173,6 +170,30 @@ internal fun ConfigListEntry(
     item: ConfigListItem,
     onClick: () -> Unit,
 ) {
+    val (primaryTitle, secondarySubtitle) = remember(item.displayName, item.path) {
+        val rawName = item.displayName.removeSuffix(".json")
+        val delimiterIndex = rawName.indexOf('_')
+        if (delimiterIndex != -1) {
+            val prefix = rawName.substring(0, delimiterIndex)
+            val suffix = rawName.substring(delimiterIndex + 1)
+            // If prefix starts with digit (e.g., 0_基础配置_工具 -> prefix: 0, suffix: 基础配置_工具)
+            if (prefix.all { it.isDigit() }) {
+                val nextDelimiter = suffix.indexOf('_')
+                if (nextDelimiter != -1) {
+                    val category = suffix.substring(0, nextDelimiter)
+                    val detail = suffix.substring(nextDelimiter + 1)
+                    detail to category
+                } else {
+                    suffix to prefix
+                }
+            } else {
+                suffix to prefix
+            }
+        } else {
+            rawName to item.path
+        }
+    }
+
     WorkspaceListItem(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
@@ -186,14 +207,14 @@ internal fun ConfigListEntry(
         trailingContent = { StatusBadge(item.status) },
     ) {
         Text(
-            text = item.displayName,
+            text = primaryTitle,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = item.path,
+            text = secondarySubtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
