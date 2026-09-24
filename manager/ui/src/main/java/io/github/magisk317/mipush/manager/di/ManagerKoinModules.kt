@@ -18,6 +18,10 @@ import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
+import io.github.magisk317.mipush.main.viewmodel.IconLibrarySource
+import io.github.magisk317.mipush.main.viewmodel.IconResourcesUpdateRequester
+import io.github.magisk317.mipush.main.viewmodel.RemoteIconLibrarySource
+import io.github.magisk317.mipush.main.viewmodel.RemoteIconResourcesUpdateRequester
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
@@ -93,6 +97,10 @@ val managerKoinModule = module {
     single<ConnectionSnapshotSource> { get<RemoteConnectionSnapshotSource>() }
     single { RemoteConnectionReconnectRequester(get<ManagerRuntimeClient>()) }
     single<ConnectionReconnectRequester> { get<RemoteConnectionReconnectRequester>() }
+    single { RemoteIconResourcesUpdateRequester(get<ManagerRuntimeClient>()) }
+    single<IconResourcesUpdateRequester> { get<RemoteIconResourcesUpdateRequester>() }
+    single { RemoteIconLibrarySource(get<ManagerRuntimeClient>()) }
+    single<IconLibrarySource> { get<RemoteIconLibrarySource>() }
     single { RemoteApplicationListSource(get<ManagerRuntimeClient>(), get<PageRemoteCallAdapter>()) }
     single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
     single { RemoteEventListSource(get<ManagerRuntimeClient>(), get<PageRemoteCallAdapter>()) }
@@ -134,7 +142,7 @@ val managerKoinModule = module {
         )
     }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
-    viewModel { ConfigManagerViewModel(get(), get(), get(), androidApplication(), get()) }
+    viewModel { ConfigManagerViewModel(get(), get(), get(), androidApplication(), get(), get(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidApplication()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ApplicationListCacheStore>()) }

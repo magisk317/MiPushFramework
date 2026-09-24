@@ -132,6 +132,9 @@ object ManagerProtocol {
     const val WRITE_OP_RESET_TOP_ACTIVITY_CACHE = "reset_top_activity_cache"
     const val WRITE_OP_GET_EVENT_CONTENT = "get_event_content"
     const val WRITE_OP_GET_EVENT_JSON = "get_event_json"
+    const val WRITE_OP_FETCH_ICON_RESOURCES = "fetch_icon_resources"
+    const val WRITE_OP_GET_ICON_LIBRARY_PAGE = "get_icon_library_page"
+    const val WRITE_OP_LOAD_ICON_BITMAP = "load_icon_bitmap"
     const val WRITE_DETAIL_COUNT_EVENTS_BY_DAY_OK = "count_events_by_day_ok"
     const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_OK = "clear_log_folders_ok"
     const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_FAILED = "clear_log_folders_failed"
@@ -144,6 +147,12 @@ object ManagerProtocol {
     const val WRITE_DETAIL_RESET_TOP_ACTIVITY_CACHE_OK = "reset_top_activity_cache_ok"
     const val WRITE_DETAIL_GET_EVENT_CONTENT_OK = "get_event_content_ok"
     const val WRITE_DETAIL_GET_EVENT_JSON_OK = "get_event_json_ok"
+    const val WRITE_DETAIL_ICON_FETCH_UPDATED = "icon_fetch_updated"
+    const val WRITE_DETAIL_ICON_FETCH_UP_TO_DATE = "icon_fetch_up_to_date"
+    const val WRITE_DETAIL_ICON_FETCH_FAILED = "icon_fetch_failed"
+    const val WRITE_DETAIL_ICON_LIBRARY_PAGE_OK = "icon_library_page_ok"
+    const val WRITE_DETAIL_ICON_BITMAP_OK = "icon_bitmap_ok"
+    const val WRITE_DETAIL_ICON_BITMAP_MISSING = "icon_bitmap_missing"
     const val WRITE_DETAIL_REBOOT_DEVICE_OK = "reboot_device_ok"
     const val WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING = "reboot_device_root_missing"
     const val WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK = "set_runtime_boolean_ok"
@@ -179,6 +188,10 @@ object ManagerProtocol {
     const val MAX_CONFIGURATION_NAME_LENGTH = ManagerContractLimits.MAX_CONFIGURATION_NAME_LENGTH
     const val MAX_CONFIGURATION_SHA_LENGTH = ManagerContractLimits.MAX_CONFIGURATION_SHA_LENGTH
     const val MAX_LOG_EXPORT_DETAILS_LENGTH = ManagerContractLimits.MAX_LOG_EXPORT_DETAILS_LENGTH
+    // Write results carry icon payloads (bitmap base64, library metadata pages) that dwarf the
+    // log-export ceiling; the parcel reader must use the write-specific limit or large pages
+    // fail with BadParcelableException before the caller ever sees them.
+    const val MAX_WRITE_DETAILS_LENGTH = ManagerContractLimits.MAX_WRITE_DETAILS_LENGTH
     const val MAX_WIRE_FRAME_BYTES = ManagerContractLimits.MAX_WIRE_FRAME_BYTES
     const val APPLICATION_FILTER_ALL = 0
     const val APPLICATION_FILTER_REGISTERED = 1

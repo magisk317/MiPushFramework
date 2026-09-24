@@ -30,6 +30,9 @@ object ManagerContractLimits {
     const val MAX_CONFIGURATION_NAME_LENGTH = 255
     const val MAX_CONFIGURATION_SHA_LENGTH = 128
     const val MAX_LOG_EXPORT_DETAILS_LENGTH = 4_096
+    // Write-result details may carry binary-ish payloads (e.g. base64 icon bitmaps, icon
+    // library metadata pages); keep a generous ceiling well below the 1 MB binder limit.
+    const val MAX_WRITE_DETAILS_LENGTH = 256 * 1024
     const val MAX_CAPABILITY_COUNT = 64
     const val MAX_CAPABILITY_LENGTH = 128
     const val MAX_RUNTIME_VERSION_NAME_LENGTH = 128

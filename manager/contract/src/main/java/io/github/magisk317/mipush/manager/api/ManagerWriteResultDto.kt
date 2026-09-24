@@ -35,7 +35,7 @@ data class ManagerWriteResultDto(
                             ).orEmpty(),
                             status = readString(maxLength = 32).orEmpty(),
                             details = readString(
-                                maxLength = ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH,
+                                maxLength = ManagerProtocol.MAX_WRITE_DETAILS_LENGTH,
                             ).orEmpty(),
                             resultLong = readLong(),
                         )

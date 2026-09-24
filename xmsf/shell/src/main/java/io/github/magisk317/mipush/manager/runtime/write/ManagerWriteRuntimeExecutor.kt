@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import com.highcapable.anip.sdk.Anip
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
@@ -40,6 +41,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.service.ForegroundHelper
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
@@ -58,6 +60,10 @@ class ManagerWriteRuntimeExecutor(
     private val zygiskConfigGateway: ZygiskConfigGateway,
     private val idempotencyStore: ManagerWriteIdempotencyStore = ManagerWriteIdempotencyStore(),
 ) {
+
+    private companion object {
+        const val ICON_LIBRARY_PAGE_SIZE = 200
+    }
     constructor(context: Context) : this(
         context = context,
         preferenceRepository = AppDependencies.get(context),
@@ -210,12 +216,78 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE -> resetTopActivityCache(request)
             ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT -> getEventContent(request)
             ManagerProtocol.WRITE_OP_GET_EVENT_JSON -> getEventJson(request)
+            ManagerProtocol.WRITE_OP_FETCH_ICON_RESOURCES -> fetchIconResources(request)
+            ManagerProtocol.WRITE_OP_GET_ICON_LIBRARY_PAGE -> getIconLibraryPage(request)
+            ManagerProtocol.WRITE_OP_LOAD_ICON_BITMAP -> loadIconBitmap(request)
             else -> ManagerWriteResultDto(
                 requestId = request.requestId,
                 status = ManagerProtocol.WRITE_STATUS_UNSUPPORTED,
                 details = "unsupported_operation",
             )
         }
+
+    /**
+     * Pulls the latest ANIP release bundle inside the runtime process so the icon cache used by
+     * notification rendering is refreshed in place (bundled assets act only as the initial fallback).
+     */
+    private suspend fun fetchIconResources(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        runCatching { Global.iconConfigurations().fetchLatest(context) }.fold(
+            onSuccess = { fetchResult ->
+                when (fetchResult.status) {
+                    Anip.FetchResult.Status.UP_TO_DATE -> success(
+                        request.requestId,
+                        ManagerProtocol.WRITE_DETAIL_ICON_FETCH_UP_TO_DATE,
+                    )
+                    Anip.FetchResult.Status.SUCCESS -> success(
+                        request.requestId,
+                        "${ManagerProtocol.WRITE_DETAIL_ICON_FETCH_UPDATED}|${fetchResult.message.take(96)}",
+                    )
+                    else -> failed(
+                        request.requestId,
+                        "${ManagerProtocol.WRITE_DETAIL_ICON_FETCH_FAILED}|${fetchResult.message.take(96)}",
+                    )
+                }
+            },
+            onFailure = {
+                failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ICON_FETCH_FAILED)
+            },
+        )
+
+    /**
+     * Serves one page of the ANIP icon library metadata (package name, label, color, overlay)
+     * from the runtime process. [ManagerWriteRequestDto.intArgument] carries the page offset.
+     */
+    private suspend fun getIconLibraryPage(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        runCatching {
+            val offset = request.intArgument.coerceAtLeast(0)
+            val configurations = Global.iconConfigurations()
+            val entries = configurations.libraryPage(context, offset, ICON_LIBRARY_PAGE_SIZE)
+            val encoded = configurations.encodeLibraryPage(entries)
+            logI("IconConfigurations: libraryPage reply offset=$offset page=${entries.size} payloadLen=${encoded.length} head=${encoded.take(120)}")
+            "${ManagerProtocol.WRITE_DETAIL_ICON_LIBRARY_PAGE_OK}|$encoded"
+        }.fold(
+            onSuccess = { success(request.requestId, it) },
+            onFailure = {
+                logI("IconConfigurations: libraryPage failed: ${it.javaClass.simpleName}: ${it.message?.take(160)}")
+                failed(request.requestId, "icon_library_page_failed|${it.javaClass.simpleName}: ${it.message?.take(96)}")
+            },
+        )
+
+    /**
+     * Serves the base64-encoded PNG of one ANIP icon. [ManagerWriteRequestDto.packageName]
+     * selects the icon; details carry "icon_bitmap_ok|<base64>" on success.
+     */
+    private suspend fun loadIconBitmap(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+        runCatching { Global.iconConfigurations().iconBitmapBase64(context, request.packageName) }.fold(
+            onSuccess = { encoded ->
+                if (encoded == null) {
+                    failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ICON_BITMAP_MISSING)
+                } else {
+                    success(request.requestId, "${ManagerProtocol.WRITE_DETAIL_ICON_BITMAP_OK}|$encoded")
+                }
+            },
+            onFailure = { failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ICON_BITMAP_MISSING) },
+        )
 
     private suspend fun updateApplication(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val packageName = request.packageName
