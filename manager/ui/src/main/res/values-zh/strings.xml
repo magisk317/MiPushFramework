@@ -767,10 +767,10 @@
     <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
     <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="dialog_acknowledge">我知道了</string>
-    <string name="legacy_module_dialog_title">检测到旧版 MiPush 模块</string>
-    <string name="legacy_module_dialog_message">检测到旧模块 com.nihility.mipush，请卸载后重新打开管理器</string>
-    <string name="runtime_commit_mismatch_dialog_title">模块与 xmsf 版本不匹配</string>
-    <string name="runtime_commit_mismatch_dialog_message">检测到管理器模块与 xmsf 运行时的构建提交不一致（模块 %1$s，运行时 %2$s）。版本错配可能导致通知重复、点击无响应等问题，请安装配套版本的两个 APK。</string>
+    <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
+    <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
+    <string name="runtime_commit_mismatch_dialog_title">管理器与运行时版本不匹配</string>
+    <string name="runtime_commit_mismatch_dialog_message">检测到MiPush管理器模块与 xmsf 运行时的构建提交不一致（管理器： %1$s，运行时： %2$s）。版本错配可能导致包括但不限于通知重复、点击无响应等问题，请尽可能安装配套版本的两个 APK。</string>
     <string name="runtime_commit_mismatch_toast">模块与 xmsf 版本不匹配，通知功能可能异常</string>
 
     <string name="pref_theme_group_color">色彩</string>

@@ -4,7 +4,9 @@ import android.content.pm.PackageManager
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 
 internal object LegacyModuleDetector {
-    const val LEGACY_MODULE_PACKAGE_NAME = "com.nihility.mipush"
+    val INCOMPATIBLE_MODULE_PACKAGES = listOf(
+        "com.nihility.mipush",
+    )
 
     /**
      * Installation is intentionally enough to trigger the warning. The legacy
@@ -12,16 +14,22 @@ internal object LegacyModuleDetector {
      * keeping both package identities installed can make the active module
      * ambiguous and can leave stale hooks in the target processes.
      */
-    fun isInstalled(packageManager: PackageManager): Boolean = try {
-        PackageManagerCompatBridge.getPackageInfo(
-            packageManager = packageManager,
-            packageName = LEGACY_MODULE_PACKAGE_NAME,
-            flags = 0,
-        )
-        true
-    } catch (_: PackageManager.NameNotFoundException) {
-        false
-    } catch (_: SecurityException) {
-        false
-    }
+    fun findInstalledPackages(packageManager: PackageManager): List<String> =
+        INCOMPATIBLE_MODULE_PACKAGES.filter { packageName ->
+            try {
+                PackageManagerCompatBridge.getPackageInfo(
+                    packageManager = packageManager,
+                    packageName = packageName,
+                    flags = 0,
+                )
+                true
+            } catch (_: PackageManager.NameNotFoundException) {
+                false
+            } catch (_: SecurityException) {
+                false
+            }
+        }
+
+    fun isInstalled(packageManager: PackageManager): Boolean =
+        findInstalledPackages(packageManager).isNotEmpty()
 }

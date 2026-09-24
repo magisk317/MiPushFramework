@@ -777,8 +777,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="runtime_missing_dialog_title">Usable xmsf not detected</string>
     <string name="runtime_missing_dialog_message">The xmsf runtime may be missing or incompatible. Install the matching xmsf runtime, then reopen Manager.</string>
     <string name="dialog_acknowledge">Got it</string>
-    <string name="legacy_module_dialog_title">Legacy MiPush module detected</string>
-    <string name="legacy_module_dialog_message">Legacy module com.nihility.mipush detected. Uninstall it, then reopen Manager.</string>
+    <string name="legacy_module_dialog_title">Incompatible MiPush module detected</string>
+    <string name="legacy_module_dialog_message">Incompatible module detected: %1$s. Uninstall it, then reopen Manager.</string>
     <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
     <string name="runtime_commit_mismatch_dialog_message">The manager module and the xmsf runtime were built from different commits (module %1$s, runtime %2$s). A mismatch can cause duplicate notifications or dead notification clicks. Install matching builds of both APKs.</string>
     <string name="runtime_commit_mismatch_toast">Module and xmsf versions mismatch; notifications may misbehave</string>

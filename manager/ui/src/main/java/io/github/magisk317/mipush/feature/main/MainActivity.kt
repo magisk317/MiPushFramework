@@ -73,11 +73,11 @@ open class MainActivity : ComponentActivity() {
     private val settingsManager: SettingsManager by inject()
     private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
-    private var legacyModuleInstalled by mutableStateOf(false)
+    private var incompatibleModules by mutableStateOf<List<String>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        legacyModuleInstalled = LegacyModuleDetector.isInstalled(packageManager)
+        incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
         applyEdgeToEdge(this)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         mainActivityUtils.initOnCreate(
@@ -178,7 +178,7 @@ open class MainActivity : ComponentActivity() {
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val runtimeWarning = runtimeAvailability.requiresRuntimeWarning()
-                    val managerWarning = legacyModuleInstalled
+                    val managerWarning = incompatibleModules.isNotEmpty()
                     val commitMismatch = runtimeAvailability.runtimeCommitMismatch(
                         moduleCommit = CommonBuildConfig.GIT_COMMIT,
                     )
@@ -217,6 +217,7 @@ open class MainActivity : ComponentActivity() {
 
                         managerWarning && !managerWarningDismissed -> {
                             LegacyModuleWarningDialog(
+                                packageNames = incompatibleModules,
                                 onDismiss = { managerWarningDismissed = true },
                             )
                         }
@@ -238,7 +239,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        legacyModuleInstalled = LegacyModuleDetector.isInstalled(packageManager)
+        incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
     }
 
     override fun onDestroy() {
@@ -304,7 +305,10 @@ private fun RuntimeCommitMismatchDialog(
 }
 
 @Composable
-private fun LegacyModuleWarningDialog(onDismiss: () -> Unit) {
+private fun LegacyModuleWarningDialog(
+    packageNames: List<String>,
+    onDismiss: () -> Unit,
+) {
     AppAlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -315,7 +319,13 @@ private fun LegacyModuleWarningDialog(onDismiss: () -> Unit) {
             Text(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
         },
         text = {
-            Text(text = stringResource(R.string.legacy_module_dialog_message), color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                text = stringResource(
+                    R.string.legacy_module_dialog_message,
+                    packageNames.joinToString(", "),
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         },
         confirmButton = {
             AppTextButton(
