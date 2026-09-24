@@ -698,9 +698,6 @@ telegram:release:
       artifacts: true
     - job: zygisk:build:release
       artifacts: true
-    - job: android:release:play
-      artifacts: false
-      optional: true
 
 renovate:gitlab:
   extends: .magisk_renovate_gitlab
