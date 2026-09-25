@@ -131,7 +131,7 @@ update:anip-bundle:
     - magisk-arm64-linux
   rules:
     - !reference [.mipush_signed_android_rules, rules]
-  image: alpine:3.22
+  image: alpine:3.24
   variables:
     GIT_STRATEGY: fetch
   before_script:
@@ -746,7 +746,7 @@ sync:github:
   needs:
     - job: android:release:guard
       optional: true
-  image: alpine:3.22
+  image: alpine:3.24
   tags:
     - magisk-arm64-linux
   rules:
