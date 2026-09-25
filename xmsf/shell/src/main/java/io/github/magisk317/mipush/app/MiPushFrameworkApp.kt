@@ -202,6 +202,7 @@ open class MiPushFrameworkApp : Application() {
                 enabled = effectiveEnabled,
                 serviceName = "mipushframework",
                 serviceVersion = VERSION_NAME,
+                serviceCommit = BuildConfig.GIT_COMMIT,
                 projectId = "83955143",
                 projectName = "MiPushFramework",
                 environment = if (BuildConfig.DEBUG) "debug" else "release",

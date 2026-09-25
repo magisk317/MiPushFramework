@@ -120,6 +120,7 @@ class LibXposedEntry : BaseLibXposedEntry {
                 enabled = BuildConfig.DEBUG || userEnabled,
                 serviceName = "mipushframework",
                 serviceVersion = VERSION_NAME,
+                serviceCommit = BuildConfig.GIT_COMMIT,
                 projectId = "83955143",
                 projectName = "MiPushFramework",
                 environment = if (BuildConfig.DEBUG) "debug" else "release",
