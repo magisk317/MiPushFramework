@@ -55,7 +55,7 @@ object PreferenceOwnership {
             "Runtime log sanitization",
             false,
         ),
-        runtimeBoolean(ENABLE_ANALYTICS_KEY, "Runtime analytics", true),
+        runtimeBoolean(ENABLE_ANALYTICS_KEY, "Runtime analytics", false),
         runtimeBoolean("show_all_events", "Event type filter policy", false),
         runtimeBoolean("start_foreground", "Foreground service start", true),
         runtimeBoolean(

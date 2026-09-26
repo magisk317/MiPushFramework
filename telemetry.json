@@ -1,0 +1,4 @@
+{
+  "analytics_enabled": true,
+  "_comment": "Flip to false to disable technical analytics (MagiskOtel) fleet-wide without shipping a build. Consumers cache the decision for 6 hours; an unreachable or malformed document leaves the local user preference in charge."
+}

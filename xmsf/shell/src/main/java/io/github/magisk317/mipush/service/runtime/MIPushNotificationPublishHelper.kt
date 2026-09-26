@@ -127,8 +127,14 @@ class MIPushNotificationPublishHelper {
             dispatchMessageArrived: Boolean = false,
         ): MockReplayOutcome {
             val startedAt = System.nanoTime()
-            fun finish(outcome: MockReplayOutcome, reason: String, targetPackage: String = ""): MockReplayOutcome {
-                val result = when (outcome) {
+            fun finish(
+                outcome: MockReplayOutcome,
+                reason: String,
+                targetPackage: String = "",
+                resultOverride: String? = null,
+                extraAttrs: Map<String, String> = emptyMap(),
+            ): MockReplayOutcome {
+                val result = resultOverride ?: when (outcome) {
                     MockReplayOutcome.Dispatched, MockReplayOutcome.Posted -> "ok"
                     MockReplayOutcome.BlockedByPermission -> "skip"
                     else -> "error"
@@ -144,6 +150,7 @@ class MIPushNotificationPublishHelper {
                 if (targetPackage.isNotBlank()) {
                     attrs["target_package"] = targetPackage
                 }
+                attrs.putAll(extraAttrs)
                 MagiskOtel.event(
                     name = "push.dispatch",
                     attributes = attrs,
@@ -215,12 +222,26 @@ class MIPushNotificationPublishHelper {
                 return finish(MockReplayOutcome.Failed, "replay_drop", container.packageName.orEmpty())
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
-            if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
+            val dispatchDecision = MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
+            if (!dispatchDecision.allowed) {
                 logD(
                     "skip duplicate notification publish action=${container.action} pkg=${container.packageName} " +
-                        "messageId=$messageId mockReplay=$isMockReplay"
+                        "messageId=$messageId mockReplay=$isMockReplay " +
+                        "allowanceState=${dispatchDecision.allowanceState}"
                 )
-                return finish(MockReplayOutcome.Failed, "duplicate_dispatch", container.packageName.orEmpty())
+                // A denied dispatch is the allowance mechanism suppressing a repeat publish, not a
+                // failure: classify it as skip and carry the bridge-side root cause plus the action
+                // so the event stays attributable. The outcome stays Failed for the caller contract.
+                return finish(
+                    MockReplayOutcome.Failed,
+                    "duplicate_dispatch",
+                    container.packageName.orEmpty(),
+                    resultOverride = "skip",
+                    extraAttrs = buildDuplicateDispatchAttributes(
+                        denyReason = dispatchDecision.allowanceState,
+                        actionName = container.action?.name,
+                    ),
+                )
             }
             val notificationOp = AppInfoUtils.getAppNotificationOp(
                 context,
@@ -266,6 +287,22 @@ class MIPushNotificationPublishHelper {
             isEncrypted: Boolean,
             outcome: MockReplayOutcome,
         ): Boolean = isEncrypted && outcome == MockReplayOutcome.Failed
+
+        /**
+         * Extra telemetry attributes for a dispatch denied by the allowance mechanism.
+         *
+         * [denyReason] is the bridge-side state (`missing` / `expired` / `exhausted`); it is only
+         * attached when known so older bridge builds degrade to action-only attribution.
+         */
+        internal fun buildDuplicateDispatchAttributes(
+            denyReason: String?,
+            actionName: String?,
+        ): Map<String, String> = linkedMapOf<String, String>().apply {
+            put("action", actionName?.takeIf { it.isNotBlank() } ?: "unknown")
+            if (!denyReason.isNullOrBlank()) {
+                put("deny_reason", denyReason)
+            }
+        }
 
         private fun dispatchRawEncryptedPayload(
             context: Context,

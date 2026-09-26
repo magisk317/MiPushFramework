@@ -443,6 +443,31 @@ class MIPushNotificationPublishHelperTest {
         assertEquals("1000", extras["eventMessageType"])
     }
 
+    @Test
+    fun `duplicate dispatch telemetry carries action and bridge deny reason`() {
+        val withState = MIPushNotificationPublishHelper.buildDuplicateDispatchAttributes(
+            denyReason = "missing",
+            actionName = "SendMessage",
+        )
+        assertEquals("SendMessage", withState["action"])
+        assertEquals("missing", withState["deny_reason"])
+
+        val unknownAction = MIPushNotificationPublishHelper.buildDuplicateDispatchAttributes(
+            denyReason = "exhausted",
+            actionName = null,
+        )
+        assertEquals("unknown", unknownAction["action"])
+        assertEquals("exhausted", unknownAction["deny_reason"])
+
+        // Older bridge builds that cannot report a state degrade to action-only attribution.
+        val withoutState = MIPushNotificationPublishHelper.buildDuplicateDispatchAttributes(
+            denyReason = null,
+            actionName = "Notification",
+        )
+        assertEquals("Notification", withoutState["action"])
+        assertFalse(withoutState.containsKey("deny_reason"))
+    }
+
     private fun readShellSource(relativePath: String): String {
         val candidates = listOf(
             File("src/main/java/$relativePath"),

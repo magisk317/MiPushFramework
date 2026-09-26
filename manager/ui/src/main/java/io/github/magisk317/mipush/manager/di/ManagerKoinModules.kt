@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.TelemetryRemoteGate
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
@@ -55,6 +56,7 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionReconnectRequester
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +70,9 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
+import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
+import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
 
 val managerKoinModule = module {
     single {
@@ -279,6 +284,7 @@ object ManagerDependencies {
         if (!analyticsSyncStarted) {
             analyticsSyncStarted = true
             appScope.launch {
+                withContext(Dispatchers.IO) { TelemetryRemoteGate.refresh(appContext) }
                 koin.get<PreferenceRepository>().isAnalyticsEnabled.collect { enabled ->
                     configureAnalytics(appContext, enabled)
                 }
@@ -312,15 +318,22 @@ object ManagerDependencies {
     private fun configureAnalytics(context: Context, enabled: Boolean) {
         val systemOtelEnabled =
             System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
+        // Debug builds always report so development-time spans are never silently dropped.
+        val effectiveEnabled =
+            BuildConfig.DEBUG ||
+                ((enabled || systemOtelEnabled) && !TelemetryRemoteGate.isForceDisabled(context))
+        MagiskOtel.publishSwitch(context, ENABLE_ANALYTICS_KEY, effectiveEnabled)
         MagiskOtel.configureForInstallation(
             context,
             MagiskOtel.Config(
-                enabled = BuildConfig.DEBUG || enabled || systemOtelEnabled,
+                enabled = effectiveEnabled,
                 serviceName = "mipushframework",
                 serviceVersion = VERSION_NAME,
                 projectId = "83955143",
                 projectName = "MiPushFramework",
                 environment = if (BuildConfig.DEBUG) "debug" else "release",
+                suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
+                suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,
             ),
         )
     }

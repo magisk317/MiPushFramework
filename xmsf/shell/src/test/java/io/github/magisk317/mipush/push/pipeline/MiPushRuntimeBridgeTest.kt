@@ -152,6 +152,77 @@ class MiPushRuntimeBridgeTest {
     }
 
     @Test
+    fun `dispatch allowance consumption distinguishes missing expired and exhausted states`() {
+        val pkg = "com.tencent.mobileqq"
+        val userId = 0
+        MiPushRuntimeBridge.clearPackageTransientState(pkg, userId)
+
+        // No grant was ever issued for this message: repeat deliveries suppressed by the inbound
+        // dedup window land here.
+        assertEquals(
+            MiPushRuntimeBridge.AllowanceDecision.Rejected("missing"),
+            MiPushRuntimeBridge.consumeNotificationDispatchAllowance(
+                packageName = pkg,
+                actionName = "SendMessage",
+                messageId = "msg-allow-missing",
+                userId = userId,
+                nowMs = 1_000L,
+            ),
+        )
+
+        // A mark grants exactly three publishes; the fourth attempt is exhausted, not missing.
+        MiPushRuntimeBridge.markNotificationDispatchAllowance(
+            packageName = pkg,
+            actionName = "SendMessage",
+            messageId = "msg-allow-exhaust",
+            userId = userId,
+            nowMs = 1_000L,
+        )
+        repeat(3) { attempt ->
+            assertEquals(
+                MiPushRuntimeBridge.AllowanceDecision.Granted,
+                MiPushRuntimeBridge.consumeNotificationDispatchAllowance(
+                    packageName = pkg,
+                    actionName = "SendMessage",
+                    messageId = "msg-allow-exhaust",
+                    userId = userId,
+                    nowMs = 1_000L + attempt,
+                ),
+            )
+        }
+        assertEquals(
+            MiPushRuntimeBridge.AllowanceDecision.Rejected("exhausted"),
+            MiPushRuntimeBridge.consumeNotificationDispatchAllowance(
+                packageName = pkg,
+                actionName = "SendMessage",
+                messageId = "msg-allow-exhaust",
+                userId = userId,
+                nowMs = 1_100L,
+            ),
+        )
+
+        // A grant that ages past the TTL before the publish attempt lands is expired.
+        MiPushRuntimeBridge.markNotificationDispatchAllowance(
+            packageName = pkg,
+            actionName = "SendMessage",
+            messageId = "msg-allow-expired",
+            userId = userId,
+            nowMs = 2_000L,
+        )
+        assertEquals(
+            MiPushRuntimeBridge.AllowanceDecision.Rejected("expired"),
+            MiPushRuntimeBridge.consumeNotificationDispatchAllowance(
+                packageName = pkg,
+                actionName = "SendMessage",
+                messageId = "msg-allow-expired",
+                userId = userId,
+                nowMs = 2_000L + 30_001L,
+            ),
+        )
+        MiPushRuntimeBridge.clearPackageTransientState(pkg, userId)
+    }
+
+    @Test
     fun `stale package guard resolves miui target package`() {
         val container = XmPushActionContainer().apply {
             packageName = PushConstants.PUSH_SERVICE_PACKAGE_NAME

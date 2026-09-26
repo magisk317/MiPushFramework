@@ -219,18 +219,22 @@ object PushRuntimePendingPacketStore {
             requeueRegistrations(queued.drop(notified))
             throw t
         }
-        MagiskOtel.event(
-            name = "push.register",
-            attributes = mapOf(
-                "result" to "error",
-                "duration_ms" to "0",
-                "process" to "main",
-                "stage" to "notify_error",
-                "reason" to "register_error",
-                "pending_count" to notified.toString(),
-            ),
-            statusOk = false,
+        // An error callback with an empty queue is the routine "nothing pending" case, not a
+        // registration failure: report it as skip so real register errors stay visible, and only
+        // attach a target package when the error maps unambiguously to a single pending app.
+        val hasPendingWork = notified > 0
+        val attrs = mutableMapOf(
+            "result" to if (hasPendingWork) "error" else "skip",
+            "duration_ms" to "0",
+            "process" to "main",
+            "stage" to "notify_error",
+            "reason" to if (hasPendingWork) "register_error" else "register_error_no_pending",
+            "pending_count" to notified.toString(),
         )
+        if (hasPendingWork && queued.size == 1) {
+            attrs["target_package"] = queued.first().packageName
+        }
+        MagiskOtel.event(name = "push.register", attributes = attrs, statusOk = hasPendingWork)
         return notified
     }
 

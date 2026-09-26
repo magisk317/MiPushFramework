@@ -33,7 +33,15 @@ import io.github.magisk317.xposed.hook
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
+import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
+import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
+import io.github.magisk317.mipush.common.VERSION_NAME
+import io.github.magisk317.xposed.logging.AnonymousInstallationId
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.xposed.preferences.LibXposedPreferenceSources
+import io.github.magisk317.xposed.preferences.PreferenceRead
 
 class LibXposedEntry : BaseLibXposedEntry {
 
@@ -61,6 +69,9 @@ class LibXposedEntry : BaseLibXposedEntry {
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         XposedRuntime.install(module, hookApi)
         XLog.configure()
+        // Hook processes had no config at all, so every MagiskOtel.event in this module was a
+        // no-op. Configure before the first event below so hook.load / fake_device spans land.
+        configureHookTelemetry(module)
         // Pull sensitive-debug pref into LogSanitizerConfig for hook processes.
         IslandPreferences.startRefreshLoop()
         MagiskOtel.event(
@@ -74,6 +85,48 @@ class LibXposedEntry : BaseLibXposedEntry {
                 "source" to "mipush",
             ),
             statusOk = true,
+        )
+    }
+
+    /**
+     * Wires the hook process to the same backend as the app process.
+     *
+     * The analytics switch lives in DataStore, which is unreachable from a hooked process, so the
+     * app side mirrors the effective value into a plain SharedPreferences file (see
+     * [MagiskOtel.publishSwitch]) and this reads it back through libxposed remote preferences.
+     * When the remote source is unavailable the hook process stays silent unless this is a debug
+     * build: never start reporting just because a preference read failed.
+     */
+    private fun configureHookTelemetry(module: XposedModule) {
+        val source =
+            runCatching {
+                LibXposedPreferenceSources.remote(
+                    module,
+                    AnonymousInstallationId.DEFAULT_PREFERENCES_NAME,
+                )
+            }.getOrNull()
+        val userEnabled =
+            when (val read = source?.readBoolean(ENABLE_ANALYTICS_KEY, false)) {
+                is PreferenceRead.Hit -> read.value
+                else -> false
+            }
+        val installationId =
+            when (val read = source?.readString(AnonymousInstallationId.PREFERENCE_KEY, "")) {
+                is PreferenceRead.Hit -> read.value
+                else -> ""
+            }
+        MagiskOtel.configureIfAbsent(
+            MagiskOtel.Config(
+                enabled = BuildConfig.DEBUG || userEnabled,
+                serviceName = "mipushframework",
+                serviceVersion = VERSION_NAME,
+                projectId = "83955143",
+                projectName = "MiPushFramework",
+                environment = if (BuildConfig.DEBUG) "debug" else "release",
+                serviceInstanceId = installationId,
+                suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
+                suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,
+            ),
         )
     }
 
