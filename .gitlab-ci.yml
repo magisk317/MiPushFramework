@@ -411,7 +411,6 @@ android:test:pure-modules:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
@@ -443,7 +442,6 @@ android:test:
     - .magisk_android_base
     - .mipush_android_rules
   # Coverage gate runs on ARM after Beta publishing.
-  image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
@@ -496,7 +494,6 @@ android:shared-compat:
     - .mipush_android_rules
   # This is compile-only and does not load Robolectric; it waits for the ARM
   # Beta publish so it cannot consume the release runner first.
-  image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-arm64-linux
