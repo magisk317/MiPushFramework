@@ -197,7 +197,7 @@ class IconConfigurations constructor(
     )
 
     /** (ANIP IconCategory, wire key) pairs, rendered in this order so the flat page stays grouped. */
-    private val LIBRARY_CATEGORIES = listOf(
+    private val libraryCategories = listOf(
         IconCategory.APP to "app",
         IconCategory.GAME to "game",
         IconCategory.SYSTEM to "system",
@@ -215,7 +215,7 @@ class IconConfigurations constructor(
         val anip = ensureAnipInitialized(context.applicationContext)
         val updatedAt = runCatching { anip.timestamp }.getOrNull()?.takeIf { it > 0L }
         // Gather icons per ANIP category so each entry carries its app/game/system bucket.
-        val all = LIBRARY_CATEGORIES.flatMap { (category, key) ->
+        val all = libraryCategories.flatMap { (category, key) ->
             anip.getIcons(category)
                 .sortedBy { it.packageName }
                 .map { icon ->

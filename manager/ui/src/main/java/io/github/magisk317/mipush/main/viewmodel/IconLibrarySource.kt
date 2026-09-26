@@ -16,6 +16,13 @@ import java.util.Base64
 
 private const val TAG = "IconLibrarySource"
 
+/** Remote payloads can be binder-sized; keep every log/diagnostic snippet bounded. */
+private const val LOG_MESSAGE_LIMIT = 120
+private const val LOG_DETAILS_LIMIT = 140
+private const val LOG_DETAILS_LONG_LIMIT = 160
+private const val LOG_BITMAP_DETAILS_LIMIT = 80
+private const val LOG_HEAD_LIMIT = 60
+
 /** Wire shape of one ANIP icon library entry (keep in sync with runtime LibraryEntry). */
 @Serializable
 data class IconLibraryEntry(
@@ -63,12 +70,12 @@ class RemoteIconLibrarySource(
             )
         }.getOrElse { error ->
             Logger.w(tag = TAG) {
-                "icon library call threw offset=$offset error=${error.javaClass.simpleName}: ${error.message?.take(120)}"
+                "icon library call threw offset=$offset error=${error.javaClass.simpleName}: ${error.message?.take(LOG_MESSAGE_LIMIT)}"
             }
             return IconLibraryPage(
                 emptyList(),
                 offset,
-                "call threw ${error.javaClass.simpleName}: ${error.message?.take(120)}",
+                "call threw ${error.javaClass.simpleName}: ${error.message?.take(LOG_MESSAGE_LIMIT)}",
             )
         }
         val tookMs = SystemClock.elapsedRealtime() - startedAt
@@ -82,12 +89,12 @@ class RemoteIconLibrarySource(
         }
         if (!RemoteWriteSupport.isSuccess(result)) {
             Logger.w(tag = TAG) {
-                "icon library page rejected offset=$offset status=${result.status} details=${result.details.take(140)}"
+                "icon library page rejected offset=$offset status=${result.status} details=${result.details.take(LOG_DETAILS_LIMIT)}"
             }
             return IconLibraryPage(
                 emptyList(),
                 offset,
-                "op rejected status=${result.status} tookMs=$tookMs details=${result.details.take(160)}",
+                "op rejected status=${result.status} tookMs=$tookMs details=${result.details.take(LOG_DETAILS_LONG_LIMIT)}",
             )
         }
         val payload = result.details.substringAfter('|', "")
@@ -96,7 +103,7 @@ class RemoteIconLibrarySource(
             return IconLibraryPage(
                 emptyList(),
                 offset,
-                "empty payload tookMs=$tookMs raw details=${result.details.take(160)}",
+                "empty payload tookMs=$tookMs raw details=${result.details.take(LOG_DETAILS_LONG_LIMIT)}",
             )
         }
         val decoded = runCatching {
@@ -104,20 +111,20 @@ class RemoteIconLibrarySource(
         }
         val entries = decoded.getOrElse { error ->
             Logger.w(tag = TAG) {
-                "icon library page decode failed offset=$offset payloadLen=${payload.length} error=${error.message?.take(140)}"
+                "icon library page decode failed offset=$offset payloadLen=${payload.length} error=${error.message?.take(LOG_DETAILS_LIMIT)}"
             }
             return IconLibraryPage(
                 emptyList(),
                 offset,
                 "decode failed tookMs=$tookMs payloadLen=${payload.length} " +
-                    "error=${error.message?.take(120)} head=${payload.take(120)}",
+                    "error=${error.message?.take(LOG_MESSAGE_LIMIT)} head=${payload.take(LOG_MESSAGE_LIMIT)}",
             )
         }
         Logger.i(tag = TAG) {
             "icon library page ok offset=$offset entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs"
         }
         val diagnostic =
-            "ok entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs head=${payload.take(60)}"
+            "ok entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs head=${payload.take(LOG_HEAD_LIMIT)}"
         return IconLibraryPage(entries, nextOffset = offset + entries.size, diagnostic = diagnostic)
     }
 
@@ -132,7 +139,7 @@ class RemoteIconLibrarySource(
         }.getOrNull()
         if (result == null || !RemoteWriteSupport.isSuccess(result)) {
             Logger.w(tag = TAG) {
-                "icon bitmap unavailable pkg=$packageName status=${result?.status} details=${result?.details?.take(80)}"
+                "icon bitmap unavailable pkg=$packageName status=${result?.status} details=${result?.details?.take(LOG_BITMAP_DETAILS_LIMIT)}"
             }
             return null
         }

@@ -132,11 +132,16 @@ subprojects {
             "detektPlugins"(catalog.detekt.rules.ktlint)
         }
         tasks.withType<DetektCreateBaselineTask>().configureEach {
+            // detekt CLI whitelists JVM targets and 2.0.0-alpha.6 caps at 26, so the
+            // analysis target must not exceed that ceiling even though we emit Java 27
+            // bytecode. Revisit when detekt ships V27 support.
+            jvmTarget.set(minOf(catalog.versions.javaBytecode.get().toInt(), 26).toString())
             if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
         tasks.withType<Detekt>().configureEach {
+            jvmTarget.set(minOf(catalog.versions.javaBytecode.get().toInt(), 26).toString())
             if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
