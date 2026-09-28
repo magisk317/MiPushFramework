@@ -15,6 +15,11 @@ include:
   - project: magisk3171/shared/magisk-ci-toolkit
     ref: v1
     file: /.gitlab/ci/cancel-mr-pipelines.yml
+  # Utility-job anchor (alpine, pinned): sync:github and update:anip-bundle
+  # extend it instead of pinning their own image.
+  - project: magisk3171/shared/magisk-ci-toolkit
+    ref: v1
+    file: /.gitlab/ci/utility.yml
 
 workflow:
   auto_cancel:
@@ -126,16 +131,18 @@ cancel:older:mr:pipelines:
 # xmsf/shell/src/main/assets/anip-bundle.zip and never fails the pipeline.
 # ---------------------------------------------------------------------------
 update:anip-bundle:
+  extends: .magisk_utility_base
   stage: build
   tags:
     - magisk-arm64-linux
   rules:
     - !reference [.mipush_signed_android_rules, rules]
-  image: alpine:3.24
   variables:
     GIT_STRATEGY: fetch
+  # Superset of the anchor's packages: the bundle script rewrites zip metadata
+  # with python3 and probes file(1) types, needing file + coreutils as well.
   before_script:
-    - apk add --no-cache curl python3 file bash coreutils
+    - apk add --no-cache bash ca-certificates coreutils curl file git python3
   script:
     - bash scripts/update_anip_bundle.sh xmsf/shell/src/main/assets
   artifacts:
@@ -735,6 +742,7 @@ renovate:gitlab:
     - magisk-arm64-linux
 
 sync:github:
+  extends: .magisk_utility_base
   stage: sync
   # Kept dependency-free for branch pipelines (the guard only runs on tags),
   # but on a tag pipeline the mirror push must wait for the tag contract check.
@@ -743,15 +751,12 @@ sync:github:
   needs:
     - job: android:release:guard
       optional: true
-  image: alpine:3.24
   tags:
     - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_TAG'
     - when: never
-  before_script:
-    - apk add --no-cache git
   script:
     - |
       set -euo pipefail
