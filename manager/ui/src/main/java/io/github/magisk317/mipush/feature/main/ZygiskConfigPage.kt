@@ -331,6 +331,7 @@ class ZygiskConfigPage : ComponentActivity() {
                     Text(
                         text = app.appName,
                         style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
