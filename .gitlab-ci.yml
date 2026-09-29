@@ -420,6 +420,16 @@ android:detekt:
       - merged-sarif/detekt.sarif
       - "**/build/reports/detekt/**"
 
+security:gitleaks:
+  extends: .mipush_android_rules
+  image:
+    name: ghcr.io/gitleaks/gitleaks:v8.30.1
+    entrypoint: [""]
+  stage: quality
+  needs: []
+  script:
+    - gitleaks detect --source . --redact --no-banner
+
 android:test:pure-modules:
   extends:
     - .magisk_android_base

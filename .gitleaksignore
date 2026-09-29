@@ -1,0 +1,20 @@
+# Known false positives in imported history. Fingerprint-specific so new
+# instances of the same rules are still reported. Mirrors NapGram's baseline
+# (2026-09-29): a mock Xiaomi push protocol response fixture and log-sanitizer/credential test fixtures.
+1f6ff51354c60db9ab6043a2b15f9abf7b1dba51:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/compat/ModuleCredentialResolverTest.kt:generic-api-key:21
+2218fc975e483b45e90ae1f476665933799881c8:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/compat/ModuleCredentialResolverTest.kt:generic-api-key:21
+44209d9e82fa04326aa1f57530ce1a55cd726d6f:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:70
+54c094e17e043d1b6b8b1c4169d1b059dea98dce:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/compat/ModuleCredentialResolverTest.kt:generic-api-key:21
+67bd6266eb394e498c0a73c011196a889274d911:xmsf/src/main/java/com/xiaomi/xmsf/push/service/HttpService.kt:generic-api-key:80
+67bd6266eb394e498c0a73c011196a889274d911:xmsf/src/test/java/com/xiaomi/xmsf/utils/ConvertUtilsTest.kt:generic-api-key:41
+6961195beeb8c33c9348986e967c46333e5d3c0e:xmsf/src/main/java/com/xiaomi/xmsf/push/service/HttpService.kt:generic-api-key:80
+6961195beeb8c33c9348986e967c46333e5d3c0e:xmsf/src/test/java/com/xiaomi/xmsf/utils/ConvertUtilsTest.kt:generic-api-key:41
+6d71764ab73550995a7ac70c934f870cb6dc508f:xmsf/src/main/java/com/xiaomi/xmsf/push/service/HttpService.kt:generic-api-key:80
+6d71764ab73550995a7ac70c934f870cb6dc508f:xmsf/src/test/java/com/xiaomi/xmsf/utils/ConvertUtilsTest.kt:generic-api-key:41
+8693e1a156d332c91bf6b9d1cf2a4b2049197ba0:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:67
+bd29a69d58d7a1592ea6d0ea3a67ca09f62f4ca6:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:67
+c3295ca44ff73ad5d6218a9022486321e95c2a3b:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:70
+e527f6524ac5b24c608215f8af61caef15b249cd:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/compat/ModuleCredentialResolverTest.kt:generic-api-key:21
+f4ac3aa9b5274005e0fa380ca50239851d8d2d43:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:67
+fbcf662802f8aadd5cfefb13eb13f2159c0f471c:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:67
+fdd1a6750cd38a4cd54ad44ce954afb51b5d0088:xposed/src/test/java/io/github/magisk317/mipush/hook/fakedevice/VendorPushHookHelperTest.kt:generic-api-key:70
