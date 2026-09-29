@@ -160,6 +160,12 @@ android:build:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
+    # Job-level rules replace the ones inherited via extends, so the renovate
+    # exclusion from .mipush_android_rules must be restated here. Without it
+    # every renovate branch push burned a full android:build on the shared
+    # arm64 runner, duplicating what the MR pipeline already verifies.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^renovate\//'
+      when: never
     - if: '$CI_COMMIT_BRANCH && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
   variables:
