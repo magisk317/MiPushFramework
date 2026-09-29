@@ -9,7 +9,7 @@ data class IslandOptions(
     val showOriginalNotification: Boolean = true,
     val focusNotification: Boolean = false,
     val colorStatusBarIcon: Boolean = false,
-    val colorStatusBarIconGlobal: Boolean = false,
+    val colorStatusBarIconGlobal: Boolean = true,
     val dualAppEnabled: Boolean = false,
 ) {
     val canInjectFocusPayload: Boolean

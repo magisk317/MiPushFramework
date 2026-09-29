@@ -113,7 +113,7 @@ object PreferenceOwnership {
         runtimeBoolean(
             COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
             "Global status bar icon color",
-            false,
+            true,
         ),
         runtimeInt("runtime_log_retention_days", "Runtime log retention", 2),
         runtimeInt("event_retention_days", "Event retention", 7),

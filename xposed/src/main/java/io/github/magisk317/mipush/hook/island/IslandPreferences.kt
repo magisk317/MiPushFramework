@@ -380,7 +380,7 @@ object IslandPreferences {
                 values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
-            colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, false),
+            colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, true),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }

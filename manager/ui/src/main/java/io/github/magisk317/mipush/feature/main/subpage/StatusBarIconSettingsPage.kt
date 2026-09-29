@@ -51,8 +51,8 @@ fun StatusBarIconSettingsPage(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val colorStatusBarIcon by viewModel.colorStatusBarIcon.collectAsStateWithLifecycle()
-    val colorStatusBarIconGlobal by viewModel.colorStatusBarIconGlobal.collectAsStateWithLifecycle()
+    val monochromeStatusBarIcon by viewModel.monochromeStatusBarIcon.collectAsStateWithLifecycle()
+    val monochromeStatusBarIconGlobal by viewModel.monochromeStatusBarIconGlobal.collectAsStateWithLifecycle()
     val snackbarHostState = remember { AppSnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
     val scope = rememberCoroutineScope()
@@ -65,8 +65,8 @@ fun StatusBarIconSettingsPage(
         StatusBarIconSettingsBody(
             listPadding = listPadding,
             scrollModifier = scrollModifier,
-            colorStatusBarIcon = colorStatusBarIcon,
-            colorStatusBarIconGlobal = colorStatusBarIconGlobal,
+            monochromeStatusBarIcon = monochromeStatusBarIcon,
+            monochromeStatusBarIconGlobal = monochromeStatusBarIconGlobal,
             managedTitle = managedTitle,
             globalTitle = globalTitle,
             onManagedToggle = { enabled ->
@@ -112,7 +112,7 @@ fun StatusBarIconSettingsPage(
                     onClick = {
                         val target = pending
                         pendingToggle = null
-                        viewModel.applyColorStatusBarIconWithRestart(
+                        viewModel.applyMonochromeStatusBarIconWithRestart(
                             managed = target.managed,
                             global = target.global,
                             onPrepared = { success ->
@@ -143,8 +143,8 @@ fun StatusBarIconSettingsPage(
 private fun StatusBarIconSettingsBody(
     listPadding: PaddingValues,
     scrollModifier: Modifier,
-    colorStatusBarIcon: Boolean,
-    colorStatusBarIconGlobal: Boolean,
+    monochromeStatusBarIcon: Boolean,
+    monochromeStatusBarIconGlobal: Boolean,
     managedTitle: String,
     globalTitle: String,
     onManagedToggle: (Boolean) -> Unit,
@@ -178,15 +178,17 @@ private fun StatusBarIconSettingsBody(
                 SettingsSwitchItem(
                     title = managedTitle,
                     summary = stringResource(R.string.pref_color_status_bar_icon_mipush_summary),
-                    checked = colorStatusBarIcon,
+                    checked = monochromeStatusBarIcon,
                     onCheckedChange = onManagedToggle,
                 )
 
-                if (!colorStatusBarIcon) {
+                // The enhancement only exists on top of monochrome; the policy short-circuits
+                // it otherwise, so hide it instead of offering a switch that does nothing.
+                if (monochromeStatusBarIcon) {
                     SettingsSwitchItem(
                         title = globalTitle,
                         summary = stringResource(R.string.pref_color_status_bar_icon_global_summary),
-                        checked = colorStatusBarIconGlobal,
+                        checked = monochromeStatusBarIconGlobal,
                         onCheckedChange = onGlobalToggle,
                     )
                 }
