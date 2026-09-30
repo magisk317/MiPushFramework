@@ -48,7 +48,7 @@ import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
-import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.TextInputDialog
 import java.time.format.DateTimeFormatter
 import java.util.Calendar

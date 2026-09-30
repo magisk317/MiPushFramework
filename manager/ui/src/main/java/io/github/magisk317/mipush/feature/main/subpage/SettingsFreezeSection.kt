@@ -29,7 +29,7 @@ import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_TIMED
 import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_TASK_REMOVED
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle

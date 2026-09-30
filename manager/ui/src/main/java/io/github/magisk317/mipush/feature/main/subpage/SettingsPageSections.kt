@@ -48,7 +48,7 @@ import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
-import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.uikit.theme.spacing
