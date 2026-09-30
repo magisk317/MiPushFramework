@@ -31,8 +31,8 @@ import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** Miuix chrome for the Zygisk config activity (collapsing bar template). */
@@ -49,10 +49,10 @@ internal fun ZygiskConfigMiuix(
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val topGlass = rememberUiKitGlassTopBar()
     val glassOn = LocalUiKitSurfaceBlur.current.usesBackdrop
-    Scaffold(
+    MiuixScaffold(
         topBar = {
             Box(modifier = Modifier.fillMaxWidth()) {
-                TopAppBar(
+                MiuixTopAppBar(
                     modifier = Modifier.uiKitSurfaceGlassSample(topGlass),
                     title = title,
                     scrollBehavior = scrollBehavior,

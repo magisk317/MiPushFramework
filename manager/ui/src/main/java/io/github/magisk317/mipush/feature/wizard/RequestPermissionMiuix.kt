@@ -13,8 +13,8 @@ import io.github.magisk317.uikit.surface.chromeSurfaceColor
 import io.github.magisk317.uikit.surface.surfaceBlurContainerColor
 import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** Miuix chrome for the permission wizard (collapsing bar template). */
@@ -26,9 +26,9 @@ internal fun RequestPermissionMiuix(
     body: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
-    Scaffold(
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
+            MiuixTopAppBar(
                                 title = title,
                 navigationIcon = navigationIcon,
                 scrollBehavior = scrollBehavior,

@@ -32,7 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -52,8 +52,8 @@ import io.github.magisk317.uikit.surface.chromeSurfaceColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 
 /**
  * Miuix chrome for the application list tab (KernelSU `SuperUserMiuix` model):
@@ -83,7 +83,7 @@ internal fun ApplicationListMiuix(
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     val glassOn = LocalUiKitSurfaceBlur.current.usesBackdrop
-    Scaffold(
+    MiuixScaffold(
             topBar = {},
             contentWindowInsets = WindowInsets.systemBars
                 .union(WindowInsets.displayCutout)
@@ -121,7 +121,7 @@ internal fun ApplicationListMiuix(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             AppIconButton(onClick = actions.onCloseSearch) {
-                                Icon(
+                                AppIcon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -136,7 +136,7 @@ internal fun ApplicationListMiuix(
                             )
                         }
                     } else {
-                        TopAppBar(
+                        MiuixTopAppBar(
                             title = stringResource(R.string.app_list_hero_title),
                             actions = {
                                 ApplicationHeaderSettingsAction(onClick = actions.onSettingsClick)

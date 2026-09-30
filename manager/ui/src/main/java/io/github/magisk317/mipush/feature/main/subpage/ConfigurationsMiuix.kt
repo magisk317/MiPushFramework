@@ -39,10 +39,10 @@ import io.github.magisk317.uikit.surface.surfaceBlurContainerColor
 import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** Miuix chrome for the configurations list screen. */
@@ -59,16 +59,16 @@ internal fun ConfigurationsMiuix(
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val topGlass = rememberUiKitGlassTopBar()
     val glassOn = LocalUiKitSurfaceBlur.current.usesBackdrop
-    Scaffold(
+    MiuixScaffold(
         topBar = {
             Box(modifier = Modifier.fillMaxWidth()) {
-                TopAppBar(
+                MiuixTopAppBar(
                     modifier = Modifier.uiKitSurfaceGlassSample(topGlass),
                     title = stringResource(R.string.main_configs),
                     navigationIcon = {
                         onBack?.let { back ->
                             AppIconButton(onClick = back) {
-                                Icon(
+                                MiuixIcon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = stringResource(android.R.string.cancel),
                                 )

@@ -13,7 +13,7 @@ import io.github.magisk317.uikit.surface.PageScaffoldMiuix
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppIconButton
-import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 
 /** Miuix chrome for the connection-status page. */
 @Composable
@@ -39,7 +39,7 @@ internal fun ConnectionStatusMiuix(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Icon(
+                    MiuixIcon(
                         Icons.Default.RestartAlt,
                         contentDescription = stringResource(R.string.connection_status_force_reconnect),
                     )
@@ -55,7 +55,7 @@ internal fun ConnectionStatusMiuix(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Icon(
+                    MiuixIcon(
                         Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.connection_status_refresh),
                     )

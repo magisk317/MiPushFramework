@@ -37,9 +37,9 @@ import io.github.magisk317.uikit.surface.AppCard
 import io.github.magisk317.uikit.surface.chromeSurfaceColor
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import io.github.magisk317.uikit.R as UiKitR
 
@@ -68,9 +68,9 @@ internal fun OverviewMiuix(
 
     val topGlass = rememberUiKitGlassTopBar()
     val glassOn = LocalUiKitSurfaceBlur.current.usesBackdrop
-    Scaffold(
+    MiuixScaffold(
         topBar = {
-            TopAppBar(
+            MiuixTopAppBar(
                 modifier = Modifier.uiKitSurfaceGlassSample(topGlass),
                                 title = stringResource(R.string.app_name),
                 // The status card below owns the connection readout now, so the old top-bar
