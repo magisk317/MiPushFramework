@@ -2,7 +2,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +16,6 @@ import androidx.compose.material3.Icon
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -55,13 +53,14 @@ import io.github.magisk317.uikit.preference.TextInputDialog
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
-
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.style.TextAlign
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 internal val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -382,7 +381,6 @@ private fun EventHeaderPills(
     }
 }
 
-
 @Composable
 fun EmptyEventState(modifier: Modifier = Modifier) {
     WorkspaceEmptyState(
@@ -409,16 +407,16 @@ internal fun InitialEventLoadState(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
+        AppText(
             text = stringResource(R.string.event_initial_load_title),
-            style = MaterialTheme.typography.titleMedium,
+            role = AppTextRole.Subtitle,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Text(
+        AppText(
             text = stringResource(R.string.event_initial_load_summary),
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
@@ -525,7 +523,6 @@ private fun date(year: Int, month: Int, day: Int): Date {
         set(Calendar.MILLISECOND, 0)
     }.time
 }
-
 
 /**
  * Style-agnostic render state for the recent-activity tab (KernelSU

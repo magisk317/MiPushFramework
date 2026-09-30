@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.DisposableEffect
@@ -49,6 +48,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 open class ConnectionStatusPage : ComponentActivity() {
     private val viewModel: ConnectionStatusViewModel by viewModel()
@@ -145,10 +146,10 @@ private fun ConnectionStatusBody(
     ) {
         val data = snapshot
         if (data == null) {
-            Text(
+            AppText(
                 text = stringResource(R.string.connection_status_loading),
                 color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
+                role = AppTextRole.Body,
                 modifier = Modifier.padding(top = MaterialTheme.spacing.large),
             )
         } else {
@@ -199,15 +200,15 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
             else -> stringResource(R.string.connection_status_unknown)
         }
         Column {
-            Text(
+            AppText(
                 text = stateLabel,
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
+            AppText(
                 text = stringResource(R.string.connection_status_session_count, data.connectionSessionCount),
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -475,9 +476,9 @@ private fun InfoRow(
 ) {
     WorkspaceListItem(
         supportingContent = {
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
@@ -486,9 +487,9 @@ private fun InfoRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
-                Text(
+                AppText(
                     text = value,
-                    style = MaterialTheme.typography.bodyMedium,
+                    role = AppTextRole.Body,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -504,9 +505,9 @@ private fun InfoRow(
         },
         modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
     ) {
-        Text(
+        AppText(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = MaterialTheme.colorScheme.outline,
         )
     }

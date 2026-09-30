@@ -79,6 +79,8 @@ import java.util.Locale
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -244,9 +246,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                             )
-                            Text(
+                            AppText(
                                 text = applicationInfo.packageName,
-                                style = MaterialTheme.typography.bodySmall,
+                                role = AppTextRole.BodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                             )
@@ -347,7 +349,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 }
                             },
                         ) {
-                            Text(
+                            AppText(
                                 text = stringResource(R.string.app_detail_force_register),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
@@ -357,7 +359,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         AppSecondaryButton(
                             onClick = { openSystemAppInfo(context) },
                         ) {
-                            Text(
+                            AppText(
                                 text = stringResource(R.string.app_detail_open_system_settings),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -671,7 +673,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         NotificationChannelBadge(text = badge)
-                                        Text(
+                                        AppText(
                                             text = channelTitle,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             softWrap = true,
@@ -688,7 +690,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 }
                             },
                             text = {
-                                Text(
+                                AppText(
                                     text = summary,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.fillMaxWidth(),

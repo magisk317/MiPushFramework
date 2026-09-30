@@ -18,7 +18,6 @@ import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppBadge
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +49,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 internal enum class NotificationChannelContentKind {
     EMPTY,
@@ -79,9 +80,9 @@ internal fun NotificationChannelsLoadingRow(showDivider: Boolean) {
             modifier = Modifier.size(20.dp),
             strokeWidth = 2.dp,
         )
-        Text(
+        AppText(
             text = stringResource(R.string.notification_channels_loading),
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
@@ -111,7 +112,6 @@ internal fun notificationChannelsUnavailableMessage(status: NotificationChannelR
             NotificationChannelReadStatus.FAILED -> R.string.notification_channels_unavailable_failed
         },
     )
-
 
 @Composable
 internal fun NotificationChannelSectionHeader(
@@ -146,16 +146,16 @@ internal fun NotificationChannelSectionHeader(
                 ),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.fillMaxWidth(),
             )
             if (summary.isNotBlank()) {
-                Text(
+                AppText(
                     text = summary,
-                    style = MaterialTheme.typography.bodySmall,
+                    role = AppTextRole.BodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -190,9 +190,9 @@ internal fun NotificationChannelRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NotificationChannelBadge(text = badge)
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                role = AppTextRole.Body,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f, fill = false),
                 softWrap = true,
@@ -208,9 +208,9 @@ internal fun NotificationChannelRow(
             }
         }
         if (summary.isNotBlank()) {
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
                 softWrap = true,
@@ -255,15 +255,15 @@ internal fun ActionSummaryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                role = AppTextRole.Body,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -273,7 +273,7 @@ internal fun ActionSummaryRow(
             onClick = onClick,
             enabled = enabled,
         ) {
-            Text(actionLabel)
+            AppText(actionLabel)
         }
     }
     if (showDivider) {
@@ -305,14 +305,14 @@ internal fun SettingSwitchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                role = AppTextRole.Body,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
         }
@@ -363,17 +363,17 @@ internal fun HeaderMetricCard(
                     .clip(RoundedCornerShape(999.dp))
                     .background(accent.copy(alpha = 0.14f))
             ) {
-                Text(
+                AppText(
                     text = label,
-                    style = MaterialTheme.typography.labelMedium,
+                    role = AppTextRole.Footnote,
                     color = accent,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
+            AppText(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -409,9 +409,9 @@ internal fun Tips(description: String) {
                 htmlString = description,
             )
         }
-        Text(
+        AppText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

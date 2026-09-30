@@ -34,9 +34,9 @@ import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
-import androidx.compose.material3.Text
 import java.util.Locale
 import kotlinx.coroutines.launch
+import io.github.magisk317.uikit.text.AppText
 
 private data class PendingStatusBarToggle(
     val managed: Boolean? = null,
@@ -104,8 +104,8 @@ fun StatusBarIconSettingsPage(
     if (pending != null) {
         AppAlertDialog(
             onDismissRequest = { pendingToggle = null },
-            title = { Text(stringResource(R.string.pref_color_status_bar_icon_restart_title)) },
-            text = { Text(stringResource(R.string.pref_color_status_bar_icon_restart_message)) },
+            title = { AppText(stringResource(R.string.pref_color_status_bar_icon_restart_title)) },
+            text = { AppText(stringResource(R.string.pref_color_status_bar_icon_restart_message)) },
             confirmButton = {
                 AppTextButton(
                     text = stringResource(R.string.pref_color_status_bar_icon_restart_confirm),

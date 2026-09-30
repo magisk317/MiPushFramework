@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
@@ -46,6 +45,8 @@ import io.github.magisk317.uikit.scroll.ScrollChromeState
 import java.util.Date
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 private data class EventGroupForDisplay(
     val packageName: String,
@@ -287,14 +288,14 @@ internal fun EventGroupList(
                         )
                     },
                 ) {
-                    Text(
+                    AppText(
                         group.appName,
-                        style = MaterialTheme.typography.titleMedium,
+                        role = AppTextRole.Subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Text(
+                    AppText(
                         group.packageName,
-                        style = MaterialTheme.typography.bodySmall,
+                        role = AppTextRole.BodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     FlowRow(

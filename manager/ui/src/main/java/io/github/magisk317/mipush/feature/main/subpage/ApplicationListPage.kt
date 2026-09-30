@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import io.github.magisk317.uikit.surface.AppBadge
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
@@ -55,7 +54,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import io.github.magisk317.mipush.manager.application.ManagerApplication
-import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
@@ -75,6 +73,8 @@ import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.viewmodel.koinViewModel
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 @Immutable
 data class AppInfoForDisplay(
@@ -291,14 +291,14 @@ private fun ApplicationListUnavailable(
             )
             .padding(MaterialTheme.spacing.medium),
     ) {
-        Text(
+        AppText(
             text = stringResource(R.string.app_list_unavailable_title),
-            style = MaterialTheme.typography.titleSmall,
+            role = AppTextRole.Subtitle,
             color = MaterialTheme.colorScheme.onErrorContainer,
         )
-        Text(
+        AppText(
             text = applicationListUnavailableMessage(status),
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(top = MaterialTheme.spacing.extraSmall),
         )
@@ -425,17 +425,17 @@ private fun ApplicationItem(
             )
         },
     ) {
-        Text(
+        AppText(
             text = item.appName,
-            style = MaterialTheme.typography.bodyLarge,
+            role = AppTextRole.Body,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        AppText(
             text = item.packageName,
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -19,7 +19,6 @@ import io.github.magisk317.uikit.surface.AppAlertDialog
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
@@ -57,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import io.github.magisk317.uikit.text.AppText
 
 @Composable
 internal fun SettingsSectionCard(
@@ -322,11 +322,11 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     if (showIslandTimeoutDialog) {
         AppAlertDialog(
             onDismissRequest = { showIslandTimeoutDialog = false },
-            title = { Text(stringResource(R.string.pref_island_timeout_title)) },
+            title = { AppText(stringResource(R.string.pref_island_timeout_title)) },
             text = {
                 AppTextField(
                     state = islandTimeoutState,
-                    supportingText = { Text(stringResource(R.string.pref_island_timeout_hint)) },
+                    supportingText = { AppText(stringResource(R.string.pref_island_timeout_hint)) },
                     singleLine = true,
                 )
             },

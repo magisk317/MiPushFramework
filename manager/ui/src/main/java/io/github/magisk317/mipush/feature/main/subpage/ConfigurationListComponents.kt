@@ -24,7 +24,6 @@ import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
 import io.github.magisk317.uikit.surface.AppSurface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +46,8 @@ import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.core.configuration.ConfigListItem
 import io.github.magisk317.mipush.utils.ConfigDefaults
-
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 internal fun LazyListScope.configListHeader(
     uiState: ConfigManagerViewModel.UiState,
@@ -100,12 +100,12 @@ internal fun LazyListScope.configListHeader(
                 },
                 onClick = onChooseDirectory,
             )
-            Text(
+            AppText(
                 text = stringResource(
                     R.string.config_last_sync_label,
                     uiState.lastSyncTime.asReadableTime(),
                 ),
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -154,14 +154,14 @@ internal fun LazyListScope.configListHeader(
                     progress = uiState.syncCurrent.toFloat() / uiState.syncTotal.toFloat(),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
+                AppText(
                     text = stringResource(
                         R.string.config_sync_progress,
                         uiState.syncCurrent,
                         uiState.syncTotal,
                         uiState.syncPath ?: "",
                     ),
-                    style = MaterialTheme.typography.bodySmall,
+                    role = AppTextRole.BodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -169,9 +169,9 @@ internal fun LazyListScope.configListHeader(
             }
 
             uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
-                Text(
+                AppText(
                     text = stringResource(R.string.config_remote_error, error),
-                    style = MaterialTheme.typography.bodySmall,
+                    role = AppTextRole.BodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -220,21 +220,21 @@ internal fun ConfigListEntry(
         },
         trailingContent = { StatusBadge(item.status) },
     ) {
-        Text(
+        AppText(
             text = primaryTitle,
-            style = MaterialTheme.typography.titleMedium,
+            role = AppTextRole.Subtitle,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        AppText(
             text = secondarySubtitle,
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        AppText(
             text = buildString {
                 append(
                     stringResource(
@@ -251,7 +251,7 @@ internal fun ConfigListEntry(
                     )
                 )
             },
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
@@ -277,14 +277,14 @@ internal fun SettingLinkCard(
                 .padding(MaterialTheme.spacing.medium),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
+                role = AppTextRole.Footnote,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Text(
+            AppText(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium,
+                role = AppTextRole.Body,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
@@ -328,31 +328,31 @@ internal fun IconLibraryEntryRow(
         },
         trailingContent = {
             if (entry.overlay) {
-                Text(
+                AppText(
                     text = stringResource(R.string.icon_item_overlay),
-                    style = MaterialTheme.typography.labelSmall,
+                    role = AppTextRole.Footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
     ) {
-        Text(
+        AppText(
             text = entry.label.ifBlank { entry.packageName },
-            style = MaterialTheme.typography.titleMedium,
+            role = AppTextRole.Subtitle,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        AppText(
             text = entry.packageName,
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
+        AppText(
             text = updatedAtLabel,
-            style = MaterialTheme.typography.bodySmall,
+            role = AppTextRole.BodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -395,14 +395,14 @@ internal fun CategoryHeader(
                 .size(width = 3.dp, height = 16.dp)
                 .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
         )
-        Text(
+        AppText(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            role = AppTextRole.Footnote,
             color = MaterialTheme.colorScheme.primary,
         )
-        Text(
+        AppText(
             text = count.toString(),
-            style = MaterialTheme.typography.labelSmall,
+            role = AppTextRole.Footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))

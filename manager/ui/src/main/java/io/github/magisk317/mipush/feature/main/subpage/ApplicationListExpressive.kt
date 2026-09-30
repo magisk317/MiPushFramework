@@ -26,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -49,6 +48,7 @@ import io.github.magisk317.uikit.surface.WorkspaceSearchAction
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import io.github.magisk317.uikit.text.AppText
 
 /**
  * Expressive/Material chrome for the application list tab (full KernelSU
@@ -110,7 +110,7 @@ internal fun ApplicationListExpressive(
                                 containerColor = if (glassOn) Color.Transparent else MaterialTheme.colorScheme.surface,
                             ),
                             title = {
-                                Text(
+                                AppText(
                                     text = stringResource(R.string.app_list_hero_title),
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,

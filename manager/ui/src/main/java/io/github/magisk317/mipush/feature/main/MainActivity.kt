@@ -10,13 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxSize
-
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.ui.res.stringResource
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +31,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.feature.navigation.*
-
 import io.github.magisk317.mipush.feature.main.MainActivityUtils
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.ui.theme.*
@@ -56,6 +52,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
+import io.github.magisk317.uikit.text.AppText
 
 private var placeholder by mutableStateOf("Search...")
 
@@ -257,10 +254,10 @@ private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.runtime_missing_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_title), color = MaterialTheme.colorScheme.onSurface)
         },
         text = {
-            Text(text = stringResource(R.string.runtime_missing_dialog_message), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = MaterialTheme.colorScheme.onSurface)
         },
         confirmButton = {
             AppTextButton(
@@ -283,10 +280,10 @@ private fun RuntimeCommitMismatchDialog(
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = MaterialTheme.colorScheme.onSurface)
         },
         text = {
-            Text(
+            AppText(
                 text = stringResource(
                     R.string.runtime_commit_mismatch_dialog_message,
                     mismatch.moduleCommit,
@@ -316,10 +313,10 @@ private fun LegacyModuleWarningDialog(
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
         },
         text = {
-            Text(
+            AppText(
                 text = stringResource(
                     R.string.legacy_module_dialog_message,
                     packageNames.joinToString(", "),

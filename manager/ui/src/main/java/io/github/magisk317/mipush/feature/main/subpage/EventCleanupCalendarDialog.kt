@@ -16,7 +16,6 @@ import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import androidx.compose.material3.Icon
 import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +45,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 private val dayKeyFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
@@ -113,7 +114,7 @@ fun EventCleanupCalendarDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.event_cleanup_title), color = MaterialTheme.colorScheme.onSurface) },
+        title = { AppText(text = stringResource(R.string.event_cleanup_title), color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column(
                 modifier = Modifier
@@ -122,9 +123,9 @@ fun EventCleanupCalendarDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
+                AppText(
                     text = stringResource(R.string.event_cleanup_summary),
-                    style = MaterialTheme.typography.bodyMedium,
+                    role = AppTextRole.Body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -171,18 +172,18 @@ fun EventCleanupCalendarDialog(
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
+                        AppText(
                             text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.monthValue)}",
-                            style = MaterialTheme.typography.titleMedium,
+                            role = AppTextRole.Subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Text(
+                        AppText(
                             text = pluralStringResource(
                                 R.plurals.event_cleanup_month_summary,
                                 monthCount,
                                 monthCount,
                             ),
-                            style = MaterialTheme.typography.labelSmall,
+                            role = AppTextRole.Footnote,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -205,9 +206,9 @@ fun EventCleanupCalendarDialog(
                     onSelectDay = { selectedDay = if (selectedDay == it) null else it },
                 )
 
-                Text(
+                AppText(
                     text = stringResource(R.string.event_cleanup_calendar_hint),
-                    style = MaterialTheme.typography.labelSmall,
+                    role = AppTextRole.Footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 

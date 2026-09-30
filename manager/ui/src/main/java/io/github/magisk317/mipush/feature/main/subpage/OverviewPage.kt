@@ -73,6 +73,9 @@ import kotlin.math.hypot
 import kotlin.math.max
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+
 import io.github.magisk317.uikit.R as UiKitR
 
 /**
@@ -257,9 +260,9 @@ internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
                 .size(8.dp)
                 .background(indicatorColor, CircleShape)
         )
-        Text(
+        AppText(
             text = state,
-            style = MaterialTheme.typography.labelSmall,
+            role = AppTextRole.Footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -356,9 +359,9 @@ private fun OverviewChartPanel(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
     ) {
-        Text(
+        AppText(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
+            role = AppTextRole.Subtitle,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -548,9 +551,9 @@ private fun OverviewLegendItem(
                 .size(12.dp)
                 .background(slice.color, CircleShape),
         )
-        Text(
+        AppText(
             text = slice.label,
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = if (selected) {
                 MaterialTheme.colorScheme.onSurface
             } else {

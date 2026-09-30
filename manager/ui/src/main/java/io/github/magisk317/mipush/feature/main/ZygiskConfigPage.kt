@@ -27,7 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
@@ -55,6 +54,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.surface.AppSurface
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 class ZygiskConfigPage : ComponentActivity() {
 
@@ -141,7 +142,7 @@ class ZygiskConfigPage : ComponentActivity() {
                     ) {
                         item {
                             state.configReadError?.let { error ->
-                                Text(
+                                AppText(
                                     text = stringResource(R.string.zygisk_config_read_error, error),
                                     color = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.padding(MaterialTheme.spacing.large),
@@ -225,9 +226,9 @@ class ZygiskConfigPage : ComponentActivity() {
                     .fillMaxWidth()
                     .padding(MaterialTheme.spacing.large),
             ) {
-                Text(
+                AppText(
                     stringResource(R.string.zygisk_profile_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    role = AppTextRole.Subtitle,
                 )
                 AppDropdownMenu(
                     expanded = expanded,
@@ -246,28 +247,28 @@ class ZygiskConfigPage : ComponentActivity() {
                 )
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
+                AppText(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
                 AppSwitch(checked = observe, enabled = enabled, onCheckedChange = onObserveChanged)
             }
-            Text(
+            AppText(
                 stringResource(R.string.zygisk_scan_title),
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
             )
             AppPrimaryButton(
                 onClick = onScan,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.zygisk_scan))
+                AppText(stringResource(R.string.zygisk_scan))
             }
             scanError?.let { error ->
-                Text(
+                AppText(
                     text = stringResource(R.string.zygisk_scan_error, error),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
             candidates.take(32).forEach { candidate ->
-                Text(candidate, style = MaterialTheme.typography.bodySmall)
+                AppText(candidate, role = AppTextRole.BodySmall)
             }
         }
     }
@@ -295,9 +296,9 @@ class ZygiskConfigPage : ComponentActivity() {
                     .padding(MaterialTheme.spacing.large),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                AppText(
                     text = stringResource(R.string.zygisk_module_status, statusText),
-                    style = MaterialTheme.typography.titleMedium,
+                    role = AppTextRole.Subtitle,
                     color = color,
                 )
             }
@@ -328,16 +329,16 @@ class ZygiskConfigPage : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.width(MaterialTheme.spacing.medium))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    AppText(
                         text = app.appName,
-                        style = MaterialTheme.typography.bodyLarge,
+                        role = AppTextRole.Body,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    AppText(
                         text = app.packageName,
-                        style = MaterialTheme.typography.bodySmall,
+                        role = AppTextRole.BodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

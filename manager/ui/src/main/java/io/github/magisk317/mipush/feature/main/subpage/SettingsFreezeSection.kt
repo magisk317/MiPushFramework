@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.preference.AppRadioButton
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import io.github.magisk317.uikit.text.AppText
 
 private const val MAX_FREEZE_REFREEZE_DELAY_MINUTES = 120
 
@@ -120,7 +120,7 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: AppSna
     if (showPolicyDialog) {
         AppAlertDialog(
             onDismissRequest = { showPolicyDialog = false },
-            title = { Text(stringResource(R.string.pref_freeze_refreeze_policy_title)) },
+            title = { AppText(stringResource(R.string.pref_freeze_refreeze_policy_title)) },
             text = {
                 Column {
                     listOf(
@@ -139,7 +139,7 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: AppSna
                                 selected = pendingPolicy == value,
                                 onClick = { pendingPolicy = value },
                             )
-                            Text(stringResource(labelRes))
+                            AppText(stringResource(labelRes))
                         }
                     }
                 }
@@ -172,11 +172,11 @@ internal fun FreezeBlock(viewModel: SettingsViewModel, snackbarHostState: AppSna
     if (showDelayDialog) {
         AppAlertDialog(
             onDismissRequest = { showDelayDialog = false },
-            title = { Text(stringResource(R.string.pref_freeze_refreeze_delay_title)) },
+            title = { AppText(stringResource(R.string.pref_freeze_refreeze_delay_title)) },
             text = {
                 AppTextField(
                     state = delayInputState,
-                    supportingText = { Text(stringResource(R.string.pref_freeze_refreeze_delay_hint)) },
+                    supportingText = { AppText(stringResource(R.string.pref_freeze_refreeze_delay_hint)) },
                     singleLine = true,
                 )
             },

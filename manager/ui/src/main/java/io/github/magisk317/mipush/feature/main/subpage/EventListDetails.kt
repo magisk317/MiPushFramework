@@ -45,6 +45,8 @@ import io.github.magisk317.uikit.surface.DialogActionStyle
 import java.time.Instant
 import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 @Composable
 internal fun EventDetailsDialog(
@@ -132,9 +134,9 @@ internal fun EventDetailsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                AppText(
                     stringResource(R.string.event_detail_developer_info),
-                    style = MaterialTheme.typography.titleLarge,
+                    role = AppTextRole.Title,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )

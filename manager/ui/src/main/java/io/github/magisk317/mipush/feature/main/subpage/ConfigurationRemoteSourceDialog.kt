@@ -11,7 +11,6 @@ import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.DialogActionStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -19,7 +18,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.theme.spacing
-
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 @Composable
 internal fun RemoteSourceDialog(
@@ -43,7 +43,7 @@ internal fun RemoteSourceDialog(
         val acceleratorState = rememberTextFieldState(accelerator)
         AppAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.config_remote_source_title)) },
+            title = { AppText(stringResource(R.string.config_remote_source_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
                     AppTextField(
@@ -64,12 +64,12 @@ internal fun RemoteSourceDialog(
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                         singleLine = true,
                     )
-                    Text(
+                    AppText(
                         text = stringResource(
                             R.string.config_remote_source_default_hint,
                             "${defaultRepository}@${defaultBranch}",
                         ),
-                        style = MaterialTheme.typography.bodySmall,
+                        role = AppTextRole.BodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

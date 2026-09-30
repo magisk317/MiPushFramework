@@ -52,7 +52,6 @@ import io.github.magisk317.uikit.surface.AppSurface
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
@@ -88,6 +87,8 @@ import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import org.koin.compose.viewmodel.koinViewModel
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 class ConfigurationsPage : ComponentActivity() {
     companion object {
@@ -268,8 +269,8 @@ fun Configurations(
     if (showImportDialog) {
         AppAlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text(stringResource(R.string.config_import_dialog_title)) },
-            text = { Text(stringResource(R.string.config_import_dialog_message)) },
+            title = { AppText(stringResource(R.string.config_import_dialog_title)) },
+            text = { AppText(stringResource(R.string.config_import_dialog_message)) },
             confirmButton = {
                 AppPrimaryButton(
                     text = stringResource(R.string.config_import_configuration),
@@ -395,15 +396,15 @@ fun Configurations(
                                         modifier = Modifier.fillMaxWidth(),
                                     )
                                     uiState.iconLibraryError?.let { trace ->
-                                        Text(
+                                        AppText(
                                             text = trace,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            role = AppTextRole.BodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(top = MaterialTheme.spacing.small),
                                         )
                                     }
                                     TextButton(onClick = { viewModel.ensureIconLibraryLoaded() }) {
-                                        Text(stringResource(R.string.icon_library_retry))
+                                        AppText(stringResource(R.string.icon_library_retry))
                                     }
                                 }
                             }
@@ -491,9 +492,9 @@ fun Configurations(
                                                 onClick = viewModel::ensureIconLibraryLoaded,
                                                 modifier = Modifier.fillMaxWidth(),
                                             )
-                                        else -> Text(
+                                        else -> AppText(
                                             text = stringResource(R.string.icon_library_loaded_all),
-                                            style = MaterialTheme.typography.bodySmall,
+                                            role = AppTextRole.BodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -637,31 +638,31 @@ fun ConfigurationEditor(
                         }
                     }
                     item {
-                        Text(
+                        AppText(
                             text = stringResource(
                                 R.string.config_editor_meta,
                                 uiState.localMeta?.lastModified.asReadableTime(),
                                 uiState.remoteMeta?.updatedAt.asReadableRemoteTime()
                                     ?: stringResource(R.string.config_time_unknown),
                             ),
-                            style = MaterialTheme.typography.bodySmall,
+                            role = AppTextRole.BodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
                         item {
-                            Text(
+                            AppText(
                                 text = stringResource(R.string.config_remote_error, error),
-                                style = MaterialTheme.typography.bodySmall,
+                                role = AppTextRole.BodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
                     uiState.validationError?.takeIf { it.isNotBlank() }?.let { error ->
                         item {
-                            Text(
+                            AppText(
                                 text = error,
-                                style = MaterialTheme.typography.bodySmall,
+                                role = AppTextRole.BodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -723,26 +724,26 @@ fun ConfigurationEditor(
                 ) {
                     if (uiState.isEditing) {
                         AppSecondaryButton(onClick = viewModel::cancelEdit) {
-                            Text(stringResource(android.R.string.cancel))
+                            AppText(stringResource(android.R.string.cancel))
                         }
                         AppPrimaryButton(
                             onClick = viewModel::save,
                             enabled = uiState.hasDirectory && !uiState.isSaving,
                         ) {
-                            Text(stringResource(android.R.string.ok))
+                            AppText(stringResource(android.R.string.ok))
                         }
                     } else {
                         AppPrimaryButton(
                             onClick = viewModel::beginEdit,
                             enabled = uiState.hasDirectory && (uiState.hasLocal || uiState.hasRemote),
                         ) {
-                            Text(stringResource(R.string.config_edit))
+                            AppText(stringResource(R.string.config_edit))
                         }
                         AppSecondaryButton(
                             onClick = viewModel::resetToRemote,
                             enabled = uiState.hasDirectory && uiState.hasRemote && !uiState.isSaving,
                         ) {
-                            Text(stringResource(R.string.config_reset_remote))
+                            AppText(stringResource(R.string.config_reset_remote))
                         }
                     }
                 }

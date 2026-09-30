@@ -55,6 +55,8 @@ import java.time.Instant
 import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 fun EventInfoForDisplay.composeKey(): String {
     if (id > 0L) return "id:$id"
@@ -404,17 +406,17 @@ private fun EventItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            AppText(
                 text = titleText,
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
             Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
-            Text(
+            AppText(
                 text = Instant.ofEpochMilli(item.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter),
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -423,9 +425,9 @@ private fun EventItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            AppText(
                 text = metaLine,
-                style = MaterialTheme.typography.bodySmall,
+                role = AppTextRole.BodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
@@ -444,9 +446,9 @@ private fun EventItem(
                 )
             }
         }
-        Text(
+        AppText(
             text = item.content,
-            style = MaterialTheme.typography.bodyMedium,
+            role = AppTextRole.Body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 3,
             modifier = Modifier.fillMaxWidth(),

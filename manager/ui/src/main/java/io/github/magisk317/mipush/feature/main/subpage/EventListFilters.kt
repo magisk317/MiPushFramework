@@ -19,6 +19,8 @@ import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 @Composable
 internal fun EventFilters(
@@ -49,7 +51,7 @@ internal fun EventFilters(
             }
         }
         if (!expanded) return@Column
-        Text(stringResource(R.string.recent_activity_filter_type_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_type_title), role = AppTextRole.Footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -67,7 +69,7 @@ internal fun EventFilters(
                 )
             }
         }
-        Text(stringResource(R.string.recent_activity_filter_status_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_status_title), role = AppTextRole.Footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

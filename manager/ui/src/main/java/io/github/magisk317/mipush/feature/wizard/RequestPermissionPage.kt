@@ -84,6 +84,8 @@ import org.koin.android.ext.android.inject
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.view.WindowCompat
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 
 private val TAG = "WizardPermission"
 
@@ -182,7 +184,7 @@ fun PermissionMainActivity(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Text(
+            AppText(
                 text = if (allGranted) {
                     stringResource(id = R.string.wizard_title_finish_button)
                 } else {
@@ -206,9 +208,9 @@ fun PermissionMainActivity(
         ) {
             if (!isMiuixChrome) {
                 item {
-                    Text(
+                    AppText(
                         text = stringResource(id = R.string.wizard_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
+                        role = AppTextRole.Body,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
@@ -297,20 +299,20 @@ private fun RootPermissionItem(
             ),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(
+            AppText(
                 text = info.permissionTitle,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
+            AppText(
                 text = spaceLabel,
-                style = MaterialTheme.typography.labelMedium,
+                role = AppTextRole.Footnote,
                 color = MaterialTheme.colorScheme.primary,
             )
             if (currentUiKitStyle() != UiKitStyle.Miuix) {
-                Text(
+                AppText(
                     text = info.permissionDescription,
-                    style = MaterialTheme.typography.bodySmall,
+                    role = AppTextRole.BodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
@@ -394,14 +396,14 @@ private fun RootSubjectItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
+            AppText(
                 text = title,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
+            AppText(
                 text = statusText,
-                style = MaterialTheme.typography.labelMedium,
+                role = AppTextRole.Footnote,
                 color = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -444,7 +446,7 @@ fun PermissionItem(
                 shape = MaterialTheme.shapes.medium
             ),
         ) {
-        Text(
+        AppText(
             text = info.permissionTitle,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
