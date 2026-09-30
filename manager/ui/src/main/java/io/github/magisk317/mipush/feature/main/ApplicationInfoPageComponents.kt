@@ -347,11 +347,7 @@ internal fun HeaderMetricCard(
 ) {
     AppCard(
         modifier = modifier,
-        color = if (io.github.magisk317.uikit.theme.currentUiKitStyle() == io.github.magisk317.uikit.theme.UiKitStyle.Miuix) {
-            top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh
-        } else {
-            appColor(AppColorRole.SurfaceContainer)
-        },
+        color = appColor(AppColorRole.SurfaceContainerHigh),
         onClick = onClick,
     ) {
         Column(

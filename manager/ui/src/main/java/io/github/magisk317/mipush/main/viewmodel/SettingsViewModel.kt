@@ -438,7 +438,7 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setUiKitStyle(style)
             _themeState.value = _themeState.value.copy(uiKitStyle = style)
-            if (style != UiKitStyle.Miuix.value) {
+            if (UiKitStyle.fromValue(style) != UiKitStyle.Miuix) {
                 // Liquid glass is exclusive to the Miuix floating bar; when leaving Miuix
                 // for the Expressive/MD style (which uses a plain translucent surface) drop
                 // the now-dead glass flags so the Expressive bar does not carry stale state.
