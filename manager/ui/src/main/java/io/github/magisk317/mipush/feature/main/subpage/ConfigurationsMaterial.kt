@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 
 /** Expressive/Material chrome for the configurations list screen (collapsing bar). */
 @Composable
-internal fun ConfigurationsExpressive(
+internal fun ConfigurationsMaterial(
     onBack: (() -> Unit)?,
     contentPadding: PaddingValues,
     scrollChromeState: ScrollChromeState?,

@@ -93,7 +93,7 @@ fun StatusBarIconSettingsPage(
             body = body,
         )
 
-        UiKitStyle.Expressive -> StatusBarIconSettingsExpressive(
+        UiKitStyle.Expressive -> StatusBarIconSettingsMaterial(
             onBack = onBack,
             snackbarHostState = snackbarHostState,
             body = body,

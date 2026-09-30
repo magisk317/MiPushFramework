@@ -19,7 +19,7 @@ import io.github.magisk317.uikit.surface.AppIconButton
 
 /** Expressive/Material chrome for the connection-status page. */
 @Composable
-internal fun ConnectionStatusExpressive(
+internal fun ConnectionStatusMaterial(
     onBack: () -> Unit,
     isReconnecting: Boolean,
     isRefreshing: Boolean,

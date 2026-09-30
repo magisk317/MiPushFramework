@@ -15,7 +15,7 @@ import io.github.magisk317.uikit.common.AppSnackbarHostState
 
 /** Expressive/Material chrome for [StatusBarIconSettingsPage]. */
 @Composable
-internal fun StatusBarIconSettingsExpressive(
+internal fun StatusBarIconSettingsMaterial(
     onBack: () -> Unit,
     snackbarHostState: AppSnackbarHostState,
     body: @Composable (PaddingValues, Modifier) -> Unit,

@@ -207,7 +207,7 @@ fun EventList(
                     body = body,
                 )
 
-                UiKitStyle.Expressive -> EventListExpressive(
+                UiKitStyle.Expressive -> EventListMaterial(
                     state = state,
                     actions = actions,
                     snackbarHostState = snackbarHostState,

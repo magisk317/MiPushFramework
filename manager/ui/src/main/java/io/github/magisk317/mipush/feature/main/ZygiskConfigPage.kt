@@ -195,7 +195,7 @@ class ZygiskConfigPage : ComponentActivity() {
                 body = body,
             )
 
-            UiKitStyle.Expressive -> ZygiskConfigExpressive(
+            UiKitStyle.Expressive -> ZygiskConfigMaterial(
                 title = stringResource(R.string.zygisk_status),
                 listState = listState,
                 scrollScope = scrollScope,

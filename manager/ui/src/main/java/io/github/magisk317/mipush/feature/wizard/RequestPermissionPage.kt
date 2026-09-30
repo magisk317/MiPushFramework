@@ -269,7 +269,7 @@ fun PermissionMainActivity(
             body = body,
         )
 
-        UiKitStyle.Expressive -> RequestPermissionExpressive(
+        UiKitStyle.Expressive -> RequestPermissionMaterial(
             title = stringResource(R.string.settings_permission_check),
             navigationIcon = navigationIcon,
             bottomBar = bottomBar,

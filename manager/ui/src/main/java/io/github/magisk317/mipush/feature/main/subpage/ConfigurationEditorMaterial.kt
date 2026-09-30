@@ -16,7 +16,7 @@ import androidx.compose.material3.Icon
 
 /** Expressive/Material chrome for the configuration editor screen. */
 @Composable
-internal fun ConfigurationEditorExpressive(
+internal fun ConfigurationEditorMaterial(
     path: String,
     onBack: () -> Unit,
     body: @Composable (PaddingValues, Modifier) -> Unit,

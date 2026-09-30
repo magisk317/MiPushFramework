@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 
 /** Expressive/Material chrome for the Settings tab (collapsing bar template). */
 @Composable
-internal fun SettingsExpressive(
+internal fun SettingsMaterial(
     contentPadding: PaddingValues,
     scrollChromeState: ScrollChromeState?,
     scrollState: ScrollState,

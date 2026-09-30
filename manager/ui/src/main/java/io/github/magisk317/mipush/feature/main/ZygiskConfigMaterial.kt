@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 
 /** Expressive/Material chrome for the Zygisk config activity (collapsing bar). */
 @Composable
-internal fun ZygiskConfigExpressive(
+internal fun ZygiskConfigMaterial(
     title: String,
     listState: LazyListState,
     scrollScope: CoroutineScope,

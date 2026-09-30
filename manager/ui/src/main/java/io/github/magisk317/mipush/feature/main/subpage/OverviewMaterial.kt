@@ -45,7 +45,7 @@ import io.github.magisk317.uikit.R as UiKitR
  * (which, on this path, is the material3 bar plus chrome colors and surface blur).
  */
 @Composable
-internal fun OverviewExpressive(
+internal fun OverviewMaterial(
     state: OverviewUiState,
     actions: OverviewActions,
     contentPadding: PaddingValues,

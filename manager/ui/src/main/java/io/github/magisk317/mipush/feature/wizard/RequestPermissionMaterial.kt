@@ -15,7 +15,7 @@ import io.github.magisk317.uikit.surface.AppTopBar
 
 /** Expressive/Material chrome for the permission wizard (collapsing bar). */
 @Composable
-internal fun RequestPermissionExpressive(
+internal fun RequestPermissionMaterial(
     title: String,
     navigationIcon: @Composable () -> Unit,
     bottomBar: @Composable () -> Unit,

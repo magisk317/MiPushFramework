@@ -175,7 +175,7 @@ fun Overview(
             snackbarHostState = snackbarHostState,
         )
 
-        UiKitStyle.Expressive -> OverviewExpressive(
+        UiKitStyle.Expressive -> OverviewMaterial(
             state = state,
             actions = actions,
             contentPadding = contentPadding,

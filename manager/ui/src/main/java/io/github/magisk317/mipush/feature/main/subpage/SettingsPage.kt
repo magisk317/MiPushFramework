@@ -89,7 +89,7 @@ fun Settings(
             body = body,
         )
 
-        UiKitStyle.Expressive -> SettingsExpressive(
+        UiKitStyle.Expressive -> SettingsMaterial(
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
             scrollState = scrollState,

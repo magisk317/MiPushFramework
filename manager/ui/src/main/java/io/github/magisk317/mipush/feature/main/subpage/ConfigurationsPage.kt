@@ -554,7 +554,7 @@ fun Configurations(
             body = body,
         )
 
-        UiKitStyle.Expressive -> ConfigurationsExpressive(
+        UiKitStyle.Expressive -> ConfigurationsMaterial(
             onBack = onBack,
             contentPadding = contentPadding,
             scrollChromeState = scrollChromeState,
@@ -760,7 +760,7 @@ fun ConfigurationEditor(
             body = body,
         )
 
-        UiKitStyle.Expressive -> ConfigurationEditorExpressive(
+        UiKitStyle.Expressive -> ConfigurationEditorMaterial(
             path = path,
             onBack = onBack,
             body = body,

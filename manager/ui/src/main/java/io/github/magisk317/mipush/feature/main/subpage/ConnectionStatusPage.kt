@@ -115,7 +115,7 @@ fun ConnectionStatusContent(
             body = body,
         )
 
-        UiKitStyle.Expressive -> ConnectionStatusExpressive(
+        UiKitStyle.Expressive -> ConnectionStatusMaterial(
             onBack = onBack,
             isReconnecting = isReconnecting,
             isRefreshing = isRefreshing,

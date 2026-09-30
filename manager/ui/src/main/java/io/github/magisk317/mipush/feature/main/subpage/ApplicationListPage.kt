@@ -251,7 +251,7 @@ fun ApplicationList(
             body = body,
         )
 
-        UiKitStyle.Expressive -> ApplicationListExpressive(
+        UiKitStyle.Expressive -> ApplicationListMaterial(
             state = state,
             actions = actions,
             listState = listState,

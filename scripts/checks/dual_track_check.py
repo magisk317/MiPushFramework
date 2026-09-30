@@ -12,7 +12,7 @@ Fails when a Kotlin source file breaks the M3/Miuix track contract:
 0.9.4 exposes no shape tokens, so there is no dual-track counterpart to move to.
 
 Track rules:
-  *Material.kt / *Expressive.kt -> M track (M3 is the intended half)
+  *Material.kt                 -> M track (M3 is the intended half)
   *Miuix.kt                     -> X track (miuix is the intended half)
   everything else               -> shared (must go through the ui-kit)
 
@@ -24,7 +24,7 @@ import os
 import re
 import sys
 
-TRACK_M_SUFFIXES = ("Material.kt", "Expressive.kt")
+TRACK_M_SUFFIXES = ("Material.kt",)
 
 LEAVES = [
     "Text", "IconButton", "Button", "TextButton", "OutlinedButton", "FilledTonalButton",

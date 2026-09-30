@@ -8,7 +8,6 @@ import io.github.magisk317.uikit.surface.uiKitSurfaceGlassSample
 import io.github.magisk317.uikit.surface.rememberUiKitGlassTopBar
 import io.github.magisk317.uikit.theme.LocalUiKitSurfaceBlur
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,8 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.uikit.surface.DoubleTapToTopOverlay
-import io.github.magisk317.uikit.theme.spacing
-import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.WorkspaceSearchField
@@ -51,21 +49,22 @@ import kotlinx.coroutines.launch
 import io.github.magisk317.uikit.text.AppText
 
 /**
- * Expressive/Material chrome for the application list tab (full KernelSU
- * `SuperUserPagerMaterial` model): page-owned material3 `Scaffold` +
- * `exitUntilCollapsed` top bar with the [MaterialSearchBarPill], summary and
- * filter pills fixed under it; expanded search swaps the bar slot for the
- * (unchanged, verified) search row.
+ * Expressive/Material chrome for the recent-activity tab: page-owned
+ * material3 `Scaffold` + `exitUntilCollapsed` top bar with the
+ * [MaterialSearchBarPill] fixed under it; expanded search swaps the bar slot
+ * for the (unchanged, verified) search row. Snackbar and FAB owned here,
+ * mirroring [EventListMiuix].
  */
 @Composable
-internal fun ApplicationListExpressive(
-    state: ApplicationListUiState,
-    actions: ApplicationListActions,
+internal fun EventListMaterial(
+    state: EventListUiState,
+    actions: EventListActions,
     listState: LazyListState,
     scrollScope: CoroutineScope,
     scrollChromeState: ScrollChromeState?,
+    snackbarHostState: AppSnackbarHostState,
     contentBottomPadding: Dp,
-    body: @Composable (PaddingValues, AppRowStyle) -> Unit,
+    body: @Composable (PaddingValues) -> Unit,
 ) {
     val searchState = state.searchState
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -103,52 +102,32 @@ internal fun ApplicationListExpressive(
                         )
                     }
                 } else {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        TopAppBar(
+                    TopAppBar(
                             modifier = Modifier.uiKitSurfaceGlassSample(topGlass),
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = if (glassOn) Color.Transparent else MaterialTheme.colorScheme.surface,
                             ),
-                            title = {
-                                AppText(
-                                    text = stringResource(R.string.app_list_hero_title),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            actions = {
+                        title = {
+                            AppText(
+                                text = state.heroTitle,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        actions = {
+                            if (state.showSettings) {
                                 ApplicationHeaderSettingsAction(onClick = actions.onSettingsClick)
-                                WorkspaceSearchAction(
-                                    active = false,
-                                    contentDescription = placeholder,
-                                    onClick = { searchState.toggle() },
-                                )
-                            },
-                            scrollBehavior = scrollBehavior,
-                            windowInsets = WindowInsets.statusBars,
-                        )
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(chromeSurfaceColor()),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(
-                                    start = MaterialTheme.spacing.medium,
-                                    end = MaterialTheme.spacing.medium,
-                                    bottom = MaterialTheme.spacing.small,
-                                ),
-                            ) {
-                                ApplicationHeaderPills(
-                                    stats = state.stats,
-                                    query = state.currentQuery,
-                                    filterMode = state.filterMode,
-                                    showSystemApps = state.showSystemApps,
-                                )
                             }
-                        }
-                    }
+                            WorkspaceSearchAction(
+                                active = false,
+                                contentDescription = placeholder,
+                                onClick = { searchState.toggle() },
+                            )
+                        },
+                        scrollBehavior = scrollBehavior,
+                        windowInsets = WindowInsets.statusBars,
+                        )
                 }
                 DoubleTapToTopOverlay(
                     onDoubleTap = { scrollScope.launch { listState.animateScrollToItem(0) } },
@@ -176,17 +155,18 @@ internal fun ApplicationListExpressive(
                         top = innerPadding.calculateTopPadding(),
                         bottom = contentBottomPadding + 28.dp,
                     ),
-                    ExpressiveRowStyle,
                 )
             }
+            EventTabSnackbarHost(
+                snackbarHostState = snackbarHostState,
+                contentBottomPadding = contentBottomPadding,
+            )
             ScrollToTopFAB(
-                listState,
-                visible = scrollChromeState?.isChromeVisible != true,
+                listState = listState,
+                visible = snackbarHostState.currentSnackbarData == null &&
+                    scrollChromeState?.isChromeVisible != true,
                 extraBottomPadding = contentBottomPadding,
             )
         }
     }
 }
-
-/** Expressive row style: unchanged full-bleed rows with dividers. */
-private val ExpressiveRowStyle = AppRowStyle(divider = true) { content -> content() }

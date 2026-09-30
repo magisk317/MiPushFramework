@@ -232,7 +232,7 @@ fun ThemeSettingsPage(
 
     when (currentUiKitStyle()) {
         UiKitStyle.Miuix -> ThemeSettingsMiuix(onBack = onBack, body = body)
-        UiKitStyle.Expressive -> ThemeSettingsExpressive(onBack = onBack, body = body)
+        UiKitStyle.Expressive -> ThemeSettingsMaterial(onBack = onBack, body = body)
     }
 
 }
