@@ -42,7 +42,6 @@ import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.common.AppSnackbarHost
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -240,9 +239,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier.size(52.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
+                            AppText(
                                 text = applicationInfo.appName,
-                                style = MaterialTheme.typography.headlineSmall,
+                                role = AppTextRole.Title,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                             )

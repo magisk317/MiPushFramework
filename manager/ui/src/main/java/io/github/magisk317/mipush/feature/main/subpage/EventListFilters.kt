@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,9 +37,9 @@ internal fun EventFilters(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            AppText(
                 stringResource(R.string.recent_activity_filter_prefix),
-                style = MaterialTheme.typography.labelLarge,
+                role = AppTextRole.Body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (showToggleAction) {

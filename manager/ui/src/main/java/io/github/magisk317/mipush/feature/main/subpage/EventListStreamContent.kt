@@ -21,7 +21,6 @@ import io.github.magisk317.uikit.surface.swipeRevealSurface
 import io.github.magisk317.uikit.surface.AppSwipeToDismissBox
 import io.github.magisk317.uikit.surface.AppSwipeToDismissValue
 import io.github.magisk317.uikit.surface.rememberAppSwipeToDismissState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,7 +71,6 @@ private fun MutableList<EventInfoForDisplay>.appendDistinct(itemsToAppend: List<
         }
     }
 }
-
 
 @Composable
 internal fun EventList(
@@ -360,10 +358,10 @@ private fun SwipeToDeleteEventItem(
                     Alignment.CenterStart
                 },
             ) {
-                Text(
+                AppText(
                     text = stringResource(R.string.action_delete),
                     color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.labelLarge,
+                    role = AppTextRole.Body,
                 )
             }
         },
@@ -455,7 +453,6 @@ private fun EventItem(
         )
     }
 }
-
 
 @Composable
 internal fun DeleteCountdownSnackbar(data: AppSnackbarData) {
