@@ -37,3 +37,8 @@
 -dontwarn io.github.libxposed.api.**
 -keep class io.github.libxposed.api.** { *; }
 -keep interface io.github.libxposed.api.** { *; }
+
+# Telemetry reasons carry sealed-state class names (javaClass.simpleName) in release builds.
+# Keep the original names so R8 renaming cannot turn reason values into opaque short names.
+-keepnames class io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
+-keepnames class io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability$*
