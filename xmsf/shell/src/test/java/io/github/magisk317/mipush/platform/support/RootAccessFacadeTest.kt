@@ -139,6 +139,25 @@ class RootAccessFacadeTest {
         assertTrue(timedOut.timedOut)
     }
 
+    @Test
+    fun `forced refresh re-probes inside the TTL window`() {
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(0, stdout = listOf("0")),
+        )
+        val facade = RootAccessFacade(
+            runner = runner,
+            rootGrantState = { true },
+            requestRootGrant = {},
+        )
+
+        assertTrue(facade.refreshRootAccessIfGranted())
+        assertEquals(listOf("id -u"), runner.commands)
+
+        assertTrue(facade.refreshRootAccessIfGranted(force = true))
+        assertTrue(facade.hasCachedRootAccess())
+        assertEquals(listOf("id -u", "id -u"), runner.commands)
+    }
+
     private class RecordingRunner(
         vararg responses: Pair<String, BoundedShellResult>,
     ) : BoundedShellRunner {

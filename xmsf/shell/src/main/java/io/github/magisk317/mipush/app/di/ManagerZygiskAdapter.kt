@@ -51,6 +51,7 @@ import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
@@ -79,6 +80,7 @@ import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.Date
@@ -87,6 +89,8 @@ import java.util.Locale
 class XmsfZygiskConfigGateway : io.github.magisk317.mipush.manager.application.ZygiskConfigGateway {
     companion object {
         private const val ZYGISK_CONFIG_PATH = "/data/adb/mipush_zygisk/app.conf"
+        private const val ZYGISK_CONFIG_TIMEOUT_MS = 5_000L
+        private const val ZYGISK_RETRY_DELAY_MS = 200L
     }
 
     private fun hasExistingRootForZygisk(): Boolean =
@@ -113,17 +117,35 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.manager.application.Z
         if (!hasExistingRootForZygisk()) {
             return io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Unavailable("zygisk_root_missing")
         }
-        val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
-            "cat $ZYGISK_CONFIG_PATH",
-            timeoutMs = 5_000L,
-        )
+        val result = runZygiskConfigReadWithRetry()
         if (!result.isSuccess) {
             return io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Unavailable(
-                result.stderr.joinToString(" ").ifBlank { "zygisk_config_read_failed" },
+                ZygiskFailure.reason(result),
             )
         }
         return io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Available(
             ZygiskConfig.parse(result.stdout.joinToString("\n")),
+        )
+    }
+
+    /**
+     * libsu surfaces a momentarily unavailable su daemon as a non-zero exit with empty stderr,
+     * which used to collapse into the umbrella reason. Force a fresh root probe - a real su
+     * round trip that rebuilds the libsu shell - then retry the read once.
+     */
+    private suspend fun runZygiskConfigReadWithRetry(): BoundedShellResult {
+        val first = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "cat $ZYGISK_CONFIG_PATH",
+            timeoutMs = ZYGISK_CONFIG_TIMEOUT_MS,
+        )
+        if (first.isSuccess || !ZygiskFailure.isTransientExecFailure(first)) {
+            return first
+        }
+        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.refreshRootAccessIfGranted(force = true)
+        delay(ZYGISK_RETRY_DELAY_MS)
+        return io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "cat $ZYGISK_CONFIG_PATH",
+            timeoutMs = ZYGISK_CONFIG_TIMEOUT_MS,
         )
     }
 
@@ -165,7 +187,7 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.manager.application.Z
             )
         } else {
             io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Unavailable(
-                result.stderr.joinToString(" ").ifBlank { "zygisk_scan_failed" },
+                ZygiskFailure.scanReason(result),
             )
         }
     }
