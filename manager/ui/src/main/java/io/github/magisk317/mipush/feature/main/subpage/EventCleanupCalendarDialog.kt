@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import io.github.magisk317.uikit.surface.WorkspaceFilterPill
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -166,7 +166,7 @@ fun EventCleanupCalendarDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AppIconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1); selectedDay = null }) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = stringResource(R.string.event_cleanup_prev_month),
                         )
@@ -191,7 +191,7 @@ fun EventCleanupCalendarDialog(
                         onClick = { visibleMonth = visibleMonth.plusMonths(1); selectedDay = null },
                         enabled = visibleMonth < YearMonth.from(today),
                     ) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.event_cleanup_next_month),
                         )

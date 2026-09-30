@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppTopBar
@@ -418,7 +418,7 @@ private fun ApplicationItem(
             )
         },
         trailingContent = {
-            Icon(
+            AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -637,7 +637,7 @@ private fun registeredApplication(
 @Composable
 internal fun ApplicationHeaderSettingsAction(onClick: () -> Unit) {
     AppIconButton(onClick = onClick) {
-        Icon(
+        AppIcon(
             imageVector = Icons.Default.Settings,
             contentDescription = stringResource(R.string.action_list_settings),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

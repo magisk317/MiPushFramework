@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -494,7 +494,7 @@ private fun InfoRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (onClick != null) {
-                    Icon(
+                    AppIcon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = stringResource(R.string.settings_XMPP_server),
                         modifier = Modifier.size(18.dp),

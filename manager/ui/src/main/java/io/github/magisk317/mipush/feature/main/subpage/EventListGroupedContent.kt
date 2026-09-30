@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -281,7 +281,7 @@ internal fun EventGroupList(
                         )
                     },
                     trailingContent = {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,

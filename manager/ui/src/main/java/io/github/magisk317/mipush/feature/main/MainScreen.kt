@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -365,7 +365,7 @@ fun MainScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Icon(
+                    AppIcon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = null,
                         modifier = Modifier.padding(bottom = 8.dp),
@@ -464,7 +464,7 @@ fun MainScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
                             modifier = Modifier.padding(bottom = 8.dp),

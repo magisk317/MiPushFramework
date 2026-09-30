@@ -22,7 +22,7 @@ import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -212,7 +212,7 @@ internal fun ConfigListEntry(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         leadingContent = {
-            Icon(
+            AppIcon(
                 imageVector = statusIcon(item.status),
                 contentDescription = null,
                 tint = statusColor(item.status),
@@ -406,7 +406,7 @@ internal fun CategoryHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.weight(1f))
-        Icon(
+        AppIcon(
             imageVector = if (expanded) {
                 Icons.Filled.KeyboardArrowUp
             } else {

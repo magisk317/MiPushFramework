@@ -23,10 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import io.github.magisk317.uikit.surface.AppPrimaryButton
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -162,7 +161,7 @@ fun PermissionMainActivity(
     val navigationIcon: @Composable () -> Unit = {
         if (recheckOnly) {
             AppIconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
-                Icon(
+                AppIcon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.action_back),
                 )
@@ -365,14 +364,14 @@ private fun RootSubjectItem(
     }
     WorkspaceListItem(
         supportingContent = {
-            Text(
+            AppText(
                 text = details,
-                style = if (isMiuix) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyLarge,
+                role = if (isMiuix) AppTextRole.Footnote else AppTextRole.Body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         leadingContent = {
-            Icon(
+            AppIcon(
                 imageVector = if (granted) {
                     Icons.Default.CheckCircle
                 } else {
@@ -419,13 +418,13 @@ fun PermissionItem(
     WorkspaceListItem(
         leadingContent = {
             if (isGranted) {
-                Icon(
+                AppIcon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = stringResource(id = R.string.status_granted),
                     tint = COLOR_GRANTED
                 )
             } else {
-                Icon(
+                AppIcon(
                     imageVector = Icons.Default.RadioButtonUnchecked,
                     contentDescription = stringResource(id = R.string.status_pending),
                     tint = MaterialTheme.colorScheme.outline

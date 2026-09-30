@@ -10,7 +10,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppBadge
-import androidx.compose.material3.Text
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,10 +49,10 @@ internal fun CodePreview(
     modifier: Modifier = Modifier,
 ) {
     SelectionContainer {
-        Text(
+        AppText(
             text = text,
             modifier = modifier,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarHostState
@@ -388,7 +388,7 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
         summary = stringResource(R.string.event_empty_summary),
         modifier = modifier,
         icon = {
-            Icon(
+            AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
@@ -430,7 +430,7 @@ internal fun EventLoadFailedState(modifier: Modifier = Modifier) {
         summary = stringResource(R.string.event_load_failed_summary),
         modifier = modifier.heightIn(min = 300.dp),
         icon = {
-            Icon(
+            AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),

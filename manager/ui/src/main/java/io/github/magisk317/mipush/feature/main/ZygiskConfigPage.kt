@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.items
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import io.github.magisk317.uikit.surface.AppFloatingActionButton
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
@@ -110,7 +110,7 @@ class ZygiskConfigPage : ComponentActivity() {
                     )
                 }
             ) {
-                Icon(
+                AppIcon(
                     Icons.Filled.Save,
                     contentDescription = stringResource(R.string.zygisk_save),
                 )
