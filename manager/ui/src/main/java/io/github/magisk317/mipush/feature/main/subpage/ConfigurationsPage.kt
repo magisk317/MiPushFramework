@@ -43,16 +43,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.FloatingActionButton
+import io.github.magisk317.uikit.surface.AppFloatingActionButton
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextButton
+import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -403,9 +402,10 @@ fun Configurations(
                                             modifier = Modifier.padding(top = MaterialTheme.spacing.small),
                                         )
                                     }
-                                    TextButton(onClick = { viewModel.ensureIconLibraryLoaded() }) {
-                                        AppText(stringResource(R.string.icon_library_retry))
-                                    }
+                                    AppTextButton(
+                                        text = stringResource(R.string.icon_library_retry),
+                                        onClick = { viewModel.ensureIconLibraryLoaded() },
+                                    )
                                 }
                             }
                             uiState.iconLibraryItems.isEmpty() && uiState.isIconLibraryLoading -> {
@@ -415,7 +415,7 @@ fun Configurations(
                                         .heightIn(min = 120.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    CircularProgressIndicator()
+                                    AppCircularProgressIndicator()
                                 }
                             }
                             uiState.iconLibraryItems.isEmpty() -> {
@@ -481,7 +481,7 @@ fun Configurations(
                                                 .padding(vertical = MaterialTheme.spacing.small),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            CircularProgressIndicator(
+                                            AppCircularProgressIndicator(
                                                 modifier = Modifier.size(20.dp),
                                                 strokeWidth = 2.dp,
                                             )
@@ -531,12 +531,11 @@ fun Configurations(
             contentAlignment = Alignment.BottomEnd,
         ) {
             if (fabVisible) {
-                FloatingActionButton(
+                AppFloatingActionButton(
                     onClick = { scrollScope.launch { listState.scrollToItem(0) } },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(Icons.Filled.ArrowUpward, contentDescription = "置顶")
-                }
+                    imageVector = Icons.Filled.ArrowUpward,
+                    contentDescription = "置顶",
+                )
             }
         }
     }
