@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +46,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private val dayKeyFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
@@ -114,7 +115,7 @@ fun EventCleanupCalendarDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { AppText(text = stringResource(R.string.event_cleanup_title), color = MaterialTheme.colorScheme.onSurface) },
+        title = { AppText(text = stringResource(R.string.event_cleanup_title), color = appColor(AppColorRole.OnSurface)) },
         text = {
             Column(
                 modifier = Modifier
@@ -126,7 +127,7 @@ fun EventCleanupCalendarDialog(
                 AppText(
                     text = stringResource(R.string.event_cleanup_summary),
                     role = AppTextRole.Body,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                 )
 
                 // 快捷预设
@@ -175,7 +176,7 @@ fun EventCleanupCalendarDialog(
                         AppText(
                             text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.monthValue)}",
                             role = AppTextRole.Subtitle,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = appColor(AppColorRole.OnSurface),
                         )
                         AppText(
                             text = pluralStringResource(
@@ -184,7 +185,7 @@ fun EventCleanupCalendarDialog(
                                 monthCount,
                             ),
                             role = AppTextRole.Footnote,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     }
                     AppIconButton(
@@ -209,7 +210,7 @@ fun EventCleanupCalendarDialog(
                 AppText(
                     text = stringResource(R.string.event_cleanup_calendar_hint),
                     role = AppTextRole.Footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                 )
 
                 // 选中某天后的两种清理动作

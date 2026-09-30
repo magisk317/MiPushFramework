@@ -48,6 +48,8 @@ import io.github.magisk317.mipush.core.configuration.ConfigListItem
 import io.github.magisk317.mipush.utils.ConfigDefaults
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 internal fun LazyListScope.configListHeader(
     uiState: ConfigManagerViewModel.UiState,
@@ -106,7 +108,7 @@ internal fun LazyListScope.configListHeader(
                     uiState.lastSyncTime.asReadableTime(),
                 ),
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
 
             WorkspaceSearchField(
@@ -162,7 +164,7 @@ internal fun LazyListScope.configListHeader(
                         uiState.syncPath ?: "",
                     ),
                     role = AppTextRole.BodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -172,7 +174,7 @@ internal fun LazyListScope.configListHeader(
                 AppText(
                     text = stringResource(R.string.config_remote_error, error),
                     role = AppTextRole.BodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = appColor(AppColorRole.Error),
                 )
             }
         }
@@ -223,14 +225,14 @@ internal fun ConfigListEntry(
         AppText(
             text = primaryTitle,
             role = AppTextRole.Subtitle,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         AppText(
             text = secondarySubtitle,
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -252,7 +254,7 @@ internal fun ConfigListEntry(
                 )
             },
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
@@ -280,12 +282,12 @@ internal fun SettingLinkCard(
             AppText(
                 text = title,
                 role = AppTextRole.Footnote,
-                color = MaterialTheme.colorScheme.primary,
+                color = appColor(AppColorRole.Primary),
             )
             AppText(
                 text = value,
                 role = AppTextRole.Body,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -331,7 +333,7 @@ internal fun IconLibraryEntryRow(
                 AppText(
                     text = stringResource(R.string.icon_item_overlay),
                     role = AppTextRole.Footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                 )
             }
         },
@@ -339,21 +341,21 @@ internal fun IconLibraryEntryRow(
         AppText(
             text = entry.label.ifBlank { entry.packageName },
             role = AppTextRole.Subtitle,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         AppText(
             text = entry.packageName,
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         AppText(
             text = updatedAtLabel,
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -393,17 +395,17 @@ internal fun CategoryHeader(
         Box(
             modifier = Modifier
                 .size(width = 3.dp, height = 16.dp)
-                .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
+                .background(appColor(AppColorRole.Primary), MaterialTheme.shapes.small),
         )
         AppText(
             text = label,
             role = AppTextRole.Footnote,
-            color = MaterialTheme.colorScheme.primary,
+            color = appColor(AppColorRole.Primary),
         )
         AppText(
             text = count.toString(),
             role = AppTextRole.Footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
         )
         Spacer(Modifier.weight(1f))
         AppIcon(
@@ -413,7 +415,7 @@ internal fun CategoryHeader(
                 Icons.Filled.KeyboardArrowDown
             },
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = appColor(AppColorRole.OnSurfaceVariant),
         )
     }
 }

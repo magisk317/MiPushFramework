@@ -11,11 +11,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.feature.main.subpage.EventList
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.uikit.theme.SystemBarsScrim
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 open class RecentEventListPage : ComponentActivity() {
 
@@ -40,7 +41,7 @@ open class RecentEventListPage : ComponentActivity() {
 private fun RecentEventPage(packageName: String) {
     AppSurface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+        color = appColor(AppColorRole.Background),
     ) {
         // The window background used to come from the Page wrapper inside the
         // shared EventList tab composable; the tab composable now relies on its

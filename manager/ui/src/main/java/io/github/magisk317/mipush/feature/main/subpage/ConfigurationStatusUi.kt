@@ -12,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppBadge
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +55,7 @@ internal fun CodePreview(
             text = text,
             modifier = modifier,
             role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
         )
     }
 }
@@ -86,11 +88,11 @@ internal fun statusLabel(status: ConfigSyncStatus): String {
 @Composable
 internal fun statusColor(status: ConfigSyncStatus): Color {
     return when (status) {
-        ConfigSyncStatus.IN_SYNC -> MaterialTheme.colorScheme.primary
-        ConfigSyncStatus.REMOTE_ONLY -> MaterialTheme.colorScheme.secondary
-        ConfigSyncStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.tertiary
-        ConfigSyncStatus.LOCAL_OVERRIDE -> MaterialTheme.colorScheme.tertiary
-        ConfigSyncStatus.INVALID_LOCAL -> MaterialTheme.colorScheme.error
+        ConfigSyncStatus.IN_SYNC -> appColor(AppColorRole.Primary)
+        ConfigSyncStatus.REMOTE_ONLY -> appColor(AppColorRole.Secondary)
+        ConfigSyncStatus.LOCAL_ONLY -> appColor(AppColorRole.Tertiary)
+        ConfigSyncStatus.LOCAL_OVERRIDE -> appColor(AppColorRole.Tertiary)
+        ConfigSyncStatus.INVALID_LOCAL -> appColor(AppColorRole.Error)
     }
 }
 

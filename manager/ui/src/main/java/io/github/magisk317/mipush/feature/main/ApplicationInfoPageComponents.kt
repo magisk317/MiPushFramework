@@ -51,6 +51,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 internal enum class NotificationChannelContentKind {
     EMPTY,
@@ -83,7 +85,7 @@ internal fun NotificationChannelsLoadingRow(showDivider: Boolean) {
         AppText(
             text = stringResource(R.string.notification_channels_loading),
             role = AppTextRole.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             modifier = Modifier.weight(1f),
         )
     }
@@ -128,9 +130,9 @@ internal fun NotificationChannelSectionHeader(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                        appColor(AppColorRole.Primary).copy(alpha = 0.14f),
+                        appColor(AppColorRole.Secondary).copy(alpha = 0.10f),
+                        appColor(AppColorRole.Tertiary).copy(alpha = 0.08f),
                     ),
                 ),
             ),
@@ -149,14 +151,14 @@ internal fun NotificationChannelSectionHeader(
             AppText(
                 text = title,
                 role = AppTextRole.Subtitle,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.fillMaxWidth(),
             )
             if (summary.isNotBlank()) {
                 AppText(
                     text = summary,
                     role = AppTextRole.BodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -193,7 +195,7 @@ internal fun NotificationChannelRow(
             AppText(
                 text = title,
                 role = AppTextRole.Body,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.weight(1f, fill = false),
                 softWrap = true,
                 overflow = TextOverflow.Clip,
@@ -202,8 +204,8 @@ internal fun NotificationChannelRow(
             if (!enabled) {
                 NotificationChannelBadge(
                     text = disabledBadge,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = appColor(AppColorRole.ErrorContainer),
+                    contentColor = appColor(AppColorRole.OnErrorContainer),
                 )
             }
         }
@@ -211,7 +213,7 @@ internal fun NotificationChannelRow(
             AppText(
                 text = summary,
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
                 modifier = Modifier.fillMaxWidth(),
                 softWrap = true,
                 overflow = TextOverflow.Clip,
@@ -227,8 +229,8 @@ internal fun NotificationChannelRow(
 @Composable
 internal fun NotificationChannelBadge(
     text: String,
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
-    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    containerColor: Color = appColor(AppColorRole.SecondaryContainer),
+    contentColor: Color = appColor(AppColorRole.OnSecondaryContainer),
 ) {
     AppBadge(
         text = text,
@@ -258,13 +260,13 @@ internal fun ActionSummaryRow(
             AppText(
                 text = title,
                 role = AppTextRole.Body,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.fillMaxWidth(),
             )
             AppText(
                 text = summary,
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -308,12 +310,12 @@ internal fun SettingSwitchRow(
             AppText(
                 text = title,
                 role = AppTextRole.Body,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                color = if (enabled) appColor(AppColorRole.OnSurface) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
             )
             AppText(
                 text = summary,
                 role = AppTextRole.BodySmall,
-                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                color = if (enabled) appColor(AppColorRole.OnSurfaceVariant) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
             )
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
@@ -348,7 +350,7 @@ internal fun HeaderMetricCard(
         color = if (io.github.magisk317.uikit.theme.currentUiKitStyle() == io.github.magisk317.uikit.theme.UiKitStyle.Miuix) {
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh
         } else {
-            MaterialTheme.colorScheme.surfaceContainer
+            appColor(AppColorRole.SurfaceContainer)
         },
         onClick = onClick,
     ) {
@@ -374,7 +376,7 @@ internal fun HeaderMetricCard(
             AppText(
                 text = value,
                 role = AppTextRole.Subtitle,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Start,
@@ -398,7 +400,7 @@ internal fun Tips(description: String) {
             modifier = Modifier
                 .size(10.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.error,
+                    color = appColor(AppColorRole.Error),
                     shape = RoundedCornerShape(999.dp),
                 ),
         )
@@ -412,7 +414,7 @@ internal fun Tips(description: String) {
         AppText(
             text = annotatedText,
             role = AppTextRole.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
         )
     }
 }

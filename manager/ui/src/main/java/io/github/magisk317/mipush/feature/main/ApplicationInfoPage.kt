@@ -80,6 +80,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -135,7 +137,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         Theme {
             AppSurface(
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
+                color = appColor(AppColorRole.Background),
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -211,7 +213,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         val lastPush = formatTime(applicationInfo.lastReceiveTimeMs)
 
         AppCard(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = appColor(AppColorRole.SurfaceContainerLow),
         ) {
             Column {
                 Box(
@@ -220,9 +222,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                         .background(
                             Brush.linearGradient(
                                 listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
+                                    appColor(AppColorRole.Primary).copy(alpha = 0.18f),
+                                    appColor(AppColorRole.Secondary).copy(alpha = 0.12f),
+                                    appColor(AppColorRole.Tertiary).copy(alpha = 0.10f),
                                 ),
                             ),
                         ),
@@ -242,13 +244,13 @@ open class ApplicationInfoPage : ComponentActivity() {
                             AppText(
                                 text = applicationInfo.appName,
                                 role = AppTextRole.Title,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = appColor(AppColorRole.OnSurface),
                                 maxLines = 1,
                             )
                             AppText(
                                 text = applicationInfo.packageName,
                                 role = AppTextRole.BodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = appColor(AppColorRole.OnSurfaceVariant),
                                 maxLines = 1,
                             )
                         }
@@ -291,7 +293,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             accent = if (isZygiskEnabledForApp == true) {
                                 RegistrationStateStyle.GreenColor
                             } else {
-                                MaterialTheme.colorScheme.secondary
+                                appColor(AppColorRole.Secondary)
                             },
                             onClick = {
                                 context.startActivity(android.content.Intent(context, ZygiskConfigPage::class.java))
@@ -311,7 +313,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = MaterialTheme.colorScheme.secondary,
+                            accent = appColor(AppColorRole.Secondary),
                         )
                         HeaderMetricCard(
                             label = stringResource(R.string.app_detail_registration_status),
@@ -321,7 +323,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 .fillMaxHeight(),
                             accent = RegistrationStateStyle.registrationColorOf(applicationInfo)
                                 .takeIf { it != Color.Unspecified }
-                                ?: MaterialTheme.colorScheme.tertiary,
+                                ?: appColor(AppColorRole.Tertiary),
                         )
                     }
 
@@ -350,7 +352,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         ) {
                             AppText(
                                 text = stringResource(R.string.app_detail_force_register),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = appColor(AppColorRole.OnSurface),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -674,15 +676,15 @@ open class ApplicationInfoPage : ComponentActivity() {
                                         NotificationChannelBadge(text = badge)
                                         AppText(
                                             text = channelTitle,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            color = appColor(AppColorRole.OnSurface),
                                             softWrap = true,
                                             overflow = TextOverflow.Clip,
                                         )
                                         if (!channel.enabled) {
                                             NotificationChannelBadge(
                                                 text = disabledBadge,
-                                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                containerColor = appColor(AppColorRole.ErrorContainer),
+                                                contentColor = appColor(AppColorRole.OnErrorContainer),
                                             )
                                         }
                                     }
@@ -691,7 +693,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             text = {
                                 AppText(
                                     text = summary,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = appColor(AppColorRole.OnSurfaceVariant),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             },

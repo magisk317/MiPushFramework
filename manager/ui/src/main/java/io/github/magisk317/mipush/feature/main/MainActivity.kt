@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import io.github.magisk317.uikit.surface.AppAlertDialog
@@ -53,6 +52,8 @@ import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
 import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private var placeholder by mutableStateOf("Search...")
 
@@ -254,10 +255,10 @@ private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
             dismissOnClickOutside = true,
         ),
         title = {
-            AppText(text = stringResource(R.string.runtime_missing_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
-            AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = appColor(AppColorRole.OnSurface))
         },
         confirmButton = {
             AppTextButton(
@@ -280,7 +281,7 @@ private fun RuntimeCommitMismatchDialog(
             dismissOnClickOutside = true,
         ),
         title = {
-            AppText(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
             AppText(
@@ -289,7 +290,7 @@ private fun RuntimeCommitMismatchDialog(
                     mismatch.moduleCommit,
                     mismatch.runtimeCommit,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
         },
         confirmButton = {
@@ -313,7 +314,7 @@ private fun LegacyModuleWarningDialog(
             dismissOnClickOutside = true,
         ),
         title = {
-            AppText(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.legacy_module_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
             AppText(
@@ -321,7 +322,7 @@ private fun LegacyModuleWarningDialog(
                     R.string.legacy_module_dialog_message,
                     packageNames.joinToString(", "),
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
         },
         confirmButton = {

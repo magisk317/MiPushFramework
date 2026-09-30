@@ -88,6 +88,9 @@ import io.github.magisk317.uikit.theme.currentUiKitStyle
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.text.appTextStyle
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 class ConfigurationsPage : ComponentActivity() {
     companion object {
@@ -398,7 +401,7 @@ fun Configurations(
                                         AppText(
                                             text = trace,
                                             role = AppTextRole.BodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = appColor(AppColorRole.OnSurfaceVariant),
                                             modifier = Modifier.padding(top = MaterialTheme.spacing.small),
                                         )
                                     }
@@ -495,7 +498,7 @@ fun Configurations(
                                         else -> AppText(
                                             text = stringResource(R.string.icon_library_loaded_all),
                                             role = AppTextRole.BodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = appColor(AppColorRole.OnSurfaceVariant),
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(vertical = MaterialTheme.spacing.small),
@@ -645,7 +648,7 @@ fun ConfigurationEditor(
                                     ?: stringResource(R.string.config_time_unknown),
                             ),
                             role = AppTextRole.BodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     }
                     uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
@@ -653,7 +656,7 @@ fun ConfigurationEditor(
                             AppText(
                                 text = stringResource(R.string.config_remote_error, error),
                                 role = AppTextRole.BodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                color = appColor(AppColorRole.Error),
                             )
                         }
                     }
@@ -662,7 +665,7 @@ fun ConfigurationEditor(
                             AppText(
                                 text = error,
                                 role = AppTextRole.BodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                color = appColor(AppColorRole.Error),
                             )
                         }
                     }
@@ -682,12 +685,12 @@ fun ConfigurationEditor(
                                     .fillMaxWidth()
                                     .heightIn(min = 420.dp),
                                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
-                                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                textStyle = appTextStyle(AppTextRole.BodySmall).copy(fontFamily = FontFamily.Monospace),
                             )
                         } else {
                             AppSurface(
                                 modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                color = appColor(AppColorRole.SurfaceContainerLow),
                                 tonalElevation = 0.dp,
                                 shape = MaterialTheme.shapes.large,
                             ) {

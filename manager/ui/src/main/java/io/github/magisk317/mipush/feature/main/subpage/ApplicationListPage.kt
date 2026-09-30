@@ -75,6 +75,8 @@ import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Immutable
 data class AppInfoForDisplay(
@@ -286,7 +288,7 @@ private fun ApplicationListUnavailable(
             .fillMaxWidth()
             .padding(horizontal = MaterialTheme.spacing.medium, vertical = MaterialTheme.spacing.small)
             .background(
-                color = MaterialTheme.colorScheme.errorContainer,
+                color = appColor(AppColorRole.ErrorContainer),
                 shape = RoundedCornerShape(16.dp),
             )
             .padding(MaterialTheme.spacing.medium),
@@ -294,12 +296,12 @@ private fun ApplicationListUnavailable(
         AppText(
             text = stringResource(R.string.app_list_unavailable_title),
             role = AppTextRole.Subtitle,
-            color = MaterialTheme.colorScheme.onErrorContainer,
+            color = appColor(AppColorRole.OnErrorContainer),
         )
         AppText(
             text = applicationListUnavailableMessage(status),
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onErrorContainer,
+            color = appColor(AppColorRole.OnErrorContainer),
             modifier = Modifier.padding(top = MaterialTheme.spacing.extraSmall),
         )
         AppTextButton(
@@ -341,32 +343,32 @@ internal fun ApplicationHeaderPills(
         InfoPill(
             text = "${stringResource(R.string.app_list_stats_integrated)}: ${stats.usingMiPush}/${stats.total}",
             containerColor = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentColor = appColor(AppColorRole.OnSurfaceVariant),
         )
         InfoPill(
             text = "${stringResource(R.string.app_list_stats_registration)}: ${stats.registered}/${stats.usingMiPush}",
             containerColor = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.primary,
+            contentColor = appColor(AppColorRole.Primary),
         )
         if (query.isNotBlank()) {
             InfoPill(
                 text = "${stringResource(R.string.action_search)} · $query",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = appColor(AppColorRole.SecondaryContainer),
+                contentColor = appColor(AppColorRole.OnSecondaryContainer),
             )
         }
         applicationFilterLabel(filterMode)?.let { label ->
             InfoPill(
                 text = label,
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = appColor(AppColorRole.TertiaryContainer),
+                contentColor = appColor(AppColorRole.OnTertiaryContainer),
             )
         }
         if (showSystemApps) {
             InfoPill(
                 text = stringResource(R.string.action_show_system_apps),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = appColor(AppColorRole.SecondaryContainer),
+                contentColor = appColor(AppColorRole.OnSecondaryContainer),
             )
         }
     }
@@ -391,10 +393,10 @@ private fun ApplicationItem(
 ) {
     val info = itemsInfo[item.packageName] ?: return
     val statusColor =
-        if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
+        if (info.registrationState.second == Color.Unspecified) appColor(AppColorRole.OnSurface)
         else info.registrationState.second
     val isRecentlyActive = item.lastReceiveTimeMs > 0L
-    val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val containerColor = appColor(AppColorRole.SurfaceContainerLow)
     val activityLabel = if (isRecentlyActive) {
         io.github.magisk317.mipush.feature.main.subpage.friendlyDateString(
             java.util.Date(item.lastReceiveTimeMs),
@@ -421,7 +423,7 @@ private fun ApplicationItem(
             AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = appColor(AppColorRole.OnSurfaceVariant),
             )
         },
     ) {
@@ -429,14 +431,14 @@ private fun ApplicationItem(
             text = item.appName,
             role = AppTextRole.Body,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         AppText(
             text = item.packageName,
             role = AppTextRole.BodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -455,21 +457,21 @@ private fun ApplicationItem(
             if (info.isZygiskEnabled == true) {
                 AppListBadge(
                     text = "Zygisk",
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    containerColor = appColor(AppColorRole.TertiaryContainer),
+                    contentColor = appColor(AppColorRole.OnTertiaryContainer),
                 )
             }
             AppListBadge(
                 text = activityLabel,
                 containerColor = if (isRecentlyActive) {
-                    MaterialTheme.colorScheme.secondaryContainer
+                    appColor(AppColorRole.SecondaryContainer)
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
+                    appColor(AppColorRole.SurfaceContainerHighest)
                 },
                 contentColor = if (isRecentlyActive) {
-                    MaterialTheme.colorScheme.onSecondaryContainer
+                    appColor(AppColorRole.OnSecondaryContainer)
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    appColor(AppColorRole.OnSurfaceVariant)
                 },
             )
         }
@@ -478,7 +480,7 @@ private fun ApplicationItem(
         if (showDivider) {
             AppHorizontalDivider(
                 thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
+                color = appColor(AppColorRole.OutlineVariant),
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -640,7 +642,7 @@ internal fun ApplicationHeaderSettingsAction(onClick: () -> Unit) {
         AppIcon(
             imageVector = Icons.Default.Settings,
             contentDescription = stringResource(R.string.action_list_settings),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = appColor(AppColorRole.OnSurfaceVariant),
         )
     }
 }

@@ -76,6 +76,8 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 
 import io.github.magisk317.uikit.R as UiKitR
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 /**
  * Style-independent render state for the Overview page (KernelSU `HomeUiState` model).
@@ -262,7 +264,7 @@ internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
         AppText(
             text = state,
             role = AppTextRole.Footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
         )
     }
 }
@@ -271,8 +273,8 @@ internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
 internal fun AppStatsDonutSection(
     appStats: ApplicationStats,
 ) {
-    val activeSliceColor = MaterialTheme.colorScheme.primary
-    val inactiveSliceColor = MaterialTheme.colorScheme.primaryContainer
+    val activeSliceColor = appColor(AppColorRole.Primary)
+    val inactiveSliceColor = appColor(AppColorRole.PrimaryContainer)
     val outerSlices = listOf(
         DonutSlice(
             label = stringResource(R.string.overview_chart_integrated_label),
@@ -361,7 +363,7 @@ private fun OverviewChartPanel(
         AppText(
             text = title,
             role = AppTextRole.Subtitle,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
@@ -386,14 +388,14 @@ private fun OverviewChartPanel(
                 AppText(
                     text = selectedSlice.label,
                     role = AppTextRole.Body,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     textAlign = TextAlign.Center,
                 )
                 AppText(
                     text = "${selectedSlice.value}  $selectedPercent%",
                     role = AppTextRole.Title,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = appColor(AppColorRole.OnSurface),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -413,7 +415,7 @@ private fun DonutChart(
     stroke: Dp,
     onSliceTap: (Int) -> Unit,
 ) {
-    val baseTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val baseTrackColor = appColor(AppColorRole.SurfaceContainerHigh)
     val density = LocalDensity.current
     val strokePx = with(density) { stroke.toPx() }
     var chartSize by remember { mutableStateOf(IntSize.Zero) }
@@ -554,9 +556,9 @@ private fun OverviewLegendItem(
             text = slice.label,
             role = AppTextRole.Body,
             color = if (selected) {
-                MaterialTheme.colorScheme.onSurface
+                appColor(AppColorRole.OnSurface)
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+                appColor(AppColorRole.OnSurfaceVariant)
             },
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier.padding(start = 12.dp),

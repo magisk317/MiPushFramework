@@ -15,7 +15,6 @@ import androidx.compose.material.icons.outlined.Info
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.text.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +46,8 @@ import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun EventDetailsDialog(
@@ -137,14 +138,14 @@ internal fun EventDetailsDialog(
                 AppText(
                     stringResource(R.string.event_detail_developer_info),
                     role = AppTextRole.Title,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = appColor(AppColorRole.OnSurface),
                     modifier = Modifier.weight(1f),
                 )
                 AppIconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
                     AppIcon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = stringResource(R.string.action_app_info),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = appColor(AppColorRole.OnSurfaceVariant),
                     )
                 }
             }
@@ -160,7 +161,7 @@ internal fun EventDetailsDialog(
                         .horizontalScroll(horizontalScroll)
                         .uiKitScrollEndHaptic(),
                     role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     softWrap = false,
                 )
             }

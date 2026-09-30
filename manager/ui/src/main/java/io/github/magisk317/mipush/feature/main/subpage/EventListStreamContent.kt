@@ -56,6 +56,8 @@ import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 fun EventInfoForDisplay.composeKey(): String {
     if (id > 0L) return "id:$id"
@@ -304,7 +306,7 @@ internal fun EventList(
                     )
                     AppHorizontalDivider(
                         thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
+                        color = appColor(AppColorRole.OutlineVariant),
                     )
                 }
             }
@@ -350,7 +352,7 @@ private fun SwipeToDeleteEventItem(
                     // Shared style-aware reveal surface: full-row silhouette carrying the
                     // row card's rounded shape (Miuix) or a plain rectangle (Expressive),
                     // with the same hairline inset under the card's anti-aliased edge.
-                    .then(swipeRevealSurface(color = MaterialTheme.colorScheme.errorContainer))
+                    .then(swipeRevealSurface(color = appColor(AppColorRole.ErrorContainer)))
                     .padding(horizontal = 24.dp),
                 contentAlignment = if (direction == AppSwipeToDismissValue.EndToStart) {
                     Alignment.CenterEnd
@@ -360,7 +362,7 @@ private fun SwipeToDeleteEventItem(
             ) {
                 AppText(
                     text = stringResource(R.string.action_delete),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = appColor(AppColorRole.OnErrorContainer),
                     role = AppTextRole.Body,
                 )
             }
@@ -384,7 +386,7 @@ private fun EventItem(
     } else {
         appName
     }
-    val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val containerColor = appColor(AppColorRole.SurfaceContainerLow)
 
     WorkspaceListItem(
         modifier = Modifier
@@ -407,7 +409,7 @@ private fun EventItem(
             AppText(
                 text = titleText,
                 role = AppTextRole.Subtitle,
-                color = MaterialTheme.colorScheme.primary,
+                color = appColor(AppColorRole.Primary),
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
@@ -415,7 +417,7 @@ private fun EventItem(
             AppText(
                 text = Instant.ofEpochMilli(item.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter),
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
         }
         Row(
@@ -426,28 +428,28 @@ private fun EventItem(
             AppText(
                 text = metaLine,
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
             if (disabled) {
                 InfoPill(
                     text = stringResource(R.string.notification_channels_disabled_badge),
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = appColor(AppColorRole.ErrorContainer),
+                    contentColor = appColor(AppColorRole.OnErrorContainer),
                 )
             } else if (denied) {
                 InfoPill(
                     text = stringResource(R.string.recent_activity_filter_status_denied),
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    containerColor = appColor(AppColorRole.TertiaryContainer),
+                    contentColor = appColor(AppColorRole.OnTertiaryContainer),
                 )
             }
         }
         AppText(
             text = item.content,
             role = AppTextRole.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             maxLines = 3,
             modifier = Modifier.fillMaxWidth(),
         )

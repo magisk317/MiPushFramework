@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import android.widget.Toast
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +21,8 @@ import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun XmppServerEditor(
@@ -78,7 +79,7 @@ internal fun XmppServerDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { AppText(text = stringResource(R.string.settings_XMPP_server), color = MaterialTheme.colorScheme.onSurface) },
+        title = { AppText(text = stringResource(R.string.settings_XMPP_server), color = appColor(AppColorRole.OnSurface)) },
         text = {
             AppTextField(
                 state = textState,

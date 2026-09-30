@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import io.github.magisk317.uikit.surface.AppIcon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
@@ -47,6 +46,8 @@ import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private data class EventGroupForDisplay(
     val packageName: String,
@@ -267,7 +268,7 @@ internal fun EventGroupList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp),
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
+                    containerColor = appColor(AppColorRole.Primary).copy(alpha = 0.06f),
                     onClick = {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
@@ -284,19 +285,19 @@ internal fun EventGroupList(
                         AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     },
                 ) {
                     AppText(
                         group.appName,
                         role = AppTextRole.Subtitle,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = appColor(AppColorRole.OnSurface),
                     )
                     AppText(
                         group.packageName,
                         role = AppTextRole.BodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = appColor(AppColorRole.OnSurfaceVariant)
                     )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -308,13 +309,13 @@ internal fun EventGroupList(
                                 group.events.size,
                                 group.events.size,
                             ),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            containerColor = appColor(AppColorRole.SurfaceContainerHighest),
+                            contentColor = appColor(AppColorRole.OnSurfaceVariant),
                         )
                         InfoPill(
                             text = stringResource(R.string.recent_activity_updated_at, updatedAt),
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            containerColor = appColor(AppColorRole.SecondaryContainer),
+                            contentColor = appColor(AppColorRole.OnSecondaryContainer),
                         )
                     }
                 }

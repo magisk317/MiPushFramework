@@ -20,6 +20,8 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun RemoteSourceDialog(
@@ -70,7 +72,7 @@ internal fun RemoteSourceDialog(
                             "${defaultRepository}@${defaultBranch}",
                         ),
                         role = AppTextRole.BodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
                     )
                 }
             },

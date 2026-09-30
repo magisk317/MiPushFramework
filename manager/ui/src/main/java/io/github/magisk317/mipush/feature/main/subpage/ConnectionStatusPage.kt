@@ -50,6 +50,8 @@ import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 open class ConnectionStatusPage : ComponentActivity() {
     private val viewModel: ConnectionStatusViewModel by viewModel()
@@ -148,7 +150,7 @@ private fun ConnectionStatusBody(
         if (data == null) {
             AppText(
                 text = stringResource(R.string.connection_status_loading),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
                 role = AppTextRole.Body,
                 modifier = Modifier.padding(top = MaterialTheme.spacing.large),
             )
@@ -204,12 +206,12 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
                 text = stateLabel,
                 role = AppTextRole.Subtitle,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
             AppText(
                 text = stringResource(R.string.connection_status_session_count, data.connectionSessionCount),
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
         }
     }
@@ -479,7 +481,7 @@ private fun InfoRow(
             AppText(
                 text = summary,
                 role = AppTextRole.BodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
         },
         trailingContent = {
@@ -491,14 +493,14 @@ private fun InfoRow(
                     text = value,
                     role = AppTextRole.Body,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = appColor(AppColorRole.OnSurface),
                 )
                 if (onClick != null) {
                     AppIcon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = stringResource(R.string.settings_XMPP_server),
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = appColor(AppColorRole.Primary),
                     )
                 }
             }
@@ -508,7 +510,7 @@ private fun InfoRow(
         AppText(
             text = label,
             role = AppTextRole.Body,
-            color = MaterialTheme.colorScheme.outline,
+            color = appColor(AppColorRole.Outline),
         )
     }
 }

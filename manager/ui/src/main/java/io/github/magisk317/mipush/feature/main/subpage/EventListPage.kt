@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +60,8 @@ import androidx.compose.ui.text.style.TextAlign
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 internal val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -354,28 +355,28 @@ private fun EventHeaderPills(
                     R.string.recent_activity_mode_stream
                 }
             ),
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            contentColor = MaterialTheme.colorScheme.primary,
+            containerColor = appColor(AppColorRole.Primary).copy(alpha = 0.12f),
+            contentColor = appColor(AppColorRole.Primary),
         )
         if (query.isNotBlank()) {
             InfoPill(
                 text = "${stringResource(R.string.action_search)} · $query",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = appColor(AppColorRole.SecondaryContainer),
+                contentColor = appColor(AppColorRole.OnSecondaryContainer),
             )
         }
         if (activeFilterCount > 0) {
             InfoPill(
                 text = "${stringResource(R.string.recent_activity_filter_prefix)} · $activeFilterCount",
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = appColor(AppColorRole.TertiaryContainer),
+                contentColor = appColor(AppColorRole.OnTertiaryContainer),
             )
         }
         if (packageName.isNotBlank()) {
             InfoPill(
                 text = packageName,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                containerColor = appColor(AppColorRole.SurfaceContainerHighest),
+                contentColor = appColor(AppColorRole.OnSurfaceVariant),
             )
         }
     }
@@ -392,7 +393,7 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                tint = appColor(AppColorRole.OnSurfaceVariant).copy(alpha = 0.35f),
             )
         },
     )
@@ -410,14 +411,14 @@ internal fun InitialEventLoadState(modifier: Modifier = Modifier) {
         AppText(
             text = stringResource(R.string.event_initial_load_title),
             role = AppTextRole.Subtitle,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
             textAlign = TextAlign.Center,
         )
         AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         AppText(
             text = stringResource(R.string.event_initial_load_summary),
             role = AppTextRole.Body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             textAlign = TextAlign.Center,
         )
     }
@@ -434,7 +435,7 @@ internal fun EventLoadFailedState(modifier: Modifier = Modifier) {
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                tint = appColor(AppColorRole.Error).copy(alpha = 0.6f),
             )
         },
     )

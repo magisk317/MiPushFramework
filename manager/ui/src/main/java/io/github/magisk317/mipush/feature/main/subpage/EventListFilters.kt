@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,6 +19,8 @@ import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun EventFilters(
@@ -40,7 +41,7 @@ internal fun EventFilters(
             AppText(
                 stringResource(R.string.recent_activity_filter_prefix),
                 role = AppTextRole.Body,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
             if (showToggleAction) {
                 AppTextButton(
@@ -50,7 +51,7 @@ internal fun EventFilters(
             }
         }
         if (!expanded) return@Column
-        AppText(stringResource(R.string.recent_activity_filter_type_title), role = AppTextRole.Footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_type_title), role = AppTextRole.Footnote, color = appColor(AppColorRole.OnSurfaceVariant))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -68,7 +69,7 @@ internal fun EventFilters(
                 )
             }
         }
-        AppText(stringResource(R.string.recent_activity_filter_status_title), role = AppTextRole.Footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_status_title), role = AppTextRole.Footnote, color = appColor(AppColorRole.OnSurfaceVariant))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

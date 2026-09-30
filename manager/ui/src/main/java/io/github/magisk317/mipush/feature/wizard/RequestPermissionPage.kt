@@ -85,6 +85,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.view.WindowCompat
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private val TAG = "WizardPermission"
 
@@ -189,7 +191,7 @@ fun PermissionMainActivity(
                 } else {
                     stringResource(id = R.string.wizard_title_continue_button)
                 },
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
         }
     }
@@ -210,7 +212,7 @@ fun PermissionMainActivity(
                     AppText(
                         text = stringResource(id = R.string.wizard_subtitle),
                         role = AppTextRole.Body,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = appColor(AppColorRole.OnBackground),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -293,7 +295,7 @@ private fun RootPermissionItem(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = appColor(AppColorRole.SurfaceVariant),
                 shape = MaterialTheme.shapes.medium,
             ),
     ) {
@@ -301,23 +303,23 @@ private fun RootPermissionItem(
             AppText(
                 text = info.permissionTitle,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
             AppText(
                 text = spaceLabel,
                 role = AppTextRole.Footnote,
-                color = MaterialTheme.colorScheme.primary,
+                color = appColor(AppColorRole.Primary),
             )
             if (currentUiKitStyle() != UiKitStyle.Miuix) {
                 AppText(
                     text = info.permissionDescription,
                     role = AppTextRole.BodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
-        AppHorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        AppHorizontalDivider(color = appColor(AppColorRole.OutlineVariant))
         RootSubjectItem(
             title = stringResource(R.string.wizard_root_manager_title),
             summary = stringResource(R.string.wizard_root_manager_summary),
@@ -325,7 +327,7 @@ private fun RootPermissionItem(
             onRequest = onRequest,
         )
         AppHorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
+            color = appColor(AppColorRole.OutlineVariant),
             modifier = Modifier.padding(start = 56.dp),
         )
         RootSubjectItem(
@@ -367,7 +369,7 @@ private fun RootSubjectItem(
             AppText(
                 text = details,
                 role = if (isMiuix) AppTextRole.Footnote else AppTextRole.Body,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
         },
         leadingContent = {
@@ -378,7 +380,7 @@ private fun RootSubjectItem(
                     Icons.Default.RadioButtonUnchecked
                 },
                 contentDescription = statusText,
-                tint = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.outline,
+                tint = if (granted) COLOR_GRANTED else appColor(AppColorRole.Outline),
                 modifier = Modifier.size(24.dp),
             )
         },
@@ -398,12 +400,12 @@ private fun RootSubjectItem(
             AppText(
                 text = title,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
             AppText(
                 text = statusText,
                 role = AppTextRole.Footnote,
-                color = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (granted) COLOR_GRANTED else appColor(AppColorRole.OnSurfaceVariant),
             )
         }
     }
@@ -427,7 +429,7 @@ fun PermissionItem(
                 AppIcon(
                     imageVector = Icons.Default.RadioButtonUnchecked,
                     contentDescription = stringResource(id = R.string.status_pending),
-                    tint = MaterialTheme.colorScheme.outline
+                    tint = appColor(AppColorRole.Outline)
                 )
             }
         },
@@ -439,16 +441,16 @@ fun PermissionItem(
             }
             .background(
                 color = if (isGranted)
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    appColor(AppColorRole.SurfaceVariant).copy(alpha = 0.3f)
                 else
-                    MaterialTheme.colorScheme.surfaceVariant,
+                    appColor(AppColorRole.SurfaceVariant),
                 shape = MaterialTheme.shapes.medium
             ),
         ) {
         AppText(
             text = info.permissionTitle,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
         )
     }
 }

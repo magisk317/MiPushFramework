@@ -56,6 +56,8 @@ import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 class ZygiskConfigPage : ComponentActivity() {
 
@@ -122,7 +124,7 @@ class ZygiskConfigPage : ComponentActivity() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                color = MaterialTheme.colorScheme.background,
+                color = appColor(AppColorRole.Background),
             ) {
                 if (state.isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -144,7 +146,7 @@ class ZygiskConfigPage : ComponentActivity() {
                             state.configReadError?.let { error ->
                                 AppText(
                                     text = stringResource(R.string.zygisk_config_read_error, error),
-                                    color = MaterialTheme.colorScheme.error,
+                                    color = appColor(AppColorRole.Error),
                                     modifier = Modifier.padding(MaterialTheme.spacing.large),
                                 )
                             }
@@ -218,7 +220,7 @@ class ZygiskConfigPage : ComponentActivity() {
         var expanded by remember { mutableStateOf(false) }
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = appColor(AppColorRole.SurfaceContainerLow),
             shape = MaterialTheme.shapes.large,
         ) {
             Column(
@@ -264,7 +266,7 @@ class ZygiskConfigPage : ComponentActivity() {
             scanError?.let { error ->
                 AppText(
                     text = stringResource(R.string.zygisk_scan_error, error),
-                    color = MaterialTheme.colorScheme.error,
+                    color = appColor(AppColorRole.Error),
                 )
             }
             candidates.take(32).forEach { candidate ->
@@ -284,10 +286,10 @@ class ZygiskConfigPage : ComponentActivity() {
             isZygiskEnabled -> stringResource(R.string.zygisk_enabled)
             else -> stringResource(R.string.zygisk_disabled)
         }
-        val color = if (isZygiskEnabled && isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        val color = if (isZygiskEnabled && isAvailable) appColor(AppColorRole.Primary) else appColor(AppColorRole.Error)
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = appColor(AppColorRole.SurfaceContainerLow),
             shape = MaterialTheme.shapes.large,
         ) {
             Row(
@@ -314,7 +316,7 @@ class ZygiskConfigPage : ComponentActivity() {
     ) {
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = appColor(AppColorRole.SurfaceContainerLow),
             shape = MaterialTheme.shapes.large,
         ) {
             Row(
@@ -332,14 +334,14 @@ class ZygiskConfigPage : ComponentActivity() {
                     AppText(
                         text = app.appName,
                         role = AppTextRole.Body,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = appColor(AppColorRole.OnSurface),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     AppText(
                         text = app.packageName,
                         role = AppTextRole.BodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import io.github.magisk317.uikit.surface.AppIcon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +59,8 @@ import io.github.magisk317.uikit.surface.DialogActionRow
 import co.touchlab.kermit.Logger
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private val navLog = Logger.withTag("NavDiag")
 
@@ -299,7 +300,7 @@ fun MainScreen(
         animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
     )
     val pageScrollChromeState = chromeController.pageScrollChromeState
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(appColor(AppColorRole.Background))) {
         PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
@@ -373,7 +374,7 @@ fun MainScreen(
                     AppText(
                         text = stringResource(R.string.app_name),
                         role = AppTextRole.Footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
                     )
                 }
             },
@@ -472,7 +473,7 @@ fun MainScreen(
                         AppText(
                             text = stringResource(R.string.app_name),
                             role = AppTextRole.Footnote,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     }
                 },
