@@ -28,7 +28,9 @@ class PreferenceOwnershipTest {
         runtimeEntries.forEach { entry ->
             assertNotNull(entry.defaultValue, entry.key)
         }
-        assertEquals("true", PreferenceOwnership.byKey.getValue(ENABLE_ANALYTICS_KEY).defaultValue?.value)
+        // Analytics is opt-in since e5d880249: release default off, while debug builds still
+        // force reporting on, so only the persisted default flipped.
+        assertEquals("false", PreferenceOwnership.byKey.getValue(ENABLE_ANALYTICS_KEY).defaultValue?.value)
         assertEquals("2", PreferenceOwnership.byKey.getValue("runtime_log_retention_days").defaultValue?.value)
         assertEquals("7", PreferenceOwnership.byKey.getValue("event_retention_days").defaultValue?.value)
     }
