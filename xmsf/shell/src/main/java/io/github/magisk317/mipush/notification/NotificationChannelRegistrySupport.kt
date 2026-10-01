@@ -150,6 +150,43 @@ internal class NotificationChannelRegistrySupport(
         hostPackageName: String,
     ): Boolean = NotificationOwnershipPolicy.shouldUseLocalGroup(packageName, groupId, hostPackageName)
 
+    private fun ensureReferencedGroupsExist(
+        packageName: String,
+        channels: List<NotificationChannel>,
+    ) {
+        val groupIds = io.github.magisk317.mipush.common.utils.NotificationUtils.referencedGroupIds(
+            channels.map { it.group },
+        )
+        if (groupIds.isEmpty()) {
+            return
+        }
+        val existing = runCatching {
+            getNotificationChannelGroups(packageName).orEmpty().mapNotNull { it?.id }.toSet()
+        }.getOrDefault(emptySet())
+        val missing = groupIds.filterNot(existing::contains)
+        if (missing.isEmpty()) {
+            return
+        }
+        val groups = missing.map { groupId ->
+            NotificationChannelGroup(groupId, packageName)
+        }
+        logW(
+            "createNotificationChannels provisioning missing groups pkg=$packageName " +
+                "groups=${missing.joinToString()}",
+        )
+        createNotificationChannelGroups(packageName, groups)
+        val remaining = runCatching {
+            val after = getNotificationChannelGroups(packageName).orEmpty().mapNotNull { it?.id }.toSet()
+            missing.filterNot(after::contains)
+        }.getOrDefault(missing)
+        if (remaining.isNotEmpty()) {
+            logW(
+                "createNotificationChannels group still missing pkg=$packageName " +
+                    "groups=${remaining.joinToString()}",
+            )
+        }
+    }
+
     fun createNotificationChannels(
         packageName: String,
         channels: List<NotificationChannel?>
@@ -160,6 +197,7 @@ internal class NotificationChannelRegistrySupport(
             logD("skip createNotificationChannels for absent target package pkg=$packageName")
             return
         }
+        ensureReferencedGroupsExist(packageName, nonNullChannels)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationVendorAdapter.createTargetChannels(context, packageName, nonNullChannels)) {
                 createLocalFallbackChannels(packageName, nonNullChannels)
@@ -213,7 +251,7 @@ internal class NotificationChannelRegistrySupport(
             notificationManager.getNotificationChannel(id)
         }
         if (localFallback != null) {
-            logI("getNotificationChannel local fallback pkg=$packageName channel=$channelId")
+            logD("getNotificationChannel local fallback pkg=$packageName channel=$channelId")
         }
         return localFallback
     }

@@ -412,7 +412,13 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
             return NotifyResult.Failed
         }
-        val notificationToPost = if (focusPlan.allowIslandProxy &&
+        // Whether the dynamic-island proxy actually assumed responsibility for displaying this
+        // notification. This captures the exact combination that previously decided the proxy
+        // takeover so the original-notification suppression gate (below) only fires when the proxy
+        // truly took over. If the proxy did NOT take over (island disabled, float mode off, focus
+        // authorization lost, payload build failed, or sendGeneratedProxy returned false) the
+        // original notification MUST remain posted, otherwise the user receives zero notifications.
+        val islandProxyTookOver = focusPlan.allowIslandProxy &&
             generatedFocusBundle != null &&
             NotificationIslandProxySupport.sendGeneratedProxy(
                 context = context,
@@ -424,7 +430,7 @@ object NotificationController {
                 options = islandOptions,
                 resolveUserId = ::resolveNotificationUserId,
             )
-        ) {
+        val notificationToPost = if (islandProxyTookOver) {
             if (isMockReplay) {
                 logD("keep mock replay original notification alerting pkg=$packageName id=$notificationId")
             } else {
@@ -448,10 +454,14 @@ object NotificationController {
             notification = notificationToPost,
             userId = userId,
         )
-        if (!islandOptions.showOriginalNotification) {
+        // Only suppress the original notification when the user opted out of showing it AND the
+        // island proxy actually took over its display. When islandProxyTookOver is false the proxy
+        // is not showing anything on the user's behalf, so dropping the original would leave them
+        // with no notification at all (the silent-loss regression). See shouldSuppressOriginalByIslandProxy.
+        if (shouldSuppressOriginalByIslandProxy(islandOptions.showOriginalNotification, islandProxyTookOver)) {
             Logger.withTag(TAG).d {
                 "skip original notification post pkg=$packageName id=$notificationId " +
-                    "tag=$tag showOriginalNotification=false"
+                    "tag=$tag showOriginalNotification=false islandProxyTookOver=$islandProxyTookOver"
             }
             PushRuntime.observeNotificationEvent(
                 packageName,
@@ -497,7 +507,7 @@ object NotificationController {
             notification = notificationToPost,
             userId = userId,
         )
-        if (shouldPostMockReplayVisibleReceipt(isMockReplay, islandOptions)) {
+        if (shouldPostMockReplayVisibleReceipt(isMockReplay, islandOptions, islandProxyTookOver)) {
             postMockReplayVisibleReceipt(
                 context,
                 packageName,
@@ -527,10 +537,36 @@ object NotificationController {
         notificationId: Int,
     ) = NotificationMockReplaySupport.applyVisibility(notificationBuilder, packageName, notificationId)
 
+    /**
+     * Whether a visible mock-replay receipt should be posted.
+     *
+     * Delegates to [NotificationMockReplaySupport.shouldPostVisibleReceipt], threading through
+     * [islandProxyTookOver] so the receipt is posted whenever the original notification might be
+     * invisible (suppressed by opt-out, or replaced by the island proxy).
+     */
     internal fun shouldPostMockReplayVisibleReceipt(
         isMockReplay: Boolean,
         options: MiPushIslandOptions,
-    ): Boolean = NotificationMockReplaySupport.shouldPostVisibleReceipt(isMockReplay, options)
+        islandProxyTookOver: Boolean,
+    ): Boolean = NotificationMockReplaySupport.shouldPostVisibleReceipt(isMockReplay, options, islandProxyTookOver)
+
+    /**
+     * Decides whether the original notification should be suppressed because the dynamic-island
+     * proxy took over its display.
+     *
+     * The original is dropped only when BOTH conditions hold:
+     *  - the user opted out of showing the original notification ([showOriginalNotification] == false), and
+     *  - the island proxy actually assumed responsibility for displaying it ([islandProxyTookOver] == true).
+     *
+     * If the proxy did not take over (island disabled, float mode off, focus authorization lost,
+     * payload build failed, or [sendGeneratedProxy] returned false) the original MUST remain posted,
+     * otherwise the user receives zero notifications. This is the core fix for the
+     * "island off + show-original off -> fully silent" regression.
+     */
+    internal fun shouldSuppressOriginalByIslandProxy(
+        showOriginalNotification: Boolean,
+        islandProxyTookOver: Boolean,
+    ): Boolean = !showOriginalNotification && islandProxyTookOver
 
     internal fun shouldAttachPayloadLargeIcon(
         isMockReplay: Boolean,
@@ -784,6 +820,31 @@ object NotificationController {
                     BitmapFactory.decodeResource(pkgContext.resources, largeIconId),
                 )
             }
+        }
+        // --- ANIP / configured icon takes top priority in monochrome mode ---
+        // The ANIP SDK provides clean, properly-sized monochrome icons that
+        // render perfectly in the status bar.  Without this check the method
+        // falls through to IconCache which may return the app's launcher icon
+        // (e.g. Alipay with its AI badge, or a tiny Zhihu logo).
+        val iconConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
+        val configuredBitmap = iconConfig?.bitmap()
+        if (iconConfig?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
+            // ANIP monochrome icons are often pure white; the transparent-and-white rework may
+            // classify every pixel as background. If the rework cannot produce a usable silhouette,
+            // fall back to the original bitmap — icon processing must never break notification
+            // publishing.
+            val monoBitmap = runCatching { ImgUtils.convertToTransparentAndWhite(configuredBitmap) }
+                .onFailure {
+                    Logger.withTag(TAG).w(it) {
+                        "processMonochromeStatusBarIcon: ANIP rework failed for $packageName, using raw bitmap"
+                    }
+                }
+                .getOrNull()
+                ?.takeIf { it.width > 0 && it.height > 0 }
+                ?: configuredBitmap
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(monoBitmap))
+            logI("processMonochromeStatusBarIcon: applied ANIP/configured icon for $packageName")
+            return color
         }
         // Prefer package white-alpha silhouette. Never seed Material bell first — that seed became
         // the status-bar icon for WeWork/xinyi when IconCache missed.

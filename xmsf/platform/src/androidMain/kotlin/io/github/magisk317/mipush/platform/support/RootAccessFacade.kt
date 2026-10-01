@@ -20,18 +20,20 @@ class RootAccessFacade(
 
     fun hasCachedRootAccess(): Boolean = rootAccessCache.get() == true
 
-    fun refreshRootAccessIfGranted(): Boolean {
+    fun refreshRootAccessIfGranted(force: Boolean = false): Boolean {
         val granted = rootGrantState()
         // TTL 内直接复用上次探测结果，跳过 `id -u` 往返。
         val cached = rootAccessCache.get()
         // libsu 的授权查询在部分 KSU 设备上可能返回 false/null，即使 su 实际可用。
         // 明确 false 时也要重新探测，避免旧缓存掩盖撤权。
-        if (granted != false && cached != null &&
+        // force 用于 su 命令执行失败后的重试：绕过 TTL 立刻做一次真实往返，
+        // 让 libsu 重建可能已不可用的 shell 连接。
+        if (!force && granted != false && cached != null &&
             System.currentTimeMillis() - lastProbeAt.get() < PROBE_TTL_MS
         ) {
             return cached
         }
-        return probeRootAccess(source = "refresh")
+        return probeRootAccess(source = if (force) "retry" else "refresh")
     }
 
     fun requestRootAccess(): Boolean {
@@ -102,7 +104,8 @@ object AppRootAccessFacade {
 
     fun hasCachedRootAccess(): Boolean = delegate.hasCachedRootAccess()
 
-    fun refreshRootAccessIfGranted(): Boolean = delegate.refreshRootAccessIfGranted()
+    fun refreshRootAccessIfGranted(force: Boolean = false): Boolean =
+        delegate.refreshRootAccessIfGranted(force)
 
     fun requestRootAccess(): Boolean = delegate.requestRootAccess()
 

@@ -18,6 +18,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
 import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -44,6 +45,11 @@ object LogBundleExporter {
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
+    )
+    private val SYSTEMUI_HOOK_LOG_DIRS = listOf(
+        "/data/user/0/com.android.systemui/files/mipush-hook",
+        "/data/user_de/0/com.android.systemui/files/mipush-hook",
+        "/data/system_ce/0/com.android.systemui/files/mipush-hook",
     )
     private val opLock = Any()
 
@@ -188,6 +194,11 @@ object LogBundleExporter {
                     val started = SystemClock.elapsedRealtime()
                     copyLsposedLogs(stagingDir, safeDetails)
                     safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
+                }
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    copySystemUiHookLogs(stagingDir, safeDetails)
+                    safeDetails += "copySystemUiHookLogs=${SystemClock.elapsedRealtime() - started}ms"
                 }
                 run {
                     val started = SystemClock.elapsedRealtime()
@@ -473,6 +484,31 @@ object LogBundleExporter {
             details += "app log missing"
             details += "runtime log files: 0"
         }
+        // Best-effort: also pull the manager UI process logs so a single runtime-built bundle is
+        // self-contained even when the manager-side merge step is skipped. Cross-UID read is not
+        // guaranteed, so failures here are non-fatal.
+        copyManagerPackageLogs(context, stagingDir, details)
+    }
+
+    private fun copyManagerPackageLogs(context: Context, stagingDir: File, details: MutableList<String>) {
+        val managerDir = runCatching {
+            val foreign = context.createPackageContext(ManagerProtocol.MANAGER_PACKAGE, Context.CONTEXT_IGNORE_SECURITY)
+            File(foreign.filesDir, PRIVATE_LOG_DIR_NAME)
+        }.getOrNull() ?: return
+        if (!managerDir.exists() || !managerDir.isDirectory) return
+        val staged = File(stagingDir, "app/log/manager")
+        val files = managerDir.listFiles().orEmpty().filter {
+            it.isFile && it.name.endsWith(".jsonl") && it.name.startsWith("runtime.manager")
+        }
+        if (files.isEmpty()) return
+        copyDirectory(managerDir, staged) { file ->
+            file.name.endsWith(".jsonl") && file.name.startsWith("runtime.manager")
+        }
+        val copied = staged.walkTopDown().any { it.isFile }
+        if (copied) {
+            details += "manager log: ${managerDir.absolutePath}"
+            details += summarizeRuntimeLogFiles(staged)
+        }
     }
 
     private fun copyCrashLogs(context: Context, stagingDir: File, details: MutableList<String>) {
@@ -652,6 +688,51 @@ object LogBundleExporter {
             },
             onWarning = { logW(it) },
         )
+    }
+
+    private fun copySystemUiHookLogs(stagingDir: File, details: MutableList<String>) {
+        val target = File(stagingDir, "app/log")
+        if (!ensureDirectory(target, recreateWhenFile = true)) {
+            details += "systemui hook log failed: output dir unavailable"
+            return
+        }
+        var copied = false
+        SYSTEMUI_HOOK_LOG_DIRS.forEach { path ->
+            val src = File(path)
+            if (src.exists() && src.canRead()) {
+                src.listFiles()?.filter { it.isFile && it.name.endsWith(".jsonl") }?.forEach { file ->
+                    file.copyTo(File(target, file.name), overwrite = true)
+                    copied = true
+                }
+            }
+        }
+        if (copied) {
+            details += "systemui hook log: direct"
+            return
+        }
+        val targetPath = target.absolutePath
+        val targetUid = runCatching { android.os.Process.myUid() }.getOrDefault(-1)
+        val shellCmd = buildString {
+            append("mkdir -p ${shQuote(targetPath)}; ")
+            SYSTEMUI_HOOK_LOG_DIRS.forEach { path ->
+                append("if [ -d ${shQuote(path)} ]; then ")
+                append("cp -f ${shQuote(path)}/*.jsonl ${shQuote("$targetPath/")} 2>/dev/null; ")
+                if (targetUid > 0) {
+                    append("chown $targetUid:$targetUid ${shQuote("$targetPath/")}*.jsonl 2>/dev/null; ")
+                }
+                append("chmod a+r ${shQuote("$targetPath/")}*.jsonl 2>/dev/null; fi; ")
+            }
+        }
+        val rootReady = rootCommandAccess.refreshRootAccessIfGranted()
+        val copiedViaSu = rootReady && runCatching {
+            rootCommandAccess.runRootCommand(shellCmd, timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS).isSuccess
+        }.getOrDefault(false) &&
+            target.listFiles()?.any { it.name.contains("runtime.hook.systemui") } == true
+        if (copiedViaSu) {
+            details += "systemui hook log: su"
+            return
+        }
+        details += "systemui hook log missing"
     }
 
     private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>) {

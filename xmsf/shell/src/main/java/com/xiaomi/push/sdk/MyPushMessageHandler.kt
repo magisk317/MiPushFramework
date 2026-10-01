@@ -36,6 +36,7 @@ import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import io.github.magisk317.mipush.common.Constants
@@ -217,6 +218,10 @@ class MyPushMessageHandler : Service() {
             targetPackage = container.packageName,
             payloadSize = payload.size,
         )
+        // Accepting the hand-off is not proof the user saw anything: the payload can be
+        // replayed into a target whose UI never comes up. Verify visibility on a bounded
+        // budget and only then consider the click delivered.
+        verifyClickTargetVisibility(this, container)
         return true
     }
 
@@ -227,26 +232,14 @@ class MyPushMessageHandler : Service() {
         payloadSize: Int? = null,
         statusOk: Boolean = true,
         errorClass: String? = null,
-    ) {
-        val attrs = mutableMapOf(
-            "result" to result,
-            "duration_ms" to "0",
-            "process" to "xmsf",
-            "stage" to "message_handler",
-            "reason" to reason,
-            "source" to "MyPushMessageHandler",
-        )
-        if (!targetPackage.isNullOrBlank()) {
-            attrs["target_package"] = targetPackage
-        }
-        if (payloadSize != null) {
-            attrs["payload_size"] = payloadSize.toString()
-        }
-        if (!errorClass.isNullOrBlank()) {
-            attrs["error_class"] = errorClass
-        }
-        MagiskOtel.event(name = "push.dispatch", attributes = attrs, statusOk = statusOk)
-    }
+    ) = emitDispatchEvent(
+        result = result,
+        reason = reason,
+        targetPackage = targetPackage,
+        payloadSize = payloadSize,
+        statusOk = statusOk,
+        errorClass = errorClass,
+    )
 
     override fun onDestroy() {
         super.onDestroy()
@@ -305,6 +298,105 @@ class MyPushMessageHandler : Service() {
     companion object {
         private const val APP_STATE_ELEVATION_TIMEOUT_MS = 5_000L
 
+        /** Bounded window (~1.5s) for the post-hand-off visibility check. */
+        private const val CLICK_VISIBILITY_PROBE_INTERVAL_MS = 300L
+        private const val CLICK_VISIBILITY_MAX_PROBES = 5
+
+        /**
+         * Owned by the companion on purpose: the service stops itself right after handling the
+         * intent, so instance state, the instance scope and `onDestroy` all run before the probe
+         * finishes. A process-scoped daemon thread survives that.
+         */
+        private val clickProbeExecutor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "mipush-click-visibility-probe").apply { isDaemon = true }
+        }
+
+        private fun emitDispatchEvent(
+            result: String,
+            reason: String,
+            targetPackage: String? = null,
+            payloadSize: Int? = null,
+            statusOk: Boolean = true,
+            errorClass: String? = null,
+        ) {
+            val attrs = mutableMapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "message_handler",
+                "reason" to reason,
+                "source" to "MyPushMessageHandler",
+            )
+            if (!targetPackage.isNullOrBlank()) {
+                attrs["target_package"] = targetPackage
+            }
+            if (payloadSize != null) {
+                attrs["payload_size"] = payloadSize.toString()
+            }
+            if (!errorClass.isNullOrBlank()) {
+                attrs["error_class"] = errorClass
+            }
+            MagiskOtel.event(name = "push.dispatch", attributes = attrs, statusOk = statusOk)
+        }
+
+        /**
+         * Confirm a background-activity-start click actually reached the target app.
+         *
+         * The target SDK accepting the hand-off only means it received the payload; it may still
+         * render nothing (stale SDK, mismatched route, app killed while the payload arrived), and
+         * the user then sees a click that does nothing. Poll the target for a bounded window and,
+         * only when the per-app `click_fallback_enabled` switch is on, pull the app up through the
+         * product's own pull-up path (which itself waits for the app to reach the foreground).
+         *
+         * The switch defaults to off, so this is opt-in per app, matching the SystemUI-side
+         * launcher-fallback route that reads the same flag.
+         */
+        private fun verifyClickTargetVisibility(context: Context, container: XmPushActionContainer) {
+            val appContext = context.applicationContext ?: context
+            val packageName = container.packageName
+            if (packageName.isBlank()) return
+            val probe = Runnable {
+                try {
+                    var probes = 0
+                    var visible = MIPushNotificationHelper.isApplicationForeground(appContext, packageName)
+                    while (!visible && probes < CLICK_VISIBILITY_MAX_PROBES - 1) {
+                        Thread.sleep(CLICK_VISIBILITY_PROBE_INTERVAL_MS)
+                        probes++
+                        visible = MIPushNotificationHelper.isApplicationForeground(appContext, packageName)
+                    }
+                    if (visible) {
+                        emitDispatchEvent(
+                            result = "ok",
+                            reason = "click_target_visible",
+                            targetPackage = packageName,
+                        )
+                        return@Runnable
+                    }
+                    emitDispatchEvent(
+                        result = "skip",
+                        reason = "click_target_not_visible",
+                        targetPackage = packageName,
+                    )
+                    if (!MIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName)) {
+                        logD("click target not visible and launcher fallback is off pkg=$packageName")
+                        return@Runnable
+                    }
+                    logI("click target not visible, pulling up pkg=$packageName")
+                    emitDispatchEvent(
+                        result = "ok",
+                        reason = "click_fallback_pull_up",
+                        targetPackage = packageName,
+                    )
+                    launchApp(appContext, container)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                } catch (e: Exception) {
+                    logE("click visibility probe failed pkg=$packageName", e)
+                }
+            }
+            runCatching { clickProbeExecutor.execute(probe) }
+                .onFailure { logW("click visibility probe rejected pkg=$packageName", it) }
+        }
 
         private fun getProcessor(context: Context): AppPushMessageProcessor {
             return AppDependencies.get<AppPushMessageProcessor>(context.applicationContext)

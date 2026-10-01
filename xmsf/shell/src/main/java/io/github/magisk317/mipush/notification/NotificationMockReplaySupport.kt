@@ -47,8 +47,28 @@ internal object NotificationMockReplaySupport {
         }
     }
 
-    fun shouldPostVisibleReceipt(isMockReplay: Boolean, options: MiPushIslandOptions): Boolean =
-        isMockReplay && options.showOriginalNotification
+    /**
+     * Whether a visible mock-replay receipt should be posted.
+     *
+     * Wide fallback for replay scenarios: a receipt is posted whenever the original notification
+     * might be invisible to the user - either because it was suppressed by the user's "show original
+     * notification" opt-out, or because the dynamic-island proxy took over and replaced it. This
+     * guarantees the user always receives a visible confirmation for a replay, even when the normal
+     * path would otherwise be silent.
+     *
+     * Truth table (isMockReplay == true):
+     *  showOriginal | islandProxyTookOver | result
+     *  ------------ | ------------------- | -------
+     *      true     |        false        |  false  (original visible, no receipt needed)
+     *      true     |        true         |  true   (proxy replaced original)
+     *      false    |        false        |  true   (original suppressed, no proxy -> receipt is the only feedback)
+     *      false    |        true         |  true   (proxy replaced original)
+     */
+    fun shouldPostVisibleReceipt(
+        isMockReplay: Boolean,
+        options: MiPushIslandOptions,
+        islandProxyTookOver: Boolean,
+    ): Boolean = isMockReplay && (!options.showOriginalNotification || islandProxyTookOver)
 
     fun shouldAttachPayloadLargeIcon(isMockReplay: Boolean, colorStatusBarIcon: Boolean): Boolean =
         !isMockReplay || colorStatusBarIcon

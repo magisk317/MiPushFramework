@@ -37,6 +37,7 @@ object XLog {
                 sanitized = true,
             ),
         )
+        SystemUiLocalLogSink.append(event)
     }
 
     fun configure() {

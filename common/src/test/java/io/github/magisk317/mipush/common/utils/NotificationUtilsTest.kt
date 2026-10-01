@@ -24,4 +24,13 @@ class NotificationUtilsTest {
         assertEquals("ch_com.example", NotificationUtils.getChannelIdByPkg("com.example"))
         assertEquals("gp_com.example", NotificationUtils.getGroupIdByPkg("com.example"))
     }
+    @Test
+    fun `referenced group ids dedupe and drop blanks`() {
+        assertEquals(
+            listOf("gp_com.example.app"),
+            NotificationUtils.referencedGroupIds(
+                listOf("gp_com.example.app", "gp_com.example.app", null, "", "  "),
+            ),
+        )
+    }
 }

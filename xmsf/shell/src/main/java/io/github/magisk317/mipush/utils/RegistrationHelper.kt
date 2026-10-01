@@ -310,5 +310,15 @@ class RegistrationHelper(
             regIdExpiredContainer.metaInfo = metaInfo
             return regIdExpiredContainer
         }
+
+        /**
+         * Thaw/pull a target package to the foreground for force-register, aligned with upstream
+         * MyPushMessageHandler.launchApp(). Kept here (utils shim) so the xmsf/shell app layer no
+         * longer imports the Xiaomi SDK directly. See scripts/module_boundary_baseline.txt.
+         */
+        @JvmStatic
+        fun launchAppForForceRegister(context: Context, packageName: String) {
+            MyPushMessageHandler.launchApp(context, createForceRegisterMessage(packageName))
+        }
     }
 }

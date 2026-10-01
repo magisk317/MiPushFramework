@@ -1,6 +1,8 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.app.Application
+import android.os.Handler
+import android.os.Looper
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -43,9 +45,23 @@ internal object VendorPushHookHelper {
     private const val LOG_VALUE_MAX_LENGTH = 240
 
     private val hookedMethods: MutableSet<String> = Collections.synchronizedSet(HashSet())
-    private val hookedRuntimeCallbacks: MutableSet<String> = Collections.synchronizedSet(HashSet())
-    private val hookedLoadClassCallbacks: MutableSet<String> = Collections.synchronizedSet(HashSet())
     private val logCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
+
+    /** Specs registered per target process, so one shared probe can serve them all. */
+    private val processSpecs: MutableMap<String, MutableList<SpecRegistration>> =
+        Collections.synchronizedMap(HashMap())
+
+    /** Processes whose Application.onCreate probe is already installed. */
+    private val installedApplicationProbes: MutableSet<String> = Collections.synchronizedSet(HashSet())
+
+    /** Processes whose ClassLoader.loadClass probe is already installed (or scheduled). */
+    private val installedLoadClassProbes: MutableSet<String> = Collections.synchronizedSet(HashSet())
+
+    private data class SpecRegistration(
+        val spec: VendorHookSpec,
+        val classLoader: ClassLoader,
+        val context: VendorHookContext,
+    )
 
     fun install(lpparam: LoadParam, spec: VendorHookSpec): Boolean {
         val packageName = lpparam.packageName.orEmpty()
@@ -59,8 +75,7 @@ internal object VendorPushHookHelper {
         )
 
         var installed = installAvailableClasses(classLoader, context)
-        installAfterApplicationCreate(lpparam, spec, context)
-        installLoadClassProbe(lpparam, spec, context)
+        registerProcessProbes(lpparam, spec, context)
         if (installed) {
             rateLimitedLog(
                 context,
@@ -86,48 +101,93 @@ internal object VendorPushHookHelper {
         return installed
     }
 
-    private fun installAfterApplicationCreate(
+    /**
+     * Registers a spec for the target process and installs the shared runtime probes once
+     * per process. Every vendor spec used to install its own Application.onCreate and
+     * ClassLoader.loadClass hooks, so an auto-detected package (e.g. com.xiaomi.xmsf with
+     * seven vendor pipelines) re-hooked the same methods seven times during
+     * handleBindApplication; repeated hook installs on a method the main thread is
+     * executing deadlocked the process (observed as "timeout publishing content providers"
+     * kill loops). Converge to a single probe set per process instead.
+     */
+    private fun registerProcessProbes(
         lpparam: LoadParam,
         spec: VendorHookSpec,
         context: VendorHookContext,
     ) {
-        val key = "${context.packageName}@${context.processName}#${spec.id}#application"
-        if (!hookedRuntimeCallbacks.add(key)) return
+        val processKey = "${context.packageName}@${context.processName}"
+        val registrations = synchronized(processSpecs) {
+            processSpecs.getOrPut(processKey) { mutableListOf() }
+        }
+        val alreadyRegistered = synchronized(registrations) {
+            if (registrations.any { it.spec.id == spec.id }) {
+                true
+            } else {
+                registrations += SpecRegistration(spec, lpparam.classLoader, context)
+                false
+            }
+        }
+        if (alreadyRegistered) return
+        if (!installedApplicationProbes.add(processKey)) return
+        installAfterApplicationCreate(lpparam, processKey)
+    }
+
+    private fun installAfterApplicationCreate(
+        lpparam: LoadParam,
+        processKey: String,
+    ) {
         Application::class.java.hookMethod("onCreate") {
             doAfter {
                 val app = thisObject as? Application ?: return@doAfter
                 val runtimeLoader = app.classLoader ?: lpparam.classLoader
-                val runtimeContext = context.copy(
-                    classLoaderId = System.identityHashCode(runtimeLoader),
-                )
-                installAvailableClasses(runtimeLoader, runtimeContext)
+                // Hooking ClassLoader.loadClass while the main thread is still inside
+                // handleBindApplication (content-provider publishing) deadlocks the
+                // process: the repeated hook installs trigger deopt + thread suspend
+                // while loadClass sits on the stack. Schedule the probe install for
+                // after onCreate returns instead.
+                Handler(Looper.getMainLooper()).post {
+                    installLoadClassProbe(lpparam, processKey)
+                }
+                // loadClass probes may fire on any thread, so snapshot under the lock.
+                val snapshot = processSpecs[processKey]?.let { list ->
+                    synchronized(list) { list.toList() }
+                }.orEmpty()
+                snapshot.forEach { registration ->
+                    val runtimeContext = registration.context.copy(
+                        classLoaderId = System.identityHashCode(runtimeLoader),
+                    )
+                    installAvailableClasses(runtimeLoader, runtimeContext)
+                }
             }
         }
     }
 
     private fun installLoadClassProbe(
         lpparam: LoadParam,
-        spec: VendorHookSpec,
-        context: VendorHookContext,
+        processKey: String,
     ) {
-        val key = "${context.packageName}@${context.processName}#${spec.id}#loadClass"
-        if (!hookedLoadClassCallbacks.add(key)) return
-        val targetClasses = spec.classNames.toSet()
+        if (!installedLoadClassProbes.add(processKey)) return
         ClassLoader::class.java.hookMethod("loadClass", String::class.java) {
             doAfter {
                 val className = args.getOrNull(0) as? String ?: return@doAfter
-                if (className !in targetClasses) return@doAfter
                 val loadedClass = result as? Class<*> ?: return@doAfter
-                val expectedLoader = lpparam.classLoader
-                val loadedByTarget =
-                    loadedClass.classLoader === expectedLoader ||
-                    thisObject === expectedLoader
-                if (!loadedByTarget) return@doAfter
+                // Snapshot per fire: registrations may still be appended by later specs.
+                val registrations = processSpecs[processKey]?.let { list ->
+                    synchronized(list) { list.toList() }
+                }.orEmpty()
+                registrations.forEach { registration ->
+                    if (className !in registration.spec.classNames) return@forEach
+                    val expectedLoader = registration.classLoader
+                    val loadedByTarget =
+                        loadedClass.classLoader === expectedLoader ||
+                            thisObject === expectedLoader
+                    if (!loadedByTarget) return@forEach
 
-                val runtimeContext = context.copy(
-                    classLoaderId = System.identityHashCode(loadedClass.classLoader ?: thisObject),
-                )
-                installRulesForClass(loadedClass, runtimeContext)
+                    val runtimeContext = registration.context.copy(
+                        classLoaderId = System.identityHashCode(loadedClass.classLoader ?: thisObject),
+                    )
+                    installRulesForClass(loadedClass, runtimeContext)
+                }
             }
         }
     }
@@ -282,8 +342,9 @@ internal object VendorPushHookHelper {
 
     internal fun resetForTest() {
         hookedMethods.clear()
-        hookedRuntimeCallbacks.clear()
-        hookedLoadClassCallbacks.clear()
+        processSpecs.clear()
+        installedApplicationProbes.clear()
+        installedLoadClassProbes.clear()
         logCounts.clear()
     }
 

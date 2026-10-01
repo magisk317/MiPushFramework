@@ -52,7 +52,6 @@ import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationManagerEx
-import com.xiaomi.push.sdk.MyPushMessageHandler
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
@@ -324,10 +323,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         recordForceRegisterStage(packageName, "force_register_relaunch")
         runCatching {
             withContext(Dispatchers.IO) {
-                MyPushMessageHandler.launchApp(
-                    context,
-                    RegistrationHelper.createForceRegisterMessage(packageName),
-                )
+                RegistrationHelper.launchAppForForceRegister(context, packageName)
             }
         }.onFailure {
             logW("force register: pull up failed for $packageName: ${it.localizedMessage}")
