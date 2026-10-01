@@ -22,12 +22,11 @@ import androidx.compose.foundation.lazy.items
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import io.github.magisk317.uikit.surface.AppFloatingActionButton
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
@@ -45,7 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppIconImage
@@ -55,6 +54,12 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.surface.AppSurface
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 class ZygiskConfigPage : ComponentActivity() {
 
@@ -78,6 +83,7 @@ class ZygiskConfigPage : ComponentActivity() {
         val snackbarHostState = remember { AppSnackbarHostState() }
         val scope = rememberCoroutineScope()
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val scrollScope = rememberCoroutineScope()
         val saveSuccessMessage = stringResource(R.string.zygisk_save_success)
         val saveFailedMessage = stringResource(R.string.zygisk_save_failed)
         
@@ -108,7 +114,7 @@ class ZygiskConfigPage : ComponentActivity() {
                     )
                 }
             ) {
-                Icon(
+                AppIcon(
                     Icons.Filled.Save,
                     contentDescription = stringResource(R.string.zygisk_save),
                 )
@@ -120,7 +126,7 @@ class ZygiskConfigPage : ComponentActivity() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                color = MaterialTheme.colorScheme.background,
+                color = appColor(AppColorRole.Background),
             ) {
                 if (state.isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -140,9 +146,9 @@ class ZygiskConfigPage : ComponentActivity() {
                     ) {
                         item {
                             state.configReadError?.let { error ->
-                                Text(
+                                AppText(
                                     text = stringResource(R.string.zygisk_config_read_error, error),
-                                    color = MaterialTheme.colorScheme.error,
+                                    color = appColor(AppColorRole.Error),
                                     modifier = Modifier.padding(MaterialTheme.spacing.large),
                                 )
                             }
@@ -184,13 +190,17 @@ class ZygiskConfigPage : ComponentActivity() {
         when (currentUiKitStyle()) {
             UiKitStyle.Miuix -> ZygiskConfigMiuix(
                 title = stringResource(R.string.zygisk_status),
+                listState = listState,
+                scrollScope = scrollScope,
                 snackbarHostState = snackbarHostState,
                 floatingActionButton = saveFab,
                 body = body,
             )
 
-            UiKitStyle.Expressive -> ZygiskConfigExpressive(
+            UiKitStyle.Expressive -> ZygiskConfigMaterial(
                 title = stringResource(R.string.zygisk_status),
+                listState = listState,
+                scrollScope = scrollScope,
                 snackbarHostState = snackbarHostState,
                 floatingActionButton = saveFab,
                 body = body,
@@ -212,17 +222,17 @@ class ZygiskConfigPage : ComponentActivity() {
         var expanded by remember { mutableStateOf(false) }
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = MaterialTheme.shapes.large,
+            color = appColor(AppColorRole.SurfaceContainerLow),
+            shape = appShape(AppShapeRole.Large),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(MaterialTheme.spacing.large),
             ) {
-                Text(
+                AppText(
                     stringResource(R.string.zygisk_profile_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    role = AppTextRole.Subtitle,
                 )
                 AppDropdownMenu(
                     expanded = expanded,
@@ -241,28 +251,28 @@ class ZygiskConfigPage : ComponentActivity() {
                 )
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
+                AppText(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
                 AppSwitch(checked = observe, enabled = enabled, onCheckedChange = onObserveChanged)
             }
-            Text(
+            AppText(
                 stringResource(R.string.zygisk_scan_title),
-                style = MaterialTheme.typography.titleMedium,
+                role = AppTextRole.Subtitle,
             )
             AppPrimaryButton(
                 onClick = onScan,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.zygisk_scan))
+                AppText(stringResource(R.string.zygisk_scan))
             }
             scanError?.let { error ->
-                Text(
+                AppText(
                     text = stringResource(R.string.zygisk_scan_error, error),
-                    color = MaterialTheme.colorScheme.error,
+                    color = appColor(AppColorRole.Error),
                 )
             }
             candidates.take(32).forEach { candidate ->
-                Text(candidate, style = MaterialTheme.typography.bodySmall)
+                AppText(candidate, role = AppTextRole.BodySmall)
             }
         }
     }
@@ -278,11 +288,11 @@ class ZygiskConfigPage : ComponentActivity() {
             isZygiskEnabled -> stringResource(R.string.zygisk_enabled)
             else -> stringResource(R.string.zygisk_disabled)
         }
-        val color = if (isZygiskEnabled && isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        val color = if (isZygiskEnabled && isAvailable) appColor(AppColorRole.Primary) else appColor(AppColorRole.Error)
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = MaterialTheme.shapes.large,
+            color = appColor(AppColorRole.SurfaceContainerLow),
+            shape = appShape(AppShapeRole.Large),
         ) {
             Row(
                 modifier = Modifier
@@ -290,9 +300,9 @@ class ZygiskConfigPage : ComponentActivity() {
                     .padding(MaterialTheme.spacing.large),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                AppText(
                     text = stringResource(R.string.zygisk_module_status, statusText),
-                    style = MaterialTheme.typography.titleMedium,
+                    role = AppTextRole.Subtitle,
                     color = color,
                 )
             }
@@ -308,8 +318,8 @@ class ZygiskConfigPage : ComponentActivity() {
     ) {
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = MaterialTheme.shapes.large,
+            color = appColor(AppColorRole.SurfaceContainerLow),
+            shape = appShape(AppShapeRole.Large),
         ) {
             Row(
                 modifier = Modifier
@@ -323,16 +333,17 @@ class ZygiskConfigPage : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.width(MaterialTheme.spacing.medium))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    AppText(
                         text = app.appName,
-                        style = MaterialTheme.typography.bodyLarge,
+                        role = AppTextRole.Body,
+                        color = appColor(AppColorRole.OnSurface),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    AppText(
                         text = app.packageName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        role = AppTextRole.BodySmall,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

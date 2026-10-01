@@ -13,9 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
@@ -46,6 +44,10 @@ import io.github.magisk317.uikit.scroll.ScrollChromeState
 import java.util.Date
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private data class EventGroupForDisplay(
     val packageName: String,
@@ -266,7 +268,7 @@ internal fun EventGroupList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp),
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
+                    containerColor = appColor(AppColorRole.Primary).copy(alpha = 0.06f),
                     onClick = {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
@@ -280,22 +282,22 @@ internal fun EventGroupList(
                         )
                     },
                     trailingContent = {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     },
                 ) {
-                    Text(
+                    AppText(
                         group.appName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        role = AppTextRole.Subtitle,
+                        color = appColor(AppColorRole.OnSurface),
                     )
-                    Text(
+                    AppText(
                         group.packageName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        role = AppTextRole.BodySmall,
+                        color = appColor(AppColorRole.OnSurfaceVariant)
                     )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -307,13 +309,13 @@ internal fun EventGroupList(
                                 group.events.size,
                                 group.events.size,
                             ),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            containerColor = appColor(AppColorRole.SurfaceContainerHighest),
+                            contentColor = appColor(AppColorRole.OnSurfaceVariant),
                         )
                         InfoPill(
                             text = stringResource(R.string.recent_activity_updated_at, updatedAt),
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            containerColor = appColor(AppColorRole.SecondaryContainer),
+                            contentColor = appColor(AppColorRole.OnSecondaryContainer),
                         )
                     }
                 }

@@ -19,7 +19,6 @@ import io.github.magisk317.uikit.surface.AppAlertDialog
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.AppTextField
 import androidx.compose.runtime.Composable
@@ -49,14 +48,15 @@ import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
-import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import io.github.magisk317.uikit.text.AppText
 
 @Composable
 internal fun SettingsSectionCard(
@@ -294,7 +294,10 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     SettingsSwitchItem(
         title = islandShowOriginalNotificationTitle,
         summary = stringResource(R.string.pref_island_show_original_notification_summary),
-        checked = islandShowOriginalNotification,
+        // Reflect the effective value: when the dynamic island is disabled the original is always
+        // shown (no proxy can take over), so the toggle reads as enabled/on instead of a misleading
+        // greyed-off state. See the island-disabled convergence in IslandOptionsSnapshotReader.merge.
+        checked = !islandEnabled || islandShowOriginalNotification,
         enabled = islandEnabled,
     ) { enabled ->
         viewModel.setIslandShowOriginalNotification(enabled) { success ->
@@ -319,11 +322,11 @@ internal fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState:
     if (showIslandTimeoutDialog) {
         AppAlertDialog(
             onDismissRequest = { showIslandTimeoutDialog = false },
-            title = { Text(stringResource(R.string.pref_island_timeout_title)) },
+            title = { AppText(stringResource(R.string.pref_island_timeout_title)) },
             text = {
                 AppTextField(
                     state = islandTimeoutState,
-                    supportingText = { Text(stringResource(R.string.pref_island_timeout_hint)) },
+                    supportingText = { AppText(stringResource(R.string.pref_island_timeout_hint)) },
                     singleLine = true,
                 )
             },

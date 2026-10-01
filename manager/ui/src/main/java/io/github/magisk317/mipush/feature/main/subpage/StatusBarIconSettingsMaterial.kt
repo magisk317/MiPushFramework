@@ -8,14 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.mipush.feature.ui.shell.PageScaffoldExpressive
+import io.github.magisk317.uikit.surface.PageScaffoldExpressive
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.common.AppSnackbarHost
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 
 /** Expressive/Material chrome for [StatusBarIconSettingsPage]. */
 @Composable
-internal fun StatusBarIconSettingsExpressive(
+internal fun StatusBarIconSettingsMaterial(
     onBack: () -> Unit,
     snackbarHostState: AppSnackbarHostState,
     body: @Composable (PaddingValues, Modifier) -> Unit,

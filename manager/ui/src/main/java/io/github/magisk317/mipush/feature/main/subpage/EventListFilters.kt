@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,6 +17,10 @@ import io.github.magisk317.uikit.surface.WorkspaceFilterPill
 import io.github.magisk317.mipush.manager.application.ManagerEvent
 import io.github.magisk317.mipush.manager.application.ManagerEventResult
 import io.github.magisk317.mipush.manager.application.ManagerEventType
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun EventFilters(
@@ -36,10 +38,10 @@ internal fun EventFilters(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            AppText(
                 stringResource(R.string.recent_activity_filter_prefix),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                role = AppTextRole.Body,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
             if (showToggleAction) {
                 AppTextButton(
@@ -49,7 +51,7 @@ internal fun EventFilters(
             }
         }
         if (!expanded) return@Column
-        Text(stringResource(R.string.recent_activity_filter_type_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_type_title), role = AppTextRole.Footnote, color = appColor(AppColorRole.OnSurfaceVariant))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -67,7 +69,7 @@ internal fun EventFilters(
                 )
             }
         }
-        Text(stringResource(R.string.recent_activity_filter_status_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(stringResource(R.string.recent_activity_filter_status_title), role = AppTextRole.Footnote, color = appColor(AppColorRole.OnSurfaceVariant))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

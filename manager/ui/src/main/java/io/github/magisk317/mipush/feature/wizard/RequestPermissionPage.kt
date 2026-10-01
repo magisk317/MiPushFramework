@@ -23,10 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import io.github.magisk317.uikit.surface.AppPrimaryButton
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +82,12 @@ import org.koin.android.ext.android.inject
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.view.WindowCompat
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 private val TAG = "WizardPermission"
 
@@ -160,7 +164,7 @@ fun PermissionMainActivity(
     val navigationIcon: @Composable () -> Unit = {
         if (recheckOnly) {
             AppIconButton(onClick = { (context as? ComponentActivity)?.finish() }) {
-                Icon(
+                AppIcon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.action_back),
                 )
@@ -182,13 +186,13 @@ fun PermissionMainActivity(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Text(
+            AppText(
                 text = if (allGranted) {
                     stringResource(id = R.string.wizard_title_finish_button)
                 } else {
                     stringResource(id = R.string.wizard_title_continue_button)
                 },
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
         }
     }
@@ -206,10 +210,10 @@ fun PermissionMainActivity(
         ) {
             if (!isMiuixChrome) {
                 item {
-                    Text(
+                    AppText(
                         text = stringResource(id = R.string.wizard_subtitle),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        role = AppTextRole.Body,
+                        color = appColor(AppColorRole.OnBackground),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -266,7 +270,7 @@ fun PermissionMainActivity(
             body = body,
         )
 
-        UiKitStyle.Expressive -> RequestPermissionExpressive(
+        UiKitStyle.Expressive -> RequestPermissionMaterial(
             title = stringResource(R.string.settings_permission_check),
             navigationIcon = navigationIcon,
             bottomBar = bottomBar,
@@ -292,31 +296,31 @@ private fun RootPermissionItem(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
+                color = appColor(AppColorRole.SurfaceVariant),
+                shape = appShape(AppShapeRole.Medium),
             ),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(
+            AppText(
                 text = info.permissionTitle,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
-            Text(
+            AppText(
                 text = spaceLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                role = AppTextRole.Footnote,
+                color = appColor(AppColorRole.Primary),
             )
             if (currentUiKitStyle() != UiKitStyle.Miuix) {
-                Text(
+                AppText(
                     text = info.permissionDescription,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    role = AppTextRole.BodySmall,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
-        AppHorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        AppHorizontalDivider(color = appColor(AppColorRole.OutlineVariant))
         RootSubjectItem(
             title = stringResource(R.string.wizard_root_manager_title),
             summary = stringResource(R.string.wizard_root_manager_summary),
@@ -324,7 +328,7 @@ private fun RootPermissionItem(
             onRequest = onRequest,
         )
         AppHorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
+            color = appColor(AppColorRole.OutlineVariant),
             modifier = Modifier.padding(start = 56.dp),
         )
         RootSubjectItem(
@@ -363,21 +367,21 @@ private fun RootSubjectItem(
     }
     WorkspaceListItem(
         supportingContent = {
-            Text(
+            AppText(
                 text = details,
-                style = if (isMiuix) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                role = if (isMiuix) AppTextRole.Footnote else AppTextRole.Body,
+                color = appColor(AppColorRole.OnSurfaceVariant),
             )
         },
         leadingContent = {
-            Icon(
+            AppIcon(
                 imageVector = if (granted) {
                     Icons.Default.CheckCircle
                 } else {
                     Icons.Default.RadioButtonUnchecked
                 },
                 contentDescription = statusText,
-                tint = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.outline,
+                tint = if (granted) COLOR_GRANTED else appColor(AppColorRole.Outline),
                 modifier = Modifier.size(24.dp),
             )
         },
@@ -394,15 +398,15 @@ private fun RootSubjectItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
+            AppText(
                 text = title,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
-            Text(
+            AppText(
                 text = statusText,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.onSurfaceVariant,
+                role = AppTextRole.Footnote,
+                color = if (granted) COLOR_GRANTED else appColor(AppColorRole.OnSurfaceVariant),
             )
         }
     }
@@ -417,16 +421,16 @@ fun PermissionItem(
     WorkspaceListItem(
         leadingContent = {
             if (isGranted) {
-                Icon(
+                AppIcon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = stringResource(id = R.string.status_granted),
                     tint = COLOR_GRANTED
                 )
             } else {
-                Icon(
+                AppIcon(
                     imageVector = Icons.Default.RadioButtonUnchecked,
                     contentDescription = stringResource(id = R.string.status_pending),
-                    tint = MaterialTheme.colorScheme.outline
+                    tint = appColor(AppColorRole.Outline)
                 )
             }
         },
@@ -438,16 +442,16 @@ fun PermissionItem(
             }
             .background(
                 color = if (isGranted)
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    appColor(AppColorRole.SurfaceVariant).copy(alpha = 0.3f)
                 else
-                    MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium
+                    appColor(AppColorRole.SurfaceVariant),
+                shape = appShape(AppShapeRole.Medium)
             ),
         ) {
-        Text(
+        AppText(
             text = info.permissionTitle,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appColor(AppColorRole.OnSurface),
         )
     }
 }

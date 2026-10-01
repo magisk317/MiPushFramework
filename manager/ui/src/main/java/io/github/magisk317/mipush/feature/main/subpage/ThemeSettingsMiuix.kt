@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import io.github.magisk317.mipush.feature.ui.shell.PageScaffoldMiuix
+import io.github.magisk317.uikit.surface.PageScaffoldMiuix
 import io.github.magisk317.mipush.manager.R
 
 /** Miuix chrome for [ThemeSettingsPage]. */

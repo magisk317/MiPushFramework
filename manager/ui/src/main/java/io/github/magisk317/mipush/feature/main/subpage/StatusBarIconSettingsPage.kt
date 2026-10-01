@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.common.AppSnackbarDuration
@@ -34,9 +34,9 @@ import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
-import androidx.compose.material3.Text
 import java.util.Locale
 import kotlinx.coroutines.launch
+import io.github.magisk317.uikit.text.AppText
 
 private data class PendingStatusBarToggle(
     val managed: Boolean? = null,
@@ -51,8 +51,8 @@ fun StatusBarIconSettingsPage(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val colorStatusBarIcon by viewModel.colorStatusBarIcon.collectAsStateWithLifecycle()
-    val colorStatusBarIconGlobal by viewModel.colorStatusBarIconGlobal.collectAsStateWithLifecycle()
+    val monochromeStatusBarIcon by viewModel.monochromeStatusBarIcon.collectAsStateWithLifecycle()
+    val monochromeStatusBarIconGlobal by viewModel.monochromeStatusBarIconGlobal.collectAsStateWithLifecycle()
     val snackbarHostState = remember { AppSnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
     val scope = rememberCoroutineScope()
@@ -65,8 +65,8 @@ fun StatusBarIconSettingsPage(
         StatusBarIconSettingsBody(
             listPadding = listPadding,
             scrollModifier = scrollModifier,
-            colorStatusBarIcon = colorStatusBarIcon,
-            colorStatusBarIconGlobal = colorStatusBarIconGlobal,
+            monochromeStatusBarIcon = monochromeStatusBarIcon,
+            monochromeStatusBarIconGlobal = monochromeStatusBarIconGlobal,
             managedTitle = managedTitle,
             globalTitle = globalTitle,
             onManagedToggle = { enabled ->
@@ -93,7 +93,7 @@ fun StatusBarIconSettingsPage(
             body = body,
         )
 
-        UiKitStyle.Expressive -> StatusBarIconSettingsExpressive(
+        UiKitStyle.Expressive -> StatusBarIconSettingsMaterial(
             onBack = onBack,
             snackbarHostState = snackbarHostState,
             body = body,
@@ -104,15 +104,15 @@ fun StatusBarIconSettingsPage(
     if (pending != null) {
         AppAlertDialog(
             onDismissRequest = { pendingToggle = null },
-            title = { Text(stringResource(R.string.pref_color_status_bar_icon_restart_title)) },
-            text = { Text(stringResource(R.string.pref_color_status_bar_icon_restart_message)) },
+            title = { AppText(stringResource(R.string.pref_color_status_bar_icon_restart_title)) },
+            text = { AppText(stringResource(R.string.pref_color_status_bar_icon_restart_message)) },
             confirmButton = {
                 AppTextButton(
                     text = stringResource(R.string.pref_color_status_bar_icon_restart_confirm),
                     onClick = {
                         val target = pending
                         pendingToggle = null
-                        viewModel.applyColorStatusBarIconWithRestart(
+                        viewModel.applyMonochromeStatusBarIconWithRestart(
                             managed = target.managed,
                             global = target.global,
                             onPrepared = { success ->
@@ -143,8 +143,8 @@ fun StatusBarIconSettingsPage(
 private fun StatusBarIconSettingsBody(
     listPadding: PaddingValues,
     scrollModifier: Modifier,
-    colorStatusBarIcon: Boolean,
-    colorStatusBarIconGlobal: Boolean,
+    monochromeStatusBarIcon: Boolean,
+    monochromeStatusBarIconGlobal: Boolean,
     managedTitle: String,
     globalTitle: String,
     onManagedToggle: (Boolean) -> Unit,
@@ -178,15 +178,17 @@ private fun StatusBarIconSettingsBody(
                 SettingsSwitchItem(
                     title = managedTitle,
                     summary = stringResource(R.string.pref_color_status_bar_icon_mipush_summary),
-                    checked = colorStatusBarIcon,
+                    checked = monochromeStatusBarIcon,
                     onCheckedChange = onManagedToggle,
                 )
 
-                if (!colorStatusBarIcon) {
+                // The enhancement only exists on top of monochrome; the policy short-circuits
+                // it otherwise, so hide it instead of offering a switch that does nothing.
+                if (monochromeStatusBarIcon) {
                     SettingsSwitchItem(
                         title = globalTitle,
                         summary = stringResource(R.string.pref_color_status_bar_icon_global_summary),
-                        checked = colorStatusBarIconGlobal,
+                        checked = monochromeStatusBarIconGlobal,
                         onCheckedChange = onGlobalToggle,
                     )
                 }

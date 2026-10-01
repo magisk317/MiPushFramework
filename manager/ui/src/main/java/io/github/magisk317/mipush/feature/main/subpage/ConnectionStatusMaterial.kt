@@ -12,14 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.mipush.feature.ui.shell.PageScaffoldExpressive
+import io.github.magisk317.uikit.surface.PageScaffoldExpressive
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppIconButton
 
 /** Expressive/Material chrome for the connection-status page. */
 @Composable
-internal fun ConnectionStatusExpressive(
+internal fun ConnectionStatusMaterial(
     onBack: () -> Unit,
     isReconnecting: Boolean,
     isRefreshing: Boolean,

@@ -13,10 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import io.github.magisk317.uikit.surface.WorkspaceFilterPill
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +44,10 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private val dayKeyFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
@@ -113,7 +115,7 @@ fun EventCleanupCalendarDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.event_cleanup_title), color = MaterialTheme.colorScheme.onSurface) },
+        title = { AppText(text = stringResource(R.string.event_cleanup_title), color = appColor(AppColorRole.OnSurface)) },
         text = {
             Column(
                 modifier = Modifier
@@ -122,10 +124,10 @@ fun EventCleanupCalendarDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
+                AppText(
                     text = stringResource(R.string.event_cleanup_summary),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    role = AppTextRole.Body,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                 )
 
                 // 快捷预设
@@ -165,32 +167,32 @@ fun EventCleanupCalendarDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AppIconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1); selectedDay = null }) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = stringResource(R.string.event_cleanup_prev_month),
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
+                        AppText(
                             text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.monthValue)}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            role = AppTextRole.Subtitle,
+                            color = appColor(AppColorRole.OnSurface),
                         )
-                        Text(
+                        AppText(
                             text = pluralStringResource(
                                 R.plurals.event_cleanup_month_summary,
                                 monthCount,
                                 monthCount,
                             ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            role = AppTextRole.Footnote,
+                            color = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     }
                     AppIconButton(
                         onClick = { visibleMonth = visibleMonth.plusMonths(1); selectedDay = null },
                         enabled = visibleMonth < YearMonth.from(today),
                     ) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.event_cleanup_next_month),
                         )
@@ -205,10 +207,10 @@ fun EventCleanupCalendarDialog(
                     onSelectDay = { selectedDay = if (selectedDay == it) null else it },
                 )
 
-                Text(
+                AppText(
                     text = stringResource(R.string.event_cleanup_calendar_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    role = AppTextRole.Footnote,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                 )
 
                 // 选中某天后的两种清理动作

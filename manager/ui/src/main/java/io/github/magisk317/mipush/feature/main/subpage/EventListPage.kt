@@ -2,7 +2,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,18 +47,21 @@ import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
-import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.TextInputDialog
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
-
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.style.TextAlign
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 internal val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -207,7 +207,7 @@ fun EventList(
                     body = body,
                 )
 
-                UiKitStyle.Expressive -> EventListExpressive(
+                UiKitStyle.Expressive -> EventListMaterial(
                     state = state,
                     actions = actions,
                     snackbarHostState = snackbarHostState,
@@ -355,33 +355,32 @@ private fun EventHeaderPills(
                     R.string.recent_activity_mode_stream
                 }
             ),
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            contentColor = MaterialTheme.colorScheme.primary,
+            containerColor = appColor(AppColorRole.Primary).copy(alpha = 0.12f),
+            contentColor = appColor(AppColorRole.Primary),
         )
         if (query.isNotBlank()) {
             InfoPill(
                 text = "${stringResource(R.string.action_search)} · $query",
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = appColor(AppColorRole.SecondaryContainer),
+                contentColor = appColor(AppColorRole.OnSecondaryContainer),
             )
         }
         if (activeFilterCount > 0) {
             InfoPill(
                 text = "${stringResource(R.string.recent_activity_filter_prefix)} · $activeFilterCount",
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = appColor(AppColorRole.TertiaryContainer),
+                contentColor = appColor(AppColorRole.OnTertiaryContainer),
             )
         }
         if (packageName.isNotBlank()) {
             InfoPill(
                 text = packageName,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                containerColor = appColor(AppColorRole.SurfaceContainerHighest),
+                contentColor = appColor(AppColorRole.OnSurfaceVariant),
             )
         }
     }
 }
-
 
 @Composable
 fun EmptyEventState(modifier: Modifier = Modifier) {
@@ -390,11 +389,11 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
         summary = stringResource(R.string.event_empty_summary),
         modifier = modifier,
         icon = {
-            Icon(
+            AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                tint = appColor(AppColorRole.OnSurfaceVariant).copy(alpha = 0.35f),
             )
         },
     )
@@ -409,17 +408,17 @@ internal fun InitialEventLoadState(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
+        AppText(
             text = stringResource(R.string.event_initial_load_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            role = AppTextRole.Subtitle,
+            color = appColor(AppColorRole.OnSurface),
             textAlign = TextAlign.Center,
         )
         AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Text(
+        AppText(
             text = stringResource(R.string.event_initial_load_summary),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            role = AppTextRole.Body,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             textAlign = TextAlign.Center,
         )
     }
@@ -432,11 +431,11 @@ internal fun EventLoadFailedState(modifier: Modifier = Modifier) {
         summary = stringResource(R.string.event_load_failed_summary),
         modifier = modifier.heightIn(min = 300.dp),
         icon = {
-            Icon(
+            AppIcon(
                 imageVector = Icons.AutoMirrored.Filled.EventNote,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                tint = appColor(AppColorRole.Error).copy(alpha = 0.6f),
             )
         },
     )
@@ -525,7 +524,6 @@ private fun date(year: Int, month: Int, day: Int): Date {
         set(Calendar.MILLISECOND, 0)
     }.time
 }
-
 
 /**
  * Style-agnostic render state for the recent-activity tab (KernelSU

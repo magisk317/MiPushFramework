@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import io.github.magisk317.uikit.surface.AppAlertDialog
-import androidx.compose.material3.Icon
+import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import io.github.magisk317.uikit.text.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +44,10 @@ import io.github.magisk317.uikit.surface.DialogActionStyle
 import java.time.Instant
 import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 @Composable
 internal fun EventDetailsDialog(
@@ -132,24 +135,24 @@ internal fun EventDetailsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                AppText(
                     stringResource(R.string.event_detail_developer_info),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    role = AppTextRole.Title,
+                    color = appColor(AppColorRole.OnSurface),
                     modifier = Modifier.weight(1f),
                 )
                 AppIconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
-                    Icon(
+                    AppIcon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = stringResource(R.string.action_app_info),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = appColor(AppColorRole.OnSurfaceVariant),
                     )
                 }
             }
         },
         text = {
             SelectionContainer {
-                Text(
+                AppText(
                     text = json,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -157,8 +160,8 @@ internal fun EventDetailsDialog(
                         .verticalScroll(verticalScroll)
                         .horizontalScroll(horizontalScroll)
                         .uiKitScrollEndHaptic(),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     softWrap = false,
                 )
             }

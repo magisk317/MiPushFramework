@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.magisk317.mipush.common.utils.logW
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -41,7 +42,6 @@ import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.common.AppSnackbarHost
 import io.github.magisk317.uikit.surface.AppSurface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -73,11 +73,15 @@ import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import java.util.Locale
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -133,7 +137,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         Theme {
             AppSurface(
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
+                color = appColor(AppColorRole.Background),
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -209,7 +213,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         val lastPush = formatTime(applicationInfo.lastReceiveTimeMs)
 
         AppCard(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = appColor(AppColorRole.SurfaceContainerLow),
         ) {
             Column {
                 Box(
@@ -218,9 +222,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                         .background(
                             Brush.linearGradient(
                                 listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
+                                    appColor(AppColorRole.Primary).copy(alpha = 0.18f),
+                                    appColor(AppColorRole.Secondary).copy(alpha = 0.12f),
+                                    appColor(AppColorRole.Tertiary).copy(alpha = 0.10f),
                                 ),
                             ),
                         ),
@@ -237,16 +241,16 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier.size(52.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
+                            AppText(
                                 text = applicationInfo.appName,
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                role = AppTextRole.Title,
+                                color = appColor(AppColorRole.OnSurface),
                                 maxLines = 1,
                             )
-                            Text(
+                            AppText(
                                 text = applicationInfo.packageName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                role = AppTextRole.BodySmall,
+                                color = appColor(AppColorRole.OnSurfaceVariant),
                                 maxLines = 1,
                             )
                         }
@@ -289,7 +293,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             accent = if (isZygiskEnabledForApp == true) {
                                 RegistrationStateStyle.GreenColor
                             } else {
-                                MaterialTheme.colorScheme.secondary
+                                appColor(AppColorRole.Secondary)
                             },
                             onClick = {
                                 context.startActivity(android.content.Intent(context, ZygiskConfigPage::class.java))
@@ -309,7 +313,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = MaterialTheme.colorScheme.secondary,
+                            accent = appColor(AppColorRole.Secondary),
                         )
                         HeaderMetricCard(
                             label = stringResource(R.string.app_detail_registration_status),
@@ -319,7 +323,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 .fillMaxHeight(),
                             accent = RegistrationStateStyle.registrationColorOf(applicationInfo)
                                 .takeIf { it != Color.Unspecified }
-                                ?: MaterialTheme.colorScheme.tertiary,
+                                ?: appColor(AppColorRole.Tertiary),
                         )
                     }
 
@@ -346,9 +350,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 }
                             },
                         ) {
-                            Text(
+                            AppText(
                                 text = stringResource(R.string.app_detail_force_register),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = appColor(AppColorRole.OnSurface),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -356,7 +360,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         AppSecondaryButton(
                             onClick = { openSystemAppInfo(context) },
                         ) {
-                            Text(
+                            AppText(
                                 text = stringResource(R.string.app_detail_open_system_settings),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -370,11 +374,16 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     private fun openSystemAppInfo(context: Context) {
         val uri = Uri.fromParts("package", applicationInfo.packageName, null)
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(uri)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        // The details screen is a Settings activity, which an OEM build can filter out.
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(uri)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { error ->
+            logW("app detail settings launch failed: ${error.javaClass.simpleName}")
+        }
     }
 
     @Composable
@@ -665,26 +674,26 @@ open class ApplicationInfoPage : ComponentActivity() {
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         NotificationChannelBadge(text = badge)
-                                        Text(
+                                        AppText(
                                             text = channelTitle,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            color = appColor(AppColorRole.OnSurface),
                                             softWrap = true,
                                             overflow = TextOverflow.Clip,
                                         )
                                         if (!channel.enabled) {
                                             NotificationChannelBadge(
                                                 text = disabledBadge,
-                                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                containerColor = appColor(AppColorRole.ErrorContainer),
+                                                contentColor = appColor(AppColorRole.OnErrorContainer),
                                             )
                                         }
                                     }
                                 }
                             },
                             text = {
-                                Text(
+                                AppText(
                                     text = summary,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = appColor(AppColorRole.OnSurfaceVariant),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             },

@@ -18,7 +18,6 @@ import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppBadge
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,11 +44,15 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.preference.AppSwitch
 import io.github.magisk317.uikit.surface.DetailDivider
-import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.theme.spacing
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 internal enum class NotificationChannelContentKind {
     EMPTY,
@@ -79,10 +82,10 @@ internal fun NotificationChannelsLoadingRow(showDivider: Boolean) {
             modifier = Modifier.size(20.dp),
             strokeWidth = 2.dp,
         )
-        Text(
+        AppText(
             text = stringResource(R.string.notification_channels_loading),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            role = AppTextRole.Body,
+            color = appColor(AppColorRole.OnSurfaceVariant),
             modifier = Modifier.weight(1f),
         )
     }
@@ -112,7 +115,6 @@ internal fun notificationChannelsUnavailableMessage(status: NotificationChannelR
         },
     )
 
-
 @Composable
 internal fun NotificationChannelSectionHeader(
     title: String,
@@ -128,9 +130,9 @@ internal fun NotificationChannelSectionHeader(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                        appColor(AppColorRole.Primary).copy(alpha = 0.14f),
+                        appColor(AppColorRole.Secondary).copy(alpha = 0.10f),
+                        appColor(AppColorRole.Tertiary).copy(alpha = 0.08f),
                     ),
                 ),
             ),
@@ -146,17 +148,17 @@ internal fun NotificationChannelSectionHeader(
                 ),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                role = AppTextRole.Subtitle,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.fillMaxWidth(),
             )
             if (summary.isNotBlank()) {
-                Text(
+                AppText(
                     text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    role = AppTextRole.BodySmall,
+                    color = appColor(AppColorRole.OnSurfaceVariant),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -190,10 +192,10 @@ internal fun NotificationChannelRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NotificationChannelBadge(text = badge)
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                role = AppTextRole.Body,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.weight(1f, fill = false),
                 softWrap = true,
                 overflow = TextOverflow.Clip,
@@ -202,16 +204,16 @@ internal fun NotificationChannelRow(
             if (!enabled) {
                 NotificationChannelBadge(
                     text = disabledBadge,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = appColor(AppColorRole.ErrorContainer),
+                    contentColor = appColor(AppColorRole.OnErrorContainer),
                 )
             }
         }
         if (summary.isNotBlank()) {
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                role = AppTextRole.BodySmall,
+                color = appColor(AppColorRole.OnSurfaceVariant),
                 modifier = Modifier.fillMaxWidth(),
                 softWrap = true,
                 overflow = TextOverflow.Clip,
@@ -227,8 +229,8 @@ internal fun NotificationChannelRow(
 @Composable
 internal fun NotificationChannelBadge(
     text: String,
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
-    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    containerColor: Color = appColor(AppColorRole.SecondaryContainer),
+    contentColor: Color = appColor(AppColorRole.OnSecondaryContainer),
 ) {
     AppBadge(
         text = text,
@@ -255,16 +257,16 @@ internal fun ActionSummaryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                role = AppTextRole.Body,
+                color = appColor(AppColorRole.OnSurface),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                role = AppTextRole.BodySmall,
+                color = appColor(AppColorRole.OnSurfaceVariant),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -273,7 +275,7 @@ internal fun ActionSummaryRow(
             onClick = onClick,
             enabled = enabled,
         ) {
-            Text(actionLabel)
+            AppText(actionLabel)
         }
     }
     if (showDivider) {
@@ -305,15 +307,15 @@ internal fun SettingSwitchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AppText(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                role = AppTextRole.Body,
+                color = if (enabled) appColor(AppColorRole.OnSurface) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
             )
-            Text(
+            AppText(
                 text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                role = AppTextRole.BodySmall,
+                color = if (enabled) appColor(AppColorRole.OnSurfaceVariant) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
             )
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
@@ -345,11 +347,7 @@ internal fun HeaderMetricCard(
 ) {
     AppCard(
         modifier = modifier,
-        color = if (io.github.magisk317.uikit.theme.currentUiKitStyle() == io.github.magisk317.uikit.theme.UiKitStyle.Miuix) {
-            top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh
-        } else {
-            MaterialTheme.colorScheme.surfaceContainer
-        },
+        color = appColor(AppColorRole.SurfaceContainerHigh),
         onClick = onClick,
     ) {
         Column(
@@ -363,18 +361,18 @@ internal fun HeaderMetricCard(
                     .clip(RoundedCornerShape(999.dp))
                     .background(accent.copy(alpha = 0.14f))
             ) {
-                Text(
+                AppText(
                     text = label,
-                    style = MaterialTheme.typography.labelMedium,
+                    role = AppTextRole.Footnote,
                     color = accent,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
+            AppText(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                role = AppTextRole.Subtitle,
+                color = appColor(AppColorRole.OnSurface),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Start,
@@ -398,7 +396,7 @@ internal fun Tips(description: String) {
             modifier = Modifier
                 .size(10.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.error,
+                    color = appColor(AppColorRole.Error),
                     shape = RoundedCornerShape(999.dp),
                 ),
         )
@@ -409,10 +407,10 @@ internal fun Tips(description: String) {
                 htmlString = description,
             )
         }
-        Text(
+        AppText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            role = AppTextRole.Body,
+            color = appColor(AppColorRole.OnSurfaceVariant),
         )
     }
 }

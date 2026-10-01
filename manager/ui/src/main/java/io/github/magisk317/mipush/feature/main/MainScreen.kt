@@ -13,9 +13,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +57,10 @@ import io.github.magisk317.uikit.surface.rememberMainChromeController
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
 import co.touchlab.kermit.Logger
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private val navLog = Logger.withTag("NavDiag")
 
@@ -91,7 +93,6 @@ internal fun shouldShowCompactBottomBar(destination: NavDestination?): Boolean {
         route.startsWith(AppDestinations.EventsList.ROUTE) ||
         route.startsWith(AppDestinations.Settings.ROUTE)
 }
-
 
 @Composable
 fun MainScreen(
@@ -299,7 +300,7 @@ fun MainScreen(
         animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
     )
     val pageScrollChromeState = chromeController.pageScrollChromeState
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().background(appColor(AppColorRole.Background))) {
         PagerTabScaffold(
             tabs = tabs,
             pagerState = pagerState,
@@ -365,15 +366,15 @@ fun MainScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Icon(
+                    AppIcon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = null,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
-                    Text(
+                    AppText(
                         text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        role = AppTextRole.Footnote,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
                     )
                 }
             },
@@ -464,15 +465,15 @@ fun MainScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
-                        Icon(
+                        AppIcon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
-                        Text(
+                        AppText(
                             text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            role = AppTextRole.Footnote,
+                            color = appColor(AppColorRole.OnSurfaceVariant),
                         )
                     }
                 },
@@ -571,7 +572,7 @@ fun MainScreen(
                         ),
                     )
                 },
-                text = { Text(aboutDialogContent!!) },
+                text = { AppText(aboutDialogContent!!) },
             )
         }
     }

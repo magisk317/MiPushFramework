@@ -18,8 +18,8 @@ import io.github.magisk317.uikit.surface.AppIconButton
 import io.github.magisk317.uikit.surface.chromeSurfaceColor
 import io.github.magisk317.uikit.surface.surfaceBlurContainerColor
 import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -34,13 +34,13 @@ internal fun ConfigurationEditorMiuix(
     onBack: () -> Unit,
     body: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
-    Scaffold(
+    MiuixScaffold(
         topBar = {
             SmallTopAppBar(
                                 title = path,
                 navigationIcon = {
                     AppIconButton(onClick = onBack) {
-                        Icon(
+                        MiuixIcon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(android.R.string.cancel),
                         )

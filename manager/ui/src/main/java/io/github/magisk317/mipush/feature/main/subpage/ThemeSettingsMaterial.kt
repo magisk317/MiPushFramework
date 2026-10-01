@@ -4,12 +4,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import io.github.magisk317.mipush.feature.ui.shell.PageScaffoldExpressive
+import io.github.magisk317.uikit.surface.PageScaffoldExpressive
 import io.github.magisk317.mipush.manager.R
 
 /** Expressive/Material chrome for [ThemeSettingsPage]. */
 @Composable
-internal fun ThemeSettingsExpressive(
+internal fun ThemeSettingsMaterial(
     onBack: () -> Unit,
     body: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
