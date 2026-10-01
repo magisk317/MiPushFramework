@@ -3,6 +3,12 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.6] - 2026-10-02
+- 版本：`versionCode 17` / `versionName 1.0.6`。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.5...v1.0.6
+
+---
 ## [v1.0.5] - 2026-10-01
 - 版本：`versionCode 16` / `versionName 1.0.5`。
 - `[icon]` 通知图标引擎迁移 ANIP，新增图标库与分类浏览。

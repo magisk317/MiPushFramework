@@ -79,8 +79,8 @@ miuix-blur = "0.9.4"
 material-kolor = "5.0.1"
 google-id = "1.2.1"
 anip-sdk = "1.0.0"
-versionCode = "16"
-versionName = "1.0.5"
+versionCode = "17"
+versionName = "1.0.6"
 pushVersionCode = "1003003000"
 
 [libraries]
