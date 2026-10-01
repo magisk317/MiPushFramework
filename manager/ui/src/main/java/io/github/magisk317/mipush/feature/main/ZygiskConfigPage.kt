@@ -58,6 +58,8 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 class ZygiskConfigPage : ComponentActivity() {
 
@@ -221,7 +223,7 @@ class ZygiskConfigPage : ComponentActivity() {
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
             color = appColor(AppColorRole.SurfaceContainerLow),
-            shape = MaterialTheme.shapes.large,
+            shape = appShape(AppShapeRole.Large),
         ) {
             Column(
                 modifier = Modifier
@@ -290,7 +292,7 @@ class ZygiskConfigPage : ComponentActivity() {
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
             color = appColor(AppColorRole.SurfaceContainerLow),
-            shape = MaterialTheme.shapes.large,
+            shape = appShape(AppShapeRole.Large),
         ) {
             Row(
                 modifier = Modifier
@@ -317,7 +319,7 @@ class ZygiskConfigPage : ComponentActivity() {
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
             color = appColor(AppColorRole.SurfaceContainerLow),
-            shape = MaterialTheme.shapes.large,
+            shape = appShape(AppShapeRole.Large),
         ) {
             Row(
                 modifier = Modifier

@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +86,8 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 private val TAG = "WizardPermission"
 
@@ -296,7 +297,7 @@ private fun RootPermissionItem(
             .fillMaxWidth()
             .background(
                 color = appColor(AppColorRole.SurfaceVariant),
-                shape = MaterialTheme.shapes.medium,
+                shape = appShape(AppShapeRole.Medium),
             ),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -444,7 +445,7 @@ fun PermissionItem(
                     appColor(AppColorRole.SurfaceVariant).copy(alpha = 0.3f)
                 else
                     appColor(AppColorRole.SurfaceVariant),
-                shape = MaterialTheme.shapes.medium
+                shape = appShape(AppShapeRole.Medium)
             ),
         ) {
         AppText(

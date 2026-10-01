@@ -91,6 +91,8 @@ import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.text.appTextStyle
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 class ConfigurationsPage : ComponentActivity() {
     companion object {
@@ -692,7 +694,7 @@ fun ConfigurationEditor(
                                 modifier = Modifier.fillMaxWidth(),
                                 color = appColor(AppColorRole.SurfaceContainerLow),
                                 tonalElevation = 0.dp,
-                                shape = MaterialTheme.shapes.large,
+                                shape = appShape(AppShapeRole.Large),
                             ) {
                                 if (selectedContent == null) {
                                     WorkspaceEmptyState(

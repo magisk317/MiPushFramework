@@ -50,6 +50,8 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 internal fun LazyListScope.configListHeader(
     uiState: ConfigManagerViewModel.UiState,
@@ -271,7 +273,7 @@ internal fun SettingLinkCard(
         modifier = Modifier.fillMaxWidth()
             .clickable(onClick = onClick),
         tonalElevation = 1.dp,
-        shape = MaterialTheme.shapes.large,
+        shape = appShape(AppShapeRole.Large),
     ) {
         Column(
             modifier = Modifier
@@ -395,7 +397,7 @@ internal fun CategoryHeader(
         Box(
             modifier = Modifier
                 .size(width = 3.dp, height = 16.dp)
-                .background(appColor(AppColorRole.Primary), MaterialTheme.shapes.small),
+                .background(appColor(AppColorRole.Primary), appShape(AppShapeRole.Small)),
         )
         AppText(
             text = label,

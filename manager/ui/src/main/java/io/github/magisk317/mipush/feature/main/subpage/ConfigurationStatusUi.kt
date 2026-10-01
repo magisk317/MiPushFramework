@@ -8,12 +8,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.surface.AppBadge
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +41,7 @@ internal fun StatusBadge(status: ConfigSyncStatus) {
         text = statusLabel(status),
         containerColor = statusColor(status).copy(alpha = 0.15f),
         contentColor = statusColor(status),
-        shape = MaterialTheme.shapes.small,
+        shape = appShape(AppShapeRole.Small),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
     )
 }
