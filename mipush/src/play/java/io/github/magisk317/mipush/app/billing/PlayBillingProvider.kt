@@ -10,9 +10,6 @@ class PlayBillingProvider(
     override val supportsPlayDonations: Boolean = true
 
     override fun launchDonation(activity: Activity, productId: String) {
-        val productDetails = billingManager.donationDetails.value.find { details ->
-            details.productId == productId
-        } ?: return
-        billingManager.launchDonationFlow(activity, productDetails)
+        billingManager.launchDonationById(activity, productId)
     }
 }
