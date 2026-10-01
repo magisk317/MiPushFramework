@@ -40,9 +40,39 @@ object MiPushRuntimeBridge {
         val regSecret: String? = null,
     )
 
+    /**
+     * Outcome of a notification dispatch attempt.
+     *
+     * [allowanceState] is only set when the dispatch was denied for lack of a publish grant and
+     * carries the reason the grant was absent, which is what makes duplicate-dispatch telemetry
+     * attributable to a root cause instead of a bare `no_allowance`.
+     */
+    data class NotificationDispatchDecision(
+        val allowed: Boolean,
+        val denyReason: String? = null,
+        val allowanceState: String? = null,
+    )
+
+    /**
+     * Outcome of a dispatch-allowance consumption attempt. [Rejected.state] distinguishes the
+     * three ways a grant can be absent:
+     * - `missing`: no grant was ever issued in this process for this message; the typical cause
+     *   is the inbound dedup window suppressing the payload that would have marked the grant.
+     * - `expired`: a grant existed but aged past the TTL before the publish attempt landed.
+     * - `exhausted`: every grant of the allowance budget was already consumed by earlier publish
+     *   attempts of the same message (repeat delivery storm).
+     */
+    sealed class AllowanceDecision {
+        object Granted : AllowanceDecision()
+        data class Rejected(val state: String) : AllowanceDecision()
+    }
+
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS = 30_000L
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_COUNT = 3
+    private const val ALLOWANCE_STATE_MISSING = "missing"
+    private const val ALLOWANCE_STATE_EXPIRED = "expired"
+    private const val ALLOWANCE_STATE_EXHAUSTED = "exhausted"
     private data class NotificationDispatchAllowance(
         var remaining: Int,
         var updatedAtMs: Long
@@ -88,9 +118,18 @@ object MiPushRuntimeBridge {
     }
 
     @JvmStatic
-    fun onNotificationDispatch(context: Context, container: XmPushActionContainer?, payload: ByteArray?): Boolean {
+    fun onNotificationDispatch(
+        context: Context,
+        container: XmPushActionContainer?,
+        payload: ByteArray?,
+    ): NotificationDispatchDecision {
         val startedAt = System.nanoTime()
-        fun finish(allowed: Boolean, reason: String, targetPackage: String = ""): Boolean {
+        fun finish(
+            allowed: Boolean,
+            reason: String,
+            targetPackage: String = "",
+            allowanceState: String? = null,
+        ): NotificationDispatchDecision {
             val attrs = mutableMapOf(
                 "result" to if (allowed) "ok" else "skip",
                 "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
@@ -101,8 +140,15 @@ object MiPushRuntimeBridge {
             if (targetPackage.isNotBlank()) {
                 attrs["target_package"] = targetPackage
             }
+            if (!allowanceState.isNullOrBlank()) {
+                attrs["allowance_state"] = allowanceState
+            }
             MagiskOtel.event(name = "push.dispatch", attributes = attrs, statusOk = true)
-            return allowed
+            return NotificationDispatchDecision(
+                allowed = allowed,
+                denyReason = if (allowed) null else reason,
+                allowanceState = allowanceState,
+            )
         }
 
         val resolvedContainer = container ?: payload?.let { PushShellBridgeHolder.payload().packToContainer(it) }
@@ -128,22 +174,26 @@ object MiPushRuntimeBridge {
             )
         }
         if (payload != null && resolvedContainer != null && !isMockReplay) {
-            val allowed = consumeNotificationDispatchAllowance(
+            when (val decision = consumeNotificationDispatchAllowance(
                 packageName = resolvedContainer.packageName,
                 actionName = actionName,
                 messageId = messageId,
                 userId = userId,
-            )
-            if (!allowed) {
-                logD(
-                    "skip notification dispatch without allowance pkg=${resolvedContainer.packageName} " +
-                        "action=$actionName messageId=$messageId source=MiPushRuntimeBridge.onNotificationDispatch"
-                )
-                return finish(
-                    allowed = false,
-                    reason = "no_allowance",
-                    targetPackage = resolvedContainer.packageName.orEmpty(),
-                )
+            )) {
+                is AllowanceDecision.Granted -> Unit
+                is AllowanceDecision.Rejected -> {
+                    logD(
+                        "skip notification dispatch without allowance pkg=${resolvedContainer.packageName} " +
+                            "action=$actionName messageId=$messageId allowanceState=${decision.state} " +
+                            "source=MiPushRuntimeBridge.onNotificationDispatch"
+                    )
+                    return finish(
+                        allowed = false,
+                        reason = "no_allowance",
+                        targetPackage = resolvedContainer.packageName.orEmpty(),
+                        allowanceState = decision.state,
+                    )
+                }
             }
         }
         if (resolvedContainer?.packageName in diagnosticPackages) {
@@ -299,6 +349,24 @@ object MiPushRuntimeBridge {
                 )
             }
             logD("skip duplicate payload event source=$source pkg=$packageName action=$actionName")
+            if (!isMockReplay) {
+                // The inbound dedup window used to be invisible: the suppressed payload never
+                // reached the publish path, so the resulting dispatch-allowance miss looked
+                // unattributable downstream. Emit the suppression here (mock replays bypass the
+                // dedup window by design and stay silent).
+                val attrs = mutableMapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "inbound_dedup",
+                    "reason" to "duplicate",
+                    "action" to actionName,
+                )
+                if (!packageName.isNullOrBlank()) {
+                    attrs["target_package"] = packageName
+                }
+                MagiskOtel.event(name = "push.receive", attributes = attrs, statusOk = true)
+            }
         }
         return shouldProcess
     }
@@ -328,13 +396,16 @@ object MiPushRuntimeBridge {
         val iterator = notificationDispatchAllowances.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
-            if ((nowMs - entry.value.updatedAtMs) > NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS || entry.value.remaining <= 0) {
+            // Exhausted grants are kept until they age out so a later consume of the same
+            // message can report `exhausted` instead of an unattributable `missing`.
+            if ((nowMs - entry.value.updatedAtMs) > NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS) {
                 iterator.remove()
             }
         }
     }
 
-    private fun markNotificationDispatchAllowance(
+    @JvmStatic
+    fun markNotificationDispatchAllowance(
         packageName: String?,
         actionName: String,
         messageId: String?,
@@ -362,32 +433,36 @@ object MiPushRuntimeBridge {
         )
     }
 
-    private fun consumeNotificationDispatchAllowance(
+    @JvmStatic
+    fun consumeNotificationDispatchAllowance(
         packageName: String?,
         actionName: String,
         messageId: String?,
         userId: Int,
         nowMs: Long = System.currentTimeMillis()
-    ): Boolean {
-        val key = buildNotificationDispatchKey(packageName, actionName, messageId, userId) ?: return true
+    ): AllowanceDecision {
+        val key = buildNotificationDispatchKey(packageName, actionName, messageId, userId)
+            ?: return AllowanceDecision.Granted
         synchronized(notificationDispatchLock) {
-            pruneNotificationDispatchAllowancesLocked(nowMs)
-            val allowance = notificationDispatchAllowances[key] ?: return false
+            val allowance = notificationDispatchAllowances[key] ?: run {
+                pruneNotificationDispatchAllowancesLocked(nowMs)
+                return AllowanceDecision.Rejected(ALLOWANCE_STATE_MISSING)
+            }
             if ((nowMs - allowance.updatedAtMs) > NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS) {
                 notificationDispatchAllowances.remove(key)
-                return false
+                pruneNotificationDispatchAllowancesLocked(nowMs)
+                return AllowanceDecision.Rejected(ALLOWANCE_STATE_EXPIRED)
+            }
+            if (allowance.remaining <= 0) {
+                return AllowanceDecision.Rejected(ALLOWANCE_STATE_EXHAUSTED)
             }
             allowance.remaining -= 1
             allowance.updatedAtMs = nowMs
-            val accepted = allowance.remaining >= 0
             logD(
                 "consume notification dispatch allowance pkg=$packageName action=$actionName " +
                     "messageId=$messageId remaining=${allowance.remaining}"
             )
-            if (allowance.remaining <= 0) {
-                notificationDispatchAllowances.remove(key)
-            }
-            return accepted
+            return AllowanceDecision.Granted
         }
     }
 

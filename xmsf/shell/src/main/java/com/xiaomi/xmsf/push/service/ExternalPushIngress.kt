@@ -11,6 +11,21 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 /** Transport-specific gates shared by both exported MiPush compatibility facades. */
 internal object ExternalPushIngress {
 
+    /**
+     * Rejections that are the module doing its job rather than a failure. Xiaomi telemetry and
+     * notification-exposure intents are blocked on purpose, and so is any action outside the
+     * public surface (SDK client-report broadcasts such as ACTION_CLIENT_REPORT_CONFIG are the
+     * bulk of these; counting them as errors buries the real ingress failures — they used to be
+     * ~83% of every reported `action_not_public` error).
+     */
+    private val POLICY_DENY_REASONS = setOf("telemetry_disabled", "action_not_public")
+
+    internal fun ingressResult(reason: String?): String = when {
+        reason == null -> "ok"
+        reason in POLICY_DENY_REASONS -> "skip"
+        else -> "error"
+    }
+
     private fun emitIngress(
         result: String,
         reason: String,
@@ -33,18 +48,9 @@ internal object ExternalPushIngress {
 
     fun validateStart(context: Context, intent: Intent): ExternalPushIntentPolicy.ValidationResult {
         // ActivityThread does not retain the source UID for Service.onStartCommand callbacks.
-        val result = ExternalPushIntentPolicy.validate(context, intent)
-        val rejected = result.rejectionReason
-        emitIngress(
-            result = if (rejected == null) "ok" else "error",
-            reason = rejected ?: "accepted",
-            statusOk = rejected == null,
-            extra = mapOf(
-                "source" to "start",
-                "action" to (intent.action ?: "unknown"),
-            ),
-        )
-        return result
+        // Events for this entry are emitted once, by the caller's single ingress emitter, so the
+        // legacy start route and the Messenger route can never double-count the same intent.
+        return ExternalPushIntentPolicy.validate(context, intent)
     }
 
     fun validateBoundMessage(
@@ -86,16 +92,9 @@ internal object ExternalPushIngress {
             callingUid = message.sendingUid,
             callingPackages = callingPackages,
         )
-        val rejected = result.rejectionReason
-        emitIngress(
-            result = if (rejected == null) "ok" else "error",
-            reason = rejected ?: "accepted",
-            statusOk = rejected == null,
-            extra = mapOf(
-                "source" to "bound",
-                "action" to (intent.action ?: "unknown"),
-            ),
-        )
+        // No emission here: the caller's single ingress emitter reports the validation outcome
+        // with the target package attached. Only the three transport-level pre-checks above stay
+        // exclusive events because they never reach that emitter.
         return result
     }
 

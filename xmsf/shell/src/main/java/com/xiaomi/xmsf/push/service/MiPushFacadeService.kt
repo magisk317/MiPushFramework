@@ -80,6 +80,7 @@ open class MiPushFacadeService : Service() {
                     submitExternalResult(
                         sourceIntent = message.obj as? Intent,
                         result = ExternalPushIngress.validateBoundMessage(this@MiPushFacadeService, message),
+                        source = "bound",
                     )
                 }
             },
@@ -215,7 +216,7 @@ open class MiPushFacadeService : Service() {
             // Android does not preserve the originating UID into onStartCommand. The Messenger
             // route below has UID binding; this legacy startService route is payload-gated only.
             logW("External MiPush start has no caller UID; applying payload-only ingress validation")
-            submitExternalResult(intent, ExternalPushIngress.validateStart(this, intent))
+            submitExternalResult(intent, ExternalPushIngress.validateStart(this, intent), source = "start")
             return
         }
         val internalIntent = if (intent.action == null && intent.hasExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)) {
@@ -236,24 +237,24 @@ open class MiPushFacadeService : Service() {
     private fun submitExternalResult(
         sourceIntent: Intent?,
         result: ExternalPushIntentPolicy.ValidationResult,
+        source: String,
     ) {
         val acceptedIntent = result.intent
+        val rejection = result.rejectionReason
         if (acceptedIntent == null) {
-            logRejectedExternalIntent(sourceIntent, result.rejectionReason.orEmpty())
-            emitExternalIngress(
-                result = "skip",
-                reason = result.rejectionReason.orEmpty().ifBlank { "rejected" },
-                intent = sourceIntent,
-                statusOk = true,
-            )
-            return
+            logRejectedExternalIntent(sourceIntent, rejection.orEmpty())
+        } else {
+            PushRuntime.submitBridgeIntent(acceptedIntent)
         }
-        PushRuntime.submitBridgeIntent(acceptedIntent)
+        // Single ingress emitter for this service: one event per intent, classified through the
+        // shared policy gate (design-intent denials count as skip, real rejections as error),
+        // carrying the target package and which transport route observed it.
         emitExternalIngress(
-            result = "ok",
-            reason = "accepted",
-            intent = acceptedIntent,
-            statusOk = true,
+            result = ExternalPushIngress.ingressResult(rejection),
+            reason = rejection ?: "accepted",
+            intent = acceptedIntent ?: sourceIntent,
+            statusOk = rejection == null,
+            source = source,
         )
     }
 
@@ -269,6 +270,7 @@ open class MiPushFacadeService : Service() {
         reason: String,
         intent: Intent?,
         statusOk: Boolean,
+        source: String,
     ) {
         val packageName = intent?.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
             ?: intent?.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
@@ -278,6 +280,8 @@ open class MiPushFacadeService : Service() {
             "process" to "xmsf",
             "stage" to "external_ingress",
             "reason" to reason,
+            "source" to source,
+            "action" to (intent?.action ?: "unknown"),
         )
         if (!packageName.isNullOrBlank()) {
             attrs["target_package"] = packageName
