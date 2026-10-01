@@ -258,7 +258,7 @@ jobs:
           git -C MiPushZygisk checkout --detach FETCH_HEAD
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.98.0
+        uses: dtolnay/rust-toolchain@1.120.0
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
