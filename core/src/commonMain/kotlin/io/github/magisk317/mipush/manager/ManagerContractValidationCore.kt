@@ -505,7 +505,7 @@ object ManagerContractValidationCore {
         input.requestId.isBlank() || input.requestId.length > ManagerContractLimits.MAX_WRITE_REQUEST_ID_LENGTH ->
             "invalid_write_result_request_id"
         input.status !in WRITE_STATUSES -> "invalid_write_status"
-        input.details.length > ManagerContractLimits.MAX_LOG_EXPORT_DETAILS_LENGTH -> "write_details_too_long"
+        input.details.length > ManagerContractLimits.MAX_WRITE_DETAILS_LENGTH -> "write_details_too_long"
         else -> null
     }
 

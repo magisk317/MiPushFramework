@@ -40,6 +40,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -142,11 +143,17 @@ class SettingsViewModel constructor(
     val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val colorStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    /**
+     * User-facing polarity is monochrome. The stored preference keeps its
+     * historical "color" polarity, so the inversion lives here, at the single
+     * boundary between the switch and the rest of the pipeline.
+     */
+    val monochromeStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
+        .map { !it }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val colorStatusBarIconGlobal: StateFlow<Boolean> = preferenceRepository.colorStatusBarIconGlobal
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val monochromeStatusBarIconGlobal: StateFlow<Boolean> = preferenceRepository.colorStatusBarIconGlobal
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -322,24 +329,27 @@ class SettingsViewModel constructor(
     fun setIslandFocusNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_FOCUS_NOTIF, value, onResult)
 
-    fun setColorStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, value, onResult)
+    fun setMonochromeStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, !value, onResult)
 
-    fun setColorStatusBarIconGlobal(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+    fun setMonochromeStatusBarIconGlobal(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, value, onResult)
 
     /**
-     * Apply color-status-bar preference, push to runtime (xmsf), then **reboot the device**.
-     * Status-bar / SystemUI coloring needs a full reboot; manager-only exit is not enough.
+     * Apply the status-bar icon preference, push to runtime (xmsf), then **reboot the device**.
+     * Status-bar / SystemUI icon rendering needs a full reboot; manager-only exit is not enough.
+     *
+     * [managed] arrives in monochrome polarity and is stored inverted, matching the
+     * historical "color" preference key.
      */
-    fun applyColorStatusBarIconWithRestart(
+    fun applyMonochromeStatusBarIconWithRestart(
         managed: Boolean? = null,
         global: Boolean? = null,
         onPrepared: ((Boolean) -> Unit)? = null,
         onRebootFailed: ((String) -> Unit)? = null,
     ) = viewModelScope.launch {
         val preferenceUpdated = withContext(Dispatchers.IO) {
-            (managed == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_KEY, managed)) &&
+            (managed == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_KEY, !managed)) &&
                 (global == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, global))
         }
         onPrepared?.invoke(preferenceUpdated)
@@ -428,7 +438,7 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setUiKitStyle(style)
             _themeState.value = _themeState.value.copy(uiKitStyle = style)
-            if (style != UiKitStyle.Miuix.value) {
+            if (UiKitStyle.fromValue(style) != UiKitStyle.Miuix) {
                 // Liquid glass is exclusive to the Miuix floating bar; when leaving Miuix
                 // for the Expressive/MD style (which uses a plain translucent surface) drop
                 // the now-dead glass flags so the Expressive bar does not carry stale state.

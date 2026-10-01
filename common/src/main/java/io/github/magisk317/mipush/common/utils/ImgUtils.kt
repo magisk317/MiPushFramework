@@ -70,8 +70,43 @@ object ImgUtils {
         }
     }
 
+    /**
+     * True when every opaque pixel shares the same RGB color (within a small tolerance), e.g.
+     * ANIP-style white silhouettes whose anti-aliasing fades via alpha only. Such bitmaps are
+     * already in the target single-color/transparent format and must bypass the threshold
+     * rework: a pure white icon has every pixel classified as background, erasing the whole
+     * image (root cause of the 2026-09-25 notification outage). Status-bar tinting only cares
+     * about alpha, so a uniform color passes through unchanged.
+     */
+    private fun isMonochromeSilhouette(bitmap: Bitmap): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) return false
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        var baseR = -1
+        var baseG = -1
+        var baseB = -1
+        for (dot in pixels) {
+            if (Color.alpha(dot) == 0) continue
+            val r = (dot and 0x00FF0000) shr 16
+            val g = (dot and 0x0000FF00) shr 8
+            val b = dot and 0x000000FF
+            if (baseR < 0) {
+                baseR = r; baseG = g; baseB = b
+                continue
+            }
+            if (Math.abs(r - baseR) > 8 || Math.abs(g - baseG) > 8 || Math.abs(b - baseB) > 8) {
+                return false
+            }
+        }
+        // Fully transparent bitmaps are not silhouettes; let the rework path handle them.
+        return baseR >= 0
+    }
+
     @JvmStatic
     fun convertToTransparentAndWhite(bitmap: Bitmap): Bitmap {
+        if (isMonochromeSilhouette(bitmap)) return bitmap
         val calculateThreshold = calculateThreshold(bitmap)
         val width = bitmap.width
         val height = bitmap.height
@@ -144,6 +179,15 @@ object ImgUtils {
 
         val cropHeight = height - bottomPadding - topPadding
         val cropWidth = width - leftPadding - rightPadding
+
+        // Fully transparent input (e.g. an all-white monochrome icon where every pixel passes the
+        // threshold) makes the paddings exceed the frame and yields non-positive crop sizes, which
+        // would crash createBitmap. Return the untouched source instead of throwing.
+        if (cropWidth <= 0 || cropHeight <= 0) {
+            val fallback = createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            fallback.setPixels(pixels, 0, width, 0, 0, width, height)
+            return fallback
+        }
 
         val padding = (cropHeight + cropWidth) / 16
 
