@@ -5,6 +5,27 @@ import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    configurations.all {
+        resolutionStrategy {
+            // Java 27 bytecode target: AGP 9.4.1 bundles ASM 9.9 (V26 max) and
+            // rejects major 71. ASM 9.10.1 adds V27; force the family here because
+            // this is the classpath AGP actually runs on (project-level forces do
+            // not reach the plugin classpath).
+            force("org.ow2.asm:asm:9.10.1")
+            force("org.ow2.asm:asm-analysis:9.10.1")
+            force("org.ow2.asm:asm-commons:9.10.1")
+            force("org.ow2.asm:asm-tree:9.10.1")
+            force("org.ow2.asm:asm-util:9.10.1")
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -111,11 +132,16 @@ subprojects {
             "detektPlugins"(catalog.detekt.rules.ktlint)
         }
         tasks.withType<DetektCreateBaselineTask>().configureEach {
+            // detekt CLI whitelists JVM targets and 2.0.0-alpha.6 caps at 26, so the
+            // analysis target must not exceed that ceiling even though we emit Java 27
+            // bytecode. Revisit when detekt ships V27 support.
+            jvmTarget.set(minOf(catalog.versions.javaBytecode.get().toInt(), 26).toString())
             if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
         tasks.withType<Detekt>().configureEach {
+            jvmTarget.set(minOf(catalog.versions.javaBytecode.get().toInt(), 26).toString())
             if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
