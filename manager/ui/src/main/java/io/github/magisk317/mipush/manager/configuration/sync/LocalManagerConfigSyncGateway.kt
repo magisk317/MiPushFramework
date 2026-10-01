@@ -43,7 +43,11 @@ class LocalManagerConfigSyncGateway(
             val snapshot = syncRepository.loadRemoteSnapshot(treeUri)
             ManagerConfigListSnapshot(items = snapshot.items, remoteError = snapshot.remoteError)
         } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-            ManagerConfigListSnapshot(items = emptyList(), remoteError = error.message ?: "remote_fetch_failed")
+            val fallbackLocalSnapshot = syncRepository.loadLocalSnapshot(treeUri)
+            ManagerConfigListSnapshot(
+                items = fallbackLocalSnapshot.items,
+                remoteError = error.message ?: "remote_fetch_failed",
+            )
         }
     }
 

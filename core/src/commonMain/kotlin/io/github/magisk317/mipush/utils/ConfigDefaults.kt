@@ -6,10 +6,9 @@ package io.github.magisk317.mipush.utils
  */
 object ConfigDefaults {
     const val REMOTE_REPOSITORY = "gitlab:magisk3171/MiPushConfigurations"
-    const val REMOTE_BRANCH = "dev"
+    const val REMOTE_BRANCH = "beta"
     const val REMOTE_ACCELERATOR = ""
 
-    const val ICON_REMOTE_REPOSITORY = "fankes/AndroidNotifyIconAdapt"
-    const val ICON_REMOTE_BRANCH = "main"
-    const val ICON_REMOTE_ACCELERATOR = ""
+    /** ANIP (Android Notification Icon Project) repository used by the bundled icon engine. */
+    const val ICON_REMOTE_REPOSITORY = "BetterAndroid/android-notification-icon-project"
 }

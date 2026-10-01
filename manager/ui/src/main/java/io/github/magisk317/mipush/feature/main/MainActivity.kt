@@ -8,15 +8,11 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxSize
-
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.AppTextButton
 import androidx.compose.ui.res.stringResource
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +30,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.feature.navigation.*
-
 import io.github.magisk317.mipush.feature.main.MainActivityUtils
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.ui.theme.*
@@ -56,6 +51,9 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 
 private var placeholder by mutableStateOf("Search...")
 
@@ -73,11 +71,11 @@ open class MainActivity : ComponentActivity() {
     private val settingsManager: SettingsManager by inject()
     private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
-    private var legacyModuleInstalled by mutableStateOf(false)
+    private var incompatibleModules by mutableStateOf<List<String>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        legacyModuleInstalled = LegacyModuleDetector.isInstalled(packageManager)
+        incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
         applyEdgeToEdge(this)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         mainActivityUtils.initOnCreate(
@@ -178,7 +176,7 @@ open class MainActivity : ComponentActivity() {
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val runtimeWarning = runtimeAvailability.requiresRuntimeWarning()
-                    val managerWarning = legacyModuleInstalled
+                    val managerWarning = incompatibleModules.isNotEmpty()
                     val commitMismatch = runtimeAvailability.runtimeCommitMismatch(
                         moduleCommit = CommonBuildConfig.GIT_COMMIT,
                     )
@@ -217,6 +215,7 @@ open class MainActivity : ComponentActivity() {
 
                         managerWarning && !managerWarningDismissed -> {
                             LegacyModuleWarningDialog(
+                                packageNames = incompatibleModules,
                                 onDismiss = { managerWarningDismissed = true },
                             )
                         }
@@ -238,7 +237,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        legacyModuleInstalled = LegacyModuleDetector.isInstalled(packageManager)
+        incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
     }
 
     override fun onDestroy() {
@@ -256,10 +255,10 @@ private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.runtime_missing_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
-            Text(text = stringResource(R.string.runtime_missing_dialog_message), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = appColor(AppColorRole.OnSurface))
         },
         confirmButton = {
             AppTextButton(
@@ -282,16 +281,16 @@ private fun RuntimeCommitMismatchDialog(
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
-            Text(
+            AppText(
                 text = stringResource(
                     R.string.runtime_commit_mismatch_dialog_message,
                     mismatch.moduleCommit,
                     mismatch.runtimeCommit,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = appColor(AppColorRole.OnSurface),
             )
         },
         confirmButton = {
@@ -304,7 +303,10 @@ private fun RuntimeCommitMismatchDialog(
 }
 
 @Composable
-private fun LegacyModuleWarningDialog(onDismiss: () -> Unit) {
+private fun LegacyModuleWarningDialog(
+    packageNames: List<String>,
+    onDismiss: () -> Unit,
+) {
     AppAlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -312,10 +314,16 @@ private fun LegacyModuleWarningDialog(onDismiss: () -> Unit) {
             dismissOnClickOutside = true,
         ),
         title = {
-            Text(text = stringResource(R.string.legacy_module_dialog_title), color = MaterialTheme.colorScheme.onSurface)
+            AppText(text = stringResource(R.string.legacy_module_dialog_title), color = appColor(AppColorRole.OnSurface))
         },
         text = {
-            Text(text = stringResource(R.string.legacy_module_dialog_message), color = MaterialTheme.colorScheme.onSurface)
+            AppText(
+                text = stringResource(
+                    R.string.legacy_module_dialog_message,
+                    packageNames.joinToString(", "),
+                ),
+                color = appColor(AppColorRole.OnSurface),
+            )
         },
         confirmButton = {
             AppTextButton(

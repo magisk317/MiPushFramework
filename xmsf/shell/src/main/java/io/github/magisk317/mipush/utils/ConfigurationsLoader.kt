@@ -37,7 +37,38 @@ class ConfigurationsLoader private constructor(
     @Volatile private var mDocumentFile: DocumentFile? = null
     @Volatile private var mLastLoadTime: Long = 0
 
+    /**
+     * The live configuration table.
+     *
+     * Read paths take the value and use it immediately, which is safe because every mutation
+     * replaces [packageConfigs] by reference (copy-on-write). Write paths that must be able to roll
+     * back to an exact previous state use [snapshotConfigs] instead of copying this reference.
+     */
     fun getConfigs(): MutableMap<String, MutableList<Any>> = packageConfigs
+
+    /**
+     * Deep copy of the live table, taken under [lock].
+     *
+     * The copy is independent: mutating it never affects the live state, and a later
+     * [replaceConfigs] does not retroactively change what was copied.
+     */
+    fun snapshotConfigs(): MutableMap<String, MutableList<Any>> = synchronized(lock) {
+        packageConfigs.mapValuesTo(mutableMapOf()) { (_, value) -> value.toMutableList() }
+    }
+
+    /**
+     * Replaces the live table by reference, under [lock].
+     *
+     * This is the only sanctioned way to roll a failed write back. It keeps the copy-on-write
+     * contract that [init] and [load] already follow, so a concurrent reader either sees the whole
+     * old table or the whole new one -- never a half-applied one, which is what an in-place
+     * `clear()` + `putAll()` on the live map would expose.
+     */
+    fun replaceConfigs(next: Map<String, MutableList<Any>>) {
+        synchronized(lock) {
+            packageConfigs = HashMap(next)
+        }
+    }
 
     fun init(context: Context?, treeUri: Uri?, configurations: Configurations): Boolean {
         synchronized(lock) {

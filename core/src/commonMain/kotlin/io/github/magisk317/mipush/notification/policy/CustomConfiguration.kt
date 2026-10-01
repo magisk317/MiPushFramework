@@ -26,8 +26,6 @@ class CustomConfiguration(extra: Map<String, String>?) {
         private const val CHANNEL_NAME = "channel_name"
         private const val CHANNEL_DESCRIPTION = "channel_description"
         private const val SOUND_URL = "sound_url"
-        private const val JOBKEY = "jobkey"
-        private const val USE_CLICKED_ACTIVITY = "use_clicked_activity"
         private const val NOTIFICATION_GROUP = "notification_group"
         private const val NOTIFICATION_BIGPIC_URI = "notification_bigPic_uri"
         private const val FOCUS_PARAM = "miui.focus.param"
@@ -77,10 +75,6 @@ class CustomConfiguration(extra: Map<String, String>?) {
     fun channelDescription(defaultValue: String?): String? = get(CHANNEL_DESCRIPTION, defaultValue)
 
     fun soundUrl(defaultValue: String?): String? = get(SOUND_URL, defaultValue)
-
-    fun jobkey(defaultValue: String?): String? = get(JOBKEY, defaultValue)
-
-    fun useClickedActivity(defaultValue: Boolean): Boolean = get(USE_CLICKED_ACTIVITY, defaultValue)
 
     fun notificationGroup(defaultValue: String?): String? = get(NOTIFICATION_GROUP, defaultValue)
 
