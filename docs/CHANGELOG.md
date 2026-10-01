@@ -3,6 +3,20 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.5] - 2026-10-01
+- 版本：`versionCode 16` / `versionName 1.0.5`。
+- `[icon]` 通知图标引擎迁移 ANIP，新增图标库与分类浏览。
+- `[ui]` 共享页面全面收敛至双轨 UI 套件。
+- `[config]` 统一远程配置源，写入失败回滚并防覆盖。
+- `[xmsf]` 通知管线加固，运行日志并入管理端日志包。
+- `[build]` 工具链升级 Kotlin 2.5.0-Beta1、Gradle 9.8.0、字节码 27。
+- `[ci]` 新增双轨契约门控，对齐共享流水线与发布一致性校验。
+- `[deps]` 刷新依赖并同步共享版本目录。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.4...v1.0.5
+
+---
+
 ## [v1.0.4] - 2026-09-22
 - 版本：`versionCode 15` / `versionName 1.0.4`。
 - `[overview]` 管理端首页新增连接状态卡片。

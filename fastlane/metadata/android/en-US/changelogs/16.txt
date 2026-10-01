@@ -1,0 +1,4 @@
+- Notification icon engine migrated to ANIP with a browsable icon library.
+- Shared screens converged on the dual-track ui-kit components.
+- Remote configuration unified with failure rollback and overwrite guards.
+- Kotlin 2.5.0-Beta1, Gradle 9.8.0 GA, Java 27 bytecode.
