@@ -207,7 +207,7 @@ android:check:
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.98.1-trixie"
+  image: "rust:1.99.0-trixie"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
