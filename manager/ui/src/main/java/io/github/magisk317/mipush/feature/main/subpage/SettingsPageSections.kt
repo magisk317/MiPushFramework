@@ -432,18 +432,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
 
     val debugModeTitle = stringResource(R.string.settings_debug_mode)
     val analyticsTitle = stringResource(R.string.settings_enable_analytics)
-    if (!BuildConfig.DEBUG) {
-        SettingsSwitchItem(
-            title = analyticsTitle,
-            summary = stringResource(R.string.settings_enable_analytics_summary),
-            checked = analyticsEnabled,
-        ) { enabled ->
-            viewModel.setAnalyticsEnabled(enabled) { success ->
-                if (success) notifyPrefChanged(context)
-                showSwitchFeedback(analyticsTitle, enabled, success)
-            }
-        }
-    }
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(
             shareLogTitle = stringResource(R.string.settings_get_log),
@@ -461,6 +449,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         ),
         state = RuntimeLogDiagnosticsState(
             verboseLogEnabled = debugMode,
+            analyticsEnabled = analyticsEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::saveRuntimeLogBundle,
@@ -474,6 +463,14 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
+            onAnalyticsEnabledChange = if (!BuildConfig.DEBUG) {
+                { enabled ->
+                    viewModel.setAnalyticsEnabled(enabled) { success ->
+                        if (success) notifyPrefChanged(context)
+                        showSwitchFeedback(analyticsTitle, enabled, success)
+                    }
+                }
+            } else null,
         ),
         layout = RuntimeLogDiagnosticsLayout(
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
@@ -482,6 +479,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
                 RuntimeLogDiagnosticsItem.VERBOSE_LOG,
                 RuntimeLogDiagnosticsItem.RETENTION,
                 RuntimeLogDiagnosticsItem.CLEAR_LOG,
+                RuntimeLogDiagnosticsItem.ANALYTICS,
             ),
         ),
     )
