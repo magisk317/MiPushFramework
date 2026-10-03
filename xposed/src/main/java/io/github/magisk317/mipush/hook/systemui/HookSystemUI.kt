@@ -122,6 +122,29 @@ class HookSystemUI : BaseHook() {
                             // tint to the original notification icon.
                             return notification.smallIcon
                         }
+                        // [决策] 聚合/破损图标替换受单色开关门控:单色用图标包(单色)替换,
+                        // 彩色用应用自身彩色图标替换(图标包不参与)。
+                        fun colorfulFallback(): Icon? {
+                            StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                context = context,
+                                packageName = owner,
+                            )?.let {
+                                XLog.d(TAG, "status bar icon source=app-icon(color) owner=$owner")
+                                return it
+                            }
+                            if (owner != sbn.packageName) {
+                                StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                    context = context,
+                                    packageName = sbn.packageName,
+                                )?.let {
+                                    XLog.d(TAG, "status bar icon source=app-icon(color) pkg=${sbn.packageName}")
+                                    return it
+                                }
+                            }
+                            return notification.smallIcon
+                        }
+                        fun brokenResourceFallback(): Icon? =
+                            if (options.colorStatusBarIcon) colorfulFallback() else monochromeFallback()
                         // AUTOGROUP/system summaries: resId=0 white-block, or android
                         // ic_notification_summary_auto generic glyph (Alipay aggregate case).
                         if (SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
@@ -131,7 +154,7 @@ class HookSystemUI : BaseHook() {
                                 notificationFlags = notification.flags,
                             )
                         ) {
-                            val fallback = monochromeFallback()
+                            val fallback = brokenResourceFallback()
                             if (fallback != null) {
                                 result = fallback
                                 return@doBefore
@@ -364,9 +387,10 @@ class HookSystemUI : BaseHook() {
      * the already-validated transparent MiPush smallIcon for the status bar descriptor.
      *
      * Synthetic AUTOGROUP_SUMMARY records are different: their framework smallIcon is a generic
-     * two-block glyph (for example android:0x010805c7), not a real app status icon. Resolve those
-     * through the icon-pack first and use the owning package icon as a last resort in both visual
-     * modes. Ordinary application group summaries never enter this branch.
+     * two-block glyph (for example android:0x010805c7), not a real app status icon. The
+     * replacement is gated by the monochrome switch: monochrome mode resolves through the
+     * icon-pack first; color mode uses the owning package's colorful icon. The Android logo is
+     * the last resort in both modes. Ordinary application group summaries never enter this branch.
      */
     private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
         runCatching {
@@ -414,14 +438,30 @@ class HookSystemUI : BaseHook() {
                                 }
                             }
                             if (isFrameworkAutogroupSummary) {
-                                val summaryIcon = iconPackIcon(allowWhenNotGlobal = true)
-                                    ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                // [决策] 聚合通知替换受单色开关门控:单色用图标包,彩色用应用
+                                // 彩色图标;Android 机器人 logo 是两种模式共用的最后兜底。
+                                val summaryIcon = if (options.colorStatusBarIcon) {
+                                    StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                        context = systemUiContext,
+                                        packageName = owner,
+                                    ) ?: (if (owner != sbn.packageName) {
+                                        StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                            context = systemUiContext,
+                                            packageName = sbn.packageName,
+                                        )
+                                    } else {
+                                        null
+                                    }) ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                } else {
+                                    iconPackIcon(allowWhenNotGlobal = true)
+                                        ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                }
                                 if (summaryIcon != null) {
                                     setHookObjectField(descriptor, "icon", summaryIcon)
                                     XLog.d(
                                         TAG,
-                                        "status bar icon source=autogroup-android-logo owner=$owner " +
-                                            "iconPack=${iconPackIcon(allowWhenNotGlobal = true) != null}",
+                                        "status bar icon source=autogroup owner=$owner " +
+                                            "color=${options.colorStatusBarIcon}",
                                     )
                                     return@runCatching
                                 }
@@ -478,9 +518,23 @@ class HookSystemUI : BaseHook() {
                 packageName = packageName,
                 userId = userId,
             )
-        var icon = iconPackIcon(owner)
-        if (icon == null && owner != sbn.packageName) {
-            icon = iconPackIcon(sbn.packageName)
+        // [决策] 聚合通知替换受单色开关门控:单色用图标包,彩色用应用彩色图标。
+        fun colorfulAppIcon(packageName: String): Icon? =
+            StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                context = context,
+                packageName = packageName,
+            )
+        var icon: Icon? = null
+        if (options.colorStatusBarIcon) {
+            icon = colorfulAppIcon(owner)
+            if (icon == null && owner != sbn.packageName) {
+                icon = colorfulAppIcon(sbn.packageName)
+            }
+        } else {
+            icon = iconPackIcon(owner)
+            if (icon == null && owner != sbn.packageName) {
+                icon = iconPackIcon(sbn.packageName)
+            }
         }
         if (icon == null) {
             icon = StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
