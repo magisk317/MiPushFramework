@@ -698,9 +698,10 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         colorStatusBarIcon: Boolean,
     ): Int {
-        // Monochrome mode must not post multi-color brand BITMAP/RESOURCE logos as smallIcon.
-        // HyperOS SRC_IN cannot desaturate multi-color pixels. Prefer a white-alpha silhouette
-        // BITMAP from IconCache/raw app icon; the Material bell is last-resort only.
+        // Monochrome mode: the ANIP icon-pack bitmap (already single-color) is applied as-is;
+        // when the pack has no entry the app's original smallIcon is kept and the system
+        // monochrome tint handles the status bar. [旧单色处理] The white-alpha silhouette
+        // pipeline (HyperOS SRC_IN cannot desaturate multi-color pixels) is retired below.
         val color = if (colorStatusBarIcon) {
             processIcon(context, packageName, notificationBuilder)
         } else {
@@ -796,9 +797,10 @@ object NotificationController {
     }
 
     /**
-     * Build a monochrome-friendly small icon without using config/cache BITMAP brand artwork.
-     * Returns the brand color only for callers that still want it when color mode is on; monochrome
-     * callers discard it via [applyStatusBarIcon].
+     * Monochrome mode: apply the (already single-color) ANIP icon-pack bitmap as-is; when the
+     * pack has no entry, keep the app's original small icon and let the system monochrome tint
+     * handle the status bar. Returns the brand color; monochrome callers discard it via
+     * [applyStatusBarIcon].
      */
     private fun processMonochromeStatusBarIcon(
         context: Context,
@@ -811,8 +813,7 @@ object NotificationController {
             packageName,
             Context.CONTEXT_IGNORE_SECURITY,
         )
-        // Shade avatars stay on largeIcon. Status-bar smallIcon must already be monochrome pixels:
-        // multi-color launcher RESOURCE logos stay full-color on HyperOS even with SRC_IN tint.
+        // Shade avatars stay on largeIcon.
         if (pkgContext !== context) {
             val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
             if (largeIconId > 0) {
@@ -822,47 +823,65 @@ object NotificationController {
             }
         }
         // --- ANIP / configured icon takes top priority in monochrome mode ---
-        // The ANIP SDK provides clean, properly-sized monochrome icons that
-        // render perfectly in the status bar.  Without this check the method
-        // falls through to IconCache which may return the app's launcher icon
-        // (e.g. Alipay with its AI badge, or a tiny Zhihu logo).
+        // The ANIP icon library is single-color by design, so the bitmap is applied as-is:
+        // 打开单色 = 使用图标包,不再做二次单色加工。
         val iconConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
         val configuredBitmap = iconConfig?.bitmap()
         if (iconConfig?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
-            // ANIP monochrome icons are often pure white; the transparent-and-white rework may
-            // classify every pixel as background. If the rework cannot produce a usable silhouette,
-            // fall back to the original bitmap — icon processing must never break notification
-            // publishing.
-            val monoBitmap = runCatching { ImgUtils.convertToTransparentAndWhite(configuredBitmap) }
-                .onFailure {
-                    Logger.withTag(TAG).w(it) {
-                        "processMonochromeStatusBarIcon: ANIP rework failed for $packageName, using raw bitmap"
-                    }
-                }
-                .getOrNull()
-                ?.takeIf { it.width > 0 && it.height > 0 }
-                ?: configuredBitmap
-            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(monoBitmap))
+            // [旧单色处理,已停用保留] The transparent-and-white rework dates from the colorful
+            // icon-pack era; ANIP bitmaps are already monochrome and must not be reworked.
+            // val monoBitmap = runCatching { ImgUtils.convertToTransparentAndWhite(configuredBitmap) }
+            //     .onFailure {
+            //         Logger.withTag(TAG).w(it) {
+            //             "processMonochromeStatusBarIcon: ANIP rework failed for $packageName, using raw bitmap"
+            //         }
+            //     }
+            //     .getOrNull()
+            //     ?.takeIf { it.width > 0 && it.height > 0 }
+            //     ?: configuredBitmap
+            // notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(monoBitmap))
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(configuredBitmap))
             logI("processMonochromeStatusBarIcon: applied ANIP/configured icon for $packageName")
             return color
         }
+        // [旧单色处理,已停用保留] White-alpha silhouettes from the launcher icon date from the
+        // colorful icon-pack era. 单色模式下图标包未收录时不再生成白色剪影,保留应用原始
+        // smallIcon 交给系统单色 tint 着色。
         // Prefer package white-alpha silhouette. Never seed Material bell first — that seed became
         // the status-bar icon for WeWork/xinyi when IconCache missed.
-        val whiteStatusBarIcon = Global.iconCache().getIconCache(
-            context,
-            packageName,
-            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
-                override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
-            },
-        )
-        if (whiteStatusBarIcon != null) {
-            notificationBuilder.setSmallIcon(whiteStatusBarIcon)
-            return color
+        // val whiteStatusBarIcon = Global.iconCache().getIconCache(
+        //     context,
+        //     packageName,
+        //     object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
+        //         override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
+        //     },
+        // )
+        // if (whiteStatusBarIcon != null) {
+        //     notificationBuilder.setSmallIcon(whiteStatusBarIcon)
+        //     return color
+        // }
+        // val rawIcon = Global.iconCache().getRawIconBitmap(context, packageName)
+        // if (rawIcon != null) {
+        //     val white = ImgUtils.convertToTransparentAndWhite(rawIcon)
+        //     notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(white))
+        //     return color
+        // }
+        // Icon pack miss: keep the app's original small icon (mipush resources / launcher icon,
+        // unconverted) so SystemUI applies its own monochrome tint.
+        if (pkgContext !== context) {
+            val smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON)
+            if (smallIconId > 0) {
+                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId))
+                return color
+            }
+            val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
+            if (largeIconId > 0) {
+                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId))
+                return color
+            }
         }
-        val rawIcon = Global.iconCache().getRawIconBitmap(context, packageName)
-        if (rawIcon != null) {
-            val white = ImgUtils.convertToTransparentAndWhite(rawIcon)
-            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(white))
+        Global.iconCache().getRawIconBitmap(context, packageName)?.let { originalIcon ->
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(originalIcon))
             return color
         }
         // Absolute last resort only (package icon unavailable).

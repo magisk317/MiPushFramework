@@ -198,9 +198,9 @@ class MiPushIslandHook : BaseHook() {
         notification: Notification,
         extras: Bundle,
     ): Icon {
-        // Monochrome mode must not feed multi-color TYPE_BITMAP logos into the island proxy
-        // smallIcon. Prefer an already-white silhouette BITMAP or convert the app logo to white
-        // alpha so SystemUI monochrome SRC_IN tint stays single-color.
+        // Monochrome mode: keep the notification's own smallIcon (the ANIP icon pack is already
+        // single-color; misses keep the original glyph) and let the SystemUI monochrome tint
+        // handle it. [旧单色处理] launcher-to-white conversion is retired in monochromeStatusBarIcon.
         if (!IslandPreferences.current().colorStatusBarIcon) {
             monochromeStatusBarIcon(context, packageName, notification)?.let { return it }
         }
@@ -229,16 +229,15 @@ class MiPushIslandHook : BaseHook() {
         notification: Notification,
     ): Icon? {
         val smallIcon = notification.smallIcon
-        // MiPush monochrome posts already convert app logos to white-alpha BITMAP silhouettes.
-        if (smallIcon != null && smallIcon.type == Icon.TYPE_BITMAP) {
-            return smallIcon
-        }
-        return runCatching {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            val raw = ImgUtils.drawableToBitmap(drawable)
-            val white = ImgUtils.convertToTransparentAndWhite(raw)
-            Icon.createWithBitmap(white)
-        }.getOrNull() ?: smallIcon
+        // [决策] ANIP 接入后图标包本身已是单色;未收录时保留原 smallIcon 交给系统 tint,
+        // 不再把启动图标转白。
+        // return runCatching {
+        //     val drawable = context.packageManager.getApplicationIcon(packageName)
+        //     val raw = ImgUtils.drawableToBitmap(drawable)
+        //     val white = ImgUtils.convertToTransparentAndWhite(raw)
+        //     Icon.createWithBitmap(white)
+        // }.getOrNull() ?: smallIcon
+        return smallIcon
     }
 
     private fun extractLargeIcon(notification: Notification, extras: Bundle): Icon? {
