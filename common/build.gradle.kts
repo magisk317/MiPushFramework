@@ -108,7 +108,6 @@ android {
 
 dependencies {
     api(project(":core"))
-    implementation(project(":diagnostics"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)
     implementation(libs.androidx.annotation)

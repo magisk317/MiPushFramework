@@ -20,11 +20,11 @@ import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
-import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.xposed.diagnostics.DiagnosticArchive
 import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
 import io.github.magisk317.xposed.diagnostics.DiagnosticShell
 

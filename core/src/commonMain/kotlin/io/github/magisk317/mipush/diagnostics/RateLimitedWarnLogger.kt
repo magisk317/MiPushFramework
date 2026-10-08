@@ -1,11 +1,12 @@
 package io.github.magisk317.mipush.diagnostics
+import io.github.magisk317.mipush.time.platformCurrentTimeMillis
 
 /**
  * Compatibility facade delegating to the platform-neutral [RateLimitedWarnLoggerPolicy].
  * Kept for source compatibility with existing callers.
  */
 object RateLimitedWarnLogger {
-    private val policy = RateLimitedWarnLoggerPolicy { System.currentTimeMillis() }
+    private val policy = RateLimitedWarnLoggerPolicy { platformCurrentTimeMillis() }
 
     fun warn(
         logTag: String,
@@ -15,12 +16,12 @@ object RateLimitedWarnLogger {
         windowMs: Long = 30_000L
     ) = policy.warn(logTag, key, message, throwable, windowMs)
 
-    internal fun resetForTest(nowProvider: () -> Long = { System.currentTimeMillis() }) {
+    internal fun resetForTest(nowProvider: () -> Long = { platformCurrentTimeMillis() }) {
         policy.reset()
     }
 
     internal class RateLimitGate(
-        private val nowProvider: () -> Long = { System.currentTimeMillis() }
+        private val nowProvider: () -> Long = { platformCurrentTimeMillis() }
     ) {
         private val delegate = RateLimitedWarnLoggerPolicy.RateLimitGate(nowProvider)
 

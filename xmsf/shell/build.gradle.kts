@@ -87,7 +87,6 @@ dependencies {
     implementation(project(":manager:port"))
     implementation(project(":manager:application"))
     implementation(project(":magisk-xposed-kit:diagnostics"))
-    implementation(project(":diagnostics"))
     implementation(project(":core"))
     implementation(project(":settings"))
     implementation(project(":common"))

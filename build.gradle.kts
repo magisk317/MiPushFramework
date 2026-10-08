@@ -75,7 +75,7 @@ val gitVersionCode = providers.gradleProperty("versionCode")
 val gitCommit = providers.exec {
     commandLine("git", "rev-parse", "--short", "HEAD")
     isIgnoreExitValue = true
-}.standardOutput.asText.map { it.trim() }.orElse("unknown")
+}.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }.orElse("unknown")
 
 extra["gitVersionCode"] = gitVersionCode
 extra["gitVersionName"] = versionNameProvider
@@ -87,7 +87,6 @@ val detektBlockingProjects = setOf(
     ":xmsf",
     ":common",
     ":core",
-    ":diagnostics",
     ":magisk-ui-kit",
     ":magisk-xposed-kit",
     ":magisk-xposed-kit:diagnostics",
