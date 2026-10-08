@@ -17,6 +17,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
 import java.util.TreeMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 object MIPushAccountUtils {
     const val MIPUSH_MIUI_APPID = "1000271"
@@ -39,6 +40,21 @@ object MIPushAccountUtils {
 
     private var accountChangeListener: PushAccountChangeListener? = null
     private var account: MIPushAccount? = null
+
+    /**
+     * Set when [register] reported a register error upstream (server-side code != 0) just
+     * before returning null, so the caller can tell "registration failed and was already
+     * reported" apart from "no account could be produced at all". Consumed once by
+     * [MIPushAppRegisterJob]: a failed account registration must not also emit the generic
+     * "no account" (70000002) error, otherwise one root cause is counted twice.
+     *
+     * Reset at the entry of every [register] call. The consume is intentionally racy-tolerant:
+     * in the worst case (concurrent registration on another thread) one generic error is
+     * emitted or skipped, which is acceptable for telemetry hygiene.
+     */
+    private val reportedRegisterError = AtomicBoolean(false)
+
+    internal fun consumeReportedRegisterError(): Boolean = reportedRegisterError.getAndSet(false)
 
     @JvmStatic
     fun clearAccount(context: Context) {
@@ -139,6 +155,7 @@ object MIPushAccountUtils {
         observer: IPushRuntimeObserver
     ): MIPushAccount? {
         synchronized(MIPushAccountUtils::class.java) {
+            reportedRegisterError.set(false)
             val params = TreeMap<String, String>()
             val deviceId = DeviceInfo.getDeviceId(context, false)
             MyLog.w("account register:$deviceId mim:${MsaIdManager.getInstance(context).toShortString()}")
@@ -209,6 +226,7 @@ object MIPushAccountUtils {
             val code = responseJson["code"]?.jsonPrimitive?.intOrNull ?: -1
             if (code != 0) {
                 val description = responseJson["description"]?.jsonPrimitive?.content.orEmpty()
+                reportedRegisterError.set(true)
                 MIPushClientManager.notifyRegisterError(
                     context,
                     code,

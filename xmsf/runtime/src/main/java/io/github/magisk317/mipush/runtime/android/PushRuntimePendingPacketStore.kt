@@ -229,6 +229,7 @@ object PushRuntimePendingPacketStore {
             "process" to "main",
             "stage" to "notify_error",
             "reason" to if (hasPendingWork) "register_error" else "register_error_no_pending",
+            "error_code" to errorCode.toString(),
             "pending_count" to notified.toString(),
         )
         if (hasPendingWork && queued.size == 1) {

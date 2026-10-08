@@ -24,10 +24,18 @@ class MIPushAppRegisterJob(
             )
         }
         if (account == null) {
-            MyLog.e("no account for mipush")
-            pushService.runtimeObserver.onAccountEvent(packageName, "account_missing")
-            pushService.runtimeObserver.onRegistrationResult(packageName, false, "MIPushAppRegisterJob.process", "no_account")
-            MIPushClientManager.notifyRegisterError(pushService, 70000002, "no account")
+            if (MIPushAccountUtils.consumeReportedRegisterError()) {
+                // The account registration just failed with a server-side code and already
+                // reported that register error upstream (it drained the pending queue and
+                // emitted push.register with the real code). Emitting 70000002 here would
+                // count one root cause twice, so stay quiet.
+                MyLog.w("[MIPushAppRegisterJob] account registration already reported the error; skip duplicate no-account error")
+            } else {
+                MyLog.e("no account for mipush")
+                pushService.runtimeObserver.onAccountEvent(packageName, "account_missing")
+                pushService.runtimeObserver.onRegistrationResult(packageName, false, "MIPushAppRegisterJob.process", "no_account")
+                MIPushClientManager.notifyRegisterError(pushService, 70000002, "no account")
+            }
             return
         }
         pushService.runtimeObserver.onAccountEvent(packageName, "account_ready")
