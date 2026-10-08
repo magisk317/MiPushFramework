@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
 
 object ModuleCompatRegistry {
@@ -14,6 +15,21 @@ object ModuleCompatRegistry {
         HookPipelineId.UMENG_PUSH,
         HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
     )
+
+    /**
+     * Packages that *are* the MiPush runtime instead of apps integrating the MiPush SDK.
+     *
+     * They ship `com.xiaomi.push.service.XMPushService` themselves, so the auto-detection below
+     * flags them as "integrates MiPush" and arms every third-party vendor pipeline. Faking
+     * Huawei/vivo/oppo/meizu/jpush/agoo/umeng availability inside the push runtime is pointless
+     * and actively harmful: each vendor pipeline used to install its own global
+     * `ClassLoader.loadClass` probe, and the second install landed inside the start-up
+     * class-loading burst, wedging the process until AMS killed it with
+     * "timeout publishing content providers" (reported as "检测不到 xmsf 运行时").
+     */
+    private val pushRuntimeHosts = setOf(XMSF_PACKAGE_NAME)
+
+    private val pushRuntimePipelines = listOf(HookPipelineId.COMMON)
 
     private val autoForceRegisterCandidates = setOf(
         "com.xiaomi.mipush.sdk.MiPushClient",
@@ -70,6 +86,13 @@ object ModuleCompatRegistry {
             runCatching { classLoader.loadClass(className) }.isSuccess
         }
         if (!hasMiPushSdk) return null
+        if (packageName in pushRuntimeHosts) {
+            return ModuleCompatProfile(
+                packageName = packageName,
+                hookPipelines = pushRuntimePipelines,
+                isAutoDetected = true,
+            )
+        }
         return ModuleCompatProfile(
             packageName = packageName,
             hookPipelines = autoAggressivePipelines,
