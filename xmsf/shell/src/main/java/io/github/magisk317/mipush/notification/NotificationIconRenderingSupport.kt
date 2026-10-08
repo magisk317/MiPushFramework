@@ -66,15 +66,17 @@ internal object NotificationIconRenderingSupport {
         }
         notificationBuilder.setColor(color)
 
-        val iconConfig = Global.iconConfigurations().get(packageName)
-        if (iconConfig != null && iconConfig.isEnabled == true && iconConfig.isEnabledAll == true) {
-            iconConfig.bitmap()?.let {
-                notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(it))
-                color = iconConfig.color()
-                notificationBuilder.setColor(color)
-                return color
-            }
-        }
+        // [旧逻辑,已停用保留] 彩色模式不再使用图标包(ANIP):关闭单色 = 不使用图标包,
+        // 走系统原有逻辑(应用自身 mipush 资源/启动图标)。
+        // val iconConfig = Global.iconConfigurations().get(packageName)
+        // if (iconConfig != null && iconConfig.isEnabled == true && iconConfig.isEnabledAll == true) {
+        //     iconConfig.bitmap()?.let {
+        //         notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(it))
+        //         color = iconConfig.color()
+        //         notificationBuilder.setColor(color)
+        //         return color
+        //     }
+        // }
         if (smallIconId > 0) {
             notificationBuilder.setSmallIcon(IconCompat.createWithResource(packageContext, smallIconId))
             return color
@@ -83,23 +85,24 @@ internal object NotificationIconRenderingSupport {
             notificationBuilder.setSmallIcon(IconCompat.createWithResource(packageContext, largeIconId))
             return color
         }
-        val configuredBitmap = iconConfig?.bitmap()
-        if (configuredBitmap != null && iconConfig.isEnabled == true) {
-            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(configuredBitmap))
-            color = iconConfig.color()
-            notificationBuilder.setColor(color)
-            return color
-        }
-        Global.iconCache().getIconCache(
-            context,
-            packageName,
-            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
-                override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
-            },
-        )?.let {
-            notificationBuilder.setSmallIcon(it)
-            return color
-        }
+        // val configuredBitmap = iconConfig?.bitmap()
+        // if (configuredBitmap != null && iconConfig.isEnabled == true) {
+        //     notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(configuredBitmap))
+        //     color = iconConfig.color()
+        //     notificationBuilder.setColor(color)
+        //     return color
+        // }
+        // [旧单色处理,已停用保留] getIconCache 内部固定做白色剪影转换,彩色模式不得再产出白色图标。
+        // Global.iconCache().getIconCache(
+        //     context,
+        //     packageName,
+        //     object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
+        //         override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
+        //     },
+        // )?.let {
+        //     notificationBuilder.setSmallIcon(it)
+        //     return color
+        // }
         setAppIconSmallIcon(context, packageName, notificationBuilder)
         return color
     }
@@ -108,10 +111,9 @@ internal object NotificationIconRenderingSupport {
      * Inject target app icon into notification extras so that the system UI displays the
      * app's own icon instead of the XMSF hosting-process icon.
      *
-     * On non-MIUI systems (Samsung, AOSP, etc.) where notifications are posted locally as
-     * com.xiaomi.xmsf, the system uses the posting package icon in the notification header.
-     * MIUI-style extras (miui.appIcon / miui.opPkg) and the mSmallIcon field override allow
-     * the correct target-app icon to surface.
+     * MIUI-style extras (miui.appIcon / miui.opPkg) are the header source on MIUI/HyperOS.
+     * Notification.smallIcon is left exactly as posted by the producer (MiPush SDK glyph or
+     * the module-built builder icon): 关闭单色 = 走系统原有逻辑,单色模式同理。
      *
      * Called from [NotificationManagerEx.notifyDetailed] when falling back to local posting,
      * and from [NotificationHookBackend.notify] on the hook path.
@@ -144,34 +146,43 @@ internal object NotificationIconRenderingSupport {
                 return
             }
 
+            // [决策] 关闭单色 = 走系统原有逻辑:smallIcon 保持发布方(MiPush SDK / processIcon)
+            // 设置的应用自身图标,交给系统按自己的逻辑渲染,不再用启动图标反射覆盖 mSmallIcon。
+            // (单色模式本就走此路径:上方 early return 不做注入;默认单色下长期如此。)
+            logD("Kept posted smallIcon (system original) and retained MIUI custom app icon extras")
+
+            // [旧逻辑,已停用保留] 启动图标注入来自 ca884c79f "enforce colorful icon rendering
+            // by injecting small icon and setting targetPkg",是彩色图标包时代的图标强制处理,
+            // 并非系统原有逻辑:它会覆盖应用自身的 mipush 状态栏图标,且启动图标可能带角标
+            // (如支付宝 AI 角标)或尺寸不当(如知乎)。
             // When an ANIP or user-configured icon was already applied as the
             // smallIcon by processIcon / applyIconPackSmallIcon, do NOT
             // overwrite it with the launcher icon (which may carry badges like
             // Alipay's AI corner mark or render at the wrong size like Zhihu).
-            val anipConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
-            val anipBitmap = anipConfig?.bitmap()
-            if (anipConfig?.isEnabled == true && anipBitmap != null && !anipBitmap.isRecycled) {
-                logD("Skipped mSmallIcon injection: ANIP/configured icon already applied for $packageName")
-                return
-            }
-
-            val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-            fieldSmallIcon.isAccessible = true
-
-            val badgedBitmap = createUserBadgedAppIconBitmap(pm, appInfo)
-            if (badgedBitmap != null) {
-                fieldSmallIcon.set(notification, Icon.createWithBitmap(badgedBitmap))
-                logD("Successfully injected mSmallIcon with user-badged app icon")
-                if (!hasLargeIcon(notification)) {
-                    @Suppress("DEPRECATION")
-                    notification.largeIcon = badgedBitmap
-                    notification.extras?.putParcelable(EXTRA_LARGE_ICON, badgedBitmap)
-                    logD("Successfully injected fallback largeIcon with user-badged app icon")
-                }
-            } else {
-                fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
-                logD("Successfully injected mSmallIcon with app launcher icon")
-            }
+            // val anipConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
+            // val anipBitmap = anipConfig?.bitmap()
+            // if (anipConfig?.isEnabled == true && anipBitmap != null && !anipBitmap.isRecycled) {
+            //     logD("Skipped mSmallIcon injection: ANIP/configured icon already applied for $packageName")
+            //     return
+            // }
+            //
+            // val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+            // fieldSmallIcon.isAccessible = true
+            //
+            // val badgedBitmap = createUserBadgedAppIconBitmap(pm, appInfo)
+            // if (badgedBitmap != null) {
+            //     fieldSmallIcon.set(notification, Icon.createWithBitmap(badgedBitmap))
+            //     logD("Successfully injected mSmallIcon with user-badged app icon")
+            //     if (!hasLargeIcon(notification)) {
+            //         @Suppress("DEPRECATION")
+            //         notification.largeIcon = badgedBitmap
+            //         notification.extras?.putParcelable(EXTRA_LARGE_ICON, badgedBitmap)
+            //         logD("Successfully injected fallback largeIcon with user-badged app icon")
+            //     }
+            // } else {
+            //     fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
+            //     logD("Successfully injected mSmallIcon with app launcher icon")
+            // }
         }.onFailure {
             logE("Failed to inject target app icons", it)
         }
