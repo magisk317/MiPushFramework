@@ -7,7 +7,12 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven { url = uri("https://jitpack.io") }
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroupByRegex("com\\.github\\..*")
+            }
+        }
     }
 }
 
@@ -27,7 +32,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroupByRegex("com\\.github\\..*")
+            }
+        }
         maven {
             name = "MagiskMobilePrivate"
             url = uri(
@@ -67,7 +77,41 @@ requireExistingProjectDir("magisk-ui-kit")
 requireExistingProjectDir("magisk-xposed-kit")
 requireExistingProjectDir("vendor")
 requireExistingProjectDir("pinned")
-include(":xmsf:platform", ":xmsf:shell", ":xmsf:notification", ":xmsf:push", ":mipush", ":xposed", ":common", ":core", ":settings", ":configuration", ":diagnostics", ":magisk-ui-kit", ":magisk-ui-kit:billing", ":magisk-xposed-kit", ":magisk-xposed-kit:logging", ":magisk-xposed-kit:diagnostics", ":magisk-xposed-kit:permission", ":vendor", ":pinned", ":manager:contract", ":manager:port", ":manager:application", ":manager:client", ":manager:ui", ":xmsf", ":xmsf:runtime", ":xmsf:runtime:store")
+// Shared submodules first, so the remap block below reads in the same order as
+// xinyi-relay and XposedSmsCode: submodules, then host modules, then paths.
+include(
+    ":magisk-ui-kit",
+    ":magisk-ui-kit:billing",
+    ":magisk-xposed-kit",
+    ":magisk-xposed-kit:logging",
+    ":magisk-xposed-kit:diagnostics",
+    ":magisk-xposed-kit:permission",
+)
+
+include(
+    ":xmsf",
+    ":xmsf:platform",
+    ":xmsf:shell",
+    ":xmsf:notification",
+    ":xmsf:push",
+    ":xmsf:runtime",
+    ":xmsf:runtime:store",
+    ":mipush",
+    ":xposed",
+    ":common",
+    ":core",
+    ":settings",
+    ":configuration",
+    ":vendor",
+    ":pinned",
+    ":manager:contract",
+    ":manager:port",
+    ":manager:application",
+    ":manager:client",
+    ":manager:ui",
+)
+
+// Explicitly remap moved physical paths
 project(":xmsf:runtime").projectDir = file("xmsf/runtime")
 project(":magisk-ui-kit:billing").projectDir = file("magisk-ui-kit/billing")
 project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
