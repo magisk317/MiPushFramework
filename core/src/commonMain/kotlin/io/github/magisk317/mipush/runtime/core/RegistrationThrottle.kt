@@ -1,4 +1,5 @@
 package io.github.magisk317.mipush.runtime.core
+import io.github.magisk317.mipush.time.platformCurrentTimeMillis
 
 /**
  * Compatibility facade delegating to the platform-neutral [RegistrationThrottlePolicy].
@@ -14,7 +15,7 @@ object RegistrationThrottle {
     fun shouldThrottle(
         packageName: String,
         channelBound: Boolean,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = platformCurrentTimeMillis()
     ): Boolean = policy.shouldThrottle(packageName, channelBound, nowMs)
 
     @JvmStatic

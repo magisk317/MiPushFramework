@@ -59,6 +59,9 @@ class CoreModuleImportConstraintPropertyTest {
             "io.github.magisk317.mipush.runtime.core",
             "io.github.magisk317.mipush.diagnostics",
             "io.github.magisk317.mipush.notification",
+            // Core's own platform clock package: commonMain cannot name java.lang.System
+            // under KMP separate compilation, so the wall clock is an expect/actual.
+            "io.github.magisk317.mipush.time",
             // Libraries declared in core/build.gradle.kts
             "co.touchlab.kermit",
         )
