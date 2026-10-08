@@ -33,6 +33,9 @@ import com.xiaomi.push.service.PushConstants
 import java.net.MalformedURLException
 import java.net.URISyntaxException
 import java.net.URL
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 internal object MIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
@@ -388,7 +391,11 @@ internal object MIPushNotificationIntentSupport {
 
     internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
 
-    fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
+    fun getSdkIntent(
+        context: Context,
+        container: XmPushActionContainer,
+        reportAvailability: Boolean = true,
+    ): Intent? {
         val pkgName = container.packageName
         val extra = container.metaInfo.extra ?: return null
         if (!extra.containsKey(PushConstants.EXTRA_PARAM_NOTIFY_EFFECT)) {
@@ -411,11 +418,13 @@ internal object MIPushNotificationIntentSupport {
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        ExplicitHookBridge.onIntentAvailabilityChecked(
-            intent,
-            resolveInfo != null,
-            "MIPushNotificationIntentSupport.getSdkIntent"
-        )
+        if (reportAvailability) {
+            ExplicitHookBridge.onIntentAvailabilityChecked(
+                intent,
+                resolveInfo != null,
+                "MIPushNotificationIntentSupport.getSdkIntent"
+            )
+        }
         val activityInfo = resolveInfo?.activityInfo
         if (activityInfo == null) {
             return null
@@ -578,6 +587,82 @@ internal object MIPushNotificationIntentSupport {
             return metaInfo.url
         }
         return metaInfo.extra?.get(PushConstants.EXTRA_PARAM_WEB_URI)
+    }
+
+    /**
+     * View-time approximation of [buildClickedPendingIntent]'s route decision, for the manager
+     * event-detail debug JSON. It mirrors the publish-time decision order (url → launcher
+     * fallback → sdk activity → bridge activity → xmsf service) but only consults PackageManager
+     * state: no PendingIntent is created and the identity-stamp retry path is not simulated, so
+     * the reported route may differ from the actual click route if app state changed since
+     * publish.
+     */
+    internal fun describeClickResolution(
+        context: Context,
+        container: XmPushActionContainer,
+        targetPackageName: String,
+    ): JsonObject {
+        val metaInfo = container.metaInfo
+        if (metaInfo == null) {
+            return buildJsonObject {
+                put("route", "none")
+                put("reason", "meta_info_missing")
+            }
+        }
+        val urlJump = resolveClickedUrl(metaInfo)
+        if (!TextUtils.isEmpty(urlJump)) {
+            return buildJsonObject {
+                put("route", "url")
+                put("url", urlJump)
+            }
+        }
+        val launcherFallbackEligible = shouldUseLauncherFallback(targetPackageName)
+        if (launcherFallbackEligible && isLauncherResolvable(context, targetPackageName)) {
+            return buildJsonObject {
+                put("route", "launcher_fallback")
+                put("launcherFallbackEligible", true)
+            }
+        }
+        val sdkIntent = getSdkIntent(context, container, reportAvailability = false)
+        if (sdkIntent != null && isClickIntentResolvable(context, sdkIntent)) {
+            return buildJsonObject {
+                put("route", "sdk_activity")
+                put("component", sdkIntent.component?.flattenToShortString() ?: sdkIntent.action)
+                put("launcherFallbackEligible", launcherFallbackEligible)
+            }
+        }
+        val bridgeUsable = container.packageName != null &&
+            ComponentHelper.checkActivity(
+                context,
+                ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS),
+            )
+        if (bridgeUsable) {
+            return buildJsonObject {
+                put("route", "bridge_activity")
+                put("component", BRIDGE_ACTIVITY_CLASS)
+                put("launcherFallbackEligible", launcherFallbackEligible)
+            }
+        }
+        return buildJsonObject {
+            put("route", "xmsf_service")
+            put(
+                "component",
+                if (MIPushNotificationHelper.isBusinessMessage(container)) {
+                    "com.xiaomi.mipush.sdk.PushMessageHandler"
+                } else {
+                    "com.xiaomi.push.sdk.MyPushMessageHandler"
+                },
+            )
+            put("launcherFallbackEligible", launcherFallbackEligible)
+        }
+    }
+
+    private fun isLauncherResolvable(context: Context, packageName: String): Boolean {
+        val launcher = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            `package` = packageName
+        }
+        return context.packageManager.resolveActivity(launcher, 0) != null
     }
 
     private fun getStylePendingIntent(

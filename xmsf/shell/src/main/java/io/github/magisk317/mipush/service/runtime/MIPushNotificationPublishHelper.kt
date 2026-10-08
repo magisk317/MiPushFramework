@@ -66,6 +66,16 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 
 
 class MIPushNotificationPublishHelper {
+
+    /**
+     * Handoff outcome with a stable attribution cause. [cause] is null on success and uses
+     * snake_case tokens that survive the telemetry reason sanitizer unchanged.
+     */
+    internal data class HandoffOutcome(
+        val dispatched: Boolean,
+        val cause: String? = null,
+    )
+
     companion object {
         private const val TAG = "MyNotificationHelper"
 
@@ -177,18 +187,21 @@ class MIPushNotificationPublishHelper {
                 return finish(MockReplayOutcome.FailedAppNotInstalled, "stale_package", container.packageName.orEmpty())
             }
             if (!shouldPublishNotification(container)) {
-                val dispatched = dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId) ||
-                    dispatchMessageArrivedIfNeeded(
+                val handoff = dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
+                    .takeIf { it.dispatched }
+                    ?: dispatchMessageArrivedIfNeeded(
                         context = context,
                         container = container,
                         decryptedContent = decryptedContent,
                         allowNonDisplayNotification = shouldHandoffNonDisplayNotification(container),
                     )
+                val dispatched = handoff.dispatched
                 logD("skip non-display notification publish action=${container.action} pkg=${container.packageName} handedOff=$dispatched")
                 return finish(
                     if (dispatched) MockReplayOutcome.Dispatched else MockReplayOutcome.Failed,
                     if (dispatched) "non_display_dispatched" else "non_display_failed",
                     container.packageName.orEmpty(),
+                    extraAttrs = handoff.cause?.let { mapOf("handoff_cause" to it) } ?: emptyMap(),
                 )
             }
             if (MIPushEventProcessor.shouldCheckProfile(container) &&
@@ -569,8 +582,8 @@ class MIPushNotificationPublishHelper {
             decryptedContent: ByteArray,
             dispatchRequested: Boolean = true,
             allowNonDisplayNotification: Boolean = false,
-        ): Boolean {
-            if (!shouldDispatchMessageArrived(container, dispatchRequested, allowNonDisplayNotification)) return false
+        ): HandoffOutcome {
+            if (!shouldDispatchMessageArrived(container, dispatchRequested, allowNonDisplayNotification)) return HandoffOutcome(false, "not_requested")
 
             if (!allowNonDisplayNotification) {
                 val metaInfo = container.metaInfo
@@ -580,7 +593,7 @@ class MIPushNotificationPublishHelper {
                     // Stock 3.7.9 and 7.4.67-C keep MESSAGE_ARRIVED inside the same display branch as
                     // notify_foreground. When that branch is suppressed, normal app delivery owns it.
                     logD("skip message arrived for foreground target pkg=${container.packageName}")
-                    return false
+                    return HandoffOutcome(false, "foreground_suppressed")
                 }
             }
 
@@ -591,7 +604,7 @@ class MIPushNotificationPublishHelper {
             // receiver and restore the target-owned notification lifecycle.
             if (targetPackage.isBlank()) {
                 logD("skip message arrived because target package is blank")
-                return false
+                return HandoffOutcome(false, "target_package_blank")
             }
             val intent = Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).apply {
                 setPackage(targetPackage)
@@ -600,7 +613,7 @@ class MIPushNotificationPublishHelper {
             return try {
                 if (context.packageManager.queryBroadcastReceivers(intent, 0).isNullOrEmpty()) {
                     logD("skip message arrived because receiver is absent pkg=$targetPackage")
-                    false
+                    HandoffOutcome(false, "receiver_absent")
                 } else {
                     context.sendBroadcast(intent, MIPushHelper.getReceiverPermission(targetPackage))
                     PushRuntime.observeNotificationEvent(
@@ -609,7 +622,7 @@ class MIPushNotificationPublishHelper {
                         source = "MIPushNotificationPublishHelper.dispatchMessageArrivedIfNeeded",
                     )
                     logI("message arrived broadcast sent pkg=$targetPackage")
-                    true
+                    HandoffOutcome(true)
                 }
             } catch (t: Exception) {
                 PushRuntime.observeNotificationEvent(
@@ -618,7 +631,7 @@ class MIPushNotificationPublishHelper {
                     source = "MIPushNotificationPublishHelper.dispatchMessageArrivedIfNeeded",
                 )
                 logE("message arrived broadcast failed pkg=$targetPackage", t)
-                false
+                HandoffOutcome(false, "send_failed")
             }
         }
 
@@ -640,38 +653,41 @@ class MIPushNotificationPublishHelper {
             container: XmPushActionContainer,
             decryptedContent: ByteArray,
             messageId: String?
-        ): Boolean {
+        ): HandoffOutcome {
             if (!shouldDispatchNonDisplayPayload(container)) {
-                return false
+                return HandoffOutcome(false, "policy_not_handoff")
             }
             val packageName = container.packageName
             if (packageName.isNullOrBlank()) {
                 logW("skip non-display payload dispatch because package is blank action=${container.action}")
-                return false
+                return HandoffOutcome(false, "package_blank")
             }
             val action = container.action?.name ?: "Unknown"
             if (!claimNonDisplayDispatch(packageName, action, messageId)) {
                 logD("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
-                return false
+                return HandoffOutcome(false, "duplicate_dispatch")
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
-            val dispatched = XMPushUtils.dispatchToApplication(
+            val dispatchResult = XMPushUtils.dispatchToApplicationResult(
                 context = context,
                 packageName = packageName,
                 payload = decryptedContent,
                 fromNotification = false
             )
-            if (dispatched) {
+            if (dispatchResult.dispatched) {
                 PushRuntime.observeTransferToApplication(
                     packageName = packageName,
                     action = action,
                     messageId = messageId,
                     source = "MIPushNotificationPublishHelper.nonDisplayPayload"
                 )
-            } else {
-                logW("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
+                return HandoffOutcome(true)
             }
-            return dispatched
+            logW("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
+            return HandoffOutcome(false, when (dispatchResult) {
+                is XMPushUtils.DispatchResult.ServiceBlocked -> "service_blocked"
+                else -> "app_dispatch_failed"
+            })
         }
 
         private fun claimNonDisplayDispatch(

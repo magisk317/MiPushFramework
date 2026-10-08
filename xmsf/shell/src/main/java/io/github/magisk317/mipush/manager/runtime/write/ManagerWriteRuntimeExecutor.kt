@@ -797,7 +797,7 @@ class ManagerWriteRuntimeExecutor(
         ) ?: return failed(request.requestId, "event_json_unavailable")
         return success(
             requestId = request.requestId,
-            details = json.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            details = json.take(ManagerProtocol.MAX_WRITE_DETAILS_LENGTH),
             resultLong = json.length.toLong(),
         )
     }

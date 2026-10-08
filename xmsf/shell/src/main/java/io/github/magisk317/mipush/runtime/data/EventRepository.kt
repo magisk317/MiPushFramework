@@ -30,6 +30,7 @@ import io.github.magisk317.mipush.utils.ConvertUtils
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
@@ -442,7 +443,12 @@ class EventRepository constructor(
             prettyPrint = true
             encodeDefaults = true
         }
-        return json.encodeToString(JsonElement.serializer(), ConvertUtils.toJson(container, regSec))
+        val base = ConvertUtils.toJson(container, regSec)
+        val enriched = (base as? JsonObject)
+            ?.let { EventDebugEnrichment.enrich(context, container, it) }
+            ?: base
+        val expanded = ConvertUtils.expandEmbeddedJson(enriched)
+        return json.encodeToString(JsonElement.serializer(), expanded)
     }
 
     fun startManagePermissions(packageName: String, IGNORE_NOT_REGISTERED: Boolean = false) {

@@ -15,6 +15,9 @@ import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 internal object MIPushNotificationPresentationSupport {
     internal data class NotificationInfo(
@@ -131,6 +134,45 @@ internal object MIPushNotificationPresentationSupport {
             )
         }
         return NotificationInfo(notificationId, notificationBuilder)
+    }
+
+    /**
+     * View-time re-computation of the presentation metadata that [getNotificationFor] applies at
+     * publish time, for the manager event-detail debug JSON. Read-only; may differ from the
+     * published notification when configuration or app state changed.
+     */
+    internal fun describePresentation(
+        context: Context,
+        container: XmPushActionContainer,
+    ): JsonObject {
+        val metaInfo = container.metaInfo
+        val packageName = MIPushNotificationHelper.getTargetPackage(container)
+        val pkgCtx = XMPushUtils.getPackageContext(context, packageName)
+        val message = MIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
+        val custom = XMPushUtils.getConfiguration(metaInfo)
+        val useMessagingStyle = message != null && custom.useMessagingStyle(false)
+        val sourceGroup = metaInfo?.let { getSourceGroup(it) }
+        val group = MIPushNotificationPublishHelper.resolveStockGroup(
+            targetPackage = packageName,
+            sourceGroup = sourceGroup,
+            disableDefault = metaInfo?.extra
+                ?.get("notification_group_disable_default")
+                ?.toBoolean() == true,
+            isMiui = MIUIUtils.isMIUI(),
+        )
+        return buildJsonObject {
+            put("voip", VoipNotificationHelper.isVoipNotification(metaInfo))
+            put("messagingStyle", useMessagingStyle)
+            group?.let { put("group", it) }
+            put(
+                "groupSummary",
+                metaInfo?.extra?.get("notification_is_summary")?.toBoolean() == true,
+            )
+            put(
+                "launcherFallbackFlagged",
+                MIPushNotificationIntentSupport.shouldUseLauncherFallback(packageName),
+            )
+        }
     }
 
     private fun getSourceGroup(metaInfo: PushMetaInfo): String? {

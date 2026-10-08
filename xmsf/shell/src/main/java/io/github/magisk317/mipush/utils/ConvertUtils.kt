@@ -19,11 +19,16 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import java.lang.reflect.*
+import java.nio.ByteBuffer
+import java.util.Base64
 import kotlinx.serialization.json.*
 import io.github.magisk317.mipush.common.utils.Utils
 
 object ConvertUtils {
-    private val TAG = ConvertUtils::class.java.simpleName
+    private const val TAG = "ConvertUtils"
+    private const val THRIFT_JSON_MAX_DEPTH = 3
+    private const val THRIFT_BINARY_PREVIEW_BYTES = 96
+    private const val EMBEDDED_JSON_MAX_DEPTH = 8
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -50,42 +55,66 @@ object ConvertUtils {
         regSec: String?,
         userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): JsonElement {
-        val root = buildJsonObject {
-            put("action", container.action?.name ?: "UNKNOWN")
-            put("isRequest", container.isRequest)
-            put("isEncryptAction", container.isEncryptAction)
-            put("packageName", container.packageName)
-            container.target?.let {
-                put("target", thriftToJson(it))
-            }
-            if (container.isEncryptAction && RegSecUtils.getCandidateRegSecs(container, regSec, userId).isEmpty()) {
-                put("pushActionUnavailable", "missing_reg_sec")
-            }
-
+        val candidateRegSecs = if (container.isEncryptAction) {
+            RegSecUtils.getCandidateRegSecs(container, regSec, userId)
+        } else {
+            emptyList()
+        }
+        var message: TBase<*, *>? = null
+        var unavailable: String? = null
+        var error: String? = null
+        if (container.isEncryptAction && candidateRegSecs.isEmpty()) {
+            unavailable = "missing_reg_sec"
+        } else {
             try {
-                val message = getResponseMessageBodyFromContainer(container, regSec, userId)
-                if (message != null) {
-                    put("pushAction", thriftToJson(message))
-                } else if (container.getPushAction()?.isEmpty() == true) {
-                    put("pushActionUnavailable", "empty_payload")
-                } else if (!container.isEncryptAction) {
-                    put("pushActionUnavailable", "unsupported_action")
+                // getPushAction() throws NPE on an unset payload (TBaseHelper.rightSize), so
+                // guard with isSetPushAction() and report a clean empty_payload marker instead
+                // of bubbling a NullPointerException into pushActionError.
+                message = if (container.isSetPushAction()) {
+                    getResponseMessageBodyFromContainer(container, regSec, userId)
+                } else {
+                    null
+                }
+                if (message == null) {
+                    when {
+                        !container.isSetPushAction() || container.getPushAction()?.isEmpty() == true ->
+                            unavailable = "empty_payload"
+                        !container.isEncryptAction -> unavailable = "unsupported_action"
+                    }
                 }
             } catch (e: DecryptException) {
-                put("pushActionUnavailable", "decrypt_failed")
-                put("pushActionError", e.message ?: "the aes decrypt failed.")
+                unavailable = "decrypt_failed"
+                error = e.message ?: "the aes decrypt failed."
             } catch (e: Exception) {
                 val rootCause = generateSequence(e.cause) { it.cause }.lastOrNull() ?: e
-                val detail = if (rootCause is org.apache.thrift.transport.TTransportException) {
+                error = if (rootCause is org.apache.thrift.transport.TTransportException) {
                     "thrift_deserialize_failed: ${rootCause.message} payloadSize=${container.getPushAction()?.size ?: 0}"
                 } else {
                     e.message ?: "Unknown error"
                 }
-                logE("toJson error for ${container.packageName}: $detail", e)
-                put("pushActionError", detail)
+                logE("toJson error for ${container.packageName}: $error", e)
             }
         }
-        return root
+        return buildJsonObject {
+            put("action", container.action?.name ?: "UNKNOWN")
+            put("isRequest", container.isRequest)
+            put("isEncryptAction", container.isEncryptAction)
+            put("packageName", container.packageName)
+            container.metaInfo?.let { put("metaInfo", thriftToJson(it)) }
+            container.target?.let { put("target", thriftToJson(it)) }
+            if (container.isEncryptAction) {
+                put("regSec", buildJsonObject {
+                    put("candidateCount", candidateRegSecs.size)
+                    put("eventRowRegSecPresent", !regSec.isNullOrEmpty())
+                    put("resolved", message != null)
+                })
+            }
+            if (message != null) {
+                put("pushAction", thriftToJson(message))
+            }
+            unavailable?.let { put("pushActionUnavailable", it) }
+            error?.let { put("pushActionError", it) }
+        }
     }
 
     @JvmStatic
@@ -109,29 +138,126 @@ object ConvertUtils {
         }
     }
 
-    private fun thriftToJson(base: TBase<*, *>): JsonElement {
+    /**
+     * Full-thrift debug serialization. The pinned thrift classes do not expose the standard
+     * `isSet(_Fields)` / `getFieldValue(_Fields)` reflection API, so fields are enumerated
+     * through the generated `isSetXxx()` / `getXxx()` accessor pairs. Unlike the previous fixed
+     * five-field whitelist, this surfaces the whole message body (title, description,
+     * notifyType, passThrough, extra maps, ...) in the manager event-detail debug JSON.
+     */
+    private fun thriftToJson(base: TBase<*, *>, depth: Int = 0): JsonElement {
         return buildJsonObject {
             put("_type", base.javaClass.simpleName)
-            // Use reflection to get some common fields like id, name, packageName
-            for (fieldName in listOf("id", "name", "packageName", "appName", "description")) {
-                try {
-                    val field = base.javaClass.getDeclaredField(fieldName)
-                    field.isAccessible = true
-                    val value = field.get(base)
-                    if (value != null) {
-                        put(fieldName, value.toString())
+            if (depth >= THRIFT_JSON_MAX_DEPTH) {
+                put("_truncated", "max depth reached")
+                return@buildJsonObject
+            }
+            thriftFieldAccessors(base).forEach { (name, isSet, getter) ->
+                val value = runCatching {
+                    if (isSet.invoke(base) as? Boolean != true) {
+                        null
+                    } else {
+                        getter.invoke(base)
                     }
-                } catch (_: Exception) {
-                    // Try getter
-                    try {
-                        val getter = base.javaClass.getMethod("get" + fieldName.replaceFirstChar { it.uppercase() })
-                        val value = getter.invoke(base)
-                        if (value != null) {
-                            put(fieldName, value.toString())
-                        }
-                    } catch (_: Exception) {}
+                }.onFailure {
+                    put(name + "_error", it.javaClass.simpleName)
+                }.getOrNull()
+                if (value != null) {
+                    thriftValueToJson(value, depth)?.let { put(name, it) }
                 }
             }
+        }
+    }
+
+    /**
+     * Recursively expands string primitives that themselves contain JSON ("{\"a\":1}" or
+     * "[1,2]") into real nested JSON nodes, mirroring the manager-side EventDebugJson
+     * behaviour so embedded-JSON values (metaInfo.extra payloads, message extras, ...) are
+     * readable in the event-detail debug output instead of showing as escaped strings.
+     * Depth-capped to survive pathological self-nesting input.
+     */
+    internal fun expandEmbeddedJson(element: JsonElement, depth: Int = 0): JsonElement {
+        return when (element) {
+            is JsonObject -> buildJsonObject {
+                element.forEach { (key, value) -> put(key, expandEmbeddedJson(value, depth)) }
+            }
+            is JsonArray -> buildJsonArray {
+                element.forEach { add(expandEmbeddedJson(it, depth)) }
+            }
+            is JsonPrimitive -> if (element.isString && depth < EMBEDDED_JSON_MAX_DEPTH) {
+                expandEmbeddedJsonString(element, depth)
+            } else {
+                element
+            }
+            else -> element
+        }
+    }
+
+    private fun expandEmbeddedJsonString(primitive: JsonPrimitive, depth: Int): JsonElement {
+        val text = primitive.content.trim()
+        val looksLikeJson = text.length >= 2 &&
+            ((text.startsWith("{") && text.endsWith("}")) ||
+                (text.startsWith("[") && text.endsWith("]")))
+        if (!looksLikeJson) return primitive
+        val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull() ?: return primitive
+        return expandEmbeddedJson(parsed, depth + 1)
+    }
+
+    private fun thriftFieldAccessors(base: TBase<*, *>): List<Triple<String, Method, Method>> {
+        return base.javaClass.methods
+            .filter {
+                it.parameterCount == 0 &&
+                    it.returnType == Boolean::class.java &&
+                    it.name.startsWith("isSet") &&
+                    it.name.length > "isSet".length
+            }
+            .mapNotNull { isSetMethod ->
+                val suffix = isSetMethod.name.removePrefix("isSet")
+                val getter = base.javaClass.methods.firstOrNull {
+                    it.parameterCount == 0 && it.name == "get$suffix"
+                } ?: base.javaClass.methods.firstOrNull {
+                    it.parameterCount == 0 && it.name == "is$suffix"
+                } ?: return@mapNotNull null
+                Triple(suffix.replaceFirstChar { it.lowercase() }, isSetMethod, getter)
+            }
+            .sortedBy { it.first }
+    }
+
+    private fun thriftValueToJson(value: Any, depth: Int): JsonElement? {
+        return when (value) {
+            is String -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            is Int -> JsonPrimitive(value)
+            is Long -> JsonPrimitive(value)
+            is Short -> JsonPrimitive(value)
+            is Byte -> JsonPrimitive(value)
+            is Double -> JsonPrimitive(value)
+            is Float -> JsonPrimitive(value)
+            is ByteArray -> thriftBinaryToJson(value)
+            is ByteBuffer -> thriftBinaryToJson(value.duplicate().let { buffer ->
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                bytes
+            })
+            is Map<*, *> -> buildJsonObject {
+                value.forEach { (key, item) ->
+                    put(key?.toString() ?: "null", item?.let { thriftValueToJson(it, depth + 1) } ?: JsonNull)
+                }
+            }
+            is Collection<*> -> buildJsonArray {
+                value.forEach { item -> add(item?.let { thriftValueToJson(it, depth + 1) } ?: JsonNull) }
+            }
+            is TBase<*, *> -> thriftToJson(value, depth + 1)
+            else -> JsonPrimitive(value.toString())
+        }
+    }
+
+    private fun thriftBinaryToJson(value: ByteArray): JsonElement {
+        return buildJsonObject {
+            put("size", value.size)
+            val preview = if (value.size <= THRIFT_BINARY_PREVIEW_BYTES) value else value.copyOf(THRIFT_BINARY_PREVIEW_BYTES)
+            val suffix = if (value.size > THRIFT_BINARY_PREVIEW_BYTES) "…" else ""
+            put("base64Preview", Base64.getEncoder().encodeToString(preview) + suffix)
         }
     }
 
