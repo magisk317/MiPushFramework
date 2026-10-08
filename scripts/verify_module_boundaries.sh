@@ -205,9 +205,8 @@ import sys
 output = Path(sys.argv[1])
 allowed = {
     "core/build.gradle.kts": set(),
-    "common/build.gradle.kts": {":core", ":diagnostics"},
+    "common/build.gradle.kts": {":core"},
     "configuration/build.gradle.kts": {":core", ":common", ":settings"},
-    "diagnostics/build.gradle.kts": {":magisk-xposed-kit:logging", ":magisk-xposed-kit:diagnostics"},
     "settings/build.gradle.kts": {":common", ":core"},
     "xposed/build.gradle.kts": {":common", ":core", ":magisk-xposed-kit"},
     "vendor/build.gradle.kts": {

@@ -37,12 +37,12 @@ run_shard() {
     android-pure-modules)
       run_test :build-logic:test
       run_test \
-        :magisk-ui-kit:testDebugUnitTest \
+        :magisk-ui-kit:testAndroidHostTest \
+        :magisk-ui-kit:jvmTest \
         :magisk-ui-kit:billing:testDebugUnitTest \
         :magisk-xposed-kit:testDebugUnitTest \
         :magisk-xposed-kit:diagnostics:testDebugUnitTest \
         :magisk-xposed-kit:logging:testDebugUnitTest \
-        :diagnostics:testDebugUnitTest \
         :mipush:testGithubDebugUnitTest \
         :core:jvmTest \
         :xmsf:runtime:store:testAndroidHostTest \

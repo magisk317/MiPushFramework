@@ -8,7 +8,7 @@ TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
 
 bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" \
   --no-configuration-cache \
-  :magisk-ui-kit:compileDebugKotlin \
+  :magisk-ui-kit:compileAndroidMain :magisk-ui-kit:compileKotlinJvm \
   :magisk-xposed-kit:compileDebugKotlin \
   :manager:ui:compileDebugKotlin \
   :xmsf:compileNormalDebugKotlin \

@@ -207,7 +207,7 @@ android:check:
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.98.1-trixie"
+  image: "rust:1.99.0-trixie"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -386,6 +386,10 @@ telegram:ci:
     MAGISK_TELEGRAM_CI_ARTIFACT_PATTERNS: |-
       *arm64-v8a*.apk
       arm64-v8a_*.zip
+    # CI drops go to the dedicated project chat (project-level TG_CHAT_ID)
+    # without the rolling pin; scripts/telegram_ci_hook.sh relays a pointer
+    # into the legacy room via the toolkit after_script hook.
+    MAGISK_TELEGRAM_PIN: "off"
   needs:
     - job: android:build
       artifacts: true
@@ -658,6 +662,11 @@ android:ci:play-beta-bundle:
   stage: release-build
   tags:
     - magisk-arm64-linux
+  # The release build is self-contained (keystore and google-services.json
+  # come from CI variables, assets from the repository), so the publish chain
+  # must not wait for the build/package stages: Play publishing keeps
+  # priority over the quality stage.
+  needs: []
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
@@ -697,7 +706,7 @@ android:ci:play-beta:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: on_success
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-      when: manual
+      when: on_success
       allow_failure: true
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: on_success
@@ -744,6 +753,9 @@ telegram:release:
     MAGISK_TELEGRAM_RELEASE_ARTIFACT_PATTERNS: |-
       *arm64-v8a*.apk
       arm64-v8a_*.zip
+    # Use TG_RELEASE_CHAT_ID instead of TG_CHAT_ID so that the project-level
+    # TG_CHAT_ID (which retargets CI to the new room) does NOT override this.
+    TG_RELEASE_CHAT_ID: "-1003532345372"
   needs:
     - job: android:release:apk
       artifacts: true
