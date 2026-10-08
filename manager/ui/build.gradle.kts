@@ -71,6 +71,7 @@ dependencies {
     implementation(project(":magisk-xposed-kit:logging"))
     implementation(project(":magisk-xposed-kit:permission"))
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
 
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material.icons.core)

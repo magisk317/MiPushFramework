@@ -37,22 +37,29 @@ import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.DialogActionStyle
 import io.github.magisk317.uikit.surface.AppTextButton
 import io.github.magisk317.uikit.surface.CalendarMonthGrid
+import io.github.magisk317.uikit.surface.YearMonth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
+import kotlinx.datetime.LocalDate
+import java.time.LocalDate as JLocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
-private val dayKeyFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+private const val MONTHS_PER_YEAR = 12
+
+private fun YearMonth.shiftMonths(delta: Int): YearMonth {
+    val total = year * MONTHS_PER_YEAR + (month - 1) + delta
+    return YearMonth(total / MONTHS_PER_YEAR, total % MONTHS_PER_YEAR + 1)
+}
+
+private fun LocalDate.toJava(): JLocalDate =
+    JLocalDate.of(year, java.time.Month.of(month.ordinal + 1), day)
 
 private fun LocalDate.startMillis(): Long =
-    atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    toJava().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 /** 待确认的清理动作:携带删除区间与预估条数,供二次确认弹窗展示与执行。 */
 private sealed class PendingCleanup(val count: Int) {
@@ -81,9 +88,10 @@ fun EventCleanupCalendarDialog(
     onCleanupFailed: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val today = remember { LocalDate.now() }
+    val jToday = JLocalDate.now()
+    val today = remember { LocalDate(jToday.year, jToday.monthValue, jToday.dayOfMonth) }
     var dayCounts by remember { mutableStateOf<Map<LocalDate, Int>>(emptyMap()) }
-    var visibleMonth by remember { mutableStateOf(YearMonth.from(today)) }
+    var visibleMonth by remember { mutableStateOf(YearMonth(today.year, today.month.ordinal + 1)) }
     var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
     var pending by remember { mutableStateOf<PendingCleanup?>(null) }
 
@@ -91,7 +99,7 @@ fun EventCleanupCalendarDialog(
 
     val totalCount = remember(dayCounts) { dayCounts.values.sum() }
     val monthCount = remember(dayCounts, visibleMonth) {
-        dayCounts.entries.filter { YearMonth.from(it.key) == visibleMonth }.sumOf { it.value }
+        dayCounts.entries.filter { it.key.year == visibleMonth.year && (it.key.month.ordinal + 1) == visibleMonth.month }.sumOf { it.value }
     }
 
     fun perform(action: PendingCleanup) {
@@ -134,8 +142,8 @@ fun EventCleanupCalendarDialog(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WorkspaceFilterPill(
                         onClick = {
-                            val cutoff = today.minusDays(7).startMillis()
-                            val cnt = dayCounts.entries.filter { it.key < today.minusDays(7) }.sumOf { it.value }
+                            val cutoff = jToday.minusDays(7).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            val cnt = dayCounts.entries.filter { it.key.startMillis() < cutoff }.sumOf { it.value }
                             pending = PendingCleanup.Before(null, cutoff, cnt)
                         },
                         label = stringResource(R.string.event_cleanup_preset_7),
@@ -143,8 +151,8 @@ fun EventCleanupCalendarDialog(
                     )
                     WorkspaceFilterPill(
                         onClick = {
-                            val cutoff = today.minusDays(30).startMillis()
-                            val cnt = dayCounts.entries.filter { it.key < today.minusDays(30) }.sumOf { it.value }
+                            val cutoff = jToday.minusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            val cnt = dayCounts.entries.filter { it.key.startMillis() < cutoff }.sumOf { it.value }
                             pending = PendingCleanup.Before(null, cutoff, cnt)
                         },
                         label = stringResource(R.string.event_cleanup_preset_30),
@@ -152,7 +160,7 @@ fun EventCleanupCalendarDialog(
                     )
                     WorkspaceFilterPill(
                         onClick = {
-                            val cutoff = today.plusDays(1).startMillis()
+                            val cutoff = jToday.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                             pending = PendingCleanup.All(cutoff, totalCount)
                         },
                         label = stringResource(R.string.event_cleanup_preset_all),
@@ -166,7 +174,7 @@ fun EventCleanupCalendarDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AppIconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1); selectedDay = null }) {
+                    AppIconButton(onClick = { visibleMonth = visibleMonth.shiftMonths(-1); selectedDay = null }) {
                         AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = stringResource(R.string.event_cleanup_prev_month),
@@ -174,7 +182,7 @@ fun EventCleanupCalendarDialog(
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         AppText(
-                            text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.monthValue)}",
+                            text = "${visibleMonth.year} / ${"%02d".format(visibleMonth.month)}",
                             role = AppTextRole.Subtitle,
                             color = appColor(AppColorRole.OnSurface),
                         )
@@ -189,8 +197,8 @@ fun EventCleanupCalendarDialog(
                         )
                     }
                     AppIconButton(
-                        onClick = { visibleMonth = visibleMonth.plusMonths(1); selectedDay = null },
-                        enabled = visibleMonth < YearMonth.from(today),
+                        onClick = { visibleMonth = visibleMonth.shiftMonths(1); selectedDay = null },
+                        enabled = (visibleMonth.year * MONTHS_PER_YEAR + visibleMonth.month) < (today.year * MONTHS_PER_YEAR + today.month.ordinal + 1),
                     ) {
                         AppIcon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -217,17 +225,17 @@ fun EventCleanupCalendarDialog(
                 selectedDay?.let { day ->
                     val dayCount = dayCounts[day] ?: 0
                     val start = day.startMillis()
-                    val end = day.plusDays(1).startMillis()
-                    val beforeCount = dayCounts.entries.filter { it.key <= day }.sumOf { it.value }
+                    val end = day.toJava().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    val beforeCount = dayCounts.entries.filter { it.key.startMillis() <= day.startMillis() }.sumOf { it.value }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         AppTextButton(
-                            text = stringResource(R.string.event_cleanup_day_only, dayKeyFormatter.format(day)),
+                            text = stringResource(R.string.event_cleanup_day_only, day.toString()),
                             onClick = {
                                 pending = PendingCleanup.DayOnly(day, start, end, dayCount)
                             },
                         )
                         AppTextButton(
-                            text = stringResource(R.string.event_cleanup_day_and_before, dayKeyFormatter.format(day)),
+                            text = stringResource(R.string.event_cleanup_day_and_before, day.toString()),
                             onClick = {
                                 pending = PendingCleanup.Before(day, end, beforeCount)
                             },
@@ -245,7 +253,7 @@ fun EventCleanupCalendarDialog(
                         onClick = onDismiss,
                         style = DialogActionStyle.Secondary,
                     )
-                )
+                ),
             )
         },
     )
@@ -256,15 +264,16 @@ fun EventCleanupCalendarDialog(
             is PendingCleanup.DayOnly -> pluralStringResource(
                 R.plurals.event_cleanup_confirm_day_only,
                 action.count,
-                dayKeyFormatter.format(action.day),
+                action.day.toString(),
                 action.count,
             )
             is PendingCleanup.Before -> pluralStringResource(
                 R.plurals.event_cleanup_confirm_before,
                 action.count,
-                action.day?.let { dayKeyFormatter.format(it) } ?: dayKeyFormatter.format(
-                    Instant.ofEpochMilli(action.cutoff).atZone(ZoneId.systemDefault()).toLocalDate().minusDays(1),
-                ),
+                action.day?.toString() ?: JLocalDate.ofInstant(
+                    java.time.Instant.ofEpochMilli(action.cutoff),
+                    ZoneId.systemDefault(),
+                ).minusDays(1).toString(),
                 action.count,
             )
             is PendingCleanup.All -> pluralStringResource(
@@ -304,7 +313,7 @@ private fun LaunchedEffectLoadCounts(
         }
         val map = HashMap<LocalDate, Int>(counts.size)
         for ((dayKey, count) in counts) {
-            val date = runCatching { LocalDate.parse(dayKey, dayKeyFormatter) }.getOrNull()
+            val date = runCatching { LocalDate.parse(dayKey) }.getOrNull()
             if (date != null) {
                 map[date] = count
             }

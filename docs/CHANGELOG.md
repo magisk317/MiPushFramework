@@ -3,6 +3,19 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.6] - 2026-10-08
+- 版本：`versionCode 17` / `versionName 1.0.6`。
+- `[notification]` 单色图标引擎重构。
+- `[manager]` 事件调试树与界面打磨。
+- `[xmsf]` 事件调试富化与派发诊断。
+- `[core]` 墙钟改 expect/actual，新增注册节流。
+- `[diagnostics]` 诊断归档走共享管线。
+- `[build]` 工具链与子模块升级。
+- `[xposed]` 跳过厂商管线规避启动死锁。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.5...v1.0.6
+
+---
 ## [v1.0.5] - 2026-10-01
 - 版本：`versionCode 16` / `versionName 1.0.5`。
 - `[icon]` 通知图标引擎迁移 ANIP，新增图标库与分类浏览。

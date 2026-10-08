@@ -1,0 +1,7 @@
+- `[notification]` Monochrome icon engine reworked.
+- `[manager]` Event debug tree and UI polish.
+- `[xmsf]` Event debug enrichment and dispatch diagnostics.
+- `[core]` Wall clock moved to expect/actual; registration throttling.
+- `[diagnostics]` Diagnostics archiving on the shared pipeline.
+- `[build]` Toolchain and submodule bumps.
+- `[xposed]` Skip vendor pipelines to avoid the start-up class-load deadlock.

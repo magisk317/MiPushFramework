@@ -1,0 +1,7 @@
+- `[notification]` 单色图标引擎重构。
+- `[manager]` 事件调试树与界面打磨。
+- `[xmsf]` 事件调试富化与派发诊断。
+- `[core]` 墙钟改 expect/actual，新增注册节流。
+- `[diagnostics]` 诊断归档走共享管线。
+- `[build]` 工具链与子模块升级。
+- `[xposed]` 跳过厂商管线规避启动死锁。
