@@ -272,11 +272,10 @@ internal fun ActionSummaryRow(
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
         AppPrimaryButton(
+            text = actionLabel,
             onClick = onClick,
             enabled = enabled,
-        ) {
-            AppText(actionLabel)
-        }
+        )
     }
     if (showDivider) {
         DetailDivider()

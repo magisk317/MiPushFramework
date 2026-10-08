@@ -31,7 +31,7 @@ val navigationPerformanceVerification = tasks.register("verifyNavigationPerforma
     group = "verification"
     description = "Runs compile, unit/property, and Runtime_Boundary checks before device acceptance."
     dependsOn(
-        ":magisk-ui-kit:compileDebugKotlin",
+        ":magisk-ui-kit:compileAndroidMain",
         navigationPerformancePropertyTests,
         ":verifyModuleBoundaries",
     )

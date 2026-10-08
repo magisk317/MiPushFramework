@@ -727,28 +727,26 @@ fun ConfigurationEditor(
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                 ) {
                     if (uiState.isEditing) {
-                        AppSecondaryButton(onClick = viewModel::cancelEdit) {
-                            AppText(stringResource(android.R.string.cancel))
-                        }
+                        AppSecondaryButton(
+                            text = stringResource(android.R.string.cancel),
+                            onClick = viewModel::cancelEdit,
+                        )
                         AppPrimaryButton(
+                            text = stringResource(android.R.string.ok),
                             onClick = viewModel::save,
                             enabled = uiState.hasDirectory && !uiState.isSaving,
-                        ) {
-                            AppText(stringResource(android.R.string.ok))
-                        }
+                        )
                     } else {
                         AppPrimaryButton(
+                            text = stringResource(R.string.config_edit),
                             onClick = viewModel::beginEdit,
                             enabled = uiState.hasDirectory && (uiState.hasLocal || uiState.hasRemote),
-                        ) {
-                            AppText(stringResource(R.string.config_edit))
-                        }
+                        )
                         AppSecondaryButton(
+                            text = stringResource(R.string.config_reset_remote),
                             onClick = viewModel::resetToRemote,
                             enabled = uiState.hasDirectory && uiState.hasRemote && !uiState.isSaving,
-                        ) {
-                            AppText(stringResource(R.string.config_reset_remote))
-                        }
+                        )
                     }
                 }
             }

@@ -5,11 +5,14 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import io.github.magisk317.uikit.surface.AppAlertDialog
@@ -35,6 +38,12 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import io.github.magisk317.mipush.manager.application.EventDebugJson
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.common.utils.Utils
@@ -151,23 +160,223 @@ internal fun EventDetailsDialog(
             }
         },
         text = {
+            // Render the debug JSON as a collapsible, colour-coded tree; fall back to the
+            // original plain-text block when the payload is not valid JSON.
+            val parsedElement = remember(json) {
+                runCatching { Json.parseToJsonElement(json) }.getOrNull()
+            }
             SelectionContainer {
-                AppText(
-                    text = json,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = bodyMaxHeight)
-                        .verticalScroll(verticalScroll)
-                        .horizontalScroll(horizontalScroll)
-                        .uiKitScrollEndHaptic(),
-                    role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
-                    color = appColor(AppColorRole.OnSurfaceVariant),
-                    softWrap = false,
-                )
+                if (parsedElement != null) {
+                    JsonTreeView(
+                        element = parsedElement,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = bodyMaxHeight)
+                            .verticalScroll(verticalScroll)
+                            .horizontalScroll(horizontalScroll)
+                            .uiKitScrollEndHaptic(),
+                    )
+                } else {
+                    AppText(
+                        text = json,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = bodyMaxHeight)
+                            .verticalScroll(verticalScroll)
+                            .horizontalScroll(horizontalScroll)
+                            .uiKitScrollEndHaptic(),
+                        role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                        color = appColor(AppColorRole.OnSurfaceVariant),
+                        softWrap = false,
+                    )
+                }
             }
         },
-        modifier = Modifier.heightIn(Dp.Unspecified, targetHeight)
+        modifier = Modifier
+            .padding(start = DialogScreenMargin, end = DialogScreenMargin, bottom = DialogBottomMargin)
+            .heightIn(Dp.Unspecified, targetHeight)
     )
+}
+
+/** Depth whose containers are expanded when the dialog opens; deeper ones start collapsed. */
+private const val JSON_TREE_DEFAULT_EXPANDED_DEPTH = 1
+private val JsonTreeIndentStep = 12.dp
+
+/** Safety margins keeping the dialog off the screen edges (on top of the kit's own insets). */
+private val DialogScreenMargin = 8.dp
+private val DialogBottomMargin = 20.dp
+
+/**
+ * Collapsible, colour-coded renderer for the event debug JSON. kotlinx.serialization already
+ * hands us a typed tree, so "highlighting" is a per-node-type colour choice and collapsing is
+ * a path-keyed set - no text parsing, no extra dependency. Copy keeps using the canonical
+ * [json] string, so collapsing here never loses information.
+ */
+@Composable
+private fun JsonTreeView(element: JsonElement, modifier: Modifier = Modifier) {
+    var collapsedPaths by remember { mutableStateOf(setOf<String>()) }
+    var expandedPaths by remember { mutableStateOf(setOf<String>()) }
+    val onToggle: (String, Boolean) -> Unit = { path, currentlyExpanded ->
+        if (currentlyExpanded) {
+            collapsedPaths = collapsedPaths + path
+            expandedPaths = expandedPaths - path
+        } else {
+            collapsedPaths = collapsedPaths - path
+            expandedPaths = expandedPaths + path
+        }
+    }
+    Column(modifier = modifier) {
+        JsonNodeRow(
+            key = null,
+            element = element,
+            path = "$",
+            depth = 0,
+            isLast = true,
+            collapsed = collapsedPaths,
+            expandedOverrides = expandedPaths,
+            onToggle = onToggle,
+        )
+    }
+}
+
+@Composable
+private fun JsonNodeRow(
+    key: String?,
+    element: JsonElement,
+    path: String,
+    depth: Int,
+    isLast: Boolean,
+    collapsed: Set<String>,
+    expandedOverrides: Set<String>,
+    onToggle: (String, Boolean) -> Unit,
+) {
+    when (element) {
+        is JsonObject -> JsonContainerRow(key, element, path, depth, isLast, collapsed, expandedOverrides, onToggle)
+        is JsonArray -> JsonContainerRow(key, element, path, depth, isLast, collapsed, expandedOverrides, onToggle)
+        is JsonNull -> JsonLeafRow(key, "null", AppColorRole.Outline, depth, isLast)
+        is JsonPrimitive ->
+            if (element.isString) {
+                JsonLeafRow(key, "\"${element.content}\"", AppColorRole.Tertiary, depth, isLast)
+            } else {
+                // numbers and booleans share the value colour; null is handled above
+                JsonLeafRow(key, element.content, AppColorRole.Secondary, depth, isLast)
+            }
+    }
+}
+
+@Composable
+private fun JsonContainerRow(
+    key: String?,
+    element: JsonElement,
+    path: String,
+    depth: Int,
+    isLast: Boolean,
+    collapsed: Set<String>,
+    expandedOverrides: Set<String>,
+    onToggle: (String, Boolean) -> Unit,
+) {
+    val entries: List<Pair<String?, JsonElement>> = when (element) {
+        is JsonObject -> element.entries.map { (k, v) -> k to v }
+        is JsonArray -> element.map { null to it }
+        is JsonNull, is JsonPrimitive -> emptyList()
+    }
+    val openBracket = if (element is JsonObject) "{" else "["
+    val closeBracket = if (element is JsonObject) "}" else "]"
+    // Shallow containers start expanded and opt out via collapsedPaths; deeper ones start
+    // collapsed and opt in via expandedOverrides.
+    val expanded = if (depth <= JSON_TREE_DEFAULT_EXPANDED_DEPTH) {
+        path !in collapsed
+    } else {
+        path in expandedOverrides
+    }
+    val suffix = if (isLast) "" else ","
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = entries.isNotEmpty()) { onToggle(path, expanded) }
+            .padding(start = JsonTreeIndentStep * depth),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (entries.isNotEmpty()) {
+            AppText(
+                text = if (expanded) "▾ " else "▸ ",
+                role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                color = appColor(AppColorRole.OnSurfaceVariant),
+            )
+        }
+        key?.let {
+            AppText(
+                text = "\"$it\": ",
+                role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                color = appColor(AppColorRole.Primary),
+            )
+        }
+        AppText(
+            text = openBracket,
+            role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+            color = appColor(AppColorRole.OnSurfaceVariant),
+        )
+        if (!expanded) {
+            AppText(
+                text = "…$closeBracket$suffix  // ${entries.size}",
+                role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                color = appColor(AppColorRole.OnSurfaceVariant),
+            )
+        }
+    }
+
+    if (expanded) {
+        Column(modifier = Modifier.padding(start = JsonTreeIndentStep * (depth + 1))) {
+            entries.forEachIndexed { index, (childKey, child) ->
+                JsonNodeRow(
+                    key = childKey,
+                    element = child,
+                    path = when (element) {
+                        is JsonObject -> "$path.${childKey}"
+                        else -> "$path[$index]"
+                    },
+                    depth = depth + 1,
+                    isLast = index == entries.lastIndex,
+                    collapsed = collapsed,
+                    expandedOverrides = expandedOverrides,
+                    onToggle = onToggle,
+                )
+            }
+        }
+        Row(modifier = Modifier.padding(start = JsonTreeIndentStep * depth)) {
+            AppText(
+                text = closeBracket + suffix,
+                role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                color = appColor(AppColorRole.OnSurfaceVariant),
+            )
+        }
+    }
+}
+
+@Composable
+private fun JsonLeafRow(
+    key: String?,
+    value: String,
+    valueColorRole: AppColorRole,
+    depth: Int,
+    isLast: Boolean,
+) {
+    Row(modifier = Modifier.padding(start = JsonTreeIndentStep * depth)) {
+        key?.let {
+            AppText(
+                text = "\"$it\": ",
+                role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+                color = appColor(AppColorRole.Primary),
+            )
+        }
+        AppText(
+            text = value + if (isLast) "" else ",",
+            role = AppTextRole.BodySmall, fontFamily = FontFamily.Monospace,
+            color = appColor(valueColorRole),
+            softWrap = false,
+        )
+    }
 }
 
 internal fun MockReplayOutcome.feedbackStringRes(): Int = when (this) {

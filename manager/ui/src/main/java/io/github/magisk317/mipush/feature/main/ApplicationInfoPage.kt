@@ -336,6 +336,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                     ) {
                         AppPrimaryButton(
+                            text = stringResource(R.string.app_detail_force_register),
                             onClick = {
                                 scope.launch {
                                     val feedback = infoViewModel.launchTargetAppAndForceRegister(
@@ -349,23 +350,13 @@ open class ApplicationInfoPage : ComponentActivity() {
                                     )
                                 }
                             },
-                        ) {
-                            AppText(
-                                text = stringResource(R.string.app_detail_force_register),
-                                color = appColor(AppColorRole.OnSurface),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                            maxLines = 2,
+                        )
                         AppSecondaryButton(
+                            text = stringResource(R.string.app_detail_open_system_settings),
                             onClick = { openSystemAppInfo(context) },
-                        ) {
-                            AppText(
-                                text = stringResource(R.string.app_detail_open_system_settings),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                            maxLines = 2,
+                        )
                     }
                 }
             }
