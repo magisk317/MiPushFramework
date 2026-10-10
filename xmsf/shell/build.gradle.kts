@@ -116,6 +116,7 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
     testImplementation(libs.conscrypt.openjdk.uber)
-    testImplementation(libs.jqwik)
+    testImplementation(libs.kotest.property)
+    testImplementation(libs.kotlinx.coroutines.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

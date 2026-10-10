@@ -1,17 +1,21 @@
 package io.github.magisk317.mipush.push.pipeline
 
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
-import net.jqwik.api.lifecycle.AfterProperty
-import net.jqwik.api.lifecycle.BeforeProperty
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.element
+import io.kotest.property.arbitrary.filter
+import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
+import io.kotest.property.arbitrary.map
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 /**
  * Property 8: 包清理幂等性
@@ -109,50 +113,42 @@ class Property8PackageClearIdempotencyTest {
 
     private val model = PackageClearModel()
 
-    @BeforeProperty
+    @BeforeEach
     fun setUp() {
         model.clear()
     }
 
-    @AfterProperty
+    @AfterEach
     fun tearDown() {
         model.clear()
     }
 
     // --- Arbitraries ---
 
-    @Provide
-    fun packageNames(): Arbitrary<String> = Arbitraries.strings()
-        .ofMinLength(3)
-        .ofMaxLength(30)
-        .alpha()
-        .withChars('.')
+    private val alphaChars: List<Char> = ('a'..'z') + ('A'..'Z')
+    private val alphaNumericChars: List<Char> = alphaChars + ('0'..'9')
+
+    private fun stringsOf(chars: List<Char>, sizeRange: IntRange): Arb<String> =
+        Arb.list(Arb.element(chars), sizeRange).map { it.joinToString("") }
+
+    private val packageNames: Arb<String> = stringsOf(alphaChars + '.', 3..30)
         .filter { it.isNotBlank() }
 
-    @Provide
-    fun appIds(): Arbitrary<String> = Arbitraries.strings()
-        .ofMinLength(1)
-        .ofMaxLength(20)
-        .alpha()
-        .numeric()
+    private val appIds: Arb<String> = stringsOf(alphaNumericChars, 1..20)
         .filter { it.isNotBlank() }
 
-    @Provide
-    fun clearCounts(): Arbitrary<Int> = Arbitraries.integers()
-        .between(2, 10)
+    private val clearCounts: Arb<Int> = Arb.int(2..10)
 
-    @Provide
-    fun confirmedPackages(): Arbitrary<ConfirmedPackage> = Combinators.combine(
-        packageNames(),
-        appIds(),
-    ).`as` { pkg, appId -> ConfirmedPackage(pkg, appId) }
+    private val confirmedPackages: Arb<ConfirmedPackage> = Arb.bind(
+        packageNames,
+        appIds,
+    ) { pkg, appId -> ConfirmedPackage(pkg, appId) }
 
-    @Provide
-    fun packagePairs(): Arbitrary<PackagePair> = Combinators.combine(
-        packageNames(),
-        packageNames(),
-    ).filter { a, b -> a != b }
-        .`as` { a, b -> PackagePair(a, b) }
+    private val packagePairs: Arb<PackagePair> = Arb.bind(
+        packageNames,
+        packageNames,
+    ) { a, b -> PackagePair(a, b) }
+        .filter { it.pkgA != it.pkgB }
 
     data class ConfirmedPackage(val pkg: String, val appId: String)
     data class PackagePair(val pkgA: String, val pkgB: String)
@@ -168,36 +164,38 @@ class Property8PackageClearIdempotencyTest {
      *
      * **Validates: Requirements 12.3, 12.5**
      */
-    @Property(tries = 300)
-    fun `second clear does not produce network request after confirmed registration`(
-        @ForAll("confirmedPackages") confirmed: ConfirmedPackage,
-    ) {
-        model.clear()
+    @Test
+    fun `second clear does not produce network request after confirmed registration`() {
+        runBlocking {
+            checkAll(300, confirmedPackages) { confirmed ->
+                model.clear()
 
-        // Set up confirmed registration (mirrors stock: appId stored after server confirmation)
-        model.confirmRegistration(confirmed.pkg, confirmed.appId)
+                // Set up confirmed registration (mirrors stock: appId stored after server confirmation)
+                model.confirmRegistration(confirmed.pkg, confirmed.appId)
 
-        // First call: should dispatch (confirmed appId is present)
-        val firstResult = model.handlePackageDataCleared(confirmed.pkg)
-        assertTrue(
-            firstResult.appIdPresent,
-            "First clear of pkg=[${confirmed.pkg}] must find appId present",
-        )
-        assertTrue(
-            firstResult.dispatched,
-            "First clear of pkg=[${confirmed.pkg}] must dispatch network request (app_data_cleared)",
-        )
+                // First call: should dispatch (confirmed appId is present)
+                val firstResult = model.handlePackageDataCleared(confirmed.pkg)
+                assertTrue(
+                    firstResult.appIdPresent,
+                    "First clear of pkg=[${confirmed.pkg}] must find appId present",
+                )
+                assertTrue(
+                    firstResult.dispatched,
+                    "First clear of pkg=[${confirmed.pkg}] must dispatch network request (app_data_cleared)",
+                )
 
-        // Second call: should NOT dispatch (appId was already cleared by first call)
-        val secondResult = model.handlePackageDataCleared(confirmed.pkg)
-        assertFalse(
-            secondResult.appIdPresent,
-            "Second clear of pkg=[${confirmed.pkg}] must NOT find appId (already cleared)",
-        )
-        assertFalse(
-            secondResult.dispatched,
-            "Second clear of pkg=[${confirmed.pkg}] must NOT dispatch any network request",
-        )
+                // Second call: should NOT dispatch (appId was already cleared by first call)
+                val secondResult = model.handlePackageDataCleared(confirmed.pkg)
+                assertFalse(
+                    secondResult.appIdPresent,
+                    "Second clear of pkg=[${confirmed.pkg}] must NOT find appId (already cleared)",
+                )
+                assertFalse(
+                    secondResult.dispatched,
+                    "Second clear of pkg=[${confirmed.pkg}] must NOT dispatch any network request",
+                )
+            }
+        }
     }
 
     /**
@@ -207,28 +205,28 @@ class Property8PackageClearIdempotencyTest {
      *
      * **Validates: Requirements 12.4**
      */
-    @Property(tries = 300)
-    fun `pending only state does not send network request on any clear`(
-        @ForAll("packageNames") pkg: String,
-        @ForAll("appIds") pendingAppId: String,
-        @ForAll("clearCounts") n: Int,
-    ) {
-        model.clear()
+    @Test
+    fun `pending only state does not send network request on any clear`() {
+        runBlocking {
+            checkAll(300, packageNames, appIds, clearCounts) { pkg, pendingAppId, n ->
+                model.clear()
 
-        // Set up only pending registration (no confirmed appId)
-        model.setPendingRegistration(pkg, pendingAppId)
+                // Set up only pending registration (no confirmed appId)
+                model.setPendingRegistration(pkg, pendingAppId)
 
-        // Clear N times — none should dispatch
-        repeat(n) { iteration ->
-            val result = model.handlePackageDataCleared(pkg)
-            assertFalse(
-                result.appIdPresent,
-                "Pending-only pkg=[$pkg] must NOT have appIdPresent on clear #${iteration + 1}",
-            )
-            assertFalse(
-                result.dispatched,
-                "Pending-only pkg=[$pkg] must NOT dispatch on clear #${iteration + 1}",
-            )
+                // Clear N times — none should dispatch
+                repeat(n) { iteration ->
+                    val result = model.handlePackageDataCleared(pkg)
+                    assertFalse(
+                        result.appIdPresent,
+                        "Pending-only pkg=[$pkg] must NOT have appIdPresent on clear #${iteration + 1}",
+                    )
+                    assertFalse(
+                        result.dispatched,
+                        "Pending-only pkg=[$pkg] must NOT dispatch on clear #${iteration + 1}",
+                    )
+                }
+            }
         }
     }
 
@@ -239,29 +237,30 @@ class Property8PackageClearIdempotencyTest {
      *
      * **Validates: Requirements 12.3, 12.5**
      */
-    @Property(tries = 300)
-    fun `N consecutive clears dispatch exactly once`(
-        @ForAll("confirmedPackages") confirmed: ConfirmedPackage,
-        @ForAll("clearCounts") n: Int,
-    ) {
-        model.clear()
+    @Test
+    fun `N consecutive clears dispatch exactly once`() {
+        runBlocking {
+            checkAll(300, confirmedPackages, clearCounts) { confirmed, n ->
+                model.clear()
 
-        // Set up confirmed registration
-        model.confirmRegistration(confirmed.pkg, confirmed.appId)
+                // Set up confirmed registration
+                model.confirmRegistration(confirmed.pkg, confirmed.appId)
 
-        // Call handle N times and count dispatches
-        var totalDispatches = 0
-        repeat(n) {
-            val result = model.handlePackageDataCleared(confirmed.pkg)
-            if (result.dispatched) totalDispatches++
+                // Call handle N times and count dispatches
+                var totalDispatches = 0
+                repeat(n) {
+                    val result = model.handlePackageDataCleared(confirmed.pkg)
+                    if (result.dispatched) totalDispatches++
+                }
+
+                assertEquals(
+                    1,
+                    totalDispatches,
+                    "After $n consecutive clears of pkg=[${confirmed.pkg}], " +
+                        "total dispatches must be exactly 1 (first clear only)",
+                )
+            }
         }
-
-        assertEquals(
-            1,
-            totalDispatches,
-            "After $n consecutive clears of pkg=[${confirmed.pkg}], " +
-                "total dispatches must be exactly 1 (first clear only)",
-        )
     }
 
     /**
@@ -270,29 +269,30 @@ class Property8PackageClearIdempotencyTest {
      *
      * **Validates: Requirements 12.3, 12.5**
      */
-    @Property(tries = 300)
-    fun `package state is fully cleared after any number of clears`(
-        @ForAll("confirmedPackages") confirmed: ConfirmedPackage,
-        @ForAll("clearCounts") n: Int,
-    ) {
-        model.clear()
+    @Test
+    fun `package state is fully cleared after any number of clears`() {
+        runBlocking {
+            checkAll(300, confirmedPackages, clearCounts) { confirmed, n ->
+                model.clear()
 
-        model.confirmRegistration(confirmed.pkg, confirmed.appId)
-        model.setPendingRegistration(confirmed.pkg, "pending-${confirmed.appId}")
+                model.confirmRegistration(confirmed.pkg, confirmed.appId)
+                model.setPendingRegistration(confirmed.pkg, "pending-${confirmed.appId}")
 
-        repeat(n) {
-            model.handlePackageDataCleared(confirmed.pkg)
+                repeat(n) {
+                    model.handlePackageDataCleared(confirmed.pkg)
+                }
+
+                // After all clears, both confirmed and pending must be null (unregistered)
+                assertNull(
+                    model.getConfirmedAppId(confirmed.pkg),
+                    "After $n clears, pkg=[${confirmed.pkg}] confirmed appId must be null (unregistered)",
+                )
+                assertNull(
+                    model.getPendingAppId(confirmed.pkg),
+                    "After $n clears, pkg=[${confirmed.pkg}] pending appId must be null",
+                )
+            }
         }
-
-        // After all clears, both confirmed and pending must be null (unregistered)
-        assertNull(
-            model.getConfirmedAppId(confirmed.pkg),
-            "After $n clears, pkg=[${confirmed.pkg}] confirmed appId must be null (unregistered)",
-        )
-        assertNull(
-            model.getPendingAppId(confirmed.pkg),
-            "After $n clears, pkg=[${confirmed.pkg}] pending appId must be null",
-        )
     }
 
     /**
@@ -302,40 +302,40 @@ class Property8PackageClearIdempotencyTest {
      *
      * **Validates: Requirements 12.3, 12.5**
      */
-    @Property(tries = 300)
-    fun `clearing one package does not affect another packages dispatch`(
-        @ForAll("packagePairs") pair: PackagePair,
-        @ForAll("appIds") appIdA: String,
-        @ForAll("appIds") appIdB: String,
-    ) {
-        model.clear()
+    @Test
+    fun `clearing one package does not affect another packages dispatch`() {
+        runBlocking {
+            checkAll(300, packagePairs, appIds, appIds) { pair, appIdA, appIdB ->
+                model.clear()
 
-        // Register both packages
-        model.confirmRegistration(pair.pkgA, appIdA)
-        model.confirmRegistration(pair.pkgB, appIdB)
+                // Register both packages
+                model.confirmRegistration(pair.pkgA, appIdA)
+                model.confirmRegistration(pair.pkgB, appIdB)
 
-        // Clear package A twice (first dispatches, second is no-op)
-        val firstClearA = model.handlePackageDataCleared(pair.pkgA)
-        val secondClearA = model.handlePackageDataCleared(pair.pkgA)
-        assertTrue(firstClearA.dispatched, "First clear of pkgA=[${pair.pkgA}] must dispatch")
-        assertFalse(secondClearA.dispatched, "Second clear of pkgA=[${pair.pkgA}] must NOT dispatch")
+                // Clear package A twice (first dispatches, second is no-op)
+                val firstClearA = model.handlePackageDataCleared(pair.pkgA)
+                val secondClearA = model.handlePackageDataCleared(pair.pkgA)
+                assertTrue(firstClearA.dispatched, "First clear of pkgA=[${pair.pkgA}] must dispatch")
+                assertFalse(secondClearA.dispatched, "Second clear of pkgA=[${pair.pkgA}] must NOT dispatch")
 
-        // Package B should still dispatch on its first clear (unaffected by A's clears)
-        val firstClearB = model.handlePackageDataCleared(pair.pkgB)
-        assertTrue(
-            firstClearB.dispatched,
-            "First clear of pkgB=[${pair.pkgB}] must still dispatch after clearing pkgA",
-        )
-        assertTrue(
-            firstClearB.appIdPresent,
-            "pkgB=[${pair.pkgB}] must still have appId after pkgA was cleared",
-        )
+                // Package B should still dispatch on its first clear (unaffected by A's clears)
+                val firstClearB = model.handlePackageDataCleared(pair.pkgB)
+                assertTrue(
+                    firstClearB.dispatched,
+                    "First clear of pkgB=[${pair.pkgB}] must still dispatch after clearing pkgA",
+                )
+                assertTrue(
+                    firstClearB.appIdPresent,
+                    "pkgB=[${pair.pkgB}] must still have appId after pkgA was cleared",
+                )
 
-        // Second clear of B is also a no-op
-        val secondClearB = model.handlePackageDataCleared(pair.pkgB)
-        assertFalse(
-            secondClearB.dispatched,
-            "Second clear of pkgB=[${pair.pkgB}] must NOT dispatch",
-        )
+                // Second clear of B is also a no-op
+                val secondClearB = model.handlePackageDataCleared(pair.pkgB)
+                assertFalse(
+                    secondClearB.dispatched,
+                    "Second clear of pkgB=[${pair.pkgB}] must NOT dispatch",
+                )
+            }
+        }
     }
 }

@@ -19,7 +19,7 @@ android {
 }
 
 // Keep the navigation-performance verification gate in an allowed Manager module so
-// device acceptance cannot be started without the affected-module checks. The jqwik
+// device acceptance cannot be started without the affected-module checks. The kotest-property
 // properties run through the existing JUnit 5 debug unit-test tasks.
 val navigationPerformancePropertyTests = tasks.register("navigationPerformancePropertyTests") {
     group = "verification"
@@ -62,7 +62,8 @@ dependencies {
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.jqwik)
+    testImplementation(libs.kotest.property)
+    testImplementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 

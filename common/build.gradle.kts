@@ -116,7 +116,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.jqwik)
+    testImplementation(libs.kotest.property)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

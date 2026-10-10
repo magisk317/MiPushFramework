@@ -23,6 +23,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.jqwik)
+    testImplementation(libs.kotest.property)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

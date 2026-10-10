@@ -5,15 +5,17 @@ import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandOptions
 import io.github.magisk317.mipush.hook.island.IslandPreferences
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
-import net.jqwik.api.lifecycle.AfterProperty
-import net.jqwik.api.lifecycle.BeforeProperty
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.boolean
+import io.kotest.property.arbitrary.element
+import io.kotest.property.arbitrary.filter
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 /**
  * Monochrome getSmallIcon intercept contract.
@@ -102,18 +104,17 @@ class GetSmallIconHookBugConditionTest {
         )
     }
 
-    @BeforeProperty
+    @BeforeEach
     fun setup() {
         IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = false))
     }
 
-    @AfterProperty
+    @AfterEach
     fun teardown() {
         IslandPreferences.resetForTest()
     }
 
-    @Provide
-    fun packageNames(): Arbitrary<String> = Arbitraries.of(
+    private val packageNames: Arb<String> = Arb.element(
         "com.tencent.mm",
         "com.taobao.taobao",
         "com.eg.android.AlipayGphone",
@@ -126,37 +127,38 @@ class GetSmallIconHookBugConditionTest {
         "com.example.randomapp",
     )
 
-    @Provide
-    fun miPushNotificationInputs(): Arbitrary<MiPushNotificationInput> {
-        return Combinators.combine(
-            packageNames(),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-            Arbitraries.of(true, false),
-        ).filter { _, tp, miui, xmsf, replay, replaySource, source, owner ->
-            tp || miui || xmsf || replay || replaySource || source || owner
-        }.`as` { pkg, tp, miui, xmsf, replay, replaySource, source, owner ->
-            MiPushNotificationInput(pkg, tp, miui, xmsf, replay, replaySource, source, owner)
-        }
+    private val miPushNotificationInputs: Arb<MiPushNotificationInput> = Arb.bind(
+        packageNames,
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+    ) { pkg, tp, miui, xmsf, replay, replaySource, source, owner ->
+        MiPushNotificationInput(pkg, tp, miui, xmsf, replay, replaySource, source, owner)
+    }.filter {
+        it.hasTargetPackage || it.hasMiuiTargetPkg || it.hasXmsfTargetPackage ||
+            it.hasMockReplayReceipt || it.hasMockReplaySourcePackage ||
+            it.hasSourcePackage || it.hasOwnerMarker
     }
 
-    @Property(tries = 100)
-    fun `hook must intercept MiPush notifications when monochrome desired`(
-        @ForAll("miPushNotificationInputs") input: MiPushNotificationInput,
-    ) {
-        val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
-        val extras = input.toExtras()
-        val intercepted = hookIntercepts(colorStatusBarIcon, extras)
-        assertTrue(
-            intercepted,
-            "When colorStatusBarIcon=false (monochrome) and notification is MiPush-managed " +
-                "(package=${input.packageName}, active extras: [${input.activeExtrasDescription()}]), " +
-                "getSmallIcon must intercept so MIUI cannot replace the monochrome silhouette " +
-                "with the multi-color app logo.",
-        )
+    @Test
+    fun `hook must intercept MiPush notifications when monochrome desired`() {
+        runBlocking {
+            checkAll(100, miPushNotificationInputs) { input ->
+                val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                val extras = input.toExtras()
+                val intercepted = hookIntercepts(colorStatusBarIcon, extras)
+                assertTrue(
+                    intercepted,
+                    "When colorStatusBarIcon=false (monochrome) and notification is MiPush-managed " +
+                        "(package=${input.packageName}, active extras: [${input.activeExtrasDescription()}]), " +
+                        "getSmallIcon must intercept so MIUI cannot replace the monochrome silhouette " +
+                        "with the multi-color app logo.",
+                )
+            }
+        }
     }
 }

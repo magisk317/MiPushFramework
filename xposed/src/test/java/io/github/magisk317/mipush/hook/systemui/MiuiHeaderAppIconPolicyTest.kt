@@ -1,7 +1,9 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.boolean
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -86,23 +88,24 @@ class MiuiHeaderAppIconPolicyTest {
         )
     }
 
-    @Property(tries = 40)
-    fun `header selector is strictly third-party then app then unavailable`(
-        @ForAll hasPassedThirdPartySmallIcon: Boolean,
-        @ForAll hasTargetAppIcon: Boolean,
-    ) {
-        val expected = when {
-            hasPassedThirdPartySmallIcon -> MiuiHeaderAppIconSource.THIRD_PARTY_PACK
-            hasTargetAppIcon -> MiuiHeaderAppIconSource.APP
-            else -> MiuiHeaderAppIconSource.UNAVAILABLE
+    @Test
+    fun `header selector is strictly third-party then app then unavailable`() {
+        runBlocking {
+            checkAll(40, Arb.boolean(), Arb.boolean()) { hasPassedThirdPartySmallIcon, hasTargetAppIcon ->
+                val expected = when {
+                    hasPassedThirdPartySmallIcon -> MiuiHeaderAppIconSource.THIRD_PARTY_PACK
+                    hasTargetAppIcon -> MiuiHeaderAppIconSource.APP
+                    else -> MiuiHeaderAppIconSource.UNAVAILABLE
+                }
+                assertEquals(
+                    expected,
+                    MiuiHeaderAppIconPolicy.selectReplacementSource(
+                        hasPassedThirdPartySmallIcon = hasPassedThirdPartySmallIcon,
+                        hasTargetAppIcon = hasTargetAppIcon,
+                    ),
+                )
+            }
         }
-        assertEquals(
-            expected,
-            MiuiHeaderAppIconPolicy.selectReplacementSource(
-                hasPassedThirdPartySmallIcon = hasPassedThirdPartySmallIcon,
-                hasTargetAppIcon = hasTargetAppIcon,
-            ),
-        )
     }
 
     @Test

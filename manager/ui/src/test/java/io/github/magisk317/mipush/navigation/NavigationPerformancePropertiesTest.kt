@@ -1,14 +1,21 @@
 package io.github.magisk317.mipush.navigation
 
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.element
+import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
+import io.kotest.property.arbitrary.long
+import io.kotest.property.arbitrary.map
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+
+private fun <A> Arb<A>.list(range: IntRange): Arb<List<A>> = Arb.list(this, range)
 
 /**
  * Executable correctness properties for the navigation-performance contract.
@@ -19,222 +26,236 @@ import org.junit.jupiter.api.Assertions.assertTrue
 class NavigationPerformancePropertiesTest {
 
     // **Validates: Requirements 1.1-1.5**
-    @Property(tries = 100)
-    fun `Property 1 navigation sequences preserve valid route state`(
-        @ForAll("navigationRequests") requests: List<Int>,
-    ) {
-        val state = NavigationModel()
-        requests.forEach(state::request)
+    @Test
+    fun `Property 1 navigation sequences preserve valid route state`() {
+        runBlocking {
+            checkAll(100, navigationRequests) { requests ->
+                val state = NavigationModel()
+                requests.forEach(state::request)
 
-        val valid = requests.filter { it in 0..3 }
-        assertEquals(valid.size, state.tokenCount)
-        if (valid.isNotEmpty()) {
-            assertEquals(valid.last(), state.selectedPage)
-            assertEquals("tab-${valid.last()}", state.route)
-            assertTrue(state.routeSyncs <= valid.size)
+                val valid = requests.filter { it in 0..3 }
+                assertEquals(valid.size, state.tokenCount)
+                if (valid.isNotEmpty()) {
+                    assertEquals(valid.last(), state.selectedPage)
+                    assertEquals("tab-${valid.last()}", state.route)
+                    assertTrue(state.routeSyncs <= valid.size)
+                }
+                assertTrue(state.routeHistory.all { it in 0..3 })
+            }
         }
-        assertTrue(state.routeHistory.all { it in 0..3 })
     }
 
     // **Validates: Requirements 2.1-2.4**
-    @Property(tries = 100)
-    fun `Property 2 only settled active pages can read and old work is cancelled`(
-        @ForAll("navigationRequests") requests: List<Int>,
-        @ForAll("policies") policies: List<Policy>,
-    ) {
-        val coordinator = ActivationModel()
-        requests.forEachIndexed { index, page -> coordinator.navigate(page, policies[index % policies.size]) }
+    @Test
+    fun `Property 2 only settled active pages can read and old work is cancelled`() {
+        runBlocking {
+            checkAll(100, navigationRequests, policies) { requests, policies ->
+                val coordinator = ActivationModel()
+                requests.forEachIndexed { index, page -> coordinator.navigate(page, policies[index % policies.size]) }
 
-        assertTrue(coordinator.reads.all { it.page == it.settledPage && it.active })
-        assertTrue(coordinator.reads.none { it.policy == Policy.NO_READS })
-        assertEquals(coordinator.latestToken, coordinator.activeToken)
-        assertTrue(coordinator.cancelledTokens.none { it == coordinator.latestToken })
+                assertTrue(coordinator.reads.all { it.page == it.settledPage && it.active })
+                assertTrue(coordinator.reads.none { it.policy == Policy.NO_READS })
+                assertEquals(coordinator.latestToken, coordinator.activeToken)
+                assertTrue(coordinator.cancelledTokens.none { it == coordinator.latestToken })
+            }
+        }
     }
 
     // **Validates: Requirements 3.1-3.4**
-    @Property(tries = 100)
-    fun `Property 3 stale results are isolated and event cache merge is stable`(
-        @ForAll("generations") generations: List<Long>,
-        @ForAll("eventEntries") entries: List<EventEntry>,
-    ) {
-        val store = CurrentResultModel()
-        generations.forEachIndexed { index, generation ->
-            val key = if (index % 2 == 0) "query-a" else "query-b"
-            store.advance(key, generation)
-            store.publish(key, generation, "value-$index")
-            store.publish(key, generation - 1, "stale-$index")
-            store.publish("other", generation, "wrong-key")
-        }
-        assertFalse(store.visible.any { it.startsWith("stale") || it == "wrong-key" })
-        assertEquals(store.lastCurrentValue, store.visible.lastOrNull())
+    @Test
+    fun `Property 3 stale results are isolated and event cache merge is stable`() {
+        runBlocking {
+            checkAll(100, generations, eventEntries) { generations, entries ->
+                val store = CurrentResultModel()
+                generations.forEachIndexed { index, generation ->
+                    val key = if (index % 2 == 0) "query-a" else "query-b"
+                    store.advance(key, generation)
+                    store.publish(key, generation, "value-$index")
+                    store.publish(key, generation - 1, "stale-$index")
+                    store.publish("other", generation, "wrong-key")
+                }
+                assertFalse(store.visible.any { it.startsWith("stale") || it == "wrong-key" })
+                assertEquals(store.lastCurrentValue, store.visible.lastOrNull())
 
-        val merged = entries.groupBy { it.id }.values.map { group -> group.maxBy { it.timestamp } }
-            .sortedByDescending { it.timestamp }
-        assertEquals(merged.map { it.id }.distinct().size, merged.size)
-        assertTrue(merged.zipWithNext().all { (a, b) -> a.timestamp >= b.timestamp })
+                val merged = entries.groupBy { it.id }.values.map { group -> group.maxBy { it.timestamp } }
+                    .sortedByDescending { it.timestamp }
+                assertEquals(merged.map { it.id }.distinct().size, merged.size)
+                assertTrue(merged.zipWithNext().all { (a, b) -> a.timestamp >= b.timestamp })
+            }
+        }
     }
 
     // **Validates: Requirements 4.1-4.6**
-    @Property(tries = 100)
-    fun `Property 4 snapshot publication is atomic`(
-        @ForAll("snapshotValues") values: List<String>,
-    ) {
-        val store = AtomicSnapshotModel()
-        values.forEachIndexed { index, value ->
-            store.publish(value, complete = index % 3 != 0)
+    @Test
+    fun `Property 4 snapshot publication is atomic`() {
+        runBlocking {
+            checkAll(100, snapshotValues) { values ->
+                val store = AtomicSnapshotModel()
+                values.forEachIndexed { index, value ->
+                    store.publish(value, complete = index % 3 != 0)
+                }
+                assertTrue(store.visibleValues.all { it in store.completeValues })
+                assertEquals(store.completeValues.lastOrNull(), store.visibleValues.lastOrNull())
+            }
         }
-        assertTrue(store.visibleValues.all { it in store.completeValues })
-        assertEquals(store.completeValues.lastOrNull(), store.visibleValues.lastOrNull())
     }
 
     // **Validates: Requirements 5.1-5.5**
-    @Property(tries = 100)
-    fun `Property 5 snapshot keys are complete and generations do not add buckets`(
-        @ForAll("snapshotKeys") keys: List<SnapshotKey>,
-    ) {
-        val buckets = keys.associateWith { "${it.page}|${it.query}|${it.filter}|${it.userId}" }
-        assertEquals(keys.distinct().size, buckets.size)
-        keys.distinct().forEach { key -> assertEquals(key, key.copy()) }
+    @Test
+    fun `Property 5 snapshot keys are complete and generations do not add buckets`() {
+        runBlocking {
+            checkAll(100, snapshotKeys) { keys ->
+                val buckets = keys.associateWith { "${it.page}|${it.query}|${it.filter}|${it.userId}" }
+                assertEquals(keys.distinct().size, buckets.size)
+                keys.distinct().forEach { key -> assertEquals(key, key.copy()) }
 
-        val one = keys.first()
-        val generations = GenerationModel()
-        repeat(3) { generations.next(one) }
-        assertEquals(1, generations.bucketCount(one))
-        assertEquals(3L, generations.generation(one))
+                val one = keys.first()
+                val generations = GenerationModel()
+                repeat(3) { generations.next(one) }
+                assertEquals(1, generations.bucketCount(one))
+                assertEquals(3L, generations.generation(one))
+            }
+        }
     }
 
     // **Validates: Requirements 6.1-6.6**
-    @Property(tries = 100)
-    fun `Property 6 refresh retains content until current result succeeds`(
-        @ForAll("snapshotValues") values: List<String>,
-    ) {
-        val model = RefreshModel("initial")
-        values.forEachIndexed { index, value ->
-            model.refreshStarted()
-            if (index % 2 == 0) model.complete(value) else model.fail()
-            assertTrue(model.content != null)
+    @Test
+    fun `Property 6 refresh retains content until current result succeeds`() {
+        runBlocking {
+            checkAll(100, snapshotValues) { values ->
+                val model = RefreshModel("initial")
+                values.forEachIndexed { index, value ->
+                    model.refreshStarted()
+                    if (index % 2 == 0) model.complete(value) else model.fail()
+                    assertTrue(model.content != null)
+                }
+                assertEquals(model.content, model.presentedContent)
+            }
         }
-        assertEquals(model.content, model.presentedContent)
     }
 
     // **Validates: Requirements 7.1-7.6**
-    @Property(tries = 100)
-    fun `Property 7 every acquired Binder permit is released exactly once`(
-        @ForAll("binderOutcomes") outcomes: List<BinderOutcome>,
-    ) {
-        val scheduler = PermitModel()
-        outcomes.forEach(scheduler::run)
-        assertEquals(scheduler.acquired, scheduler.released)
-        assertTrue(scheduler.releaseCounts.values.all { it == 1 })
+    @Test
+    fun `Property 7 every acquired Binder permit is released exactly once`() {
+        runBlocking {
+            checkAll(100, binderOutcomes) { outcomes ->
+                val scheduler = PermitModel()
+                outcomes.forEach(scheduler::run)
+                assertEquals(scheduler.acquired, scheduler.released)
+                assertTrue(scheduler.releaseCounts.values.all { it == 1 })
+            }
+        }
     }
 
     // **Validates: Requirements 8.1-8.5**
-    @Property(tries = 100)
-    fun `Property 8 feature timeout does not kill a healthy session`(
-        @ForAll("sessionEvents") events: List<SessionEvent>,
-    ) {
-        val session = SessionModel()
-        events.forEach(session::handle)
-        assertTrue(session.featureTimeouts >= session.pageTimeoutResults)
-        assertTrue(session.reconnects <= session.sessionFailures)
-        assertTrue(session.healthy || session.sessionFailures > 0)
+    @Test
+    fun `Property 8 feature timeout does not kill a healthy session`() {
+        runBlocking {
+            checkAll(100, sessionEvents) { events ->
+                val session = SessionModel()
+                events.forEach(session::handle)
+                assertTrue(session.featureTimeouts >= session.pageTimeoutResults)
+                assertTrue(session.reconnects <= session.sessionFailures)
+                assertTrue(session.healthy || session.sessionFailures > 0)
+            }
+        }
     }
 
     // **Validates: Requirements 9.1-9.6**
-    @Property(tries = 100)
-    fun `Property 9 telemetry stages are monotonic and idempotent`(
-        @ForAll("stageEvents") events: List<StageEvent>,
-    ) {
-        val recorder = StageModel()
-        events.forEach(recorder::record)
-        assertTrue(recorder.timestamps.zipWithNext().all { (a, b) -> a <= b })
-        assertEquals(recorder.stages.size, recorder.stages.distinct().size)
-        assertTrue(recorder.terminals <= 1)
+    @Test
+    fun `Property 9 telemetry stages are monotonic and idempotent`() {
+        runBlocking {
+            checkAll(100, stageEvents) { events ->
+                val recorder = StageModel()
+                events.forEach(recorder::record)
+                assertTrue(recorder.timestamps.zipWithNext().all { (a, b) -> a <= b })
+                assertEquals(recorder.stages.size, recorder.stages.distinct().size)
+                assertTrue(recorder.terminals <= 1)
+            }
+        }
     }
 
     // **Validates: Requirements 10.1-10.5**
-    @Property(tries = 100)
-    fun `Property 10 bounded telemetry failure cannot block behavior`(
-        @ForAll("telemetryEvents") events: List<String>,
-    ) {
-        val sink = BoundedTelemetryModel(capacity = 4)
-        events.forEach { sink.offer(it) }
-        assertTrue(sink.accepted.size <= 4)
-        assertEquals(events.size, sink.accepted.size + sink.dropped)
-        assertTrue(sink.navigationCompleted)
+    @Test
+    fun `Property 10 bounded telemetry failure cannot block behavior`() {
+        runBlocking {
+            checkAll(100, telemetryEvents) { events ->
+                val sink = BoundedTelemetryModel(capacity = 4)
+                events.forEach { sink.offer(it) }
+                assertTrue(sink.accepted.size <= 4)
+                assertEquals(events.size, sink.accepted.size + sink.dropped)
+                assertTrue(sink.navigationCompleted)
+            }
+        }
     }
 
     // **Validates: Requirements 11.1-11.4**
-    @Property(tries = 100)
-    fun `Property 11 Chrome reset is isolated and idempotent`(
-        @ForAll("navigationRequests") pages: List<Int>,
-    ) {
-        val chrome = ChromeModel()
-        pages.forEach { page ->
-            chrome.updateVisualPage(page)
-            chrome.settled(page)
-            chrome.settled(page)
-            assertEquals(0f, chrome.headerOffset)
-            assertEquals(0f, chrome.bottomPadding)
-            assertTrue(chrome.visibility == Visibility.HIDDEN || chrome.resetCount == 0)
-        }
-        val expectedResets = pages.fold(Pair<Int?, Int>(null, 0)) { (previous, count), page ->
-            page to if (page == previous) count else count + 1
-        }.second
-        assertEquals(expectedResets, chrome.resetCount)
-        if (pages.isNotEmpty()) {
-            assertEquals(pages.last(), chrome.visualPage)
-            assertEquals(pages.last(), chrome.businessPage)
+    @Test
+    fun `Property 11 Chrome reset is isolated and idempotent`() {
+        runBlocking {
+            checkAll(100, navigationRequests) { pages ->
+                val chrome = ChromeModel()
+                pages.forEach { page ->
+                    chrome.updateVisualPage(page)
+                    chrome.settled(page)
+                    chrome.settled(page)
+                    assertEquals(0f, chrome.headerOffset)
+                    assertEquals(0f, chrome.bottomPadding)
+                    assertTrue(chrome.visibility == Visibility.HIDDEN || chrome.resetCount == 0)
+                }
+                val expectedResets = pages.fold(Pair<Int?, Int>(null, 0)) { (previous, count), page ->
+                    page to if (page == previous) count else count + 1
+                }.second
+                assertEquals(expectedResets, chrome.resetCount)
+                if (pages.isNotEmpty()) {
+                    assertEquals(pages.last(), chrome.visualPage)
+                    assertEquals(pages.last(), chrome.businessPage)
+                }
+            }
         }
     }
 
-    @Provide
-    fun navigationRequests(): Arbitrary<List<Int>> =
-        Arbitraries.integers().between(-3, 7).list().ofMinSize(1).ofMaxSize(30)
+    private val navigationRequests: Arb<List<Int>> =
+        Arb.int(-3..7).list(1..30)
 
-    @Provide
-    fun generations(): Arbitrary<List<Long>> =
-        Arbitraries.longs().between(1, 20).list().ofMinSize(1).ofMaxSize(20)
+    private val generations: Arb<List<Long>> =
+        Arb.long(1L..20L).list(1..20)
 
-    @Provide
-    fun snapshotValues(): Arbitrary<List<String>> =
-        Arbitraries.strings().withChars('a', 'z').ofMinLength(1).ofMaxLength(8)
-            .list().ofMinSize(1).ofMaxSize(20)
+    private val snapshotValues: Arb<List<String>> =
+        stringOf(listOf('a', 'z'), 1..8).list(1..20)
 
-    @Provide
-    fun snapshotKeys(): Arbitrary<List<SnapshotKey>> =
-        Combinators.combine(
-            Arbitraries.integers().between(0, 3),
-            Arbitraries.strings().withChars('a', 'c').ofMaxLength(3),
-            Arbitraries.strings().withChars('x', 'z').ofMaxLength(3),
-            Arbitraries.integers().between(0, 2),
-        ).`as`(::SnapshotKey).list().ofMinSize(1).ofMaxSize(20)
+    private val snapshotKeys: Arb<List<SnapshotKey>> =
+        Arb.bind(
+            Arb.int(0..3),
+            stringOf(listOf('a', 'c'), 0..3),
+            stringOf(listOf('x', 'z'), 0..3),
+            Arb.int(0..2),
+            ::SnapshotKey,
+        ).list(1..20)
 
-    @Provide
-    fun policies(): Arbitrary<List<Policy>> = Arbitraries.of(*Policy.entries.toTypedArray()).list().ofMinSize(1).ofMaxSize(10)
+    private val policies: Arb<List<Policy>> = Arb.element(Policy.entries).list(1..10)
 
-    @Provide
-    fun binderOutcomes(): Arbitrary<List<BinderOutcome>> = Arbitraries.of(*BinderOutcome.entries.toTypedArray()).list().ofMinSize(1).ofMaxSize(20)
+    private val binderOutcomes: Arb<List<BinderOutcome>> = Arb.element(BinderOutcome.entries).list(1..20)
 
-    @Provide
-    fun sessionEvents(): Arbitrary<List<SessionEvent>> = Arbitraries.of(*SessionEvent.entries.toTypedArray()).list().ofMinSize(1).ofMaxSize(20)
+    private val sessionEvents: Arb<List<SessionEvent>> = Arb.element(SessionEvent.entries).list(1..20)
 
-    @Provide
-    fun stageEvents(): Arbitrary<List<StageEvent>> =
-        Combinators.combine(
-            Arbitraries.integers().between(0, 5),
-            Arbitraries.longs().between(0, 100),
-        ).`as` { stage, timestamp -> StageEvent(stage, timestamp) }.list().ofMinSize(1).ofMaxSize(30)
+    private val stageEvents: Arb<List<StageEvent>> =
+        Arb.bind(
+            Arb.int(0..5),
+            Arb.long(0L..100L),
+        ) { stage, timestamp -> StageEvent(stage, timestamp) }.list(1..30)
 
-    @Provide
-    fun eventEntries(): Arbitrary<List<EventEntry>> =
-        Combinators.combine(
-            Arbitraries.integers().between(0, 5),
-            Arbitraries.longs().between(0, 100),
-        ).`as` { id, timestamp -> EventEntry(id, timestamp) }.list().ofMinSize(1).ofMaxSize(30)
+    private val eventEntries: Arb<List<EventEntry>> =
+        Arb.bind(
+            Arb.int(0..5),
+            Arb.long(0L..100L),
+        ) { id, timestamp -> EventEntry(id, timestamp) }.list(1..30)
 
-    @Provide
-    fun telemetryEvents(): Arbitrary<List<String>> = Arbitraries.strings().ascii().ofMaxLength(20).list().ofMinSize(1).ofMaxSize(20)
+    private val telemetryEvents: Arb<List<String>> =
+        Arb.int(0..127).map { it.toChar() }.list(0..20).map { it.joinToString("") }.list(1..20)
+
+    private fun stringOf(chars: List<Char>, length: IntRange): Arb<String> =
+        Arb.element(chars).list(length).map { it.joinToString("") }
 
     enum class Policy { NO_READS, CACHE_ONLY, CACHE_THEN_REFRESH, LOAD_ON_ACTIVE }
     enum class BinderOutcome { SUCCESS, FAILURE, TIMEOUT, CANCELLED, BINDER_DEATH, STALE, BUSY }

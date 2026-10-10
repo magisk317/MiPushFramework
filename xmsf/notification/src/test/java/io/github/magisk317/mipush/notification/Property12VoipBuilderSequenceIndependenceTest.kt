@@ -1,17 +1,24 @@
 package io.github.magisk317.mipush.notification
 
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
-import net.jqwik.api.lifecycle.AfterProperty
-import net.jqwik.api.lifecycle.BeforeProperty
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.choice
+import io.kotest.property.arbitrary.constant
+import io.kotest.property.arbitrary.element
+import io.kotest.property.arbitrary.filter
+import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
+import io.kotest.property.arbitrary.long
+import io.kotest.property.arbitrary.map
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 /**
  * Property 12: VoIP 构建器/序列过滤独立性
@@ -31,12 +38,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
  */
 class Property12VoipBuilderSequenceIndependenceTest {
 
-    @BeforeProperty
+    @BeforeEach
     fun setUp() {
         VoipNotificationHelper.resetForTest()
     }
 
-    @AfterProperty
+    @AfterEach
     fun tearDown() {
         VoipNotificationHelper.resetForTest()
     }
@@ -44,37 +51,30 @@ class Property12VoipBuilderSequenceIndependenceTest {
     // -- Arbitraries --
 
     /** Style types: "6" (VoIP) vs arbitrary non-6 values */
-    @Provide
-    fun styleTypes(): Arbitrary<String?> = Arbitraries.oneOf(
-        Arbitraries.just("6"),
-        Arbitraries.integers().between(0, 100).filter { it != 6 }.map { it.toString() },
-        Arbitraries.just(null as String?),
+    private val styleTypes: Arb<String?> = Arb.choice<String?>(
+        Arb.constant("6"),
+        Arb.int(0..100).filter { it != 6 }.map { it.toString() },
+        Arb.constant<String?>(null),
     )
 
     /** Business types: "voip" vs arbitrary non-voip values */
-    @Provide
-    fun busiTypes(): Arbitrary<String?> = Arbitraries.oneOf(
-        Arbitraries.just("voip"),
-        Arbitraries.of("message", "notification", "im", "call", ""),
-        Arbitraries.just(null as String?),
+    private val busiTypes: Arb<String?> = Arb.choice<String?>(
+        Arb.constant("voip"),
+        Arb.element("message", "notification", "im", "call", ""),
+        Arb.constant<String?>(null),
     )
 
-    @Provide
-    fun packageNames(): Arbitrary<String> = Arbitraries.strings()
-        .ofMinLength(3)
-        .ofMaxLength(40)
-        .alpha()
-        .numeric()
-        .withChars('.')
+    private val packageNameChars: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9') + '.'
 
-    @Provide
-    fun sequences(): Arbitrary<Long> = Arbitraries.longs().between(1, Long.MAX_VALUE / 2)
+    private val packageNames: Arb<String> = Arb.list(Arb.element(packageNameChars), 3..40)
+        .map { it.joinToString("") }
 
-    @Provide
-    fun styleAndBusiCombinations(): Arbitrary<StyleBusiCombination> = Combinators.combine(
-        styleTypes(),
-        busiTypes(),
-    ).`as` { style, busi -> StyleBusiCombination(style, busi) }
+    private val sequences: Arb<Long> = Arb.long(1L..Long.MAX_VALUE / 2)
+
+    private val styleAndBusiCombinations: Arb<StyleBusiCombination> = Arb.bind(
+        styleTypes,
+        busiTypes,
+    ) { style, busi -> StyleBusiCombination(style, busi) }
 
     data class StyleBusiCombination(val styleType: String?, val busiType: String?)
 
@@ -86,20 +86,22 @@ class Property12VoipBuilderSequenceIndependenceTest {
      *
      * **Validates: Requirements 4.1, 4.2, 4.3**
      */
-    @Property(tries = 200)
-    fun `builder selection depends only on styleType`(
-        @ForAll("styleAndBusiCombinations") combo: StyleBusiCombination,
-    ) {
-        val meta = buildMeta(combo.styleType, combo.busiType)
-        val usesVoipBuilder = VoipNotificationHelper.isVoipNotification(meta)
+    @Test
+    fun `builder selection depends only on styleType`() {
+        runBlocking {
+            checkAll(200, styleAndBusiCombinations) { combo ->
+                val meta = buildMeta(combo.styleType, combo.busiType)
+                val usesVoipBuilder = VoipNotificationHelper.isVoipNotification(meta)
 
-        val expectedBuilder = combo.styleType == "6"
-        assertEquals(
-            expectedBuilder,
-            usesVoipBuilder,
-            "VoIP builder selection must depend only on styleType==${combo.styleType}, " +
-                "but got $usesVoipBuilder (busiType=${combo.busiType} should be irrelevant)",
-        )
+                val expectedBuilder = combo.styleType == "6"
+                assertEquals(
+                    expectedBuilder,
+                    usesVoipBuilder,
+                    "VoIP builder selection must depend only on styleType==${combo.styleType}, " +
+                        "but got $usesVoipBuilder (busiType=${combo.busiType} should be irrelevant)",
+                )
+            }
+        }
     }
 
     /**
@@ -108,43 +110,43 @@ class Property12VoipBuilderSequenceIndependenceTest {
      *
      * **Validates: Requirements 4.1, 4.2, 4.3**
      */
-    @Property(tries = 200)
-    fun `sequence filtering depends only on busiType`(
-        @ForAll("styleAndBusiCombinations") combo: StyleBusiCombination,
-        @ForAll("packageNames") pkg: String,
-        @ForAll("sequences") seq: Long,
-    ) {
-        VoipNotificationHelper.resetForTest()
+    @Test
+    fun `sequence filtering depends only on busiType`() {
+        runBlocking {
+            checkAll(200, styleAndBusiCombinations, packageNames, sequences) { combo, pkg, seq ->
+                VoipNotificationHelper.resetForTest()
 
-        // Set up a higher stored sequence so we can test if filtering engages
-        val higherSeq = seq + 1000
-        val setupMeta = PushMetaInfo().apply {
-            extra = mutableMapOf(
-                "msg_busi_type" to "voip",
-                "sequence" to higherSeq.toString(),
-            )
-        }
-        shouldDropStaleForTest(setupMeta, pkg)
+                // Set up a higher stored sequence so we can test if filtering engages
+                val higherSeq = seq + 1000
+                val setupMeta = PushMetaInfo().apply {
+                    extra = mutableMapOf(
+                        "msg_busi_type" to "voip",
+                        "sequence" to higherSeq.toString(),
+                    )
+                }
+                shouldDropStaleForTest(setupMeta, pkg)
 
-        // Now test with arbitrary combo at a lower sequence
-        val testMeta = buildMetaWithSequence(combo.styleType, combo.busiType, seq)
-        val dropped = shouldDropStaleForTest(testMeta, pkg)
+                // Now test with arbitrary combo at a lower sequence
+                val testMeta = buildMetaWithSequence(combo.styleType, combo.busiType, seq)
+                val dropped = shouldDropStaleForTest(testMeta, pkg)
 
-        val expectsFiltering = combo.busiType == "voip"
-        if (expectsFiltering) {
-            // busiType="voip" with lower sequence → should be dropped
-            assertTrue(
-                dropped,
-                "With busiType='voip', sequence=$seq < stored=$higherSeq must be dropped " +
-                    "(styleType=${combo.styleType} should be irrelevant)",
-            )
-        } else {
-            // non-voip busiType → sequence filtering does NOT engage, never dropped
-            assertFalse(
-                dropped,
-                "With busiType=${combo.busiType}, sequence filtering must not engage " +
-                    "(styleType=${combo.styleType} should be irrelevant)",
-            )
+                val expectsFiltering = combo.busiType == "voip"
+                if (expectsFiltering) {
+                    // busiType="voip" with lower sequence → should be dropped
+                    assertTrue(
+                        dropped,
+                        "With busiType='voip', sequence=$seq < stored=$higherSeq must be dropped " +
+                            "(styleType=${combo.styleType} should be irrelevant)",
+                    )
+                } else {
+                    // non-voip busiType → sequence filtering does NOT engage, never dropped
+                    assertFalse(
+                        dropped,
+                        "With busiType=${combo.busiType}, sequence filtering must not engage " +
+                            "(styleType=${combo.styleType} should be irrelevant)",
+                    )
+                }
+            }
         }
     }
 
@@ -158,34 +160,33 @@ class Property12VoipBuilderSequenceIndependenceTest {
      *
      * **Validates: Requirements 4.1, 4.2, 4.3**
      */
-    @Property(tries = 200)
-    fun `builder and sequence filter are mutually independent`(
-        @ForAll("styleTypes") styleType1: String?,
-        @ForAll("busiTypes") busiType1: String?,
-        @ForAll("busiTypes") busiType2: String?,
-        @ForAll("styleTypes") styleType2: String?,
-    ) {
-        // Builder independence: changing busiType does not change builder selection
-        val builderWithBusi1 = VoipNotificationHelper.isVoipNotification(buildMeta(styleType1, busiType1))
-        val builderWithBusi2 = VoipNotificationHelper.isVoipNotification(buildMeta(styleType1, busiType2))
-        assertEquals(
-            builderWithBusi1,
-            builderWithBusi2,
-            "Builder selection with styleType=$styleType1 must be the same " +
-                "regardless of busiType ($busiType1 vs $busiType2)",
-        )
+    @Test
+    fun `builder and sequence filter are mutually independent`() {
+        runBlocking {
+            checkAll(200, styleTypes, busiTypes, busiTypes, styleTypes) { styleType1, busiType1, busiType2, styleType2 ->
+                // Builder independence: changing busiType does not change builder selection
+                val builderWithBusi1 = VoipNotificationHelper.isVoipNotification(buildMeta(styleType1, busiType1))
+                val builderWithBusi2 = VoipNotificationHelper.isVoipNotification(buildMeta(styleType1, busiType2))
+                assertEquals(
+                    builderWithBusi1,
+                    builderWithBusi2,
+                    "Builder selection with styleType=$styleType1 must be the same " +
+                        "regardless of busiType ($busiType1 vs $busiType2)",
+                )
 
-        // Sequence filter independence: changing styleType does not change filter engagement
-        val extras1 = buildExtras(styleType1, busiType1)
-        val extras2 = buildExtras(styleType2, busiType1)
-        val filterEngages1 = VoipNotificationHelper.isVoipBusiness(extras1)
-        val filterEngages2 = VoipNotificationHelper.isVoipBusiness(extras2)
-        assertEquals(
-            filterEngages1,
-            filterEngages2,
-            "Sequence filter engagement with busiType=$busiType1 must be the same " +
-                "regardless of styleType ($styleType1 vs $styleType2)",
-        )
+                // Sequence filter independence: changing styleType does not change filter engagement
+                val extras1 = buildExtras(styleType1, busiType1)
+                val extras2 = buildExtras(styleType2, busiType1)
+                val filterEngages1 = VoipNotificationHelper.isVoipBusiness(extras1)
+                val filterEngages2 = VoipNotificationHelper.isVoipBusiness(extras2)
+                assertEquals(
+                    filterEngages1,
+                    filterEngages2,
+                    "Sequence filter engagement with busiType=$busiType1 must be the same " +
+                        "regardless of styleType ($styleType1 vs $styleType2)",
+                )
+            }
+        }
     }
 
     /**
@@ -194,36 +195,37 @@ class Property12VoipBuilderSequenceIndependenceTest {
      *
      * **Validates: Requirements 4.1, 4.2, 4.3**
      */
-    @Property(tries = 200)
-    fun `style-only uses voip builder without sequence filtering`(
-        @ForAll("packageNames") pkg: String,
-        @ForAll("sequences") seq: Long,
-    ) {
-        VoipNotificationHelper.resetForTest()
+    @Test
+    fun `style-only uses voip builder without sequence filtering`() {
+        runBlocking {
+            checkAll(200, packageNames, sequences) { pkg, seq ->
+                VoipNotificationHelper.resetForTest()
 
-        // Establish a high sequence via busi-type voip
-        val setupMeta = PushMetaInfo().apply {
-            extra = mutableMapOf(
-                "msg_busi_type" to "voip",
-                "sequence" to (seq + 1000).toString(),
-            )
+                // Establish a high sequence via busi-type voip
+                val setupMeta = PushMetaInfo().apply {
+                    extra = mutableMapOf(
+                        "msg_busi_type" to "voip",
+                        "sequence" to (seq + 1000).toString(),
+                    )
+                }
+                shouldDropStaleForTest(setupMeta, pkg)
+
+                // style-only: styleType=6, busi=not "voip"
+                val styleOnlyMeta = buildMetaWithSequence("6", "message", seq)
+
+                // Should use VoIP builder
+                assertTrue(
+                    VoipNotificationHelper.isVoipNotification(styleOnlyMeta),
+                    "styleType=6 must select VoIP builder even when busiType≠voip",
+                )
+
+                // Should NOT participate in sequence filtering (never dropped)
+                assertFalse(
+                    shouldDropStaleForTest(styleOnlyMeta, pkg),
+                    "style-only (styleType=6, busiType≠voip) must not participate in sequence filtering",
+                )
+            }
         }
-        shouldDropStaleForTest(setupMeta, pkg)
-
-        // style-only: styleType=6, busi=not "voip"
-        val styleOnlyMeta = buildMetaWithSequence("6", "message", seq)
-
-        // Should use VoIP builder
-        assertTrue(
-            VoipNotificationHelper.isVoipNotification(styleOnlyMeta),
-            "styleType=6 must select VoIP builder even when busiType≠voip",
-        )
-
-        // Should NOT participate in sequence filtering (never dropped)
-        assertFalse(
-            shouldDropStaleForTest(styleOnlyMeta, pkg),
-            "style-only (styleType=6, busiType≠voip) must not participate in sequence filtering",
-        )
     }
 
     /**
@@ -232,37 +234,38 @@ class Property12VoipBuilderSequenceIndependenceTest {
      *
      * **Validates: Requirements 4.1, 4.2, 4.3**
      */
-    @Property(tries = 200)
-    fun `busi-only participates in sequence filtering without voip builder`(
-        @ForAll("packageNames") pkg: String,
-        @ForAll("sequences") seq: Long,
-    ) {
-        VoipNotificationHelper.resetForTest()
+    @Test
+    fun `busi-only participates in sequence filtering without voip builder`() {
+        runBlocking {
+            checkAll(200, packageNames, sequences) { pkg, seq ->
+                VoipNotificationHelper.resetForTest()
 
-        // Establish a high sequence
-        val higherSeq = seq + 1000
-        val setupMeta = PushMetaInfo().apply {
-            extra = mutableMapOf(
-                "msg_busi_type" to "voip",
-                "sequence" to higherSeq.toString(),
-            )
+                // Establish a high sequence
+                val higherSeq = seq + 1000
+                val setupMeta = PushMetaInfo().apply {
+                    extra = mutableMapOf(
+                        "msg_busi_type" to "voip",
+                        "sequence" to higherSeq.toString(),
+                    )
+                }
+                shouldDropStaleForTest(setupMeta, pkg)
+
+                // busi-only: busiType="voip", styleType=not 6 (e.g., "1")
+                val busiOnlyMeta = buildMetaWithSequence("1", "voip", seq)
+
+                // Should NOT use VoIP builder
+                assertFalse(
+                    VoipNotificationHelper.isVoipNotification(busiOnlyMeta),
+                    "styleType≠6 must not select VoIP builder even when busiType=voip",
+                )
+
+                // Should participate in sequence filtering (lower seq is dropped)
+                assertTrue(
+                    shouldDropStaleForTest(busiOnlyMeta, pkg),
+                    "busi-only (busiType=voip, styleType≠6) with seq=$seq < stored=$higherSeq must be dropped",
+                )
+            }
         }
-        shouldDropStaleForTest(setupMeta, pkg)
-
-        // busi-only: busiType="voip", styleType=not 6 (e.g., "1")
-        val busiOnlyMeta = buildMetaWithSequence("1", "voip", seq)
-
-        // Should NOT use VoIP builder
-        assertFalse(
-            VoipNotificationHelper.isVoipNotification(busiOnlyMeta),
-            "styleType≠6 must not select VoIP builder even when busiType=voip",
-        )
-
-        // Should participate in sequence filtering (lower seq is dropped)
-        assertTrue(
-            shouldDropStaleForTest(busiOnlyMeta, pkg),
-            "busi-only (busiType=voip, styleType≠6) with seq=$seq < stored=$higherSeq must be dropped",
-        )
     }
 
     // -- Helpers --

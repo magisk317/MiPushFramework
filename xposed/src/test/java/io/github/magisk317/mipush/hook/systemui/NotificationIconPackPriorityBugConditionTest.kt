@@ -1,10 +1,12 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.boolean
+import io.kotest.property.arbitrary.element
+import io.kotest.property.arbitrary.int
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -150,53 +152,54 @@ class NotificationIconPackPriorityBugConditionTest {
         return Observation(thirdParty, thirdParty, thirdParty)
     }
 
-    @Provide
-    fun legalIconPackInputs(): net.jqwik.api.Arbitrary<ExplorationInput> {
-        val bitmap = Arbitraries.of(
+    private val legalIconPackInputs: Arb<ExplorationInput> = run {
+        val bitmap = Arb.element(
             BitmapToken("legal-small-12x24", 12, 24),
             BitmapToken("legal-square-96x96", 96, 96),
             BitmapToken("legal-min-1x1", 1, 1),
             BitmapToken("legal-max-4096x4096", 4096, 4096),
         )
-        return Combinators.combine(
-            Arbitraries.of("com.example.chat", "com.example.mail", "org.example.target"),
-            Arbitraries.integers().between(0, 999),
+        Arb.bind(
+            Arb.element("com.example.chat", "com.example.mail", "org.example.target"),
+            Arb.int(0..999),
             bitmap,
-            Arbitraries.of(null, 0xFF336699.toInt()),
-            Arbitraries.of(true, false),
-        ).`as` { target, user, iconBitmap, color, colorMode ->
+            Arb.element(listOf<Int?>(null, 0xFF336699.toInt())),
+            Arb.boolean(),
+        ) { target, user, iconBitmap, color, colorMode ->
             ExplorationInput(target, user, iconBitmap, color, colorMode)
         }
     }
 
-    @Property(tries = 80)
+    @Test
     @Disabled("bug-condition exploration: expected to fail until IconPackResolver ships " +
         "(see .kiro/specs/notification-icon-pack-priority tasks 1 & 9)")
-    fun `legal protocol bitmap must be first source in all three applicable paths`(
-        @ForAll("legalIconPackInputs") input: ExplorationInput,
-    ) {
-        val adapter = FakeIconPackProtocolAdapter(
-            ProtocolResult(
-                state = ProtocolState.AVAILABLE,
-                icon = IconData(input.targetPackage, input.bitmap, input.iconColor),
-            ),
-        )
-        val result = ProtocolResult(
-            state = ProtocolState.AVAILABLE,
-            icon = IconData(input.targetPackage, input.bitmap, input.iconColor),
-        )
-        assertTrue(isBugCondition(input, result), "generated input must satisfy isBugCondition")
+    fun `legal protocol bitmap must be first source in all three applicable paths`() {
+        runBlocking {
+            checkAll(80, legalIconPackInputs) { input ->
+                val adapter = FakeIconPackProtocolAdapter(
+                    ProtocolResult(
+                        state = ProtocolState.AVAILABLE,
+                        icon = IconData(input.targetPackage, input.bitmap, input.iconColor),
+                    ),
+                )
+                val result = ProtocolResult(
+                    state = ProtocolState.AVAILABLE,
+                    icon = IconData(input.targetPackage, input.bitmap, input.iconColor),
+                )
+                assertTrue(isBugCondition(input, result), "generated input must satisfy isBugCondition")
 
-        val observed = observeUnfixedPaths(input, adapter)
-        val expected = expectedFixedObservation(input)
-        assertEquals(
-            expected,
-            observed,
-            "counterexample: protocol=${result.state}, target=${input.targetPackage}, " +
-                "user=${input.userId}, bitmap=${input.bitmap.id}(${input.bitmap.width}x${input.bitmap.height}), " +
-                "iconColor=${input.iconColor}, colorMode=${input.colorMode}; " +
-                "sources=${observed.smallIcon},${observed.statusBarInput},${observed.header}",
-        )
+                val observed = observeUnfixedPaths(input, adapter)
+                val expected = expectedFixedObservation(input)
+                assertEquals(
+                    expected,
+                    observed,
+                    "counterexample: protocol=${result.state}, target=${input.targetPackage}, " +
+                        "user=${input.userId}, bitmap=${input.bitmap.id}(${input.bitmap.width}x${input.bitmap.height}), " +
+                        "iconColor=${input.iconColor}, colorMode=${input.colorMode}; " +
+                        "sources=${observed.smallIcon},${observed.statusBarInput},${observed.header}",
+                )
+            }
+        }
     }
 
     @Test

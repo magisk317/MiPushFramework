@@ -28,6 +28,6 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
-    testImplementation(libs.jqwik)
+    testImplementation(libs.kotest.property)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

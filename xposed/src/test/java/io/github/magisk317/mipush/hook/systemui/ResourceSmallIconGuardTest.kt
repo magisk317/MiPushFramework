@@ -1,11 +1,11 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.Combinators
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.bind
+import io.kotest.property.arbitrary.boolean
+import io.kotest.property.arbitrary.element
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -428,15 +428,14 @@ class ResourceSmallIconGuardTest {
 
     // ─── Property: guard only ever narrows the base decision ─────────────────────
 
-    @Provide
-    fun guardInputs(): Arbitrary<GuardInput> = Combinators.combine(
-        Arbitraries.of(true, false),
-        Arbitraries.of(true, false),
-        Arbitraries.of(true, false),
-        Arbitraries.of(ICON_TYPE_RESOURCE, ICON_TYPE_BITMAP, ICON_TYPE_URI, -1),
-        Arbitraries.of(0, FRAMEWORK_INFO_RES_ID, FRAMEWORK_ALIPAY_BROKEN_RES_ID, APP_RES_ID),
-        Arbitraries.of("android", "com.android.systemui", "com.eg.android.AlipayGphone", ""),
-    ).`as` { color, global, managed, type, resId, pkg ->
+    private val guardInputs: Arb<GuardInput> = Arb.bind(
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.element(ICON_TYPE_RESOURCE, ICON_TYPE_BITMAP, ICON_TYPE_URI, -1),
+        Arb.element(0, FRAMEWORK_INFO_RES_ID, FRAMEWORK_ALIPAY_BROKEN_RES_ID, APP_RES_ID),
+        Arb.element("android", "com.android.systemui", "com.eg.android.AlipayGphone", ""),
+    ) { color, global, managed, type, resId, pkg ->
         GuardInput(color, global, managed, type, resId, pkg)
     }
 
@@ -449,63 +448,67 @@ class ResourceSmallIconGuardTest {
         val resPackage: String,
     )
 
-    @Property(tries = 300)
-    fun `guarded intercept implies base intercept`(
-        @ForAll("guardInputs") input: GuardInput,
-    ) {
-        val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
-            colorStatusBarIcon = input.colorStatusBarIcon,
-            forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-            isMiPushManaged = input.isMiPushManaged,
-        )
-        val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-            colorStatusBarIcon = input.colorStatusBarIcon,
-            forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-            isMiPushManaged = input.isMiPushManaged,
-            iconType = input.iconType,
-            resId = input.resId,
-            resPackage = input.resPackage,
-            packageName = FLCLASH_PACKAGE,
-            uid = USER_APP_UID,
-            isSystemApp = false,
-            canColorize = false,
-        )
-        // The guard may only turn a true into false (decline a broken icon), never the reverse.
-        if (guarded) {
-            assertTrue(base, "Guard intercepted while base policy declined: $input")
+    @Test
+    fun `guarded intercept implies base intercept`() {
+        runBlocking {
+            checkAll(300, guardInputs) { input ->
+                val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                )
+                val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                    iconType = input.iconType,
+                    resId = input.resId,
+                    resPackage = input.resPackage,
+                    packageName = FLCLASH_PACKAGE,
+                    uid = USER_APP_UID,
+                    isSystemApp = false,
+                    canColorize = false,
+                )
+                // The guard may only turn a true into false (decline a broken icon), never the reverse.
+                if (guarded) {
+                    assertTrue(base, "Guard intercepted while base policy declined: $input")
+                }
+            }
         }
     }
 
-    @Property(tries = 300)
-    fun `guard declines exactly when base intercepts an unloadable icon`(
-        @ForAll("guardInputs") input: GuardInput,
-    ) {
-        val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
-            colorStatusBarIcon = input.colorStatusBarIcon,
-            forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-            isMiPushManaged = input.isMiPushManaged,
-        )
-        val loadable = SystemUiNotificationPolicy.isResourceSmallIconLoadable(
-            iconType = input.iconType,
-            resId = input.resId,
-            resPackage = input.resPackage,
-        )
-        val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-            colorStatusBarIcon = input.colorStatusBarIcon,
-            forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-            isMiPushManaged = input.isMiPushManaged,
-            iconType = input.iconType,
-            resId = input.resId,
-            resPackage = input.resPackage,
-            packageName = FLCLASH_PACKAGE,
-            uid = USER_APP_UID,
-            isSystemApp = false,
-            canColorize = false,
-        )
-        assertTrue(
-            guarded == (base && loadable),
-            "Guard must equal base AND loadable for all icon types including monochrome BITMAP: $input",
-        )
+    @Test
+    fun `guard declines exactly when base intercepts an unloadable icon`() {
+        runBlocking {
+            checkAll(300, guardInputs) { input ->
+                val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                )
+                val loadable = SystemUiNotificationPolicy.isResourceSmallIconLoadable(
+                    iconType = input.iconType,
+                    resId = input.resId,
+                    resPackage = input.resPackage,
+                )
+                val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                    iconType = input.iconType,
+                    resId = input.resId,
+                    resPackage = input.resPackage,
+                    packageName = FLCLASH_PACKAGE,
+                    uid = USER_APP_UID,
+                    isSystemApp = false,
+                    canColorize = false,
+                )
+                assertTrue(
+                    guarded == (base && loadable),
+                    "Guard must equal base AND loadable for all icon types including monochrome BITMAP: $input",
+                )
+            }
+        }
     }
 
     @Test

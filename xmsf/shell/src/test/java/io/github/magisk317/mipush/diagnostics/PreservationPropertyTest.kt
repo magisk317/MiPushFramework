@@ -1,10 +1,9 @@
 package io.github.magisk317.mipush.diagnostics
 
-import net.jqwik.api.Arbitraries
-import net.jqwik.api.Arbitrary
-import net.jqwik.api.ForAll
-import net.jqwik.api.Property
-import net.jqwik.api.Provide
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.element
+import io.kotest.property.checkAll
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -81,34 +80,37 @@ class PreservationPropertyTest {
     }
 
     /** **Validates: Requirements 3.1, 3.2, 3.3, 3.4** */
-    @Property(tries = 200)
-    fun `all generated non-bug observations preserve semantics`(
-        @ForAll("nonBugInputs") input: ExecutionInput,
-    ) {
-        val original = BaselineExecutor.replay(input)
-        val fixed = FixedBoundary.replay(input)
+    @Test
+    fun `all generated non-bug observations preserve semantics`() {
+        runBlocking {
+            checkAll(200, nonBugInputs) { input ->
+                val original = BaselineExecutor.replay(input)
+                val fixed = FixedBoundary.replay(input)
 
-        assertEquals(original.passed, fixed.passed)
-        assertEquals(original.outcome, fixed.outcome)
-        assertEquals(original.failureContext, fixed.failureContext)
-        assertEquals(original.selectedTests, fixed.selectedTests)
-        assertEquals(original.coverage, fixed.coverage)
-        assertEquals(original.task, fixed.task)
+                assertEquals(original.passed, fixed.passed)
+                assertEquals(original.outcome, fixed.outcome)
+                assertEquals(original.failureContext, fixed.failureContext)
+                assertEquals(original.selectedTests, fixed.selectedTests)
+                assertEquals(original.coverage, fixed.coverage)
+                assertEquals(original.task, fixed.task)
+            }
+        }
     }
 
     /** **Validates: Requirements 3.1, 3.2, 3.3, 3.4** */
-    @Property(tries = 200)
-    fun `generated non-bug inputs never silently remove selected tests`(
-        @ForAll("nonBugInputs") input: ExecutionInput,
-    ) {
-        val result = FixedBoundary.replay(input)
+    @Test
+    fun `generated non-bug inputs never silently remove selected tests`() {
+        runBlocking {
+            checkAll(200, nonBugInputs) { input ->
+                val result = FixedBoundary.replay(input)
 
-        assertEquals(input.selectedTests.toSet(), result.selectedTests.toSet())
-        assertEquals(input.selectedTests.size, result.coverage)
+                assertEquals(input.selectedTests.toSet(), result.selectedTests.toSet())
+                assertEquals(input.selectedTests.size, result.coverage)
+            }
+        }
     }
 
-    @Provide
-    fun nonBugInputs(): Arbitrary<ExecutionInput> = Arbitraries.of(
+    private val nonBugInputs: Arb<ExecutionInput> = Arb.element(
         ExecutionInput(
             task = ":xmsf:testNormalDebugUnitTest",
             jdkMajor = 17,
