@@ -8,6 +8,8 @@ import android.util.Base64
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import java.util.Collections
 import java.util.LinkedHashMap
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_BITMAP
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_COLUMN_PACKAGE
@@ -33,6 +35,18 @@ object StatusBarMonochromeIconPolicy {
     @JvmStatic
     fun clearCacheForTest() {
         whiteIconCache.clear()
+        iconPackCache.clear()
+        inFlightIconPackPrefetches.clear()
+    }
+
+    @JvmStatic
+    internal fun setIconPackPrefetchExecutorForTest(executor: Executor?) {
+        iconPackPrefetchExecutor = executor ?: defaultIconPackPrefetchExecutor
+    }
+
+    @JvmStatic
+    internal fun putIconPackEntryForTest(key: String, icon: Icon?, storedAtMs: Long) {
+        iconPackCache[key] = IconPackEntry(icon, storedAtMs)
     }
 
     /**
@@ -76,25 +90,110 @@ object StatusBarMonochromeIconPolicy {
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(Icon::createWithBitmap)
         }.getOrNull()
     }
+    // --- XMSF icon-pack bridge ---------------------------------------------------------------
+    // SystemUI calls iconPackIconForPackageOrNull from IconManager.getIconDescriptor on the main
+    // thread, inside a ConcurrentHashMap.computeIfAbsent bin lock. A synchronous
+    // ContentResolver.query() there blocks on the XMSF IconPackProvider: at boot the provider is
+    // cold and its process start exceeds the 5s input-dispatch timeout, ANR-killing SystemUI in
+    // a loop until LSPosed enters safe mode (Pixel 17, CP3A.260905.009). Contract: callers on
+    // any thread only read the cache here; a miss returns null (SystemUI keeps the original
+    // icon) and a background worker performs the query. The next icon rebuild picks the
+    // prefetched bitmap up.
+    private const val ICON_PACK_CACHE_MAX = 256
+    private const val ICON_PACK_POSITIVE_TTL_MS = 10 * 60 * 1000L
+    private const val ICON_PACK_NEGATIVE_TTL_MS = 15 * 1000L
+
+    internal enum class IconPackCacheDecision { HIT_FRESH, HIT_STALE, HIT_NEGATIVE_FRESH, MISS }
+
+    internal data class IconPackEntry(val icon: Icon?, val storedAtMs: Long)
+
+    private val iconPackCache: MutableMap<String, IconPackEntry> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, IconPackEntry>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IconPackEntry>?): Boolean {
+                return size > ICON_PACK_CACHE_MAX
+            }
+        },
+    )
+
+    private val inFlightIconPackPrefetches: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
+
+    private val defaultIconPackPrefetchExecutor: Executor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "mipush-iconpack").apply { isDaemon = true }
+    }
+
+    @Volatile
+    private var iconPackPrefetchExecutor: Executor = defaultIconPackPrefetchExecutor
+
+    internal fun iconPackCacheKey(userId: Int, packageName: String): String = "$userId:$packageName"
+
+    internal fun decideIconPackCache(entry: IconPackEntry?, nowMs: Long): IconPackCacheDecision {
+        if (entry == null) return IconPackCacheDecision.MISS
+        val ageMs = nowMs - entry.storedAtMs
+        return when {
+            entry.icon != null && ageMs < ICON_PACK_POSITIVE_TTL_MS -> IconPackCacheDecision.HIT_FRESH
+            entry.icon != null -> IconPackCacheDecision.HIT_STALE
+            ageMs < ICON_PACK_NEGATIVE_TTL_MS -> IconPackCacheDecision.HIT_NEGATIVE_FRESH
+            else -> IconPackCacheDecision.MISS
+        }
+    }
+
     @JvmStatic
     fun iconPackIconForPackageOrNull(context: Context, packageName: String, userId: Int): Icon? {
         if (packageName.isBlank() || userId < 0) return null
-        return runCatching {
-            val uri = Uri.Builder()
-                .scheme("content")
-                .authority(ICON_PACK_PREF_AUTHORITY)
-                .appendPath(ICON_PACK_PREF_PATH_ICON)
-                .appendQueryParameter(ICON_PACK_PREF_COLUMN_PACKAGE, packageName)
-                .appendQueryParameter(ICON_PACK_PREF_COLUMN_USER, userId.toString())
-                .build()
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                if (!cursor.moveToFirst()) return@use null
-                val index = cursor.getColumnIndex(ICON_PACK_PREF_COLUMN_BITMAP)
-                if (index < 0) return@use null
-                val bytes = cursor.getBlob(index)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(Icon::createWithBitmap)
+        val key = iconPackCacheKey(userId, packageName)
+        val entry = iconPackCache[key]
+        return when (decideIconPackCache(entry, System.currentTimeMillis())) {
+            IconPackCacheDecision.HIT_FRESH -> entry?.icon
+            IconPackCacheDecision.HIT_STALE -> {
+                // Serve the stale bitmap immediately; refresh in the background.
+                scheduleIconPackPrefetch(context, key, packageName, userId)
+                entry?.icon
             }
-        }.getOrNull()
+            IconPackCacheDecision.HIT_NEGATIVE_FRESH -> null
+            IconPackCacheDecision.MISS -> {
+                scheduleIconPackPrefetch(context, key, packageName, userId)
+                null
+            }
+        }
+    }
+
+    private fun scheduleIconPackPrefetch(context: Context, key: String, packageName: String, userId: Int) {
+        if (!inFlightIconPackPrefetches.add(key)) return
+        val appContext = context.applicationContext ?: context
+        iconPackPrefetchExecutor.execute {
+            try {
+                val icon = queryIconPackProvider(appContext, packageName, userId)
+                iconPackCache[key] = IconPackEntry(icon, System.currentTimeMillis())
+            } catch (_: Throwable) {
+                // Provider failures are expected while XMSF is cold at boot: retain any
+                // previously resolved bitmap and back off through the entry timestamp.
+                val retained = iconPackCache[key]?.icon
+                iconPackCache[key] = IconPackEntry(retained, System.currentTimeMillis())
+            } finally {
+                inFlightIconPackPrefetches.remove(key)
+            }
+        }
+    }
+
+    /**
+     * Background worker only. Blocks while AMS cold-starts the XMSF provider process — exactly
+     * the wait that must never run on SystemUI's main thread (see iconPackIconForPackageOrNull).
+     */
+    private fun queryIconPackProvider(context: Context, packageName: String, userId: Int): Icon? {
+        val uri = Uri.Builder()
+            .scheme("content")
+            .authority(ICON_PACK_PREF_AUTHORITY)
+            .appendPath(ICON_PACK_PREF_PATH_ICON)
+            .appendQueryParameter(ICON_PACK_PREF_COLUMN_PACKAGE, packageName)
+            .appendQueryParameter(ICON_PACK_PREF_COLUMN_USER, userId.toString())
+            .build()
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val index = cursor.getColumnIndex(ICON_PACK_PREF_COLUMN_BITMAP)
+            if (index < 0) return@use null
+            val bytes = cursor.getBlob(index)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(Icon::createWithBitmap)
+        }
     }
 
     private fun whiteIconForPackage(context: Context, packageName: String): Icon? {
