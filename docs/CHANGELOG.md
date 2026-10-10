@@ -3,6 +3,13 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.8] - Unreleased
+- 版本：`versionCode 19` / `versionName 1.0.8`。
+- 下一轮开发占位，发布前补充具体变更。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.7...v1.0.8
+
+---
 ## [v1.0.7] - 2026-10-10
 - 版本：`versionCode 18` / `versionName 1.0.7`。
 - `[notification]` 状态栏单色图标异步预取。
