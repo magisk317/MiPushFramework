@@ -16,6 +16,16 @@ class ManagerEventRuntimeReaderContractTest {
         assertFalse(source.contains("query.userId.takeIf"))
     }
 
+    @Test
+    fun `reader caps wire strings so one oversized event cannot fail the page`() {
+        val source = resolveSource().readText()
+
+        assertTrue(source.contains("ManagerProtocol.MAX_WIRE_STRING_LENGTH"))
+        assertTrue(source.contains("info = info?.let(::wireSafe)"))
+        assertTrue(source.contains("regSec = regSec?.let(::wireSafe)"))
+        assertTrue(source.contains("title = wireSafe(eventType.getTitle(context).toString())"))
+    }
+
     private fun resolveSource(): File {
         val relativePath =
             "src/main/java/io/github/magisk317/mipush/manager/runtime/read/" +

@@ -14,7 +14,9 @@ import io.github.magisk317.mipush.utils.RegSecUtils
  * only for comparison fidelity; writes remain out of this reader.
  *
  * Pages are size-bounded and wire-byte-bounded so Binder transactions stay under the negotiated
- * payload budget instead of failing the whole page.
+ * payload budget instead of failing the whole page. Wire strings are capped at the contract limit
+ * for the same reason: the runtime rejects an entire page when any single field exceeds it, so one
+ * oversized event must degrade to a truncated summary rather than poison the query.
  */
 class ManagerEventRuntimeReader(
     private val context: Context,
@@ -84,18 +86,25 @@ class ManagerEventRuntimeReader(
             userId = userId,
             packageName = pkg,
             configOptions = eventRepository.getStatus(container).toList().sorted(),
-            channel = eventRepository.getStatusDescription(this, container),
+            channel = wireSafe(eventRepository.getStatusDescription(this, container)),
             receiveDateMs = date,
-            title = eventType.getTitle(context).toString(),
-            content = content,
-            appName = Global.applicationNameCache().getAppName(context, pkg)?.toString(),
+            title = wireSafe(eventType.getTitle(context).toString()),
+            content = wireSafe(content),
+            appName = Global.applicationNameCache().getAppName(context, pkg)?.toString()?.let(::wireSafe),
             type = type,
             result = result,
-            info = info,
+            info = info?.let(::wireSafe),
             payload = safePayload,
-            regSec = regSec,
+            regSec = regSec?.let(::wireSafe),
         )
     }
+
+    private fun wireSafe(value: String): String =
+        if (value.length > ManagerProtocol.MAX_WIRE_STRING_LENGTH) {
+            value.take(ManagerProtocol.MAX_WIRE_STRING_LENGTH)
+        } else {
+            value
+        }
 
     private fun estimateSummaryWireBytes(summary: ManagerEventReadSummary): Int {
         var total = EVENT_SUMMARY_FRAME_BYTES
