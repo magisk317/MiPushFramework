@@ -1,0 +1,5 @@
+- `[notification]` Prefetch monochrome icons asynchronously.
+- `[xmsf]` Cap event wire string lengths.
+- `[test]` Unify property testing on kotest-property.
+- `[ci]` Pipeline cleanup and boundary guard fixes.
+- `[build]` Upgrade toolchain to AGP 9.5.0-alpha09.

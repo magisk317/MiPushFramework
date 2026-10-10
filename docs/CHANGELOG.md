@@ -3,6 +3,17 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.0.7] - 2026-10-10
+- 版本：`versionCode 18` / `versionName 1.0.7`。
+- `[notification]` 状态栏单色图标异步预取。
+- `[xmsf]` 限制单条事件字符串长度。
+- `[test]` 统一属性测试至 kotest-property。
+- `[ci]` 对齐流水线清理与边界门禁修复。
+- `[build]` 工具链升级 AGP 9.5.0-alpha09。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.6...v1.0.7
+
+---
 ## [v1.0.6] - 2026-10-08
 - 版本：`versionCode 17` / `versionName 1.0.6`。
 - `[notification]` 单色图标引擎重构。

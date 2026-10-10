@@ -1,0 +1,5 @@
+- `[notification]` 状态栏单色图标异步预取。
+- `[xmsf]` 限制单条事件字符串长度。
+- `[test]` 统一属性测试至 kotest-property。
+- `[ci]` 对齐流水线清理与边界门禁修复。
+- `[build]` 工具链升级 AGP 9.5.0-alpha09。
