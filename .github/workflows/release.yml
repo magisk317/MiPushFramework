@@ -264,7 +264,7 @@ jobs:
     needs: [validate-release]
     runs-on: ubuntu-26.04
     env:
-      MIPUSH_ZYGISK_REF: 78ec9bbdd04c4dffb3452c7eaa69d16096c244e6
+      MIPUSH_ZYGISK_REF: 64b62b0eb025165e1f2a06b0d1b39b756ece1ab0
     steps:
       - name: Configure GitLab submodule credentials
         env:

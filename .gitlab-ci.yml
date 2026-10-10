@@ -53,6 +53,11 @@ stages:
 variables:
   MAGISK_CI_TOOLKIT_REF: "v1"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
+  # Cancel the merged MR's own merge_request_event pipeline from the push
+  # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
+  # native auto_cancel never fires on a ref that receives no new pipeline,
+  # so the MR pipeline would otherwise run the quality stage on merged code.
+  MAGISK_CANCEL_MERGED_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -73,7 +78,10 @@ variables:
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/beta advances.
-  MIPUSH_ZYGISK_REF: "v1.0.3"
+  # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
+  # here fails the fetch outright. Bump it together with the MiPushZygisk release
+  # (module.prop version/versionCode must stay in sync with libs.versions.toml).
+  MIPUSH_ZYGISK_REF: "64b62b0eb025165e1f2a06b0d1b39b756ece1ab0"
   MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
   # Public SHA-256 fingerprint of the production APK signing certificate.
