@@ -91,17 +91,19 @@ class PushMessageHandler : BaseService() {
 
         @JvmStatic
         fun onHandleIntent(context: Context, intent: Intent) {
-            fun emit(result: String, reason: String, statusOk: Boolean = true) {
+            fun emit(result: String, reason: String, statusOk: Boolean = true, errorClass: String? = null) {
+                val attrs = mutableMapOf(
+                    "result" to result,
+                    "duration_ms" to "0",
+                    "process" to "sdk",
+                    "stage" to "push_message_handler",
+                    "reason" to reason,
+                    "target_package" to context.packageName.orEmpty().ifBlank { "unknown" },
+                )
+                if (errorClass != null) attrs["error_class"] = errorClass
                 MagiskOtel.event(
                     name = "push.receive",
-                    attributes = mapOf(
-                        "result" to result,
-                        "duration_ms" to "0",
-                        "process" to "sdk",
-                        "stage" to "push_message_handler",
-                        "reason" to reason,
-                        "target_package" to context.packageName.orEmpty().ifBlank { "unknown" },
-                    ),
+                    attributes = attrs,
                     statusOk = statusOk,
                 )
             }
@@ -158,7 +160,7 @@ class PushMessageHandler : BaseService() {
                     } catch (e: Exception) {
                         MyLog.e(e)
                         PushClientReportManager.getInstance(context).reportEvent4ERROR(context.packageName, intent, "9")
-                        emit(result = "error", reason = e.javaClass.simpleName, statusOk = false)
+                        emit(result = "error", reason = "receiver_resolve_failed", errorClass = e.javaClass.simpleName, statusOk = false)
                     }
                 } else {
                     emit(result = "skip", reason = "sync_log")
@@ -166,7 +168,7 @@ class PushMessageHandler : BaseService() {
             } catch (th: Throwable) {
                 MyLog.e(th)
                 PushClientReportManager.getInstance(context).reportEvent4ERROR(context.packageName, intent, "10")
-                emit(result = "error", reason = th.javaClass.simpleName, statusOk = false)
+                emit(result = "error", reason = "handler_failed", errorClass = th.javaClass.simpleName, statusOk = false)
             }
         }
 

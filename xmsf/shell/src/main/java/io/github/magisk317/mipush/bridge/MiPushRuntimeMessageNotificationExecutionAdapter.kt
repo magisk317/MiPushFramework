@@ -143,7 +143,7 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
         @Suppress("TooGenericExceptionCaught")
         override fun handleNotification(packageName: String, payload: ByteArray): Boolean {
             val startedAt = System.nanoTime()
-            fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
+            fun emit(result: String, statusOk: Boolean = true, reason: String? = null, errorClass: String? = null) {
                 val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
                 val attrs = mutableMapOf(
                     "result" to result,
@@ -154,6 +154,9 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
                 )
                 if (reason != null) {
                     attrs["reason"] = reason
+                }
+                if (errorClass != null) {
+                    attrs["error_class"] = errorClass
                 }
                 MagiskOtel.event(
                     name = "push.receive",
@@ -170,7 +173,8 @@ internal class MiPushRuntimeMessageNotificationExecutionAdapter(
                 emit(
                     result = "error",
                     statusOk = false,
-                    reason = error.javaClass.simpleName,
+                    reason = "notify_failed",
+                    errorClass = error.javaClass.simpleName,
                 )
                 throw error
             }

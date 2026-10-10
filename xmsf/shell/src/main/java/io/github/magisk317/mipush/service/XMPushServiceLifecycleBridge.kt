@@ -63,7 +63,13 @@ object XMPushServiceLifecycleBridge {
             .onSuccess { emitLifecycle(startedAt, result = "ok", reason = "start") }
             .onFailure {
                 logE("listener.start failed", it)
-                emitLifecycle(startedAt, result = "error", statusOk = false, reason = it.javaClass.simpleName)
+                emitLifecycle(
+                    startedAt,
+                    result = "error",
+                    statusOk = false,
+                    reason = "listener_start_failed",
+                    errorClass = it.javaClass.simpleName,
+                )
             }
     }
 
@@ -79,7 +85,13 @@ object XMPushServiceLifecycleBridge {
             .onSuccess { emitLifecycle(startedAt, result = "ok", reason = "destroy") }
             .onFailure {
                 logE("listener.destroy failed", it)
-                emitLifecycle(startedAt, result = "error", statusOk = false, reason = it.javaClass.simpleName)
+                emitLifecycle(
+                    startedAt,
+                    result = "error",
+                    statusOk = false,
+                    reason = "listener_destroy_failed",
+                    errorClass = it.javaClass.simpleName,
+                )
             }
     }
 
@@ -88,6 +100,7 @@ object XMPushServiceLifecycleBridge {
         result: String,
         statusOk: Boolean = true,
         reason: String? = null,
+        errorClass: String? = null,
     ) {
         val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
         val attrs = mutableMapOf(
@@ -96,6 +109,7 @@ object XMPushServiceLifecycleBridge {
             "process" to "main",
         )
         if (reason != null) attrs["reason"] = reason
+        if (errorClass != null) attrs["error_class"] = errorClass
         MagiskOtel.event(name = "push.lifecycle", attributes = attrs, statusOk = statusOk)
     }
 
@@ -144,7 +158,8 @@ object XMPushServiceLifecycleBridge {
                         "duration_ms" to "0",
                         "process" to "main",
                         "stage" to "connection",
-                        "reason" to it.javaClass.simpleName,
+                        "reason" to "connection_listener_failed",
+                        "error_class" to it.javaClass.simpleName,
                     ),
                     statusOk = false,
                 )

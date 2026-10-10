@@ -8,6 +8,9 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 class ClientEventDispatcher {
     private val pushEventProcessor = MIPushEventProcessor()
 
+    private fun errorReasonKey(reason: Int): String =
+        PushConstants.getErrorDesc(reason).removePrefix("ERROR_").lowercase()
+
     fun notifyChannelClosed(
         pushAction: IPushServiceAction,
         clientLoginInfo: PushClientsManager.ClientLoginInfo,
@@ -21,7 +24,8 @@ class ClientEventDispatcher {
                 "duration_ms" to "0",
                 "process" to "push",
                 "stage" to "channel_closed",
-                "reason" to reason.toString(),
+                "reason" to errorReasonKey(reason),
+                "error_code" to reason.toString(),
                 "target_package" to clientLoginInfo.pkgName,
             ),
             statusOk = true,
@@ -51,7 +55,8 @@ class ClientEventDispatcher {
                 "duration_ms" to "0",
                 "process" to "push",
                 "stage" to "channel_open",
-                "reason" to reason.toString(),
+                "reason" to errorReasonKey(reason),
+                "error_code" to reason.toString(),
                 "reason_token" to when (reasonMessage) {
                     null, "" -> "none"
                     "token-expired" -> "token_expired"
