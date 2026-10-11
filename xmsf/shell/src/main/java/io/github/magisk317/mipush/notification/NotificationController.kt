@@ -631,18 +631,15 @@ object NotificationController {
         return runCatching { getLargeIcon() }.getOrNull()
     }
 
-    @JvmStatic
-    fun cancel(
+    /** Cancels one (packageName, tag, id) slot with every coordinator that tracks publish identity. */
+    private fun cancelNotificationSlot(
         context: Context,
-        container: XmPushActionContainer,
+        packageName: String,
+        tag: String?,
         notificationId: Int,
-        notificationGroup: String?,
-        clearGroup: Boolean
+        userId: Int,
     ) {
-        val packageName = MIPushNotificationHelper.getTargetPackage(container)
-        val userId = resolveNotificationUserId(context, packageName)
         MIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
-        val tag = MIPushNotificationPublishHelper.getNotificationTag(container)
         NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
         TopNotificationCoordinator.cancelNotification(
             context = context,
@@ -672,6 +669,28 @@ object NotificationController {
             cancelNotification = true,
             userId = userId,
         )
+    }
+
+    @JvmStatic
+    fun cancel(
+        context: Context,
+        container: XmPushActionContainer,
+        notificationId: Int,
+        notificationGroup: String?,
+        clearGroup: Boolean
+    ) {
+        val packageName = MIPushNotificationHelper.getTargetPackage(container)
+        val userId = resolveNotificationUserId(context, packageName)
+        val tag = MIPushNotificationPublishHelper.getNotificationTag(container)
+        cancelNotificationSlot(context, packageName, tag, notificationId, userId)
+        // [PRODUCT-OWNED DEVIATION — see FocusOrderIdentityPolicy] A live-session card posts under
+        // the order-derived id, so a cancel container that repeats the focus param must also
+        // target that id; stock cancels keyed on the notifyId alone. Recheck stock cancel
+        // semantics on XMSF upgrades before retiring this branch.
+        val orderNotificationId = FocusOrderIdentityPolicy.resolveNotificationId(packageName, container.metaInfo)
+        if (orderNotificationId != null && orderNotificationId != notificationId) {
+            cancelNotificationSlot(context, packageName, tag, orderNotificationId, userId)
+        }
         if (clearGroup) {
             getNotificationManagerEx().cancel(
                 packageName,

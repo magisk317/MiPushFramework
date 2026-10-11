@@ -40,6 +40,7 @@ import com.xiaomi.push.service.NotificationGroupHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.clientReport.ReportConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.notification.FocusOrderIdentityPolicy
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.LiveUpdateDetector
@@ -983,10 +984,21 @@ class MIPushNotificationPublishHelper {
                     ?: metaInfo.notifyId.toString()
                 return "${packageName}_mock_replay:$sourceId".hashCode()
             }
-            val notifyId = metaInfo?.notifyId ?: 0
-            val result = (packageName.hashCode() / 10) * 10 + notifyId
-            logD("getNotificationId pkg=$packageName notifyId=$notifyId mockReplay=$isMockReplay messageId=$messageId result=$result")
-            return result
+        // [PRODUCT-OWNED DEVIATION — see FocusOrderIdentityPolicy] A live-session payload keys on
+        // its order, not the per-message notifyId; recheck stock getNotificationId on XMSF
+        // upgrades before retiring this branch.
+        val focusOrderId = FocusOrderIdentityPolicy.resolveNotificationId(packageName, metaInfo)
+        if (focusOrderId != null) {
+            logD(
+                "getNotificationId pkg=$packageName focusOrder=true messageId=$messageId " +
+                    "notifyId=${metaInfo?.notifyId} result=$focusOrderId"
+            )
+            return focusOrderId
+        }
+        val notifyId = metaInfo?.notifyId ?: 0
+        val result = (packageName.hashCode() / 10) * 10 + notifyId
+        logD("getNotificationId pkg=$packageName notifyId=$notifyId mockReplay=$isMockReplay messageId=$messageId result=$result")
+        return result
         }
 
         @JvmStatic

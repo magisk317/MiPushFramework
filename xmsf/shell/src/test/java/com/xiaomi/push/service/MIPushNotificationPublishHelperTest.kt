@@ -353,6 +353,7 @@ class MIPushNotificationPublishHelperTest {
             metaInfo.putToExtra("msg_busi_type", "voip")
             metaInfo.putToExtra("voip_type", "1")
         }
+        // Focus param without an order id is not a live session: stock per-message identity.
         val focus = notificationContainer("job-focus").apply {
             metaInfo.putToExtra("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
         }
@@ -365,6 +366,56 @@ class MIPushNotificationPublishHelperTest {
         assertEquals(expected, MIPushNotificationPublishHelper.getNotificationId(voip))
         assertEquals(expected, MIPushNotificationPublishHelper.getNotificationId(focus))
         assertEquals(expected, MIPushNotificationPublishHelper.getNotificationId(liveUpdate))
+    }
+
+    @Test
+    fun `getNotificationId keys live-session focus payloads on the order id`() {
+        val focusParam =
+            """{"progressCount":2,"orderId":"208870222575168520261011122933190002876515",""" +
+                """"scene":"foodDelivery","sequence":9,"progress":25,"updatable":true}"""
+        // Observed on pudding: the server assigns notifyId per message (title hash), so status
+        // updates of one order arrive with different notifyIds and must land on one identity.
+        val delivering = notificationContainer("job-order-delivering").apply {
+            metaInfo.setNotifyId(-1325363137)
+            metaInfo.putToExtra("miui.focus.param", focusParam)
+        }
+        val pickingUp = notificationContainer("job-order-pickup").apply {
+            metaInfo.setNotifyId(630311518)
+            metaInfo.putToExtra("miui.focus.param", focusParam)
+        }
+
+        val expected =
+            ("com.ruanmei.ithome".hashCode() / 10) * 10 +
+                "foodDelivery|208870222575168520261011122933190002876515".hashCode()
+        assertEquals(expected, MIPushNotificationPublishHelper.getNotificationId(delivering))
+        assertEquals(expected, MIPushNotificationPublishHelper.getNotificationId(pickingUp))
+    }
+
+    @Test
+    fun `getNotificationId separates distinct focus orders and keeps mock replay precedence`() {
+        fun orderContainer(jobKey: String, orderId: String, scene: String = "foodDelivery") =
+            notificationContainer(jobKey).apply {
+                metaInfo.putToExtra(
+                    "miui.focus.param",
+                    """{"orderId":"$orderId","scene":"$scene","updatable":true}""",
+                )
+            }
+
+        val orderA = MIPushNotificationPublishHelper.getNotificationId(orderContainer("job-a", "order-a"))
+        val orderB = MIPushNotificationPublishHelper.getNotificationId(orderContainer("job-b", "order-b"))
+        val taxiA = MIPushNotificationPublishHelper.getNotificationId(
+            orderContainer("job-taxi", "order-a", scene = "taxi"),
+        )
+        assertNotEquals(orderA, orderB)
+        assertNotEquals(orderA, taxiA)
+
+        val replaySource = orderContainer("job-replay", "order-a")
+        MockMessageRegistry.mark(replaySource)
+        replaySource.metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
+        assertEquals(
+            "com.ruanmei.ithome_mock_replay:job-replay".hashCode(),
+            MIPushNotificationPublishHelper.getNotificationId(replaySource),
+        )
     }
 
     @Test
