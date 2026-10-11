@@ -52,6 +52,10 @@ stages:
 
 variables:
   MAGISK_CI_TOOLKIT_REF: "v1"
+  # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
+  # project variable can move them onto the dedicated amd64 runner without
+  # touching the build/release jobs, which stay pinned to the arm runner.
+  MIPUSH_QUALITY_RUNNER_TAG: "magisk-arm64-linux"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   # Cancel the merged MR's own merge_request_event pipeline from the push
   # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
@@ -412,7 +416,7 @@ android:detekt:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -448,7 +452,7 @@ android:test:pure-modules:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -479,7 +483,7 @@ android:test:
   # Coverage gate runs on ARM after Beta publishing.
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:test:pure-modules
       artifacts: true
@@ -513,7 +517,7 @@ android:module-boundaries:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -531,7 +535,7 @@ android:shared-compat:
   # Beta publish so it cannot consume the release runner first.
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
