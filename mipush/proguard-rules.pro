@@ -28,11 +28,6 @@
 # MethodHookerImpl.intercept() is invoked by LSPosed at runtime
 -keep class io.github.magisk317.xposed.** { *; }
 
-# magisk-xposed-kit's MobileHookGateCheck is compiled against the entitlement
-# library (compileOnly upstream) but is never invoked by this app, so the
-# entitlement classes are intentionally absent from the runtime classpath.
--dontwarn com.magisk317.mobile.entitlement.**
-
 # Keep parcelables used across module boundaries when minification is enabled
 -keep class io.github.magisk317.mipush.common.model.** { *; }
 
