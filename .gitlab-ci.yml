@@ -56,6 +56,10 @@ variables:
   # project variable can move them onto the dedicated amd64 runner without
   # touching the build/release jobs, which stay pinned to the arm runner.
   MIPUSH_QUALITY_RUNNER_TAG: "magisk-arm64-linux"
+  # The AAB packaging (android:ci:play-beta-bundle) pins to the Debian ct101
+  # amd64 runner while the APK compile (android:build) stays on the arm runner,
+  # so the two release stages run on different machines and pipelines overlap.
+  MIPUSH_BUNDLE_RUNNER_TAG: "ct101"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   # Cancel the merged MR's own merge_request_event pipeline from the push
   # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
@@ -673,7 +677,7 @@ android:ci:play-beta-bundle:
   resource_group: mipush-android-release-play
   stage: release-build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
   # come from CI variables, assets from the repository), so the publish chain
   # must not wait for the build/package stages: Play publishing keeps
