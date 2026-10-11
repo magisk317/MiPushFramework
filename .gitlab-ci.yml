@@ -35,7 +35,7 @@ default:
   interruptible: true
   # ARM runners handle Android compilation; Robolectric remains explicitly on AMD64.
   tags:
-    - magisk-amd64-linux
+    - ct101
 
 stages:
   - build
@@ -53,13 +53,14 @@ stages:
 variables:
   MAGISK_CI_TOOLKIT_REF: "v1"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
-  # project variable can move them onto the dedicated amd64 runner without
-  # touching the build/release jobs, which stay pinned to the arm runner.
-  MIPUSH_QUALITY_RUNNER_TAG: "magisk-arm64-linux"
-  # The AAB packaging (android:ci:play-beta-bundle) pins to the Debian ct101
-  # amd64 runner while the APK compile (android:build) stays on the arm runner,
-  # so the two release stages run on different machines and pipelines overlap.
-  MIPUSH_BUNDLE_RUNNER_TAG: "ct101"
+  # All Android jobs (test/build/bundle/publish) read these tags, which both
+  # the arm64 and the Debian ct101 amd64 group runners carry. GitLab picks
+  # whichever is free (or the only one left standing), so the release chain
+  # runs on different machines, pipelines overlap, and neither runner is a
+  # single point of failure for producing a build.
+  MIPUSH_QUALITY_RUNNER_TAG: "ci-android"
+  MIPUSH_BUILD_RUNNER_TAG: "ci-android"
+  MIPUSH_BUNDLE_RUNNER_TAG: "ci-android"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   # Cancel the merged MR's own merge_request_event pipeline from the push
   # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
@@ -150,7 +151,7 @@ update:anip-bundle:
   extends: .magisk_utility_base
   stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - !reference [.mipush_signed_android_rules, rules]
   variables:
@@ -172,7 +173,7 @@ android:build:
     - .magisk_android_build
     - .mipush_signed_android_rules
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
@@ -210,7 +211,7 @@ android:build:
 android:check:
   extends: .magisk_android_build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   stage: quality
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -354,7 +355,7 @@ android:check:
 zygisk:build:arm:
   extends: .mipush_zygisk_build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG'
       when: never
@@ -371,7 +372,7 @@ zygisk:build:arm:
 zygisk:build:release:
   extends: .mipush_zygisk_build
   tags:
-    - magisk-amd64-linux
+    - ct101
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
     - when: never
@@ -394,7 +395,7 @@ telegram:ci:
       allow_failure: true
     - when: never
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
@@ -560,7 +561,7 @@ android:release:guard:
     - .magisk_android_release_tag_rules
   stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   script:
     - |
       set -euo pipefail
@@ -579,7 +580,7 @@ android:release:apk:
   resource_group: mipush-android-release-apk
   stage: release-build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
@@ -611,7 +612,7 @@ android:release:play-bundle:
   resource_group: mipush-android-release-play
   stage: release-build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -634,7 +635,7 @@ android:release:gitlab:
   resource_group: mipush-android-release-publish
   stage: release-publish
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -654,7 +655,7 @@ android:release:play:
   resource_group: mipush-android-release-play
   stage: release-publish
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
@@ -717,7 +718,7 @@ android:ci:play-beta:
   resource_group: mipush-android-release-play
   stage: release-publish
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: on_success
@@ -758,7 +759,7 @@ telegram:release:
   stage: notify
   allow_failure: true
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       allow_failure: true
@@ -783,7 +784,7 @@ renovate:gitlab:
   interruptible: false
   stage: maintenance
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
 
 sync:github:
   extends: .magisk_utility_base
@@ -796,7 +797,7 @@ sync:github:
     - job: android:release:guard
       optional: true
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_TAG'
@@ -827,7 +828,7 @@ android:release:github:
   resource_group: mipush-android-release-publish
   stage: release-publish
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   variables:
     # Must stay job-level: the toolkit template pins the same key at job level
     # to "*arm64-v8a*.apk", and job variables outrank the global variables
@@ -895,7 +896,7 @@ android:release:modules-repo:
   resource_group: mipush-android-release-publish
   stage: release-publish
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   needs:
     - job: android:release:apk
       artifacts: true
