@@ -40,17 +40,33 @@ class HeartbeatStrategyManager private constructor(
             MyLog.w("HB dynamic strategy requested but not ported; using stable strategy.")
             requested = STRATEGY_STABLE
         }
-        // Stock forces strategy 2 when hardware.heartbeat.e.b() is true. Without a clean MdKa
-        // surface, keep stable rather than inventing modem keep-alive.
-        if (requested == STRATEGY_HARDWARE) {
-            MyLog.w("HB hardware strategy requested but MdKa is unavailable; using stable strategy.")
-            requested = STRATEGY_STABLE
+        // Stock a0.f: the MdKa availability controller overrides the cloud selection with the
+        // hardware strategy whenever the modem keep-alive session is usable.
+        val mdKaAvailable: Boolean = runCatching {
+            MdKaController.get(appContext).isAvailable()
+        }.getOrDefault(false)
+        if (mdKaAvailable) {
+            if (requested != STRATEGY_HARDWARE) {
+                MyLog.w("HB hardware strategy selected: MdKa available (cloud requested $requested).")
+            }
+            requested = STRATEGY_HARDWARE
         }
 
         val current = strategy
-        if (current != null && current.strategyId() == requested) {
+        if (current != null && current.strategyId() == requested && current !is MdKaHeartbeatStrategy) {
             return current
         }
+        if (requested == STRATEGY_HARDWARE) {
+            if (current is MdKaHeartbeatStrategy) {
+                return current
+            }
+            current?.release()
+            val next = MdKaHeartbeatStrategy(MdKaController.get(appContext))
+            next.prepare()
+            strategy = next
+            return next
+        }
+
         current?.release()
         val next = StableIntelligentHeartbeatStrategy(appContext)
         next.prepare()
@@ -65,6 +81,9 @@ class HeartbeatStrategyManager private constructor(
     fun strategyId(): Int = selectStrategy().strategyId()
 
     fun onNetworkChanged(snapshot: HeartbeatNetworkSnapshot?) {
+        // The MdKa gate inputs (data card, mobile connectivity) ride on network changes even
+        // while the stable strategy is selected, so availability can flip without a strategy.
+        runCatching { MdKaController.get(appContext).onNetworkChanged(snapshot) }
         selectStrategy().onNetworkChanged(snapshot)
     }
 

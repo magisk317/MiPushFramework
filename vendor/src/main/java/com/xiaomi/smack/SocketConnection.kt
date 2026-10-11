@@ -10,6 +10,7 @@ import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMPushServiceJob
 import com.xiaomi.push.service.heartbeat.HeartbeatStrategyManager
+import com.xiaomi.push.service.heartbeat.MdKaController
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.Packet
 import com.xiaomi.smack.util.TaskExecutor
@@ -92,6 +93,11 @@ abstract class SocketConnection(
                     createdSocket.tcpNoDelay = true
                 }
                 socketGeneration += 1
+                // Stock 7.5.79-C XMPushService hands every connected long-connection socket to
+                // the MdKa manager so the modem can take over its TCP keep-alive.
+                runCatching {
+                    MdKaController.get(mContext).onSocketConnected(socket)
+                }
                 Logger.w {
                     "tcp connected connectionInstanceId=$connectionInstanceId " +
                         "socketGeneration=$socketGeneration host=$candidateHost " +
@@ -107,6 +113,7 @@ abstract class SocketConnection(
                 return
             } catch (error: Exception) {
                 failedException = error
+                runCatching { MdKaController.get(mContext).onSocketClosed(reason = -1, error = error) }
                 closeSocketQuietly()
                 Logger.e(error) { "SMACK: Could not connect to:$candidateHost" }
                 failures
@@ -208,6 +215,9 @@ abstract class SocketConnection(
         synchronized(this) {
             if (connectStatus == ConnectionConfiguration.CONNECT_STATUS_DISCONNECT) return
             super.shutdown(reason, error)
+            // Stock XMPushService reports the socket close to the MdKa manager on every
+            // teardown path (disconnect, error, ping-pong timeout).
+            runCatching { MdKaController.get(mContext).onSocketClosed(reason, error) }
             clearChallenge()
             closeSocketQuietly()
             setReadAliveAtZero()
