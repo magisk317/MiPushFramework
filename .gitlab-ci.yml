@@ -53,6 +53,7 @@ stages:
 variables:
   MAGISK_CI_TOOLKIT_REF: "v1"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
+  # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
   # the arm64 and the Debian ct101 amd64 group runners carry. GitLab picks
   # whichever is free (or the only one left standing), so the release chain
@@ -61,6 +62,11 @@ variables:
   MIPUSH_QUALITY_RUNNER_TAG: "ci-android"
   MIPUSH_BUILD_RUNNER_TAG: "ci-android"
   MIPUSH_BUNDLE_RUNNER_TAG: "ci-android"
+  # Zygisk ARM builds cross-compile against the pinned NDK and must stay on the
+  # ARM host. `ci-android` is shared with the amd64 ct101 runner, so using it
+  # here let this job land on amd64 and burn ~64 min before failing. This tag
+  # is carried by the arm64 runner only.
+  MIPUSH_ZYGISK_ARM_RUNNER_TAG: "magisk-arm64-linux"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   # Cancel the merged MR's own merge_request_event pipeline from the push
   # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
@@ -355,7 +361,7 @@ android:check:
 zygisk:build:arm:
   extends: .mipush_zygisk_build
   tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
+    - $MIPUSH_ZYGISK_ARM_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG'
       when: never
