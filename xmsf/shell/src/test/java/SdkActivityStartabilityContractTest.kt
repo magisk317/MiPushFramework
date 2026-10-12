@@ -38,7 +38,7 @@ class SdkActivityStartabilityContractTest {
         // filters declare no <data> (Meituan HWPushDetailActivity fails with AMS result code=-91
         // at click time). The sdk_activity route must re-resolve the final intent and drop the
         // identity data when it breaks resolution, before falling through to the app-side routes.
-        assertTrue(source.contains("isClickIntentResolvable(context, activityIntent)"))
+        assertTrue(source.contains("isClickIntentResolvable(context, activityIntent, container.packageName)"))
         assertTrue(source.contains("activityIntent.data = null"))
         assertTrue(source.contains("logClickRoute(\"sdk_activity_nodata\""))
         assertTrue(source.contains("sdk click intent unresolved after identity drop, fall through"))
@@ -55,11 +55,43 @@ class SdkActivityStartabilityContractTest {
         // ClickResultActivity as a bare component whose landing parameters only exist in the
         // payload itself. Launching it from XMSF NPEs inside the app (missing richpush://
         // data), so the intent must be reported unavailable and every caller must fall back
-        // to app-side dispatch. Bare-component payloads of other SDKs (QQ JumpActivity) keep
-        // the sdk_activity route.
+        // to app-side dispatch. Bare-component payloads of other SDKs keep the sdk_activity
+        // route, except QQ's JumpActivity, which joined this list on 2026-10-12 after a
+        // device trace showed it finishes without navigating.
         assertTrue(source.contains("if (isReceiverBuiltClickTarget(intent))"))
         assertTrue(source.contains("cn.richinfo.richpush."))
         assertTrue(source.contains("receiver-built click target, skip"))
+    }
+
+    @Test
+    fun `client data jump url is only tried once the sdk activity route is unusable`() {
+        val source = resolveSource(
+            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+        ).readText()
+
+        // Some clients (QQ) keep the landing address in client_data.url while intent_uri only
+        // names a bare component. That address is the one that reaches the intended screen, so
+        // it must be tried BEFORE the sdk_activity block: a bare-component start only produces
+        // an empty shell activity that finishes without navigating and would consume the click.
+        val jumpIndex = source.indexOf("resolveClientDataJumpUrl(context, metaInfo")
+        val sdkIndex = source.indexOf("val activityIntent = getSdkIntent(context, container)")
+        val bridgeIndex = source.indexOf("val bridgePendingIntent = buildBridgePendingIntent(")
+        assertTrue(jumpIndex >= 0)
+        assertTrue(sdkIndex >= 0)
+        assertTrue(bridgeIndex >= 0)
+        assertTrue(jumpIndex < sdkIndex)
+        assertTrue(jumpIndex < bridgeIndex)
+        assertTrue(source.contains("client_data_url"))
+        assertTrue(source.contains("resolveClientDataJumpUrl"))
+    }
+
+    @Test
+    fun `qq jump activity is classified as a receiver built click target`() {
+        val source = resolveSource(
+            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+        ).readText()
+
+        assertTrue(source.contains("\"com.tencent.mobileqq.activity.JumpActivity\""))
     }
 
     private fun resolveSource(relativePath: String): File =

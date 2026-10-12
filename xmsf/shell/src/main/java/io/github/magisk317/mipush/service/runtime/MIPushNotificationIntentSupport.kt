@@ -58,7 +58,17 @@ internal object MIPushNotificationIntentSupport {
     // receiver instead of being carried by the payload (see isReceiverBuiltClickTarget).
     // Extend only when another SDK shows the same "bare component needs receiver-built
     // data" signature.
-    private val RECEIVER_BUILT_CLICK_TARGET_PREFIXES = listOf("cn.richinfo.richpush.")
+    private val RECEIVER_BUILT_CLICK_TARGET_PREFIXES = listOf(
+        "cn.richinfo.richpush.",
+        // QQ's JumpActivity: the payload only carries a bare component and keeps the real
+        // landing address in client_data.url (for example mqqapi://qpet/open). Launching it
+        // directly from XMSF yields an empty shell activity - a 2026-10-12 device trace shows
+        // it draws its first frame and then finishes 360ms later without any follow-up start,
+        // which the user sees as "the notification does nothing when tapped". Classifying it
+        // as receiver-built skips the sdk_activity route and lets the launcher fallback open
+        // QQ instead.
+        "com.tencent.mobileqq.activity.JumpActivity",
+    )
 
     private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
     private const val STYLE_TYPE_VOIP = "6"
@@ -212,6 +222,22 @@ internal object MIPushNotificationIntentSupport {
             }
         }
 
+        // Some clients (QQ among them) keep the real landing address in the client_data JSON
+        // ("url", for example mqqapi://qpet/open) while intent_uri only names a bare component.
+        // That address reaches the intended screen, so it takes priority over the payload's own
+        // component: a bare-component sdk_activity start only produces an empty shell activity
+        // that finishes without navigating, and it would consume the click before anything else
+        // gets a chance. The sdk_activity route below stays as the fallback for payloads that
+        // carry no usable client_data address.
+        resolveClientDataJumpUrl(context, metaInfo, container.packageName)?.let { url ->
+            val jumpIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                applyPendingIntentIdentity(this, container.packageName, notificationId, messageId)
+            }
+            logClickRoute("client_data_url", container.packageName, notificationId)
+            return PendingIntent.getActivity(context, requestCode, jumpIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+        }
+
         val activityIntent = getSdkIntent(context, container)
         if (shouldUseSdkActivityClick(activityIntent != null)) {
             activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -266,9 +292,10 @@ internal object MIPushNotificationIntentSupport {
             return bridgePendingIntent
         }
 
-        // 全链路兜底：sdk_activity 与 bridge_activity 均不可用时，回落到目标应用的 Launcher
-        // Activity，避免点击掉入后台 Service PendingIntent（xmsf_service）被现代 Android 直接
-        // 限制、毫无反应的死胡同。即使 per-app launcher fallback 开关未开启也启用此兜底。
+        // Last-resort fallback: when both sdk_activity and bridge_activity are unavailable, fall
+        // back to the target app's launcher Activity so the click never lands on the
+        // background-service PendingIntent (xmsf_service) that modern Android silently drops.
+        // Enabled even when the per-app launcher fallback switch is off.
         buildLauncherFallbackPendingIntent(
             context = context,
             packageName = targetPackageName,
@@ -309,9 +336,10 @@ internal object MIPushNotificationIntentSupport {
         extra: Bundle?
     ): PendingIntent? {
         val metaInfo = container.metaInfo ?: return null
-        // 官方 MiPush SDK 客户端（企业微信、闲鱼等）默认注册的是 NotificationClickedActivity，
-        // 而非仅 BridgeActivity。优先 BridgeActivity，缺失时回落到 NotificationClickedActivity，
-        // 两者均作为 Activity 级中转（接收 MIPUSH_EXTRA_INTENT_PAYLOAD 并拉起目标 PushMessageHandler）。
+        // Official MiPush SDK clients (WeWork, Idlefish and friends) register
+        // NotificationClickedActivity rather than only BridgeActivity. Prefer BridgeActivity and
+        // fall back to NotificationClickedActivity when it is absent; both act as Activity-level
+        // relays that receive MIPUSH_EXTRA_INTENT_PAYLOAD and start the target PushMessageHandler.
         val bridgeActivity = resolveBridgeActivity(context, container.packageName) ?: return null
 
         val messageId = metaInfo.id ?: ""
@@ -356,9 +384,10 @@ internal object MIPushNotificationIntentSupport {
     }
 
     /**
-     * 选择目标应用的中转 Activity：优先官方 [BRIDGE_ACTIVITY_CLASS]，缺失时回落到
-     * [NOTIFICATION_CLICKED_ACTIVITY_CLASS]（企业微信、闲鱼等官方 SDK 客户端默认注册）。
-     * 两者均接收 [PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD] 并拉起目标 PushMessageHandler。
+     * Picks the target app's relay Activity: prefer the official [BRIDGE_ACTIVITY_CLASS] and fall
+     * back to [NOTIFICATION_CLICKED_ACTIVITY_CLASS] (what official SDK clients such as WeWork and
+     * Idlefish register by default). Both receive [PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD] and
+     * start the target PushMessageHandler.
      */
     private fun resolveBridgeActivity(context: Context, pkgName: String): ComponentName? {
         for (cls in listOf(BRIDGE_ACTIVITY_CLASS, NOTIFICATION_CLICKED_ACTIVITY_CLASS)) {
@@ -456,9 +485,10 @@ internal object MIPushNotificationIntentSupport {
         if (activityInfo == null) {
             return null
         }
-        // 严格限定解析结果必须落在目标应用包内。隐式 Intent（如 ACTION_VIEW 网页跳转）可能被子
-        // 解析到其他应用的通用 Activity（浏览器 / 系统 Viewer）；若不校验包名，点击会误启动非
-        // 目标应用。只有解析到目标包内的 Activity 才视为可用。
+        // Require the resolved activity to live inside the target package. An implicit intent (for
+        // example an ACTION_VIEW web jump) can resolve to a generic activity of another app such as
+        // a browser or a system viewer; without this check the click would start the wrong app.
+        // Only an activity inside the target package counts as usable.
         if (activityInfo.packageName != pkgName) {
             logW(
                 "$TAG sdk intent resolved outside target package, skip: pkg=$pkgName " +
@@ -494,8 +524,11 @@ internal object MIPushNotificationIntentSupport {
      * no data, no extras — the direct sdk_activity route can never reproduce the landing
      * parameters (and [applyPendingIntentIdentity] occupies the data slot with the tracking
      * identity anyway), so the click must be dispatched to the app-side receiver instead.
-     * Bare-component payloads of other SDKs (QQ's JumpActivity, Alipay's MPaaSNcActivity) are
-     * not affected: they consume the MiPush SDK extras attached by the sdk_activity route.
+     * Bare-component payloads of other SDKs (Alipay's MPaaSNcActivity) are not affected: they
+     * consume the MiPush SDK extras attached by the sdk_activity route. QQ's JumpActivity was
+     * assumed to behave the same way, but a 2026-10-12 device trace showed it launches, draws
+     * its first frame and then finishes without navigating, so it is listed in
+     * [RECEIVER_BUILT_CLICK_TARGET_PREFIXES] now.
      */
     private fun isReceiverBuiltClickTarget(intent: Intent): Boolean {
         if (intent.data != null) return false
@@ -535,7 +568,8 @@ internal object MIPushNotificationIntentSupport {
         try {
             val resolveInfo =
                 context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            // 若调用方提供目标包，则严格校验解析结果落在目标包内，避免误选其他应用的 Activity。
+            // When the caller supplies a target package, require the resolved activity to live in
+            // it so the click never picks another app's activity.
             val inPackage =
                 if (targetPackage != null) {
                     resolveInfo?.activityInfo?.packageName == targetPackage
@@ -637,13 +671,64 @@ internal object MIPushNotificationIntentSupport {
         return metaInfo.extra?.get(PushConstants.EXTRA_PARAM_WEB_URI)
     }
 
+    private const val EXTRA_PARAM_CLIENT_DATA = "client_data"
+    private const val CLIENT_DATA_KEY_URL = "url"
+
+    /**
+     * Reads the landing address some clients hide in the `client_data` JSON (`url` field) instead
+     * of putting it on the intent, so a bare-component payload can still reach its target screen.
+     *
+     * Two gates, both required:
+     * 1. Only app-private schemes (anything other than http/https) qualify - web landings keep the
+     *    existing web_uri semantics, and [normalizeWebUri] would turn `mqqapi://x` into the broken
+     *    `http://mqqapi://x` anyway.
+     * 2. An ACTION_VIEW probe of the URI must resolve inside the target package and its handler
+     *    must be startable from XMSF, the same two gates [isClickIntentResolvable] and
+     *    [isStartableFromXmsfProcess] apply to the sdk_activity route.
+     */
+    private fun resolveClientDataJumpUrl(
+        context: Context,
+        metaInfo: PushMetaInfo?,
+        targetPackage: String?,
+    ): String? {
+        val raw = metaInfo?.extra?.get(EXTRA_PARAM_CLIENT_DATA) ?: return null
+        if (raw.isBlank() || targetPackage.isNullOrBlank()) return null
+        val url = runCatching { org.json.JSONObject(raw).optString(CLIENT_DATA_KEY_URL) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme?.lowercase() ?: return null
+        if (scheme == "http" || scheme == "https") return null
+        // An ACTION_VIEW probe must resolve inside the target package (the same in-package rule
+        // [isClickIntentResolvable] applies) and the handler must be startable from XMSF's own
+        // UID ([isStartableFromXmsfProcess]), so the click neither goes to another app nor dies
+        // in a SecurityException.
+        val activityInfo = runCatching {
+            context.packageManager.resolveActivity(
+                Intent(Intent.ACTION_VIEW, uri),
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )?.activityInfo
+        }.getOrNull() ?: return null
+        if (activityInfo.packageName != targetPackage) return null
+        if (!isStartableFromXmsfProcess(context, activityInfo)) {
+            logW(
+                "$TAG client data url target not startable from xmsf, skip: pkg=$targetPackage " +
+                    "component=${activityInfo.packageName}/${activityInfo.name} " +
+                    "exported=${activityInfo.exported} permission=${activityInfo.permission}"
+            )
+            return null
+        }
+        return url
+    }
+
     /**
      * View-time approximation of [buildClickedPendingIntent]'s route decision, for the manager
      * event-detail debug JSON. It mirrors the publish-time decision order (url → launcher
-     * fallback → sdk activity → bridge activity → xmsf service) but only consults PackageManager
-     * state: no PendingIntent is created and the identity-stamp retry path is not simulated, so
-     * the reported route may differ from the actual click route if app state changed since
-     * publish.
+     * fallback → client data url → sdk activity → bridge activity → xmsf service) but only
+     * consults PackageManager state: no PendingIntent is created and the identity-stamp retry
+     * path is not simulated, so the reported route may differ from the actual click route if
+     * app state changed since publish.
      */
     internal fun describeClickResolution(
         context: Context,
@@ -669,6 +754,14 @@ internal object MIPushNotificationIntentSupport {
             return buildJsonObject {
                 put("route", "launcher_fallback")
                 put("launcherFallbackEligible", true)
+            }
+        }
+        val clientDataUrl = resolveClientDataJumpUrl(context, metaInfo, container.packageName)
+        if (clientDataUrl != null) {
+            return buildJsonObject {
+                put("route", "client_data_url")
+                put("url", clientDataUrl)
+                put("launcherFallbackEligible", launcherFallbackEligible)
             }
         }
         val sdkIntent = getSdkIntent(context, container, reportAvailability = false)
