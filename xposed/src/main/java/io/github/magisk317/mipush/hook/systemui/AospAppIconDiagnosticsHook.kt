@@ -13,7 +13,7 @@ import android.widget.ImageView
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.notification.iconpack.digestIdentity
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass

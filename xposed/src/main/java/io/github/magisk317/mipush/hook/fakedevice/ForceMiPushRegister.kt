@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import io.github.magisk317.xposed.LoadParam
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatProfile
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCredentialResolver
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
@@ -264,32 +264,32 @@ object ForceMiPushRegister {
             val classMiPushClient = classLoader.findClass("com.xiaomi.mipush.sdk.MiPushClient")
             classMiPushClient.hookAllMethods("registerPush") {
                 doBefore {
-                    XLog.t(TAG, "MiPushClient.registerPush before: pkg=$packageName, args=${safeArgs(args)}")
+                    XLog.v(TAG, "MiPushClient.registerPush before: pkg=$packageName, args=${safeArgs(args)}")
                 }
                 doAfter {
                     if (throwable != null) {
                         XLog.e(TAG, "MiPushClient.registerPush after throwable for $packageName", throwable)
                     } else {
-                        XLog.t(TAG, "MiPushClient.registerPush after: pkg=$packageName")
+                        XLog.v(TAG, "MiPushClient.registerPush after: pkg=$packageName")
                     }
                 }
             }
             classMiPushClient.hookAllMethods("initialize") {
                 doBefore {
-                    XLog.t(TAG, "MiPushClient.initialize before: pkg=$packageName, args=${safeArgs(args)}")
+                    XLog.v(TAG, "MiPushClient.initialize before: pkg=$packageName, args=${safeArgs(args)}")
                 }
                 doAfter {
                     if (throwable != null) {
                         XLog.e(TAG, "MiPushClient.initialize after throwable for $packageName", throwable)
                     } else {
-                        XLog.t(TAG, "MiPushClient.initialize after: pkg=$packageName")
+                        XLog.v(TAG, "MiPushClient.initialize after: pkg=$packageName")
                     }
                 }
             }
             classMiPushClient.hookAllMethods("getRegId") {
                 doAfter {
                     val regId = (result as? String).orEmpty()
-                    XLog.t(TAG, "MiPushClient.getRegId after: pkg=$packageName, regId=${regId.take(24)}")
+                    XLog.v(TAG, "MiPushClient.getRegId after: pkg=$packageName, regId=${regId.take(24)}")
                 }
             }
         } catch (_: Throwable) {
@@ -350,13 +350,13 @@ object ForceMiPushRegister {
                 runCatching {
                     clazz.hookAllMethods(methodName) {
                         doBefore {
-                            XLog.t(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
+                            XLog.v(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
                         }
                         doAfter {
                             if (throwable != null) {
                                 XLog.e(TAG, "$className.$methodName throwable for $packageName", throwable)
                             } else {
-                                XLog.t(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
+                                XLog.v(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
                             }
                         }
                     }
@@ -397,13 +397,13 @@ object ForceMiPushRegister {
                 runCatching {
                     clazz.hookAllMethods(methodName) {
                         doBefore {
-                            XLog.t(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
+                            XLog.v(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
                         }
                         doAfter {
                             if (throwable != null) {
                                 XLog.e(TAG, "$className.$methodName throwable for $packageName", throwable)
                             } else {
-                                XLog.t(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
+                                XLog.v(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
                             }
                         }
                     }
@@ -470,13 +470,13 @@ object ForceMiPushRegister {
                 runCatching {
                     clazz.hookAllMethods(methodName) {
                         doBefore {
-                            XLog.t(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
+                            XLog.v(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
                         }
                         doAfter {
                             if (throwable != null) {
                                 XLog.e(TAG, "$className.$methodName throwable for $packageName", throwable)
                             } else {
-                                XLog.t(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
+                                XLog.v(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
                             }
                         }
                     }

@@ -26,7 +26,7 @@ import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
 import java.util.concurrent.ConcurrentHashMap

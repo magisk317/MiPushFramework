@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import io.github.magisk317.xposed.LoadParam
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.findClass

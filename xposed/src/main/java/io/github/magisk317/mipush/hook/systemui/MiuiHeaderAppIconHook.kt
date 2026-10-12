@@ -11,7 +11,7 @@ import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
 import io.github.magisk317.mipush.common.notification.iconpack.digestIdentity
 import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod

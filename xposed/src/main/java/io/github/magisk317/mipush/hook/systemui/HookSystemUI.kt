@@ -19,7 +19,7 @@ import android.widget.ImageView
 import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod

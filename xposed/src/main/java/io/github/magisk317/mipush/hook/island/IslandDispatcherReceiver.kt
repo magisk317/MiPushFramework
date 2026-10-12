@@ -7,7 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 @SuppressLint("StaticFieldLeak")

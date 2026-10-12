@@ -13,7 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.hook

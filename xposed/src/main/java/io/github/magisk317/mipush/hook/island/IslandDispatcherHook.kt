@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.island
 
 import android.app.Application
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.hookMethod
 import io.github.magisk317.xposed.logging.MagiskOtel

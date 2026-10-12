@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just

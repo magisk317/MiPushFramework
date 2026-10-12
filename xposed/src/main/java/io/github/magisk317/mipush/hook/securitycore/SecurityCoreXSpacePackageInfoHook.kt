@@ -4,7 +4,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Process
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.findClass

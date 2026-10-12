@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
 import io.github.magisk317.mipush.common.fakedevice.MiPushResetpropTemplate
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.*
 import java.util.concurrent.atomic.AtomicBoolean
 

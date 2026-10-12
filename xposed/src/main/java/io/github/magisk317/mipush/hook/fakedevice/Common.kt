@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import io.github.magisk317.xposed.LoadParam
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hookMethod
 import miui.os.Build
@@ -86,7 +86,7 @@ open class Common : IFakeDevice {
                     XLog.d(TAG, "forHook $requestClass")
                     result = returnClass
                 } else {
-                    XLog.t(TAG, "forName $requestClass")
+                    XLog.v(TAG, "forName $requestClass")
                 }
             }
         }

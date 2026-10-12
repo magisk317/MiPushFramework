@@ -18,7 +18,7 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.HookCallback
 import io.github.magisk317.xposed.LoadParam

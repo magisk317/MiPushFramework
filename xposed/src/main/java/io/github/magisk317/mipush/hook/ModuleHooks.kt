@@ -28,6 +28,11 @@ import io.github.magisk317.xposed.BaseLibXposedEntry
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.LibXposedHookApi
 import io.github.magisk317.xposed.XposedRuntime
+import android.util.Log
+import io.github.magisk317.xposed.logging.LogSink
+import io.github.magisk317.xposed.logging.XLog
+import io.github.magisk317.xposed.logging.XposedLogClient
+import io.github.magisk317.xposed.logging.XposedLogEvent
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
 import io.github.libxposed.api.XposedModule
@@ -68,7 +73,32 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         XposedRuntime.install(module, hookApi)
-        XLog.configure()
+        XposedLogClient.configure(
+            authority = "com.xiaomi.xmsf.module.log",
+            source = "mipush",
+        )
+        XLog.configure(
+            tag = "mipush",
+            logLevel = if (BuildConfig.DEBUG) Log.DEBUG else Log.INFO,
+            logToXposed = false,
+            defaultRoute = "hook",
+            sink = LogSink { event ->
+                XposedLogClient.send(
+                    XposedLogEvent(
+                        source = "mipush",
+                        level = event.level.shortName,
+                        tag = event.tag,
+                        message = event.message,
+                        throwable = event.throwableText.orEmpty(),
+                        route = event.route,
+                        force = event.force,
+                        sensitive = event.sensitive,
+                        sanitized = true,
+                    ),
+                )
+                SystemUiLocalLogSink.append(event)
+            },
+        )
         // Hook processes had no config at all, so every MagiskOtel.event in this module was a
         // no-op. Configure before the first event below so hook.load / fake_device spans land.
         configureHookTelemetry(module)
@@ -136,7 +166,6 @@ class LibXposedEntry : BaseLibXposedEntry {
         // Stop its threads, executor and registered receiver while this old module ClassLoader is
         // still reachable; otherwise autoHotReload retains every loaded module DEX generation.
         IslandPreferences.stopRefreshLoop()
-        XLog.resetForLifecycle()
         ForceMiPushRegister.resetForHotReload()
         return super.onHotReloading(param)
     }

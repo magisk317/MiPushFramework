@@ -10,7 +10,10 @@ import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.logging.LogRoute
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
+import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
+import android.util.Log
+import android.os.SystemClock
 import io.github.magisk317.xposed.HookCallback
 import io.github.magisk317.xposed.HookContext
 import io.github.magisk317.xposed.MethodHookParam
@@ -23,6 +26,12 @@ import io.github.magisk317.xposed.hookMethod
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object NmsPermissionHooker {
+    private val debugLimiter = FixedWindowLogLimiter(
+        maxEvents = 12,
+        windowMs = 30_000L,
+        maxTrackedKeys = 64,
+    )
+
     private const val TAG = "NmsPermissionHooker"
 
     @Volatile private var xmsfUid = -1
@@ -90,7 +99,11 @@ object NmsPermissionHooker {
     private fun hookCanNotifyAsPackage(): HookCallback = {
         doBefore {
             if (fromXmsf()) {
-                XLog.dLimited(LogRoute.NMS_HOOK, TAG, "force canNotifyAsPackage(callingPkg=${args[0]}, targetPkg=${args[1]}, userId=${args[2]}) = true")
+                if (XLog.getLogLevel() <= Log.DEBUG &&
+            debugLimiter.tryAcquire("force_can_notify_as_package", SystemClock.elapsedRealtime()).allowed
+        ) {
+            XLog.d(tag = TAG, message = "force canNotifyAsPackage(callingPkg=${args[0]}, targetPkg=${args[1]}, userId=${args[2]}) = true")
+        }
                 result = true
             }
         }
@@ -178,20 +191,20 @@ object NmsPermissionHooker {
                     result = getPackageUidAsUser.invoke(packageManager, targetPackage, userId) as Int
                 }
             }
-            XLog.i(LogRoute.NMS_HOOK, TAG, "notification delegate resolver hook installed; preserving XMSF opPkg")
+            XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "notification delegate resolver hook installed; preserving XMSF opPkg")
             true
         }.getOrElse { throwable ->
             XLog.w(
-                LogRoute.NMS_HOOK,
-                TAG,
-                "notification delegate resolver unavailable; keep system-identity fallback: ${throwable.message}",
+                tag = TAG,
+                route = LogRoute.NMS_HOOK.id,
+                message = "notification delegate resolver unavailable; keep system-identity fallback: ${throwable.message}"
             )
             false
         }
     }
 
     fun hook(classINotificationManager: Class<*>) {
-        XLog.i(LogRoute.NMS_HOOK, TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
+        XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "installing NMS permission hooks on ${classINotificationManager.name}")
         try {
         val preserveNotificationDelegateIdentity =
             installNotificationDelegateResolver(classINotificationManager.classLoader)
@@ -234,9 +247,9 @@ object NmsPermissionHooker {
                     val resolvedOpPkg = cancelOpPackage(pkg, currentOpPkg)
                     if (resolvedOpPkg != currentOpPkg) {
                         XLog.i(
-                            LogRoute.NMS_HOOK,
-                            TAG,
-                            "cancelNotificationWithTag rewrite opPkg pkg=$pkg from=$currentOpPkg to=$resolvedOpPkg",
+                            tag = TAG,
+                            route = LogRoute.NMS_HOOK.id,
+                            message = "cancelNotificationWithTag rewrite opPkg pkg=$pkg from=$currentOpPkg to=$resolvedOpPkg"
                         )
                         args[1] = resolvedOpPkg
                     }
@@ -273,7 +286,7 @@ object NmsPermissionHooker {
                     )
             } catch (e: NoSuchMethodError) {
                 //Samsung One UI 7 delete this method
-                XLog.d(LogRoute.NMS_HOOK, TAG, "hook deleteNotificationChannel error, NoSuchMethodError")
+                XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "hook deleteNotificationChannel error, NoSuchMethodError")
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
@@ -312,7 +325,7 @@ object NmsPermissionHooker {
                 .hook {
                     replace {
                         if (fromXmsf()) {
-                            XLog.d(LogRoute.NMS_HOOK, TAG, "checkCallerIsSystem bypassed for xmsf")
+                            XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "checkCallerIsSystem bypassed for xmsf")
                             return@replace null
                         }
                         // buzzBeepBlinkForNotification calls checkCallerIsSystem after
@@ -325,12 +338,12 @@ object NmsPermissionHooker {
                         }
                     }
                 }
-            XLog.i(LogRoute.NMS_HOOK, TAG, "checkCallerIsSystem hook installed")
+            XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "checkCallerIsSystem hook installed")
         }.onFailure {
-            XLog.e(LogRoute.NMS_HOOK, TAG, "failed to hook checkCallerIsSystem", it)
+            XLog.e(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "failed to hook checkCallerIsSystem", it)
         }
 
-        XLog.i(LogRoute.NMS_HOOK, TAG, "NMS permission hooks installed")
+        XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "NMS permission hooks installed")
         MagiskOtel.event(
             name = "hook.load",
             attributes = mapOf(
@@ -343,7 +356,7 @@ object NmsPermissionHooker {
             statusOk = true,
         )
         } catch (error: Throwable) {
-            XLog.e(LogRoute.NMS_HOOK, TAG, "NMS permission hooks install failed", error)
+            XLog.e(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "NMS permission hooks install failed", error)
             MagiskOtel.event(
                 name = "hook.load",
                 attributes = mapOf(

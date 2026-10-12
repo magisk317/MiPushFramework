@@ -7,7 +7,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.findHookClass
 import io.github.magisk317.xposed.hook

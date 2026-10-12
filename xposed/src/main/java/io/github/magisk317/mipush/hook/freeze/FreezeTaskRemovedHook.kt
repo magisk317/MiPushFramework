@@ -12,7 +12,7 @@ import io.github.magisk317.mipush.common.EXTRA_FREEZE_PACKAGE
 import io.github.magisk317.mipush.common.EXTRA_FREEZE_USER_ID
 import io.github.magisk317.mipush.common.ACTION_FREEZE_LAUNCH_ACTIVATED
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.currentApplication
