@@ -106,6 +106,7 @@ dependencies {
     implementation(libs.libsu.core)
     implementation(libs.hiddenapibypass)
     implementation(libs.androidx.startup.runtime)
+    implementation(libs.androidx.documentfile)
     implementation(libs.anip.sdk)
     implementation(libs.koin.android)
     testImplementation(libs.junit.jupiter)

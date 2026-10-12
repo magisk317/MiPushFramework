@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":xmsf:runtime:store"))
     implementation(project(":magisk-xposed-kit:logging"))
 
+    implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.sqlite.bundled)
     implementation(libs.kermit)
     implementation(libs.kotlinx.coroutines.android)
