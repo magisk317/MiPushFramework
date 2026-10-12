@@ -189,7 +189,6 @@ object ConvertUtils {
             } else {
                 element
             }
-            else -> element
         }
     }
 

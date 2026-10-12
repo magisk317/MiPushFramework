@@ -78,8 +78,8 @@ class FocusOrderIdentityPolicyTest {
         }
 
         // Server-side assignment observed on pudding 2026-10-11: notifyId = title.hashCode(), so
-        // every status of one order arrives with a different notifyId (骑手配送中 = -1325363137,
-        // 骑手正在店内取货 = 630311518) while the order key stays constant.
+        // every status of one order arrives with a different notifyId ("rider delivering" =
+        // -1325363137, "rider picking up in store" = 630311518) while the order key stays constant.
         val riderDelivering = FocusOrderIdentityPolicy.resolveNotificationId(
             "com.eg.android.AlipayGphone",
             alipayContainer(notifyId = -1325363137, orderId = "208870222575168520261011122933190002876515"),

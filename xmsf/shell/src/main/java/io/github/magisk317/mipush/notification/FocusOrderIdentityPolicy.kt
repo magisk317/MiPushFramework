@@ -7,7 +7,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Product-owned live-session identity for focus notifications (焦点通知/灵动岛实时卡片).
+ * Product-owned live-session identity for focus notifications (focus cards / island live sessions).
  *
  * [PRODUCT-OWNED DEVIATION — recheck against stock XMSF on every upgrade before retiring]
  * Stock 7.4.67-C (and the stock-parity formula in
@@ -15,7 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * the per-message `notifyId`. Live-session vendors push every status update as an independent
  * message whose `notifyId` differs per message (Alipay's server even assigns
  * `notifyId = title.hashCode()`), so one delivery/taxi/logistics order renders as N separate
- * cards and N separate 灵动岛 sessions instead of updating one card in place. The payload
+ * cards and N separate island sessions instead of updating one card in place. The payload
  * itself carries the session key in `miui.focus.param.orderId` (+ `scene`), which stock never
  * consults for identity; this policy re-targets the notification id onto that order key so
  * SystemUI replaces the existing card and island session instead of stacking a new one.
