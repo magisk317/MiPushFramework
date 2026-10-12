@@ -78,10 +78,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.material.icons.extended)
 
-    implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
 
-    implementation(libs.markdown)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
 

@@ -105,17 +105,11 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.libsu.core)
     implementation(libs.hiddenapibypass)
-    implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
     implementation(libs.anip.sdk)
     implementation(libs.koin.android)
-    implementation(libs.hyperisland.kit) {
-        exclude(group = "androidx.appcompat", module = "appcompat")
-        exclude(group = "com.google.android.material", module = "material")
-    }
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
-    testImplementation(libs.conscrypt.openjdk.uber)
     testImplementation(libs.kotest.property)
     testImplementation(libs.kotlinx.coroutines.core)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -6,7 +6,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import android.content.Intent
 import android.widget.Toast
-import io.github.magisk317.mipush.common.utils.VerboseLogEnableTracker
+import io.github.magisk317.xposed.logging.VerboseLogEnableTracker
 import com.topjohnwu.superuser.Shell
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
