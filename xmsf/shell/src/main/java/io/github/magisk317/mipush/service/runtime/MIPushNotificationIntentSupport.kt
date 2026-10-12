@@ -50,6 +50,7 @@ internal object MIPushNotificationIntentSupport {
     }
 
     private const val BRIDGE_ACTIVITY_CLASS = "com.xiaomi.mipush.sdk.BridgeActivity"
+    private const val NOTIFICATION_CLICKED_ACTIVITY_CLASS = "com.xiaomi.mipush.sdk.NotificationClickedActivity"
     private val BRIDGE_ACTIVITY_FLAGS =
         Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
 
@@ -229,7 +230,7 @@ internal object MIPushNotificationIntentSupport {
             // broke matching, drop the data (keeping the identity as Intent.identifier, which
             // never participates in filter matching) and re-check. If it still does not resolve,
             // fall through to the app-side BridgeActivity / XMSF service dispatch routes.
-            if (isClickIntentResolvable(context, activityIntent)) {
+            if (isClickIntentResolvable(context, activityIntent, container.packageName)) {
                 logClickRoute("sdk_activity", container.packageName, notificationId)
                 return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
             }
@@ -242,7 +243,7 @@ internal object MIPushNotificationIntentSupport {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 activityIntent.identifier = identity
             }
-            if (isClickIntentResolvable(context, activityIntent)) {
+            if (isClickIntentResolvable(context, activityIntent, container.packageName)) {
                 logW(
                     "$TAG sdk click identity data dropped to keep resolution: pkg=${container.packageName} " +
                         "action=${activityIntent.action}"
@@ -263,6 +264,19 @@ internal object MIPushNotificationIntentSupport {
         if (bridgePendingIntent != null) {
             logClickRoute("bridge_activity", container.packageName, notificationId)
             return bridgePendingIntent
+        }
+
+        // 全链路兜底：sdk_activity 与 bridge_activity 均不可用时，回落到目标应用的 Launcher
+        // Activity，避免点击掉入后台 Service PendingIntent（xmsf_service）被现代 Android 直接
+        // 限制、毫无反应的死胡同。即使 per-app launcher fallback 开关未开启也启用此兜底。
+        buildLauncherFallbackPendingIntent(
+            context = context,
+            packageName = targetPackageName,
+            notificationId = notificationId,
+            messageId = messageId,
+        )?.let {
+            logClickRoute("launcher_fallback", targetPackageName, notificationId)
+            return it
         }
 
         logClickRoute("xmsf_service", container.packageName, notificationId)
@@ -295,10 +309,10 @@ internal object MIPushNotificationIntentSupport {
         extra: Bundle?
     ): PendingIntent? {
         val metaInfo = container.metaInfo ?: return null
-        val bridgeActivity = ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS)
-        if (!ComponentHelper.checkActivity(context, bridgeActivity)) {
-            return null
-        }
+        // 官方 MiPush SDK 客户端（企业微信、闲鱼等）默认注册的是 NotificationClickedActivity，
+        // 而非仅 BridgeActivity。优先 BridgeActivity，缺失时回落到 NotificationClickedActivity，
+        // 两者均作为 Activity 级中转（接收 MIPUSH_EXTRA_INTENT_PAYLOAD 并拉起目标 PushMessageHandler）。
+        val bridgeActivity = resolveBridgeActivity(context, container.packageName) ?: return null
 
         val messageId = metaInfo.id ?: ""
         val targetIntent = if (MIPushNotificationHelper.isBusinessMessage(container)) {
@@ -339,6 +353,19 @@ internal object MIPushNotificationIntentSupport {
             bridgeIntent,
             FLAG_IMMUTABLE_UPDATE_CURRENT
         )
+    }
+
+    /**
+     * 选择目标应用的中转 Activity：优先官方 [BRIDGE_ACTIVITY_CLASS]，缺失时回落到
+     * [NOTIFICATION_CLICKED_ACTIVITY_CLASS]（企业微信、闲鱼等官方 SDK 客户端默认注册）。
+     * 两者均接收 [PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD] 并拉起目标 PushMessageHandler。
+     */
+    private fun resolveBridgeActivity(context: Context, pkgName: String): ComponentName? {
+        for (cls in listOf(BRIDGE_ACTIVITY_CLASS, NOTIFICATION_CLICKED_ACTIVITY_CLASS)) {
+            val cn = ComponentName(pkgName, cls)
+            if (ComponentHelper.checkActivity(context, cn)) return cn
+        }
+        return null
     }
 
     private fun buildLauncherFallbackPendingIntent(
@@ -429,6 +456,16 @@ internal object MIPushNotificationIntentSupport {
         if (activityInfo == null) {
             return null
         }
+        // 严格限定解析结果必须落在目标应用包内。隐式 Intent（如 ACTION_VIEW 网页跳转）可能被子
+        // 解析到其他应用的通用 Activity（浏览器 / 系统 Viewer）；若不校验包名，点击会误启动非
+        // 目标应用。只有解析到目标包内的 Activity 才视为可用。
+        if (activityInfo.packageName != pkgName) {
+            logW(
+                "$TAG sdk intent resolved outside target package, skip: pkg=$pkgName " +
+                    "resolved=${activityInfo.packageName}/${activityInfo.name}"
+            )
+            return null
+        }
         if (!isStartableFromXmsfProcess(context, activityInfo)) {
             // The payload-declared click activity lives in the target app's UID while XMSF runs
             // as its own, non-platform-signed UID. A non-exported component (for example Baidu
@@ -490,16 +527,27 @@ internal object MIPushNotificationIntentSupport {
      * attached and fails afterwards, which only surfaces as an AMS "unable to resolve Intent"
      * (result code=-91) at click time.
      */
-    private fun isClickIntentResolvable(context: Context, intent: Intent): Boolean =
+    private fun isClickIntentResolvable(
+        context: Context,
+        intent: Intent,
+        targetPackage: String? = null,
+    ): Boolean =
         try {
             val resolveInfo =
                 context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            // 若调用方提供目标包，则严格校验解析结果落在目标包内，避免误选其他应用的 Activity。
+            val inPackage =
+                if (targetPackage != null) {
+                    resolveInfo?.activityInfo?.packageName == targetPackage
+                } else {
+                    resolveInfo != null
+                }
             ExplicitHookBridge.onIntentAvailabilityChecked(
                 intent,
-                resolveInfo != null,
+                inPackage,
                 "MIPushNotificationIntentSupport.isClickIntentResolvable",
             )
-            resolveInfo != null
+            inPackage
         } catch (e: Exception) {
             logE("Failed to resolve sdk click intent: ${e.message}", e)
             false
@@ -624,7 +672,7 @@ internal object MIPushNotificationIntentSupport {
             }
         }
         val sdkIntent = getSdkIntent(context, container, reportAvailability = false)
-        if (sdkIntent != null && isClickIntentResolvable(context, sdkIntent)) {
+        if (sdkIntent != null && isClickIntentResolvable(context, sdkIntent, container.packageName)) {
             return buildJsonObject {
                 put("route", "sdk_activity")
                 put("component", sdkIntent.component?.flattenToShortString() ?: sdkIntent.action)
