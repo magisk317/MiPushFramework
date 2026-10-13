@@ -84,6 +84,7 @@ include(
     ":magisk-ui-kit:billing",
     ":magisk-xposed-kit",
     ":magisk-xposed-kit:logging",
+    ":magisk-xposed-kit:logging-core",
     ":magisk-xposed-kit:diagnostics",
     ":magisk-xposed-kit:permission",
 )
@@ -115,6 +116,7 @@ include(
 project(":xmsf:runtime").projectDir = file("xmsf/runtime")
 project(":magisk-ui-kit:billing").projectDir = file("magisk-ui-kit/billing")
 project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
+project(":magisk-xposed-kit:logging-core").projectDir = file("magisk-xposed-kit/logging-core")
 project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")
 project(":magisk-xposed-kit:permission").projectDir = file("magisk-xposed-kit/permission")
 project(":manager:ui").projectDir = file("manager/ui")

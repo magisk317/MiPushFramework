@@ -7,11 +7,29 @@ import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.control.PushControllerUtils
+import android.os.SystemClock
 import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import kotlinx.coroutines.runBlocking
 
 object PushHealthSnapshotLogger {
     private const val TAG = "PushHealthSnapshot"
+
+    private val warnLimiter = FixedWindowLogLimiter(maxEvents = 1, windowMs = 30_000L)
+
+    /**
+     * Rate-limited warning: one per key per 30s window, then suppressed until the
+     * window rolls. Shares the kit's platform-neutral limiter; output stays on kermit.
+     */
+    private fun warnLimited(key: String, message: String, throwable: Throwable? = null) {
+        if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
+        val text = "[$key] $message"
+        if (throwable == null) {
+            Logger.withTag(TAG).w { text }
+        } else {
+            Logger.e(throwable) { text }
+        }
+    }
 
     data class Snapshot(
         val stage: String,
@@ -44,11 +62,10 @@ object PushHealthSnapshotLogger {
             val snapshot = capture(context, stage, extra)
             Logger.withTag(TAG).i { format(snapshot) }
         }.onFailure {
-            RateLimitedWarnLogger.warn(
-                logTag = TAG,
+            warnLimited(
                 key = "capture:$stage",
                 message = "failed to capture health snapshot",
-                throwable = it
+                throwable = it,
             )
         }
     }

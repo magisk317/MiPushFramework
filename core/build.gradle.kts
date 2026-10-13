@@ -17,6 +17,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // Platform-neutral JSONL encoding, fixed-window limiter and
+            // credential redaction, shared with magisk-xposed-kit.
+            api(project(":magisk-xposed-kit:logging-core"))
             implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)
         }

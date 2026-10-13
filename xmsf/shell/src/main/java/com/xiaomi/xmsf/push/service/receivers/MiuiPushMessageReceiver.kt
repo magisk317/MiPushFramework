@@ -13,7 +13,9 @@ import com.xiaomi.mipush.sdk.PushMessageReceiver
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
-import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
+import android.os.SystemClock
+import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -50,8 +52,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
         runCatching {
             if (route.startService) context.startService(intent) else context.sendBroadcast(intent)
         }.onFailure {
-            RateLimitedWarnLogger.warn(
-                logTag = TAG,
+            warnLimited(
                 key = "route:${route.packageName}:${route.action}",
                 message = "failed to route XMSF MiPush callback",
                 throwable = it,
@@ -82,8 +83,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                     1,
                 )
             }.onFailure {
-                RateLimitedWarnLogger.warn(
-                    logTag = TAG,
+                warnLimited(
                     key = "badge:$packageName",
                     message = "failed to initialize stock superscript state",
                     throwable = it,
@@ -126,6 +126,22 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
 
     companion object {
         private const val TAG = "MiuiPushMessageReceiver"
+
+        private val warnLimiter = FixedWindowLogLimiter(maxEvents = 1, windowMs = 30_000L)
+
+        /**
+         * Rate-limited warning: one per key per 30s window, then suppressed until the
+         * window rolls. Shares the kit's platform-neutral limiter; output stays on kermit.
+         */
+        private fun warnLimited(key: String, message: String, throwable: Throwable? = null) {
+            if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
+            val text = "[$key] $message"
+            if (throwable == null) {
+                Logger.withTag(TAG).w { text }
+            } else {
+                Logger.e(throwable) { text }
+            }
+        }
         private const val REGISTERED_PACKAGES_PREFS = "pref_registered_pkg_names"
         private const val EXTRA_MIUI_PACKAGE_NAME = "miui_package_name"
         private const val EXTRA_ROUTE_TYPE = "route_type"
