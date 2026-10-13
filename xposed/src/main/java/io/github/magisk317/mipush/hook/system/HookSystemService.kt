@@ -49,6 +49,7 @@ private enum class NmsHookInstallState {
 }
 
 class HookSystemService : BaseHook() {
+    private val debugLimiter = FixedWindowLogLimiter(maxEvents = 1, windowMs = 30_000L)
     companion object {
         private const val TAG = "HookSystemService"
         private const val MAX_VISIBILITY_LOGS_PER_KEY = 8
@@ -542,8 +543,11 @@ class HookSystemService : BaseHook() {
             doBefore {
                 if (args[0] == IS_SYSTEM_HOOK_READY || args[0] == XMSF_FAKE_CONDITION_PROVIDER_PATH) {
                     if (XLog.getLogLevel() <= Log.DEBUG &&
-            debugLimiter.tryAcquire("force_system_condition_provider", SystemClock.elapsedRealtime()).allowed
-        ) {
+                        debugLimiter.tryAcquire(
+                            "force_system_condition_provider",
+                            SystemClock.elapsedRealtime(),
+                        ).allowed
+                    ) {
             XLog.d(tag = TAG, message = "force system condition provider enabled: ${args[0]}")
         }
                     result = true

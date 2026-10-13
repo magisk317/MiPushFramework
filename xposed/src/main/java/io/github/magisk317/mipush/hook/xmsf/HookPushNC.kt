@@ -33,6 +33,14 @@ object HookPushNC {
         maxTrackedKeys = 64,
     )
 
+    // Former shim behavior: DEBUG logs from HookPushNC are rate-limited under the
+    // "hook_push_nc" key so framework-call-frequency hooks cannot flood the log.
+    private fun dLimited(route: String, message: String) {
+        if (XLog.getLogLevel() > Log.DEBUG) return
+        if (!debugLimiter.tryAcquire("hook_push_nc", SystemClock.elapsedRealtime()).allowed) return
+        XLog.d(tag = TAG, route = route, message = message)
+    }
+
     private const val TAG = "HookPushNC"
     private const val ExpectedHookApiVersion = 2
 
@@ -63,7 +71,7 @@ object HookPushNC {
 
     fun hook(classLoader: ClassLoader) {
         XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hookPushNC start commit=${BuildConfig.GIT_COMMIT} loader=$classLoader")
-        XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hookPushNC() called with: classLoader = $classLoader")
+        dLimited(LogRoute.XMSF_HOOK.id, "hookPushNC() called with: classLoader = $classLoader")
         val classNotificationManager = classLoader.findClass(TargetClass)
         val runtimeBridge = RuntimeNotificationBridge.create(classLoader) ?: run {
             XLog.e(
@@ -193,7 +201,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val channels = runtimeBridge.getNotificationChannels(args[0] as String)
-                    XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
+                    dLimited(LogRoute.XMSF_HOOK.id, "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
                     return@replace channels
                 }
             }
@@ -268,7 +276,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val groups = runtimeBridge.getNotificationChannelGroups(args[0] as String)
-                    XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
+                    dLimited(LogRoute.XMSF_HOOK.id, "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
                     return@replace groups
                 }
             }
@@ -416,7 +424,7 @@ object HookPushNC {
     private fun hookIdentityBridge(classLoader: ClassLoader, runtimeBridge: RuntimeNotificationBridge): Class<*>? {
         val identityBridgeClass = runCatching { classLoader.findClass(IdentityBridgeClass) }
             .getOrElse {
-                XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "identity bridge class not found, skip")
+                dLimited(LogRoute.XMSF_HOOK.id, "identity bridge class not found, skip")
                 return null
             }
         val bridgeHookApiVersion = runCatching {
@@ -433,7 +441,7 @@ object HookPushNC {
         }
         val identityStrategyClass = runCatching { classLoader.findClass(IdentityStrategyClass) }
             .getOrElse {
-                XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "identity strategy enum not found, skip")
+                dLimited(LogRoute.XMSF_HOOK.id, "identity strategy enum not found, skip")
                 return null
             }
 
@@ -465,7 +473,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val channels = runtimeBridge.getNotificationChannels(args[1] as String)
-                    XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
+                    dLimited(LogRoute.XMSF_HOOK.id, "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
                     return@replace channels.orEmpty()
                 }
             }
@@ -475,7 +483,7 @@ object HookPushNC {
             replace {
                 tryInvoke {
                     val groups = runtimeBridge.getNotificationChannelGroups(args[1] as String)
-                    XLog.d(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
+                    dLimited(LogRoute.XMSF_HOOK.id, "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
                     return@replace groups.orEmpty()
                 }
             }

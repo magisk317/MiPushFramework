@@ -46,12 +46,21 @@ dependencyResolutionManagement {
                     ?: "https://gitlab.com/api/v4/projects/85187820/packages/maven",
             )
             val jobToken = System.getenv("CI_JOB_TOKEN")
+            val privateToken = System.getenv("GITLAB_PRIVATE_TOKEN")
             val deployToken = System.getenv("GITLAB_DEPLOY_TOKEN")
                 ?: System.getenv("GITLAB_TOKEN")
             if (!jobToken.isNullOrBlank()) {
                 credentials(HttpHeaderCredentials::class) {
                     name = "Job-Token"
                     value = jobToken
+                }
+                authentication {
+                    create<HttpHeaderAuthentication>("header")
+                }
+            } else if (!privateToken.isNullOrBlank()) {
+                credentials(HttpHeaderCredentials::class) {
+                    name = "Private-Token"
+                    value = privateToken
                 }
                 authentication {
                     create<HttpHeaderAuthentication>("header")

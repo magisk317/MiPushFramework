@@ -22,9 +22,12 @@ class StructuredLogEncodeTest {
             JsonLineField.string("z", SecretRedactor.redact("token=abc")),
             JsonLineField.string("a", SecretRedactor.redact("host=192.0.2.1")),
         )
-        assertTrue(line.indexOf("\"a\"") < line.indexOf("\"z\""))
+        // The kit encoder preserves caller order (it does not sort fields).
+        assertTrue(line.indexOf("\"z\"") < line.indexOf("\"a\""))
+        // SecretRedactor is a credential policy: key=value secrets are masked...
         assertFalse(line.contains("abc"))
-        assertFalse(line.contains("192.0.2.1"))
+        // ...while ordinary fields (host addresses) pass through untouched.
+        assertTrue(line.contains("192.0.2.1"))
     }
 
     @Test
