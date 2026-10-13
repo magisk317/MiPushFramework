@@ -23,11 +23,23 @@ class HookXmsf : BaseHook() {
         if (param.processName != XMSF_PROCESS_NAME) return
         XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "hook start pkg=${param.packageName} proc=${param.processName} commit=${BuildConfig.GIT_COMMIT}")
         if (HookPushNC.canHook(param.classLoader)) {
-            XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "HookPushNC target class found commit=${BuildConfig.GIT_COMMIT}")
+            XLog.i(
+                tag = TAG,
+                route = LogRoute.XMSF_HOOK.id,
+                message = "HookPushNC target class found commit=${BuildConfig.GIT_COMMIT}",
+            )
             HookPushNC.hook(param.classLoader)
-            XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "HookPushNC installed for pkg=${param.packageName} proc=${param.processName} commit=${BuildConfig.GIT_COMMIT}")
+            XLog.i(
+                tag = TAG,
+                route = LogRoute.XMSF_HOOK.id,
+                message = "HookPushNC installed for pkg=${param.packageName} proc=${param.processName} commit=${BuildConfig.GIT_COMMIT}",
+            )
         } else {
-            XLog.w(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "HookPushNC target class missing for pkg=${param.packageName} proc=${param.processName} commit=${BuildConfig.GIT_COMMIT}")
+            XLog.w(
+                tag = TAG,
+                route = LogRoute.XMSF_HOOK.id,
+                message = "HookPushNC target class missing for pkg=${param.packageName} proc=${param.processName} commit=${BuildConfig.GIT_COMMIT}",
+            )
         }
     }
 }
