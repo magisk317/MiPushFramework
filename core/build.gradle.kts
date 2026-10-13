@@ -17,9 +17,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // Platform-neutral JSONL encoding, fixed-window limiter and
-            // credential redaction, shared with magisk-xposed-kit.
-            api(project(":magisk-xposed-kit:logging-core"))
+            // core stays free of kit project dependencies (reviewed DAG: zero edges).
+            // Structured data is produced here; JSONL encoding, rate limiting and
+            // redaction live in the kit logging facade (io.github.magisk317.xposed.logging).
             implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)
         }
