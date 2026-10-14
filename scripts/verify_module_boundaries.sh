@@ -5,38 +5,60 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # CI images may ship without ripgrep (MAGISK_LINUX_APT_PACKAGES is a no-op on
-# non-apt bases such as the magisk-ci-toolkit utility image). The patterns below
-# are plain ERE, so fall back to GNU grep instead of failing the whole check.
+# non-apt bases such as the magisk-ci-toolkit utility image, where grep and find
+# are BusyBox applets without GNU long options). The patterns below are plain
+# ERE, so fall back to a portable grep invocation instead of failing the check.
 if ! command -v rg >/dev/null 2>&1; then
   rg() {
-    local -a grep_flags=(grep -E)
+    local -a grep_flags=()
     local -a operands=()
     local quiet=0
     while [ $# -gt 0 ]; do
       case "$1" in
         -q) quiet=1; shift ;;
         -v) grep_flags+=(-v); shift ;;
-        -n|-r|--with-filename) shift ;;
+        -n) grep_flags+=(-n); shift ;;
+        -r|--with-filename) shift ;;
         --) shift; while [ $# -gt 0 ]; do operands+=("$1"); shift; done ;;
         *) operands+=("$1"); shift ;;
       esac
     done
-    if [ ${#operands[@]} -eq 0 ]; then
+    if [ "${#operands[@]}" -eq 0 ]; then
       echo "grep fallback: missing pattern" >&2
       return 2
     fi
     local pattern="${operands[0]}"
-    local -a paths=("${operands[@]:1}")
-    if [ ${#paths[@]} -gt 0 ]; then
-      grep_flags+=(-r --exclude-dir=.git --exclude-dir=build --exclude-dir=.gradle --binary-files=without-match)
+    local -a paths=()
+    if [ "${#operands[@]}" -gt 1 ]; then
+      paths=("${operands[@]:1}")
+    fi
+    if [ "${#paths[@]}" -eq 0 ]; then
+      # Stdin pipeline mode (e.g. `rg -v`): pass lines through unchanged.
+      grep -E ${grep_flags:+"${grep_flags[@]}"} -- "$pattern"
+      return
+    fi
+    # rg recurses into directory operands, but BusyBox grep without -r silently
+    # skips directories, so expand them to a pruned file list first.
+    local -a files=()
+    local path file
+    for path in "${paths[@]}"; do
+      if [ -d "$path" ]; then
+        while IFS= read -r -d '' file; do
+          files+=("$file")
+        done < <(find "$path" \( -name .git -o -name build -o -name .gradle -o -name .cxx -o -name '.*' \) -prune -o -type f -print0)
+      else
+        files+=("$path")
+      fi
+    done
+    if [ "${#files[@]}" -eq 0 ]; then
+      return 1
     fi
     if [ "$quiet" -eq 1 ]; then
-      grep_flags+=(-q)
+      grep -E -q ${grep_flags:+"${grep_flags[@]}"} -- "$pattern" "${files[@]}"
     else
       # rg -n emits path:line:content, which callers parse positionally.
-      grep_flags+=(-n --with-filename)
+      grep -E -n -H ${grep_flags:+"${grep_flags[@]}"} -- "$pattern" "${files[@]}"
     fi
-    command "${grep_flags[@]}" "$pattern" ${paths+"${paths[@]}"}
   }
 fi
 
