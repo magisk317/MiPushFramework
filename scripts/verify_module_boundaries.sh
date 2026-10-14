@@ -4,6 +4,42 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# CI images may ship without ripgrep (MAGISK_LINUX_APT_PACKAGES is a no-op on
+# non-apt bases such as the magisk-ci-toolkit utility image). The patterns below
+# are plain ERE, so fall back to GNU grep instead of failing the whole check.
+if ! command -v rg >/dev/null 2>&1; then
+  rg() {
+    local -a grep_flags=(grep -E)
+    local -a operands=()
+    local quiet=0
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -q) quiet=1; shift ;;
+        -v) grep_flags+=(-v); shift ;;
+        -n|-r|--with-filename) shift ;;
+        --) shift; while [ $# -gt 0 ]; do operands+=("$1"); shift; done ;;
+        *) operands+=("$1"); shift ;;
+      esac
+    done
+    if [ ${#operands[@]} -eq 0 ]; then
+      echo "grep fallback: missing pattern" >&2
+      return 2
+    fi
+    local pattern="${operands[0]}"
+    local -a paths=("${operands[@]:1}")
+    if [ ${#paths[@]} -gt 0 ]; then
+      grep_flags+=(-r --exclude-dir=.git --exclude-dir=build --exclude-dir=.gradle --binary-files=without-match)
+    fi
+    if [ "$quiet" -eq 1 ]; then
+      grep_flags+=(-q)
+    else
+      # rg -n emits path:line:content, which callers parse positionally.
+      grep_flags+=(-n --with-filename)
+    fi
+    command "${grep_flags[@]}" "$pattern" ${paths+"${paths[@]}"}
+  }
+fi
+
 BASELINE="scripts/module_boundary_baseline.txt"
 VENDOR_BASELINE="scripts/vendor_boundary_baseline.txt"
 COMMON_MAIN_JVM_COMPAT_BASELINE="scripts/common_main_jvm_compat_baseline.txt"

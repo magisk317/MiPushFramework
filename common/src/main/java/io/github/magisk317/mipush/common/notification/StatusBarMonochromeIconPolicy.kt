@@ -231,6 +231,9 @@ object StatusBarMonochromeIconPolicy {
 
     private val inFlightSilhouettePrefetches: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
+    // Background silhouette prefetch must survive any single-app failure (OEM icon quirks,
+    // work-profile PackageManager, OOM from oversized bitmaps) without killing the executor.
+    @Suppress("TooGenericExceptionCaught")
     private fun scheduleSilhouettePrefetch(context: Context, packageName: String) {
         if (!inFlightSilhouettePrefetches.add(packageName)) return
         val appContext = context.applicationContext ?: context
