@@ -551,9 +551,15 @@ class HookSystemUI : BaseHook() {
                             val icon = if (useSubstitution) {
                                 val packIcon = iconPackIcon()
                                 val silhouette = if (packIcon == null) monochromeSilhouette() else null
+                                // Framework ids (0x01......) resolve through SystemUI resources;
+                                // app ids stay opaque hex unless the owning package is loaded.
+                                val smallIconResName = runCatching {
+                                    systemUiContext.resources.getResourceName(resId)
+                                }.getOrNull() ?: "0x${Integer.toHexString(resId)}"
                                 XLog.i(
                                     TAG,
                                     "descriptor source pkg=${sbn.packageName} managed=$isMiPushManaged " +
+                                        "smallIcon=$smallIconResName " +
                                         "source=${if (packIcon != null) "iconpack" else if (silhouette != null) "silhouette" else "posted"}",
                                 )
                                 packIcon ?: silhouette ?: notification.smallIcon

@@ -5,8 +5,14 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
+import android.util.Log
+import androidx.core.graphics.createBitmap
 import android.os.Build
 import android.util.Base64
 import io.github.magisk317.mipush.common.utils.ImgUtils
@@ -26,6 +32,8 @@ import io.github.magisk317.mipush.common.ICON_PACK_PREF_PATH_ICON
  * expanded notification rows, while the status bar has its own getSmallIcon/icon tint path.
  */
 object StatusBarMonochromeIconPolicy {
+    private const val SILHOUETTE_LOG_TAG = "MiPushSilhouette"
+
     @JvmStatic
     fun clearCacheForTest() {
         iconPackCache.clear()
@@ -221,6 +229,10 @@ object StatusBarMonochromeIconPolicy {
     // the cache, a miss returns null and a single background worker builds the silhouette.
     private const val SILHOUETTE_CACHE_MAX = 128
 
+    /** Side margin (fraction of the glyph longer side) kept when re-centering a cropped
+     * silhouette, so the glyph does not touch the slot edge. */
+    private const val SILHOUETTE_MARGIN_RATIO = 0.06f
+
     private val silhouetteCache: MutableMap<String, IconPackEntry> = Collections.synchronizedMap(
         object : LinkedHashMap<String, IconPackEntry>(64, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IconPackEntry>?): Boolean {
@@ -266,23 +278,108 @@ object StatusBarMonochromeIconPolicy {
         val appIcon = runCatching {
             context.packageManager.getApplicationIcon(packageName)
         }.getOrNull() ?: return null
-        val shaped: Drawable = when (appIcon) {
-            is AdaptiveIconDrawable ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    appIcon.monochrome ?: appIcon.foreground
+        // The layer actually consumed decides how spec-compliant the app is: a shipped monochrome
+        // layer (Android 13 themed icons), an adaptive icon without one, or a legacy flattened
+        // bitmap. The log line below records which one every package takes.
+        val shaped: Drawable
+        val layer: String
+        when (appIcon) {
+            is AdaptiveIconDrawable -> {
+                val monochrome = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    appIcon.monochrome
                 } else {
-                    appIcon.foreground
+                    null
                 }
-            is BitmapDrawable -> appIcon
+                shaped = monochrome ?: appIcon.foreground
+                layer = if (monochrome != null) "monochrome" else "foreground"
+            }
+            is BitmapDrawable -> {
+                shaped = appIcon
+                layer = "legacy"
+            }
             else -> return null
-        } ?: return null
+        }
         if (shaped.intrinsicWidth <= 0 || shaped.intrinsicHeight <= 0) {
             return null
         }
         val white = runCatching {
             ImgUtils.convertToTransparentAndWhite(ImgUtils.drawableToBitmap(shaped))
         }.getOrNull() ?: return null
-        return runCatching { Icon.createWithBitmap(white) }.getOrNull()
+        val normalized = normalizeSilhouetteBounds(white)
+        Log.i(
+            SILHOUETTE_LOG_TAG,
+            "silhouette pkg=$packageName layer=$layer " +
+                "intrinsic=${shaped.intrinsicWidth}x${shaped.intrinsicHeight} " +
+                "src=${white.width}x${white.height} out=${normalized.width}x${normalized.height} " +
+                "changed=${normalized !== white}",
+        )
+        return runCatching { Icon.createWithBitmap(normalized) }.getOrNull()
+    }
+
+    /**
+     * Crops transparent padding around a generated silhouette and re-centers the glyph on a
+     * square canvas.
+     *
+     * Adaptive foreground/monochrome layers draw their artwork centered inside the full canvas
+     * (the Play Store triangle occupies roughly half of it), and the white-alpha rework only
+     * masks a circle without cropping. Rendering such a bitmap in the status-bar slot scales
+     * the whole canvas down, leaving the glyph at the artwork share of the slot. Cropping to
+     * the alpha bounds with a small margin makes the glyph fill the slot like icon-pack
+     * bitmaps do.
+     */
+    private fun normalizeSilhouetteBounds(
+        bitmap: Bitmap,
+        marginRatio: Float = SILHOUETTE_MARGIN_RATIO,
+    ): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) return bitmap
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until height) {
+            val row = y * width
+            for (x in 0 until width) {
+                if (Color.alpha(pixels[row + x]) != 0) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        if (maxX < 0) {
+            Log.d(SILHOUETTE_LOG_TAG, "normalize in=${width}x$height empty-alpha keep original")
+            return bitmap
+        }
+        val contentWidth = maxX - minX + 1
+        val contentHeight = maxY - minY + 1
+        Log.d(
+            SILHOUETTE_LOG_TAG,
+            "normalize in=${width}x$height bbox=[$minX,$minY,$maxX,$maxY] " +
+                "content=${contentWidth}x$contentHeight",
+        )
+        if (contentWidth >= width - 1 && contentHeight >= height - 1) {
+            Log.d(SILHOUETTE_LOG_TAG, "normalize full-bleed keep original")
+            return bitmap
+        }
+        val contentMax = maxOf(contentWidth, contentHeight)
+        val margin = (contentMax * marginRatio).toInt().coerceAtLeast(1)
+        val side = contentMax + margin * 2
+        val normalized = createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(normalized)
+        val left = (side - contentWidth) / 2
+        val top = (side - contentHeight) / 2
+        canvas.drawBitmap(
+            bitmap,
+            Rect(minX, minY, maxX + 1, maxY + 1),
+            Rect(left, top, left + contentWidth, top + contentHeight),
+            null,
+        )
+        return normalized
     }
 
 }
