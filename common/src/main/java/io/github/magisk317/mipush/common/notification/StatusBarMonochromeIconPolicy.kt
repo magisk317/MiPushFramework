@@ -1,9 +1,13 @@
 package io.github.magisk317.mipush.common.notification
 
 import android.content.Context
+import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.util.Base64
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import java.util.Collections
@@ -22,21 +26,12 @@ import io.github.magisk317.mipush.common.ICON_PACK_PREF_PATH_ICON
  * expanded notification rows, while the status bar has its own getSmallIcon/icon tint path.
  */
 object StatusBarMonochromeIconPolicy {
-    private const val MAX_CACHE = 48
-
-    private val whiteIconCache: MutableMap<String, Icon> = Collections.synchronizedMap(
-        object : LinkedHashMap<String, Icon>(MAX_CACHE, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Icon>?): Boolean {
-                return size > MAX_CACHE
-            }
-        },
-    )
-
     @JvmStatic
     fun clearCacheForTest() {
-        whiteIconCache.clear()
         iconPackCache.clear()
+        silhouetteCache.clear()
         inFlightIconPackPrefetches.clear()
+        inFlightSilhouettePrefetches.clear()
     }
 
     @JvmStatic
@@ -49,15 +44,40 @@ object StatusBarMonochromeIconPolicy {
         iconPackCache[key] = IconPackEntry(icon, storedAtMs)
     }
 
+    @JvmStatic
+    internal fun putSilhouetteEntryForTest(key: String, icon: Icon?, storedAtMs: Long) {
+        silhouetteCache[key] = IconPackEntry(icon, storedAtMs)
+    }
+
     /**
-     * White-alpha package silhouette for status-bar use. Safe from SystemUI hot path when the
-     * posted smallIcon is unusable (RESOURCE resId=0 AUTOGROUP summaries, or MiPush-managed
-     * launcher BITMAPs that would tint into white blocks).
+     * White-alpha package silhouette for status-bar use, generated from the app's *shaped*
+     * adaptive layer (monochrome when the app ships one, foreground otherwise).
+     *
+     * This is the second step of the fallback chain icon-pack -> silhouette -> posted glyph.
+     * The icon pack only covers apps someone configured; new apps appear constantly, so the
+     * silhouette keeps strong monochrome consistent for them too.
+     *
+     * Same hot-path contract as [iconPackIconForPackageOrNull]: the calling thread only reads
+     * the cache, a miss schedules background generation and returns null so SystemUI keeps
+     * the original icon (and defers the tint to the system renderer, see HookSystemUI).
      */
     @JvmStatic
     fun whiteIconForPackageOrNull(context: Context, packageName: String): Icon? {
         if (packageName.isBlank()) return null
-        return whiteIconForPackage(context, packageName)
+        val entry = silhouetteCache[packageName]
+        return when (decideIconPackCache(entry, System.currentTimeMillis())) {
+            IconPackCacheDecision.HIT_FRESH -> entry?.icon
+            IconPackCacheDecision.HIT_STALE -> {
+                // Serve the stale silhouette immediately; refresh in the background.
+                scheduleSilhouettePrefetch(context, packageName)
+                entry?.icon
+            }
+            IconPackCacheDecision.HIT_NEGATIVE_FRESH -> null
+            IconPackCacheDecision.MISS -> {
+                scheduleSilhouettePrefetch(context, packageName)
+                null
+            }
+        }
     }
 
     /** Raw package icon fallback for status-bar paths that are not monochrome-only. */
@@ -196,16 +216,92 @@ object StatusBarMonochromeIconPolicy {
         }
     }
 
-    private fun whiteIconForPackage(context: Context, packageName: String): Icon? {
-        whiteIconCache[packageName]?.let { return it }
-        val created = runCatching {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            val raw = ImgUtils.drawableToBitmap(drawable)
-            val white = ImgUtils.convertToTransparentAndWhite(raw)
-            Icon.createWithBitmap(white)
-        }.getOrNull() ?: return null
-        whiteIconCache[packageName] = created
-        return created
+    // --- White silhouette cache ---------------------------------------------------------------
+    // Same background-generation contract as the icon pack above: SystemUI hot paths only read
+    // the cache, a miss returns null and a single background worker builds the silhouette.
+    private const val SILHOUETTE_CACHE_MAX = 128
+
+    private val silhouetteCache: MutableMap<String, IconPackEntry> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, IconPackEntry>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IconPackEntry>?): Boolean {
+                return size > SILHOUETTE_CACHE_MAX
+            }
+        },
+    )
+
+    private val inFlightSilhouettePrefetches: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
+
+    private fun scheduleSilhouettePrefetch(context: Context, packageName: String) {
+        if (!inFlightSilhouettePrefetches.add(packageName)) return
+        val appContext = context.applicationContext ?: context
+        iconPackPrefetchExecutor.execute {
+            var reason = "ok"
+            try {
+                val icon = createWhiteSilhouetteIcon(appContext, packageName)
+                silhouetteCache[packageName] = IconPackEntry(icon, System.currentTimeMillis())
+                if (icon == null) reason = "null_icon"
+            } catch (t: Throwable) {
+                // Package manager / bitmap failures are expected (uninstalled app, work profile,
+                // OEM icon quirk). Retain any previously generated silhouette and back off
+                // through the entry timestamp.
+                val retained = silhouetteCache[packageName]?.icon
+                silhouetteCache[packageName] = IconPackEntry(retained, System.currentTimeMillis())
+                reason = "throw=${t.javaClass.simpleName}:${t.message}"
+            } finally {
+                inFlightSilhouettePrefetches.remove(packageName)
+                silhouetteDiag(packageName, reason)
+            }
+        }
+    }
+
+    private fun silhouetteDiag(packageName: String, reason: String) {
+        runCatching { android.util.Log.i("StatusBarSilhouette", "pkg=$packageName reason=$reason") }
+    }
+
+    /**
+     * Background worker only: builds a white-alpha silhouette from the app's shaped adaptive
+     * layer, mirroring the XMSF `createMonochromeSilhouette` producer.
+     *
+     * Legacy (non-adaptive) launcher icons ship as flattened bitmaps. Monochrome mode tints the
+     * posted glyph regardless, so keeping such an opaque bitmap produces a solid white block;
+     * converting it to white-alpha keeps the logo silhouette instead, which is strictly better
+     * than a colorless block even when the bitmap is fully opaque.
+     */
+    private fun createWhiteSilhouetteIcon(context: Context, packageName: String): Icon? {
+        val appIcon = runCatching {
+            context.packageManager.getApplicationIcon(packageName)
+        }.getOrNull() ?: run {
+            silhouetteDiag(packageName, "no_app_icon")
+            return null
+        }
+        val shaped: Drawable = when (appIcon) {
+            is AdaptiveIconDrawable ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    appIcon.monochrome ?: appIcon.foreground
+                } else {
+                    appIcon.foreground
+                }
+            is BitmapDrawable -> appIcon
+            else -> run {
+                silhouetteDiag(packageName, "not_adaptive=${appIcon.javaClass.name}")
+                return null
+            }
+        } ?: run {
+            silhouetteDiag(packageName, "no_shaped_layer")
+            return null
+        }
+        if (shaped.intrinsicWidth <= 0 || shaped.intrinsicHeight <= 0) {
+            silhouetteDiag(packageName, "no_intrinsic")
+            return null
+        }
+        val white = runCatching {
+            ImgUtils.convertToTransparentAndWhite(ImgUtils.drawableToBitmap(shaped))
+        }.getOrNull() ?: run {
+            silhouetteDiag(packageName, "convert_failed")
+            return null
+        }
+        silhouetteDiag(packageName, "bitmap=${white.width}x${white.height}")
+        return runCatching { Icon.createWithBitmap(white) }.getOrNull()
     }
 
 }

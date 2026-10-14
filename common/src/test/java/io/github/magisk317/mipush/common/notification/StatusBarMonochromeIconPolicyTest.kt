@@ -46,6 +46,59 @@ class StatusBarMonochromeIconPolicyTest {
     }
 
     @Test
+    fun `silhouette miss schedules background generation without blocking the caller`() {
+        assertNull(
+            StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
+        )
+        // The relaxed PackageManager hands back a non-adaptive drawable, so the worker stores a
+        // negative entry exactly like the icon-pack path does for a provider failure.
+        capturedTasks.forEach { it.run() }
+        assertEquals(1, capturedTasks.size)
+        assertNull(
+            StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
+        )
+        // A fresh negative entry suppresses immediate retries.
+        assertEquals(1, capturedTasks.size)
+        verify { resolver wasNot Called }
+    }
+
+    @Test
+    fun `silhouette cache hit returns the cached icon without scheduling work`() {
+        val cached = mockk<Icon>()
+        StatusBarMonochromeIconPolicy.putSilhouetteEntryForTest(
+            "com.example.app",
+            cached,
+            System.currentTimeMillis(),
+        )
+        assertEquals(
+            cached,
+            StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
+        )
+        assertEquals(0, capturedTasks.size)
+    }
+
+    @Test
+    fun `stale silhouette is served immediately and refreshed in the background`() {
+        val cached = mockk<Icon>()
+        StatusBarMonochromeIconPolicy.putSilhouetteEntryForTest(
+            "com.example.app",
+            cached,
+            System.currentTimeMillis() - 11 * 60 * 1000,
+        )
+        assertEquals(
+            cached,
+            StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
+        )
+        assertEquals(1, capturedTasks.size)
+    }
+
+    @Test
+    fun `blank package never schedules silhouette generation`() {
+        assertNull(StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "  "))
+        assertEquals(0, capturedTasks.size)
+    }
+
+    @Test
     fun `icon pack lookup never queries the provider on the calling thread`() {
         val icon = StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0)
         assertNull(icon)

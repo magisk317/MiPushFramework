@@ -16,6 +16,8 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.island.IslandOptions
 import android.view.View
 import android.widget.ImageView
+import java.util.Collections
+import java.util.WeakHashMap
 import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
@@ -42,6 +44,23 @@ class HookSystemUI : BaseHook() {
     }
 
     private val idIconIsPreL: Int by lazy(::resolveIconIsPreL)
+
+    /**
+     * Descriptors (and their notification entries) whose icon this module replaced with a
+     * monochrome glyph, keyed weakly so the entry dies with SystemUI's descriptor.
+     *
+     * IconManager.setIcon must only tint such a substituted glyph: tinting the app's own opaque
+     * logo (icon-pack miss + no silhouette) is what produced the status-bar white blocks.
+     */
+    private val substitutedGlyphKeys: MutableMap<Any, Boolean> =
+        Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
+
+    /**
+     * Views whose descriptor keeps the app's own glyph. Their tint stays off so the system
+     * renders the icon natively instead of forcing SRC_IN white over an opaque logo.
+     */
+    private val systemTintDeferredViews: MutableSet<View> =
+        Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<View, Boolean>()))
 
     @SuppressLint("DiscouragedApi")
     private fun resolveIconIsPreL(): Int {
@@ -115,11 +134,29 @@ class HookSystemUI : BaseHook() {
                                         return it
                                     }
                                 }
+                                // The icon pack only covers configured apps and new apps keep
+                                // shipping, so fall back to a white silhouette built from the
+                                // app's shaped adaptive layer before giving up on the glyph.
+                                StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                    context = context,
+                                    packageName = owner,
+                                )?.let {
+                                    XLog.d(TAG, "status bar icon source=silhouette owner=$owner")
+                                    return it
+                                }
+                                if (owner != sbn.packageName) {
+                                    StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                        context = context,
+                                        packageName = sbn.packageName,
+                                    )?.let {
+                                        XLog.d(TAG, "status bar icon source=silhouette pkg=${sbn.packageName}")
+                                        return it
+                                    }
+                                }
                             }
-                            // When no configured icon exists, keep the notification's own
-                            // status glyph. Converting a launcher icon here can turn adaptive
-                            // backgrounds into white blocks; SystemUI will apply the monochrome
-                            // tint to the original notification icon.
+                            // Last resort: keep the notification's own status glyph. It may be an
+                            // opaque logo (or a resId=0 summary), so IconManager.setIcon drops the
+                            // monochrome tint for it instead of painting a white block.
                             return notification.smallIcon
                         }
                         // [决策] 聚合/破损图标替换受单色开关门控:单色用图标包(单色)替换,
@@ -291,7 +328,16 @@ class HookSystemUI : BaseHook() {
                                     sbn = sbn,
                                     options = options,
                                 )
-                                val shouldTint = SystemUiNotificationPolicy.shouldApplyMonochromeTintToNotification(
+                                val descriptor = args.getOrNull(1)
+                                val hasSubstitutedGlyph = hasSubstitutedStatusBarGlyph(
+                                    descriptor = descriptor,
+                                    notificationSmallIcon = notification?.smallIcon,
+                                )
+                                val hasMonochromeResource = isPositivelyGrayscaleSmallIcon(
+                                    iconView.context,
+                                    notification?.smallIcon,
+                                )
+                                val shouldTint = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
                                     colorStatusBarIcon = options.colorStatusBarIcon,
                                     forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
                                     isMiPushManaged = isMiPushManaged,
@@ -299,10 +345,18 @@ class HookSystemUI : BaseHook() {
                                     uid = sbn.uid,
                                     isSystemApp = isSystemApplication(iconView.context, sbn.packageName),
                                     canColorize = notification?.canColorize() ?: false,
-                                    hasMonochromeResource = isGrayscaleSmallIcon(
-                                        iconView.context,
-                                        notification?.smallIcon,
-                                    ),
+                                    // Only a substituted monochrome glyph may be force-tinted;
+                                    // the app's own opaque logo must keep the native rendering.
+                                    hasSubstitutedGlyph = hasSubstitutedGlyph,
+                                    hasMonochromeResource = hasMonochromeResource,
+                                )
+                                XLog.i(
+                                    TAG,
+                                    "tint decision pkg=${sbn.packageName} managed=$isMiPushManaged " +
+                                        "color=${options.colorStatusBarIcon} " +
+                                        "global=${options.colorStatusBarIconGlobal} " +
+                                        "sub=$hasSubstitutedGlyph monoRes=$hasMonochromeResource " +
+                                        "tint=$shouldTint",
                                 )
                                 applyNotificationStatusBarIconTint(iconView, shouldTint)
                             }
@@ -437,6 +491,20 @@ class HookSystemUI : BaseHook() {
                                     null
                                 }
                             }
+                            // Icon-pack miss: the package is simply not configured (and new apps
+                            // keep shipping), so synthesize a white silhouette from the app's
+                            // shaped adaptive layer instead of giving up on the glyph.
+                            fun monochromeSilhouette(): Icon? {
+                                StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                    context = systemUiContext,
+                                    packageName = owner,
+                                )?.let { return it }
+                                if (owner == sbn.packageName) return null
+                                return StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                    context = systemUiContext,
+                                    packageName = sbn.packageName,
+                                )
+                            }
                             if (isFrameworkAutogroupSummary) {
                                 // [决策] 聚合通知替换受单色开关门控:单色用图标包,彩色用应用
                                 // 彩色图标;Android 机器人 logo 是两种模式共用的最后兜底。
@@ -457,6 +525,13 @@ class HookSystemUI : BaseHook() {
                                         ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
                                 }
                                 if (summaryIcon != null) {
+                                    // The Android logo / package icon replaces the generic
+                                    // framework glyph, so the descriptor carries our glyph.
+                                    markSubstitutedStatusBarGlyph(
+                                        entry = entry,
+                                        descriptor = descriptor,
+                                        substituted = true,
+                                    )
                                     setHookObjectField(descriptor, "icon", summaryIcon)
                                     XLog.d(
                                         TAG,
@@ -467,16 +542,30 @@ class HookSystemUI : BaseHook() {
                                 }
                             }
                             if (options.colorStatusBarIcon) return@runCatching
-                            val icon = if (isMiPushManaged) {
-                                iconPackIcon() ?: notification.smallIcon
-                            } else if (options.colorStatusBarIconGlobal) {
-                                // The notification smallIcon is the status glyph. The launcher
-                                // icon fallback can contain an opaque adaptive background and
-                                // turns into a white block when SystemUI applies monochrome tint.
-                                iconPackIcon() ?: notification.smallIcon
+                            // Fallback chain (managed and global monochrome alike):
+                            // icon pack -> white silhouette -> posted glyph. The launcher
+                            // icon is never substituted here: it can carry an opaque
+                            // adaptive background, and tinting it produces a white block.
+                            // The last step keeps the notification's own glyph, and a
+                            // substituted glyph (pack/silhouette) makes the tint harmless.
+                            val useSubstitution = isMiPushManaged || options.colorStatusBarIconGlobal
+                            val icon = if (useSubstitution) {
+                                val packIcon = iconPackIcon()
+                                val silhouette = if (packIcon == null) monochromeSilhouette() else null
+                                XLog.i(
+                                    TAG,
+                                    "descriptor source pkg=${sbn.packageName} managed=$isMiPushManaged " +
+                                        "source=${if (packIcon != null) "iconpack" else if (silhouette != null) "silhouette" else "posted"}",
+                                )
+                                packIcon ?: silhouette ?: notification.smallIcon
                             } else {
                                 null
                             } ?: return@runCatching
+                            markSubstitutedStatusBarGlyph(
+                                entry = entry,
+                                descriptor = descriptor,
+                                substituted = icon !== notification.smallIcon,
+                            )
                             setHookObjectField(descriptor, "icon", icon)
                         }.onFailure {
                             XLog.e(TAG, "failed to restore Android 17 status bar smallIcon", it)
@@ -614,6 +703,9 @@ class HookSystemUI : BaseHook() {
     }
 
     private fun MethodHookParam.forceGlobalMonochromeTintArg(argIndex: Int) {
+        // Deferred views render the app's own glyph natively; forcing white here would
+        // re-introduce the white block on the next tint update.
+        if (systemTintDeferredViews.contains(thisObject)) return
         val options = IslandPreferences.current()
         if (!SystemUiNotificationPolicy.shouldForceGlobalMonochrome(
                 colorStatusBarIcon = options.colorStatusBarIcon,
@@ -649,10 +741,15 @@ class HookSystemUI : BaseHook() {
     private fun applyNotificationStatusBarIconTint(iconView: View, shouldTint: Boolean) {
         val imageView = iconView as? ImageView ?: return
         if (!shouldTint) {
+            // No glyph of ours to tint: drop the filter we would have forced and remember the
+            // view so later setIconColor/setStaticDrawableColor/setDecorColor/updateLightDarkTint
+            // calls keep their native colors as well.
+            systemTintDeferredViews.add(iconView)
             imageView.clearColorFilter()
             imageView.drawable?.clearColorFilter()
             return
         }
+        systemTintDeferredViews.remove(iconView)
         val tint = SystemUiNotificationPolicy.globalMonochromeTint(
             requestedColor = 0,
             fallbackColor = statusIconFallbackTint(iconView),
@@ -661,6 +758,30 @@ class HookSystemUI : BaseHook() {
         imageView.drawable?.mutate()?.setTint(tint)
     }
 
+    /**
+     * Records whether the status-bar descriptor for [entry]/[descriptor] carries a glyph this
+     * module substituted (icon-pack bitmap or white silhouette) instead of the app's own
+     * posted smallIcon. Both keys are stored so IconManager.setIcon can look the decision up
+     * from either argument.
+     */
+    private fun markSubstitutedStatusBarGlyph(entry: Any?, descriptor: Any?, substituted: Boolean) {
+        entry?.let { substitutedGlyphKeys[it] = substituted }
+        descriptor?.let { substitutedGlyphKeys[it] = substituted }
+    }
+
+    /**
+     * True when the descriptor icon is a substituted monochrome glyph.
+     *
+     * Primary signal is the mark recorded by getIconDescriptor; the identity comparison is the
+     * fallback for versions where that hook does not exist (Android <= 16), where the legacy
+     * getSmallIcon hook writes the icon straight into the result.
+     */
+    private fun hasSubstitutedStatusBarGlyph(descriptor: Any?, notificationSmallIcon: Icon?): Boolean {
+        if (descriptor == null) return false
+        substitutedGlyphKeys[descriptor]?.let { return it }
+        val descriptorIcon = runCatching { getHookObjectField(descriptor, "icon") as? Icon }.getOrNull()
+        return descriptorIcon != null && descriptorIcon !== notificationSmallIcon
+    }
 
     /**
      * True when [icon] is already a monochrome status glyph (or detection failed).
@@ -671,16 +792,30 @@ class HookSystemUI : BaseHook() {
     @SuppressLint("PrivateApi")
     private fun isGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
         if (icon == null) return true
-        val detected = runCatching {
-            val utilClass = Class.forName("com.android.internal.util.ContrastColorUtil")
-            val instance = utilClass.getMethod("getInstance", Context::class.java).invoke(null, context)
-            utilClass
-                .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
-                .invoke(instance, context, icon) as? Boolean
-        }.getOrNull()
         // null/failure => keep original RESOURCE (safer than launcher white-block).
-        return detected ?: true
+        return detectGrayscaleSmallIcon(context, icon) ?: true
     }
+
+    /**
+     * Strict variant for the tint decision: only a positive grayscale verdict proves the glyph
+     * survives a white SRC_IN tint. Detection failures return false so the icon keeps the
+     * system's native rendering instead of being force-tinted into a white block.
+     */
+    @SuppressLint("PrivateApi")
+    private fun isPositivelyGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
+        if (icon == null) return false
+        return detectGrayscaleSmallIcon(context, icon) ?: false
+    }
+
+    /** @return the grayscale verdict, or null when detection is impossible. */
+    @SuppressLint("PrivateApi")
+    private fun detectGrayscaleSmallIcon(context: Context, icon: Icon): Boolean? = runCatching {
+        val utilClass = Class.forName("com.android.internal.util.ContrastColorUtil")
+        val instance = utilClass.getMethod("getInstance", Context::class.java).invoke(null, context)
+        utilClass
+            .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
+            .invoke(instance, context, icon) as? Boolean
+    }.getOrNull()
 
     private fun isSystemApplication(context: Context?, packageName: String?): Boolean {
         if (context == null || packageName.isNullOrBlank()) return false

@@ -344,6 +344,48 @@ internal object SystemUiNotificationPolicy {
         )
     }
 
+    /**
+     * Tint decision for an already-resolved status-bar descriptor icon.
+     *
+     * [shouldApplyMonochromeTintToNotification] decides whether the getSmallIcon *replacement*
+     * should run; this one gates the final SRC_IN white tint in IconManager.setIcon.
+     *
+     * The icon pack only covers configured apps and new apps appear constantly. When it misses
+     * and no silhouette can be generated, the descriptor still carries the app's own opaque
+     * logo, and tinting that produces the solid white block seen for e.g. com.bytedance.trae.cn.
+     * An application uid is therefore only tinted when the descriptor holds a substituted
+     * monochrome glyph (icon-pack bitmap or white silhouette) or a positively detected grayscale
+     * resource; otherwise the tint is dropped and SystemUI renders the icon natively.
+     */
+    fun shouldTintStatusBarGlyph(
+        colorStatusBarIcon: Boolean,
+        forceGlobalStatusBarIcons: Boolean,
+        isMiPushManaged: Boolean,
+        packageName: String?,
+        uid: Int,
+        isSystemApp: Boolean,
+        canColorize: Boolean,
+        hasSubstitutedGlyph: Boolean,
+        hasMonochromeResource: Boolean = false,
+    ): Boolean {
+        if (colorStatusBarIcon) return false
+        if (isMiPushManaged) return true
+        if (!shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = colorStatusBarIcon,
+                forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+                isMiPushManaged = isMiPushManaged,
+                packageName = packageName,
+                uid = uid,
+                isSystemApp = isSystemApp,
+                canColorize = canColorize,
+                hasMonochromeResource = hasMonochromeResource,
+            )
+        ) {
+            return false
+        }
+        return hasSubstitutedGlyph || hasMonochromeResource
+    }
+
     fun shouldApplyGlobalMonochromeToNotification(
         colorStatusBarIcon: Boolean,
         forceGlobalStatusBarIcons: Boolean,
