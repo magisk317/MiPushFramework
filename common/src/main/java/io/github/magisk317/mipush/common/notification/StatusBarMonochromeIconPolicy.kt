@@ -238,27 +238,19 @@ object StatusBarMonochromeIconPolicy {
         if (!inFlightSilhouettePrefetches.add(packageName)) return
         val appContext = context.applicationContext ?: context
         iconPackPrefetchExecutor.execute {
-            var reason = "ok"
             try {
                 val icon = createWhiteSilhouetteIcon(appContext, packageName)
                 silhouetteCache[packageName] = IconPackEntry(icon, System.currentTimeMillis())
-                if (icon == null) reason = "null_icon"
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 // Package manager / bitmap failures are expected (uninstalled app, work profile,
                 // OEM icon quirk). Retain any previously generated silhouette and back off
                 // through the entry timestamp.
                 val retained = silhouetteCache[packageName]?.icon
                 silhouetteCache[packageName] = IconPackEntry(retained, System.currentTimeMillis())
-                reason = "throw=${t.javaClass.simpleName}:${t.message}"
             } finally {
                 inFlightSilhouettePrefetches.remove(packageName)
-                silhouetteDiag(packageName, reason)
             }
         }
-    }
-
-    private fun silhouetteDiag(packageName: String, reason: String) {
-        runCatching { android.util.Log.i("StatusBarSilhouette", "pkg=$packageName reason=$reason") }
     }
 
     /**
@@ -273,10 +265,7 @@ object StatusBarMonochromeIconPolicy {
     private fun createWhiteSilhouetteIcon(context: Context, packageName: String): Icon? {
         val appIcon = runCatching {
             context.packageManager.getApplicationIcon(packageName)
-        }.getOrNull() ?: run {
-            silhouetteDiag(packageName, "no_app_icon")
-            return null
-        }
+        }.getOrNull() ?: return null
         val shaped: Drawable = when (appIcon) {
             is AdaptiveIconDrawable ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -285,25 +274,14 @@ object StatusBarMonochromeIconPolicy {
                     appIcon.foreground
                 }
             is BitmapDrawable -> appIcon
-            else -> run {
-                silhouetteDiag(packageName, "not_adaptive=${appIcon.javaClass.name}")
-                return null
-            }
-        } ?: run {
-            silhouetteDiag(packageName, "no_shaped_layer")
-            return null
-        }
+            else -> return null
+        } ?: return null
         if (shaped.intrinsicWidth <= 0 || shaped.intrinsicHeight <= 0) {
-            silhouetteDiag(packageName, "no_intrinsic")
             return null
         }
         val white = runCatching {
             ImgUtils.convertToTransparentAndWhite(ImgUtils.drawableToBitmap(shaped))
-        }.getOrNull() ?: run {
-            silhouetteDiag(packageName, "convert_failed")
-            return null
-        }
-        silhouetteDiag(packageName, "bitmap=${white.width}x${white.height}")
+        }.getOrNull() ?: return null
         return runCatching { Icon.createWithBitmap(white) }.getOrNull()
     }
 

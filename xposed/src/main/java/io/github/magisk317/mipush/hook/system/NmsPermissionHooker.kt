@@ -77,11 +77,25 @@ object NmsPermissionHooker {
     private fun getContext(): Context = currentApplication()
         ?: throw IllegalStateException("currentApplication unavailable")
 
+    /**
+     * Whether a caller identity bypass is required for an NMS permission hook whose target
+     * package name sits at [targetPackageName].
+     *
+     * MIUI resolveNotificationUid binds callingUid to the uid owning opPkg, so clearing the
+     * identity (xmsf uid -> 1000) breaks that binding when xmsf operates on its own package
+     * and invokeOriginal throws SecurityException. xmsf acting on itself needs no bypass:
+     * keep the real calling uid so the binding check passes.
+     */
+    internal fun shouldBypassCallingIdentity(targetPackageName: String?): Boolean =
+        targetPackageName != XMSF_PACKAGE_NAME
+
     private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (MethodHookParam.() -> Unit)? = null): HookCallback = {
         replace {
             var token: Long? = null
             if (fromXmsf()) {
-                token = Binder.clearCallingIdentity()
+                if (shouldBypassCallingIdentity(args[targetPackageNameParamIndex] as? String)) {
+                    token = Binder.clearCallingIdentity()
+                }
                 hookExtra?.invoke(this)
             }
             try {
