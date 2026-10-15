@@ -39,14 +39,7 @@ default:
 
 stages:
   - build
-  - package
-  - release-build
-  # sync must precede release-publish: android:release:github declares
-  # `needs: sync:github`, and `needs` may only target the same or an earlier
-  # stage. With sync last, GitLab rejects the whole pipeline configuration.
-  - sync
-  - release-publish
-  - notify
+  - release
   - quality
   - maintenance
 
@@ -391,7 +384,7 @@ telegram:ci:
   extends:
     - .magisk_telegram_ci
     - .mipush_signed_android_rules
-  stage: notify
+  stage: release
   allow_failure: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
@@ -584,7 +577,7 @@ android:release:apk:
     MAGISK_ANDROID_RELEASE_APK_TASKS: ":xmsf:assembleRelease :mipush:assembleGithubRelease"
     MAGISK_ANDROID_RELEASE_GRADLE_EXTRA_ARGS: "-PbuildSplits=true -Pkotlin.incremental=false"
   resource_group: mipush-android-release-apk
-  stage: release-build
+  stage: build
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   rules:
@@ -616,7 +609,7 @@ android:release:play-bundle:
     MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
     MAGISK_PLAY_TRACK_OVERRIDE: "production"
   resource_group: mipush-android-release-play
-  stage: release-build
+  stage: build
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   rules:
@@ -639,7 +632,7 @@ android:release:gitlab:
     - .magisk_linux_base
     - .magisk_android_release_owner_rules
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   rules:
@@ -659,7 +652,7 @@ android:release:gitlab:
 android:release:play:
   extends: .magisk_android_publish_play
   resource_group: mipush-android-release-play
-  stage: release-publish
+  stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   rules:
@@ -682,7 +675,7 @@ android:release:play:
 android:ci:play-beta-bundle:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
-  stage: release-build
+  stage: build
   tags:
     - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
@@ -722,7 +715,7 @@ android:ci:play-beta-bundle:
 android:ci:play-beta:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
-  stage: release-publish
+  stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   rules:
@@ -762,7 +755,7 @@ android:ci:play-beta:
 telegram:release:
   extends: .magisk_telegram_release
   resource_group: mipush-android-release-publish
-  stage: notify
+  stage: release
   allow_failure: true
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
@@ -794,7 +787,7 @@ renovate:gitlab:
 
 sync:github:
   extends: .magisk_utility_base
-  stage: sync
+  stage: release
   # Kept dependency-free for branch pipelines (the guard only runs on tags),
   # but on a tag pipeline the mirror push must wait for the tag contract check.
   # Without this, a failing guard would leave an orphan tag on the public GitHub
@@ -832,7 +825,7 @@ sync:github:
 android:release:github:
   extends: .magisk_android_release_github
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   variables:
@@ -900,7 +893,7 @@ android:release:github:
 android:release:modules-repo:
   extends: .magisk_android_publish_modules_repo
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
   needs:
