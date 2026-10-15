@@ -188,7 +188,7 @@ val managerKoinModule = module {
                     projectPath = "magisk3171/MiPushFramework",
                     branch = "beta",
                     jobName = "android:build",
-                    artifactPath = "mipush/build/outputs/apk/github/debug/mipush-github-debug.apk",
+                    artifactPath = "ci-dist/mipush-ci.apk",
                     currentCommitHash = BuildConfig.GIT_COMMIT,
                 ),
                 GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
