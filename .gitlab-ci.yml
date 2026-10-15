@@ -489,8 +489,6 @@ android:test:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:test:pure-modules
-      artifacts: true
     - job: android:ci:play-beta
       artifacts: false
       optional: true
