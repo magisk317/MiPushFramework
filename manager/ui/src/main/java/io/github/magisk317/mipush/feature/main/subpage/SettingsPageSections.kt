@@ -32,6 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.compose.koinInject
+import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.manager.R
@@ -483,6 +485,14 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             ),
         ),
     )
+
+    val updateController = koinInject<AppUpdateController>()
+    SettingsItem(
+        title = stringResource(R.string.check_update_title),
+        summary = stringResource(R.string.check_update_summary),
+    ) {
+        updateController.check(userInitiated = true)
+    }
 
     if (showClearConfirmDialog) {
         ConfirmActionDialog(

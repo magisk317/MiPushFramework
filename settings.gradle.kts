@@ -91,6 +91,7 @@ requireExistingProjectDir("pinned")
 include(
     ":magisk-ui-kit",
     ":magisk-ui-kit:billing",
+    ":magisk-ui-kit:update",
     ":magisk-xposed-kit",
     ":magisk-xposed-kit:logging",
     ":magisk-xposed-kit:logging-core",
@@ -124,6 +125,7 @@ include(
 // Explicitly remap moved physical paths
 project(":xmsf:runtime").projectDir = file("xmsf/runtime")
 project(":magisk-ui-kit:billing").projectDir = file("magisk-ui-kit/billing")
+project(":magisk-ui-kit:update").projectDir = file("magisk-ui-kit/update")
 project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
 project(":magisk-xposed-kit:logging-core").projectDir = file("magisk-xposed-kit/logging-core")
 project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")

@@ -59,6 +59,7 @@ dependencies {
     implementation(project(":manager:client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
+    implementation(project(":magisk-ui-kit:update"))
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)

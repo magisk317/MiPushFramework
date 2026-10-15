@@ -44,10 +44,14 @@ import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.LegacyModuleDetector
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
+import io.github.magisk317.mipush.common.VERSION_NAME
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.compose.koinInject
+import io.github.magisk317.uikit.update.AppUpdateController
+import io.github.magisk317.uikit.update.AppUpdateDialog
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
@@ -227,6 +231,21 @@ open class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+
+                    val updateController = koinInject<AppUpdateController>()
+                    // CI/debug builds surface mandatory updates on every cold start; release
+                    // builds only check silently so the dialog never blocks startup.
+                    LaunchedEffect(Unit) {
+                        val isCiOrDebug = CommonBuildConfig.DEBUG ||
+                            VERSION_NAME.contains("-202") ||
+                            VERSION_NAME.contains("-test") ||
+                            VERSION_NAME.contains("-ci")
+                        updateController.check(userInitiated = isCiOrDebug)
+                    }
+                    AppUpdateDialog(
+                        controller = updateController,
+                        onInstall = { updateController.install(this@MainActivity) },
+                    )
 
                     ThemeRevealOverlay(themeRevealState)
                 }
