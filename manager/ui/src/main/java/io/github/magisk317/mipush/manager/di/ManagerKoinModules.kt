@@ -196,7 +196,10 @@ val managerKoinModule = module {
         } else {
             listOf(
                 GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
-                GitHubReleaseUpdateSource("magisk317/MiPushFramework"),
+                GitHubReleaseUpdateSource(
+                    repository = "magisk317/MiPushFramework",
+                    gitlabProjectPath = "magisk3171/MiPushFramework",
+                ),
             )
         }
 

@@ -29,6 +29,8 @@ import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
+import io.github.magisk317.mipush.common.AUTO_UPDATE_ON_START_KEY
+import io.github.magisk317.mipush.common.AUTO_UPDATE_WIFI_ONLY_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
@@ -88,6 +90,8 @@ class PreferenceRepository constructor(
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
     private val LOG_SANITIZATION_ENABLED = booleanPreferencesKey(LOG_SANITIZATION_ENABLED_KEY)
     private val ENABLE_ANALYTICS = booleanPreferencesKey(ENABLE_ANALYTICS_KEY)
+    private val AUTO_UPDATE_ON_START = booleanPreferencesKey(AUTO_UPDATE_ON_START_KEY)
+    private val AUTO_UPDATE_WIFI_ONLY = booleanPreferencesKey(AUTO_UPDATE_WIFI_ONLY_KEY)
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
     private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
@@ -236,6 +240,8 @@ class PreferenceRepository constructor(
     val debugMode: Flow<Boolean> = isDebugMode
     val logSanitizationEnabled: Flow<Boolean> = isLogSanitizationEnabled
     val analyticsEnabled: Flow<Boolean> = isAnalyticsEnabled
+    val autoUpdateOnStart: Flow<Boolean> = dataStore.data.map { it[AUTO_UPDATE_ON_START] ?: true }
+    val autoUpdateWifiOnly: Flow<Boolean> = dataStore.data.map { it[AUTO_UPDATE_WIFI_ONLY] ?: false }
     val showAllEvents: Flow<Boolean> = isShowAllEvents
 
     suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot =
@@ -258,6 +264,14 @@ class PreferenceRepository constructor(
 
     suspend fun setAnalyticsEnabled(enabled: Boolean) {
         dataStore.edit { it[ENABLE_ANALYTICS] = enabled }
+    }
+
+    suspend fun setAutoUpdateOnStart(enabled: Boolean) {
+        dataStore.edit { it[AUTO_UPDATE_ON_START] = enabled }
+    }
+
+    suspend fun setAutoUpdateWifiOnly(enabled: Boolean) {
+        dataStore.edit { it[AUTO_UPDATE_WIFI_ONLY] = enabled }
     }
 
     suspend fun setShowAllEvents(show: Boolean) {

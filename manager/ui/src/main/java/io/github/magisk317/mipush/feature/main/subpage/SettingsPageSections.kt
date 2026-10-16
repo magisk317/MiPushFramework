@@ -36,6 +36,7 @@ import org.koin.compose.koinInject
 import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
@@ -375,6 +376,8 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
+    val autoUpdateOnStart by viewModel.autoUpdateOnStart.collectAsStateWithLifecycle()
+    val autoUpdateWifiOnly by viewModel.autoUpdateWifiOnly.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -485,6 +488,33 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             ),
         ),
     )
+
+    if (ManagerBuildConfig.HAS_BILLING) {
+        val autoUpdateOnStartTitle = stringResource(R.string.pref_auto_update_on_start_title)
+        SettingsSwitchItem(
+            title = autoUpdateOnStartTitle,
+            summary = stringResource(R.string.pref_auto_update_on_start_summary),
+            checked = autoUpdateOnStart,
+        ) { enabled ->
+            viewModel.setAutoUpdateOnStart(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(autoUpdateOnStartTitle, enabled, success)
+            }
+        }
+
+        val autoUpdateWifiOnlyTitle = stringResource(R.string.pref_auto_update_wifi_only_title)
+        SettingsSwitchItem(
+            title = autoUpdateWifiOnlyTitle,
+            summary = stringResource(R.string.pref_auto_update_wifi_only_summary),
+            checked = autoUpdateWifiOnly,
+            enabled = autoUpdateOnStart,
+        ) { enabled ->
+            viewModel.setAutoUpdateWifiOnly(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(autoUpdateWifiOnlyTitle, enabled, success)
+            }
+        }
+    }
 
     val updateController = koinInject<AppUpdateController>()
     SettingsItem(

@@ -46,6 +46,10 @@ const val ACTION_PREF_CHANGED = "io.github.magisk317.mipush.action.PREF_CHANGED"
 
 const val ENABLE_ANALYTICS_KEY = "pref_enable_analytics"
 
+const val AUTO_UPDATE_ON_START_KEY = "pref_auto_update_on_start"
+
+const val AUTO_UPDATE_WIFI_ONLY_KEY = "pref_auto_update_wifi_only"
+
 /** High-volume heartbeat spans that carry no diagnostic value. */
 val SUPPRESSED_OTEL_EVENT_NAMES: Set<String> = setOf("push.keepalive", "push.lifecycle")
 

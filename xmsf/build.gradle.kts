@@ -16,6 +16,7 @@ android {
         applicationId = "com.xiaomi.xmsf"
         versionCode = pushVersionCode
         versionName = versionNameStr
+        missingDimensionStrategy("distribution", "github")
     }
 
     flavorDimensions += "version"
