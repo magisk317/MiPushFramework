@@ -668,6 +668,39 @@ android:release:gitlab:
       chmod +x scripts/publish_mipush_release.sh
       scripts/publish_mipush_release.sh gitlab-release
 
+xmsf:runtime:publish:
+  # Publishes the github-flavor runtime APK built by android:release:apk to the
+  # GitLab generic package registry, next to the sha256 sidecar and manifest the
+  # manager's in-process downloader expects (XmsfDownloader.BASE_URL layout).
+  # Tag-driven like every release job; the version is resolved once in
+  # android:release:apk and carried in play-release.env, and the publish script
+  # cross-checks the APK against it before uploading. Runs on the utility image
+  # (no Android SDK), hence the explicit --version/--version-code inputs.
+  extends: .magisk_linux_base
+  resource_group: mipush-xmsf-runtime-publish
+  stage: release
+  tags:
+    - $MIPUSH_BUILD_RUNNER_TAG
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - when: never
+  needs:
+    - job: android:release:apk
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      set -a
+      # shellcheck disable=SC1091
+      . "$CI_PROJECT_DIR/play-release.env"
+      set +a
+      : "${MAGISK_PLAY_VERSION_NAME:?play-release.env did not carry a version name}"
+      : "${MAGISK_PLAY_VERSION_CODE:?play-release.env did not carry a version code}"
+      chmod +x scripts/ci/xmsf_runtime_publish.sh
+      scripts/ci/xmsf_runtime_publish.sh publish \
+        --version "$MAGISK_PLAY_VERSION_NAME" \
+        --version-code "$MAGISK_PLAY_VERSION_CODE"
+
 android:release:play:
   extends: .magisk_android_publish_play
   resource_group: mipush-android-release-play
