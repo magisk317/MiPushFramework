@@ -20,13 +20,9 @@ android {
     productFlavors {
         create("play") {
             dimension = "distribution"
-            // Play builds never download or install APKs in-process; the
-            // delivery degrades to guidance plus post-install verification.
-            buildConfigField("boolean", "XMSF_DELIVERY_FULL", "false")
         }
         create("github") {
             dimension = "distribution"
-            buildConfigField("boolean", "XMSF_DELIVERY_FULL", "true")
         }
     }
 

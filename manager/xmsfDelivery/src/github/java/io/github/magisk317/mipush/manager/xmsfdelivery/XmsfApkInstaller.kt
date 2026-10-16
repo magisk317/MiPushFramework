@@ -10,7 +10,9 @@ import android.os.Build
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import java.io.File
 import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /** Terminal outcome of a [XmsfApkInstaller.install] attempt. */
@@ -32,6 +34,11 @@ sealed interface XmsfInstallEvent {
  * is not terminal — the session stays alive, so it is reported through
  * [onConfirmationRequired] and the caller must start that intent, after which
  * the real terminal status still arrives on the same receiver.
+ *
+ * The receiver is unregistered on every terminal path (success, failure,
+ * synchronous setup error, [cancel]) so a finished install never leaks a
+ * registration, and [cancel] resumes a suspended [install] with a failure
+ * instead of leaving the caller waiting forever.
  */
 class XmsfApkInstaller(private val context: Context) {
 
@@ -42,6 +49,13 @@ class XmsfApkInstaller(private val context: Context) {
 
     @Volatile
     private var receiver: BroadcastReceiver? = null
+
+    /**
+     * The continuation suspended in [install], so [cancel] can complete it.
+     * Null outside an in-flight install.
+     */
+    private val activeContinuation =
+        AtomicReference<CancellableContinuation<XmsfInstallEvent>?>(null)
 
     /** True when this app may call createSession without a settings detour. */
     val canInstall: Boolean
@@ -60,14 +74,26 @@ class XmsfApkInstaller(private val context: Context) {
         apk: File,
         onConfirmationRequired: (Intent) -> Unit = {},
     ): XmsfInstallEvent = suspendCancellableCoroutine { continuation ->
+        activeContinuation.set(continuation)
         val installer = appContext.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         // Defense in depth: the verified APK must declare the runtime package
         // the manager binds to, not whatever its manifest happens to say.
         params.setAppPackageName(ManagerProtocol.RUNTIME_PACKAGE)
-        val sessionId = installer.createSession(params)
-        activeSessionId = sessionId
         var session: PackageInstaller.Session? = null
+        // Everything from session creation onwards is failure-mapped: a setup
+        // error must resume with XmsfInstallEvent.Failed, never escape as a
+        // raw exception to the caller.
+        val sessionId: Int = try {
+            installer.createSession(params)
+        } catch (error: Throwable) {
+            finish(
+                continuation = continuation,
+                event = XmsfInstallEvent.Failed(error.describeFailure()),
+            )
+            return@suspendCancellableCoroutine
+        }
+        activeSessionId = sessionId
         try {
             session = installer.openSession(sessionId)
             writeApk(session, apk)
@@ -76,20 +102,23 @@ class XmsfApkInstaller(private val context: Context) {
                     val status = intent?.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)
                         ?: Int.MIN_VALUE
                     if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                        // Non-terminal: the session survives, the caller must
+                        // surface the confirmation UI and the real terminal
+                        // status still arrives on this same receiver.
+                        if (!continuation.isActive) return
                         @Suppress("DEPRECATION")
                         val confirmation = intent?.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                         if (confirmation != null) {
                             onConfirmationRequired(confirmation)
-                        } else if (continuation.isActive) {
-                            continuation.resume(
-                                XmsfInstallEvent.Failed("installer confirmation intent missing"),
+                        } else {
+                            finish(
+                                continuation = continuation,
+                                event = XmsfInstallEvent.Failed("installer confirmation intent missing"),
                             )
                         }
                         return
                     }
-                    if (continuation.isActive) {
-                        continuation.resume(intent.toTerminalEvent(status))
-                    }
+                    finish(continuation = continuation, event = intent.toTerminalEvent(status))
                 }
             }
             receiver = statusReceiver
@@ -113,25 +142,49 @@ class XmsfApkInstaller(private val context: Context) {
         } catch (error: Throwable) {
             runCatching { session?.close() }
             runCatching { installer.abandonSession(sessionId) }
-            activeSessionId = null
-            unregisterReceiver()
-            if (continuation.isActive) {
-                continuation.resume(XmsfInstallEvent.Failed(error.describeFailure()))
-            }
+            finish(
+                continuation = continuation,
+                event = XmsfInstallEvent.Failed(error.describeFailure()),
+            )
         }
         continuation.invokeOnCancellation {
             runCatching { session?.abandon() }
             activeSessionId = null
+            activeContinuation.compareAndSet(continuation, null)
             unregisterReceiver()
         }
     }
 
-    /** Abandon any in-flight session and drop the status receiver. */
+    /**
+     * Abandon any in-flight session, drop the status receiver and complete a
+     * suspended [install] with a failure so the caller never waits forever.
+     */
     fun cancel() {
+        activeContinuation.getAndSet(null)?.let { continuation ->
+            if (continuation.isActive) {
+                continuation.resume(XmsfInstallEvent.Failed("install cancelled"))
+            }
+        }
         activeSessionId?.let { sessionId ->
             runCatching { appContext.packageManager.packageInstaller.abandonSession(sessionId) }
             activeSessionId = null
         }
+        unregisterReceiver()
+    }
+
+    /**
+     * Resume [continuation] with [event] once, then release the receiver and
+     * the in-flight bookkeeping. Safe to call from the receiver thread.
+     */
+    private fun finish(
+        continuation: CancellableContinuation<XmsfInstallEvent>,
+        event: XmsfInstallEvent,
+    ) {
+        if (continuation.isActive) {
+            continuation.resume(event)
+        }
+        activeSessionId = null
+        activeContinuation.compareAndSet(continuation, null)
         unregisterReceiver()
     }
 

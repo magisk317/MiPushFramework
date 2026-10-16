@@ -2,9 +2,11 @@ package io.github.magisk317.mipush.manager.xmsfdelivery
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /**
  * Flavor-agnostic plumbing shared by both delivery implementations: the
@@ -29,7 +31,12 @@ abstract class AbstractXmsfDelivery(
 
     override val status: StateFlow<XmsfStatus> = _status.asStateFlow()
 
-    override suspend fun refresh(): XmsfStatus {
+    /**
+     * Re-probe the installation state. PackageManager queries and the Binder
+     * connectivity probe run on [Dispatchers.IO] so a settings screen can call
+     * this from the main dispatcher without blocking it.
+     */
+    override suspend fun refresh(): XmsfStatus = withContext(Dispatchers.IO) {
         val state = resolveState()
         val installed = statusResolver.queryInstalled()
         val connectivity = if (state == XmsfRuntimeState.READY) {
@@ -39,7 +46,7 @@ abstract class AbstractXmsfDelivery(
         }
         val next = currentStatus(state, installed, connectivity)
         _status.value = next
-        return next
+        next
     }
 
     protected fun resolveState(): XmsfRuntimeState =

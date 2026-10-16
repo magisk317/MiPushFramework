@@ -29,6 +29,10 @@ interface XmsfDelivery {
      * Install or update the runtime. github: download, verify and install,
      * reporting progress 0..100 through [onProgress]. play: open the release
      * guidance page.
+     *
+     * Threading: [onProgress] may be invoked from a background dispatcher
+     * (the downloader verifies on [kotlinx.coroutines.Dispatchers.IO]); hop to
+     * the main dispatcher before touching UI state.
      */
     suspend fun ensureInstalled(onProgress: (Int) -> Unit = {}): XmsfInstallResult
 

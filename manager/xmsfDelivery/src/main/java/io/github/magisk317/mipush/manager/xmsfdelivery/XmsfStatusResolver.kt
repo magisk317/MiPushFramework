@@ -44,10 +44,15 @@ class XmsfStatusResolver(private val context: Context) {
         } else {
             info.versionCode.toLong()
         }
-        val signerHashes = XmsfSignatureVerifier.installedSignerHashes(
-            packageManager,
-            ManagerProtocol.RUNTIME_PACKAGE,
-        )
+        // Extract signer hashes from the same PackageInfo we just read: a
+        // second query would re-open a TOCTOU window where the package
+        // disappears between the two calls and the signer set reads empty
+        // (which the decision table would report as SIGNATURE_MISMATCH).
+        val signerHashes = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners?.toList().orEmpty().map { it.toCharsString() }
+        } else {
+            info.signatures?.toList().orEmpty().map { it.toCharsString() }
+        }
         return Installed(
             versionName = info.versionName,
             versionCode = versionCode,

@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.manager.xmsfdelivery
 import android.content.Context
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -32,6 +33,10 @@ class XmsfConnectivityProbe(
                 client.availability.first { it.isTerminal() }
             } ?: return XmsfConnectivity.TIMED_OUT
             availability.toConnectivity()
+        } catch (cancelled: CancellationException) {
+            // Coroutine cancellation is control flow, never an outcome: it must
+            // propagate so the caller's scope can cancel cleanly.
+            throw cancelled
         } catch (_: SecurityException) {
             XmsfConnectivity.PERMISSION_DENIED
         } catch (_: IllegalStateException) {
