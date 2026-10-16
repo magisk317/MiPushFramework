@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        API 30+ package visibility: the runtime probe queries com.xiaomi.xmsf
+        through PackageManager, which requires an explicit <queries> entry.
+    -->
+    <queries>
+        <package android:name="com.xiaomi.xmsf" />
+    </queries>
+
+</manifest>

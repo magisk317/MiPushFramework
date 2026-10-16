@@ -276,6 +276,7 @@ allowed = {
     "manager/application/build.gradle.kts": {":core", ":manager:port"},
     "manager/port/build.gradle.kts": set(),
     "manager/client/build.gradle.kts": {":manager:contract", ":core", ":magisk-xposed-kit:logging"},
+    "manager/xmsfDelivery/build.gradle.kts": {":manager:client", ":common", ":core"},
     "xmsf/runtime/build.gradle.kts": {
         ":common", ":manager:port", ":core", ":pinned", ":vendor",
         ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
@@ -696,7 +697,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
+    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|manager/xmsfDelivery|manager/xmsfDelivery/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
