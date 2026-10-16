@@ -30,6 +30,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
 
 class RegistrationHelper(
     private val context: Context,

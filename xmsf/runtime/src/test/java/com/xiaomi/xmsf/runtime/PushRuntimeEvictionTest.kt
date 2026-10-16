@@ -6,6 +6,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import io.github.magisk317.mipush.runtime.android.getChannelRecords
+import io.github.magisk317.mipush.runtime.android.getRegistrationRecord
+import io.github.magisk317.mipush.runtime.android.observeChannelState
+import io.github.magisk317.mipush.runtime.android.observeRegistrationResult
 
 class PushRuntimeEvictionTest {
 

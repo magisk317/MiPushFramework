@@ -4,6 +4,8 @@ import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
+import io.github.magisk317.mipush.runtime.android.observeRegistrationResult
 
 /**
  * Guards that the public [PushRuntime] facade keeps delegating to the

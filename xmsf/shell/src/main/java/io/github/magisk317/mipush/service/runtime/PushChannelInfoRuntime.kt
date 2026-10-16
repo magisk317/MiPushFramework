@@ -9,6 +9,7 @@ import com.xiaomi.push.service.*
 
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
+import io.github.magisk317.mipush.runtime.android.observeChannelEvent
 
 
 object PushChannelInfoRuntime {
