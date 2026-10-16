@@ -106,6 +106,10 @@ internal class OverviewActions(
     val onSourceCode: () -> Unit,
     val onDonate: () -> Unit,
     val onStatusCardClick: () -> Unit = {},
+    /** Tap either version row to check both update targets and install what is available. */
+    val onManagerVersionClick: () -> Unit = {},
+    /** The play flavor routes the runtime row to the release guidance page instead. */
+    val onRuntimeVersionClick: () -> Unit = {},
 )
 
 @Composable
@@ -118,6 +122,7 @@ fun Overview(
     val activity = context as? Activity
     val overviewViewModel: OverviewViewModel = koinViewModel()
     val billingProvider: BillingProvider = koinInject()
+    val updateCoordinator: VersionUpdateCoordinator = koinInject()
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
@@ -130,6 +135,10 @@ fun Overview(
     val connectionStatusViewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
         koinViewModel()
     val connectionSnapshot by connectionStatusViewModel.snapshot.collectAsState()
+    // Per-row update hints: each version row reports its own target (manager vs
+    // runtime), so a stale runtime never masks a fresh manager build.
+    val managerVersionHint by updateCoordinator.managerHint.collectAsState()
+    val runtimeVersionHint by updateCoordinator.runtimeHint.collectAsState()
     // The Miuix card is the only connection readout on this page now that the top-bar indicator is
     // gone, so the page itself has to keep the snapshot fresh.
     LaunchedEffect(Unit) {
@@ -165,6 +174,16 @@ fun Overview(
         onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
         onDonate = { showDonateDialog = true },
         onStatusCardClick = onNavigateToConnectionStatus,
+        onManagerVersionClick = { scope.launch { updateCoordinator.checkAndUpdate() } },
+        onRuntimeVersionClick = {
+            // The play distribution never handles an APK: the runtime row hands
+            // the user to the release page instead of probing the registry.
+            if (updateCoordinator.canUpdateRuntimeInApp) {
+                scope.launch { updateCoordinator.checkAndUpdate() }
+            } else {
+                updateCoordinator.openRuntimeGuidance(context)
+            }
+        },
     )
 
     when (currentUiKitStyle()) {
@@ -173,6 +192,8 @@ fun Overview(
             actions = actions,
             contentPadding = contentPadding,
             snackbarHostState = snackbarHostState,
+            managerVersionHint = managerVersionHint.displayText(),
+            runtimeVersionHint = runtimeVersionHint.displayText(),
         )
 
         UiKitStyle.Expressive -> OverviewMaterial(
@@ -180,6 +201,8 @@ fun Overview(
             actions = actions,
             contentPadding = contentPadding,
             snackbarHostState = snackbarHostState,
+            managerVersionHint = managerVersionHint.displayText(),
+            runtimeVersionHint = runtimeVersionHint.displayText(),
         )
     }
 

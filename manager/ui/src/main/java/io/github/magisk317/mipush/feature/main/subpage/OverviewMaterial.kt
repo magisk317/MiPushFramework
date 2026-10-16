@@ -50,6 +50,8 @@ internal fun OverviewMaterial(
     actions: OverviewActions,
     contentPadding: PaddingValues,
     snackbarHostState: AppSnackbarHostState,
+    managerVersionHint: String? = null,
+    runtimeVersionHint: String? = null,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val scrollState = rememberScrollState()
@@ -101,6 +103,10 @@ internal fun OverviewMaterial(
                         ?: stringResource(UiKitR.string.unknown),
                     appVersionCode = state.appVersionCode,
                     appVersionCodeLabel = stringResource(R.string.commit_info),
+                    onVersionClick = actions.onManagerVersionClick,
+                    onRuntimeVersionClick = actions.onRuntimeVersionClick,
+                    managerVersionHint = managerVersionHint,
+                    runtimeVersionHint = runtimeVersionHint,
                 )
 
                 OverviewDeviceInfoCard()

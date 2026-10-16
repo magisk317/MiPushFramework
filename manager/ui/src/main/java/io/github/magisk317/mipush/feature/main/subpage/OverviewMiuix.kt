@@ -32,6 +32,10 @@ import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.uikit.common.AppSnackbarHost
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.appColor
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.surface.AppCard
 import io.github.magisk317.uikit.surface.chromeSurfaceColor
@@ -59,6 +63,8 @@ internal fun OverviewMiuix(
     actions: OverviewActions,
     contentPadding: PaddingValues,
     snackbarHostState: AppSnackbarHostState,
+    managerVersionHint: String? = null,
+    runtimeVersionHint: String? = null,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val scrollState = rememberScrollState()
@@ -124,8 +130,18 @@ internal fun OverviewMiuix(
 
                 AppCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        MiuixInfoRow(UiKitR.string.uikit_manager_version, state.appVersionName ?: unknown)
-                        MiuixInfoRow(UiKitR.string.uikit_runtime_version, state.runtimeVersionName ?: unknown)
+                        MiuixInfoRow(
+                            label = UiKitR.string.uikit_manager_version,
+                            value = state.appVersionName ?: unknown,
+                            onClick = actions.onManagerVersionClick,
+                            hint = managerVersionHint,
+                        )
+                        MiuixInfoRow(
+                            label = UiKitR.string.uikit_runtime_version,
+                            value = state.runtimeVersionName ?: unknown,
+                            onClick = actions.onRuntimeVersionClick,
+                            hint = runtimeVersionHint,
+                        )
                         MiuixInfoRow(R.string.commit_info, state.appVersionCode)
                     }
                 }
@@ -188,12 +204,30 @@ private fun String?.statusBadgeLabel(): Int = when (this) {
 }
 
 @Composable
-private fun MiuixInfoRow(@StringRes label: Int, value: String) {
-    BasicComponent(
-        modifier = Modifier.fillMaxWidth(),
-        title = stringResource(label),
-        summary = value,
-    )
+private fun MiuixInfoRow(
+    @StringRes label: Int,
+    value: String,
+    onClick: (() -> Unit)? = null,
+    hint: String? = null,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(
+            modifier = Modifier.fillMaxWidth(),
+            title = stringResource(label),
+            summary = value,
+            onClick = onClick,
+        )
+        if (hint != null) {
+            // Style-aware footnote under the row, mirroring the uikit
+            // OverviewRowHint so both overview styles read the same.
+            AppText(
+                text = hint,
+                role = AppTextRole.Footnote,
+                color = appColor(AppColorRole.OnSurfaceVariant),
+                modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 4.dp),
+            )
+        }
+    }
 }
 
 @Composable

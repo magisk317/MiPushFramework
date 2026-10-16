@@ -33,8 +33,9 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.koinInject
-import io.github.magisk317.uikit.update.AppUpdateController
+import io.github.magisk317.uikit.update.UpdateCheckResult
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfLatestCheck
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
 import io.github.magisk317.mipush.manager.R
@@ -163,20 +164,10 @@ internal fun AppearanceBlock(
 }
 
 @Composable
-internal fun ConfigurationsBlock(
-    onNavigateToConfigurations: () -> Unit,
-) {
-    SettingsItem(
-        title = stringResource(R.string.settings_configurations_management_title),
-        summary = stringResource(R.string.settings_configurations_entry_summary),
-        onClick = onNavigateToConfigurations,
-    )
-}
-
-@Composable
 internal fun IntegrationsBlock(
     viewModel: SettingsViewModel,
     snackbarHostState: AppSnackbarHostState,
+    onNavigateToConfigurations: () -> Unit,
 ) {
 
     val context = LocalContext.current
@@ -211,6 +202,12 @@ internal fun IntegrationsBlock(
             Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java),
         )
     }
+
+    SettingsItem(
+        title = stringResource(R.string.settings_configurations_management_title),
+        summary = stringResource(R.string.settings_configurations_entry_summary),
+        onClick = onNavigateToConfigurations,
+    )
 }
 
 @Composable
@@ -523,12 +520,37 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         }
     }
 
-    val updateController = koinInject<AppUpdateController>()
+    val updateCoordinator = koinInject<VersionUpdateCoordinator>()
+    val checkReportChecking = stringResource(R.string.settings_check_report_checking)
+    val checkReportManagerUpToDate = stringResource(R.string.settings_check_report_manager_up_to_date)
+    val checkReportManagerAvailable = stringResource(R.string.settings_check_report_manager_available)
+    val checkReportManagerFailed = stringResource(R.string.settings_check_report_manager_failed)
+    val checkReportRuntimeUpToDate = stringResource(R.string.settings_check_report_runtime_up_to_date)
+    val checkReportRuntimeAvailable = stringResource(R.string.settings_check_report_runtime_available)
+    val checkReportRuntimeUnsupported = stringResource(R.string.settings_check_report_runtime_unsupported)
+    val checkReportRuntimeFailed = stringResource(R.string.settings_check_report_runtime_failed)
     SettingsItem(
         title = stringResource(R.string.check_update_title),
         summary = stringResource(R.string.check_update_summary),
     ) {
-        updateController.check(userInitiated = true)
+        scope.launch {
+            // Silent probe of both targets: never opens the manager dialog and
+            // never installs anything — the two lines only report availability.
+            snackbarHostState.showSnackbar(checkReportChecking)
+            val report = updateCoordinator.checkBoth()
+            val managerLine = when (val manager = report.manager) {
+                is UpdateCheckResult.Available -> checkReportManagerAvailable.format(manager.manifest.versionName)
+                is UpdateCheckResult.UpToDate -> checkReportManagerUpToDate
+                is UpdateCheckResult.Failed -> checkReportManagerFailed
+            }
+            val runtimeLine = when (val runtime = report.runtime) {
+                is XmsfLatestCheck.Available -> checkReportRuntimeAvailable.format(runtime.latest.versionName)
+                is XmsfLatestCheck.UpToDate -> checkReportRuntimeUpToDate
+                is XmsfLatestCheck.Unsupported -> checkReportRuntimeUnsupported
+                is XmsfLatestCheck.Failed -> checkReportRuntimeFailed
+            }
+            snackbarHostState.showSnackbar("$managerLine\n$runtimeLine")
+        }
     }
 
     if (showClearConfirmDialog) {
