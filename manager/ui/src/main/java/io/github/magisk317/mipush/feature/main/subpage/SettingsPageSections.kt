@@ -370,7 +370,7 @@ internal fun notifyPrefChanged(context: Context) {
     context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
-private val isCiOrDebugBuild: Boolean =
+internal val isCiOrDebugBuild: Boolean =
     BuildConfig.DEBUG ||
         BuildConfig.VERSION_NAME.contains("-202") ||
         BuildConfig.VERSION_NAME.contains("-test") ||

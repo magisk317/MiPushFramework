@@ -560,7 +560,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_configurations_entry_summary">Open and edit MiPush configuration files.</string>
     <string name="settings_configurations_management_title">Configuration management</string>
     <string name="settings_home_integrations_title">Integrations</string>
-    <string name="settings_home_integrations_summary">Configuration management, dual-app space, and Zygisk integration.</string>
+    <string name="settings_home_integrations_summary">Dual-app space and Zygisk integration.</string>
     <string name="settings_dual_app_title">Enable dual app</string>
     <string name="settings_dual_app_summary">Install xmsf and MiPush to the dual-app space (user 999). Requires root access.</string>
     <string name="settings_dual_app_primary_user_only_summary">Dual-app installation is managed from the primary space (User 0). This clone only shows its own runtime status.</string>
@@ -616,6 +616,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="accent_rose">Rose</string>
     <string name="settings_home_diagnostics_title">Diagnostics</string>
     <string name="settings_home_diagnostics_summary">Runtime logs, retention, and debug controls</string>
+    <string name="settings_home_stats_title">Analytics</string>
+    <string name="settings_home_stats_summary">Anonymous usage analytics</string>
     <string name="settings_home_about_title">About</string>
     <string name="settings_home_about_summary">Update entry and project information</string>
     <string name="settings_version_label">Version</string>

@@ -206,8 +206,20 @@ private fun SettingsBody(
         }
 
         SettingsSectionCard(
-            title = stringResource(R.string.settings_home_diagnostics_title),
-            summary = stringResource(R.string.settings_home_diagnostics_summary),
+            title = stringResource(
+                if (isCiOrDebugBuild) {
+                    R.string.settings_home_diagnostics_title
+                } else {
+                    R.string.settings_home_stats_title
+                },
+            ),
+            summary = stringResource(
+                if (isCiOrDebugBuild) {
+                    R.string.settings_home_diagnostics_summary
+                } else {
+                    R.string.settings_home_stats_summary
+                },
+            ),
             expanded = sectionExpanded[SettingsViewModel.SectionId.DIAGNOSTICS],
             onExpandedChange = { toggleSection(SettingsViewModel.SectionId.DIAGNOSTICS) },
         ) {

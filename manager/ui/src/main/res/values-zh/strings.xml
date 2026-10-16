@@ -544,7 +544,7 @@
     <string name="settings_configurations_entry_summary">打开并编辑 MiPush 配置文件。</string>
     <string name="settings_configurations_management_title">配置管理</string>
     <string name="settings_home_integrations_title">系统集成</string>
-    <string name="settings_home_integrations_summary">配置管理、应用双开与 Zygisk 集成。</string>
+    <string name="settings_home_integrations_summary">应用双开与 Zygisk 集成。</string>
     <string name="settings_dual_app_title">启用双开</string>
     <string name="settings_dual_app_summary">将 xmsf 和 MiPush 安装到分身空间（用户 999）。需要 Root 权限。</string>
     <string name="settings_dual_app_primary_user_only_summary">双开安装由主空间（User 0）管理；当前分身只显示自身运行状态。</string>
@@ -600,6 +600,8 @@
     <string name="accent_rose">玫红</string>
     <string name="settings_home_diagnostics_title">调试日志</string>
     <string name="settings_home_diagnostics_summary">运行日志、保留周期与调试控制</string>
+    <string name="settings_home_stats_title">统计数据</string>
+    <string name="settings_home_stats_summary">匿名使用统计</string>
     <string name="settings_home_about_title">关于应用</string>
     <string name="settings_home_about_summary">更新入口与项目信息</string>
     <string name="settings_version_label">版本</string>
