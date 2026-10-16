@@ -370,6 +370,12 @@ internal fun notifyPrefChanged(context: Context) {
     context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
+private val isCiOrDebugBuild: Boolean =
+    BuildConfig.DEBUG ||
+        BuildConfig.VERSION_NAME.contains("-202") ||
+        BuildConfig.VERSION_NAME.contains("-test") ||
+        BuildConfig.VERSION_NAME.contains("-ci")
+
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
@@ -487,6 +493,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
                 RuntimeLogDiagnosticsItem.ANALYTICS,
             ),
         ),
+        enabled = isCiOrDebugBuild,
     )
 
     if (ManagerBuildConfig.HAS_BILLING) {
