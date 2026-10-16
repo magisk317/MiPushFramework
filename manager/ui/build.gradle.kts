@@ -74,6 +74,7 @@ dependencies {
     implementation(project(":manager:application"))
     implementation(project(":manager:port"))
     implementation(project(":manager:client"))
+    implementation(project(":manager:xmsfDelivery"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
     implementation(project(":magisk-ui-kit:update"))

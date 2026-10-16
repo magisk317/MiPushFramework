@@ -161,6 +161,7 @@ private fun SettingsBody(
             onExpandedChange = { toggleSection(SettingsViewModel.SectionId.SERVICE) },
         ) {
             ConnectionServiceBlock(viewModel, snackbarHostState, onNavigateToConnectionStatus)
+            XmsfDeliveryBlock(snackbarHostState)
         }
 
         SettingsSectionCard(

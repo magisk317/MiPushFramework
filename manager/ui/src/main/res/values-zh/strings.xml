@@ -793,4 +793,19 @@
     <string name="pref_auto_update_wifi_only_title">仅 Wi-Fi 自动检查更新</string>
     <string name="pref_auto_update_wifi_only_summary">仅在 Wi-Fi 下执行启动更新检查</string>
     <string name="open_browser_failed">没有可用的浏览器打开链接</string>
+    <string name="xmsf_delivery_title">XMSF 运行时</string>
+    <string name="xmsf_delivery_state_not_installed">未安装</string>
+    <string name="xmsf_delivery_state_update_available">有新版本可用</string>
+    <string name="xmsf_delivery_state_signature_mismatch">签名不匹配，运行时不可信</string>
+    <string name="xmsf_delivery_state_ready">已就绪</string>
+    <string name="xmsf_delivery_connectivity_connected">Binder 已连接</string>
+    <string name="xmsf_delivery_connectivity_unavailable">Binder 不可用</string>
+    <string name="xmsf_delivery_install_action">下载并安装运行时</string>
+    <string name="xmsf_delivery_install_summary">拉取锁定的运行时，校验签名后安装</string>
+    <string name="xmsf_delivery_install_busy">正在下载并安装… %1$d%%</string>
+    <string name="xmsf_delivery_guidance_action">打开发布页手动安装</string>
+    <string name="xmsf_delivery_guidance_summary">此渠道不在应用内下载 APK</string>
+    <string name="xmsf_delivery_installed_snackbar">XMSF 运行时已安装并验证通过</string>
+    <string name="xmsf_delivery_guidance_opened_snackbar">已打开发布页，安装后请刷新状态</string>
+    <string name="xmsf_delivery_failed_snackbar">运行时下发失败：%1$s</string>
 </resources>

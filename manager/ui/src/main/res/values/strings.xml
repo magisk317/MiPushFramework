@@ -805,4 +805,19 @@ This could be the application doing a reverse registration, or the registration 
 
     <string name="pref_theme_group_color">Color</string>
     <string name="pref_theme_group_navigation">Navigation bar</string>
+    <string name="xmsf_delivery_title">XMSF runtime</string>
+    <string name="xmsf_delivery_state_not_installed">Not installed</string>
+    <string name="xmsf_delivery_state_update_available">Update available</string>
+    <string name="xmsf_delivery_state_signature_mismatch">Signature mismatch, runtime cannot be trusted</string>
+    <string name="xmsf_delivery_state_ready">Ready</string>
+    <string name="xmsf_delivery_connectivity_connected">Binder connected</string>
+    <string name="xmsf_delivery_connectivity_unavailable">Binder unavailable</string>
+    <string name="xmsf_delivery_install_action">Download and install runtime</string>
+    <string name="xmsf_delivery_install_summary">Fetches the pinned runtime, verifies its signature and installs it</string>
+    <string name="xmsf_delivery_install_busy">Downloading and installing… %1$d%%</string>
+    <string name="xmsf_delivery_guidance_action">Open release page to install manually</string>
+    <string name="xmsf_delivery_guidance_summary">This distribution never downloads APKs in-process</string>
+    <string name="xmsf_delivery_installed_snackbar">XMSF runtime installed and verified</string>
+    <string name="xmsf_delivery_guidance_opened_snackbar">Release page opened; refresh after installing</string>
+    <string name="xmsf_delivery_failed_snackbar">Runtime delivery failed: %1$s</string>
 </resources>
