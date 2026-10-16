@@ -10,6 +10,6 @@ bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" \
   --no-configuration-cache \
   :magisk-ui-kit:compileAndroidMain :magisk-ui-kit:compileKotlinJvm \
   :magisk-xposed-kit:compileDebugKotlin \
-  :manager:ui:compileDebugKotlin \
+  :manager:ui:compileGithubDebugKotlin :manager:ui:compilePlayDebugKotlin \
   :xmsf:compileNormalDebugKotlin \
   :mipush:compileGithubDebugKotlin

@@ -46,7 +46,7 @@ run_shard() {
         :mipush:testGithubDebugUnitTest \
         :core:jvmTest \
         :xmsf:runtime:store:testAndroidHostTest \
-        :manager:ui:testDebugUnitTest
+        :manager:ui:testGithubDebugUnitTest :manager:ui:testPlayDebugUnitTest
       run_test :configuration:jvmTest
       run_test :manager:port:test
       run_test :manager:contract:testDebugUnitTest
