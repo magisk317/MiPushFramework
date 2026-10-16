@@ -5,6 +5,7 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.IInterface
 import android.os.Parcel
+import android.os.Parcelable
 import android.os.RemoteException
 
 /** Stock MiCloud push worker contract. The [Intent] is an in/out AIDL value. */
@@ -32,7 +33,7 @@ interface IMiCloudPushService : IInterface {
                     reply?.writeNoException()
                     if (intent != null) {
                         reply?.writeInt(1)
-                        reply?.let { intent.writeToParcel(it, 1) }
+                        reply?.let { intent.writeToParcel(it, Parcelable.PARCELABLE_WRITE_RETURN_VALUE) }
                     } else {
                         reply?.writeInt(0)
                     }
