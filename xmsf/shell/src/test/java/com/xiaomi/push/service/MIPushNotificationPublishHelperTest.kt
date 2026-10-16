@@ -8,6 +8,11 @@ import android.text.TextUtils
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import io.github.magisk317.mipush.service.runtime.buildStockMiuiIdentityExtras
+import io.github.magisk317.mipush.service.runtime.getNotificationId
+import io.github.magisk317.mipush.service.runtime.mapPublishResult
+import io.github.magisk317.mipush.service.runtime.resolveStockGroup
+import io.github.magisk317.mipush.service.runtime.shouldSkipForceGroup
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic

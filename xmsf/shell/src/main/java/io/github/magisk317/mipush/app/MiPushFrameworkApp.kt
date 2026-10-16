@@ -33,6 +33,7 @@ import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.getNotificationTag
 import io.github.magisk317.mipush.service.runtime.RegSecRecoveryHealer
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.NotificationHookBridge
@@ -49,6 +50,7 @@ import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
+import io.github.magisk317.mipush.notification.clearIconPackCache
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
@@ -135,7 +137,7 @@ open class MiPushFrameworkApp : Application() {
         Hooker.hook(this)
         NotificationShellBridge.installStatusBarRefresh(NotificationManagerEx::triggerStatusBarRefresh)
         NotificationShellBridge.installNotificationOperations(
-            getNotificationTag = MIPushNotificationPublishHelper::getNotificationTag,
+            getNotificationTag = { packageName -> MIPushNotificationPublishHelper.getNotificationTag(packageName) },
             getActiveNotifications = NotificationManagerEx::getActiveNotifications,
             cancel = NotificationManagerEx::cancel,
         )
