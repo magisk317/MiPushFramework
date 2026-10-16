@@ -25,9 +25,10 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.notification.NotificationController.getBitmapFromUri
-import io.github.magisk317.mipush.notification.NotificationController.getLargeIcon
-import io.github.magisk317.mipush.notification.NotificationController.roundLargeIconIfConfigured
+import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.notification.getBitmapFromUri
+import io.github.magisk317.mipush.notification.getLargeIcon
+import io.github.magisk317.mipush.notification.roundLargeIconIfConfigured
 import java.util.LinkedHashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -199,7 +200,7 @@ internal object MIPushNotificationStyleSupport {
             bigPicUri,
             object : io.github.magisk317.mipush.common.cache.IconCache.Converter<String, Bitmap> {
                 override fun convert(ctx: Context, b: String): Bitmap {
-                    return getBitmapFromUri(ctx, b, 1024 * 1024)
+                    return NotificationController.getBitmapFromUri(ctx, b, 1024 * 1024)
                         ?: throw IllegalArgumentException("Failed to load bitmap from $b")
                 }
             }
@@ -462,7 +463,7 @@ internal object MIPushNotificationStyleSupport {
         if (conversationId != null) {
             personBuilder.setKey(conversationId)
         }
-        val largeIcon = getLargeIcon(context, metaInfo, conversationIcon)
+        val largeIcon = NotificationController.getLargeIcon(context, metaInfo, conversationIcon)
             ?: if (shouldUseApplicationIconFallback(conversationIcon)) {
                 getAppLogo(context, metaInfo, packageName)
             } else {
@@ -492,7 +493,7 @@ internal object MIPushNotificationStyleSupport {
         if (senderId != null) {
             personBuilder.setKey(senderId)
         }
-        val largeIcon = getLargeIcon(context, metaInfo, senderIcon)
+        val largeIcon = NotificationController.getLargeIcon(context, metaInfo, senderIcon)
             ?: if (shouldUseApplicationIconFallback(senderIcon)) {
                 getAppLogo(context, metaInfo, packageName)
             } else {
@@ -509,7 +510,7 @@ internal object MIPushNotificationStyleSupport {
             val logo = Global.iconCache().getRawIconBitmap(context, packageName)
                 ?.takeUnless { it.isRecycled }
                 ?: return@runCatching null
-            roundLargeIconIfConfigured(metaInfo, logo)
+            NotificationController.roundLargeIconIfConfigured(metaInfo, logo)
         }.getOrNull()
     }
 
