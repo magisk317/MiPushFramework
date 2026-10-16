@@ -143,12 +143,7 @@ class XmsfDownloader(
     @Suppress("DEPRECATION")
     private fun hostVersionCode(): Long {
         hostVersionCodeProvider?.let { return it() }
-        val info = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            info.longVersionCode
-        } else {
-            info.versionCode.toLong()
-        }
+        return Companion.hostVersionCode(appContext)
     }
 
     private fun sha256(file: File): String {
@@ -182,5 +177,21 @@ class XmsfDownloader(
             .readTimeout(READ_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
             .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
             .build()
+
+        /**
+         * Version code of the running manager host. Shared with
+         * [XmsfRuntimeLatestProbe] so registry gating and download gating
+         * agree on what "this host" means.
+         */
+        @Suppress("DEPRECATION")
+        fun hostVersionCode(context: Context): Long {
+            val appContext = context.applicationContext ?: context
+            val info = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+            return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                info.longVersionCode
+            } else {
+                info.versionCode.toLong()
+            }
+        }
     }
 }

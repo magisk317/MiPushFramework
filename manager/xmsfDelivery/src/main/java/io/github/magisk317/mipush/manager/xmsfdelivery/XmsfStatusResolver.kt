@@ -79,13 +79,20 @@ class XmsfStatusResolver(private val context: Context) {
          * Decision table:
          * - absent package -> [XmsfRuntimeState.NOT_INSTALLED]
          * - certificates differ from the host -> [XmsfRuntimeState.SIGNATURE_MISMATCH]
-         * - version differs from the pinned runtime -> [XmsfRuntimeState.UPDATE_AVAILABLE]
+         * - installed runtime older than [expectedVersionName] (semver-ish,
+         *   via [XmsfVersionComparator]) -> [XmsfRuntimeState.UPDATE_AVAILABLE]
          * - otherwise -> [XmsfRuntimeState.READY]
          *
          * The signature gate runs before the version gate on purpose: a
          * foreign-signed runtime is a hard failure no matter which version
          * it reports, and reporting UPDATE_AVAILABLE for it would invite
          * the user to "update" a package the manager must never touch.
+         *
+         * The version gate orders with [XmsfVersionComparator] instead of
+         * exact string equality: a runtime ahead of the pin (the user
+         * updated to the registry latest) is still READY, while a CI
+         * pre-release below the pin ("1.0.9-20261016_120000" against pin
+         * "1.0.9") correctly reports UPDATE_AVAILABLE.
          */
         fun decideStatus(
             installed: Installed?,
@@ -96,7 +103,9 @@ class XmsfStatusResolver(private val context: Context) {
             if (!XmsfSignatureVerifier.matches(hostHashes, installed.signerHashes)) {
                 return XmsfRuntimeState.SIGNATURE_MISMATCH
             }
-            if (expectedVersionName != null && installed.versionName != expectedVersionName) {
+            if (expectedVersionName != null &&
+                XmsfVersionComparator.isNewer(expectedVersionName, installed.versionName.orEmpty())
+            ) {
                 return XmsfRuntimeState.UPDATE_AVAILABLE
             }
             return XmsfRuntimeState.READY

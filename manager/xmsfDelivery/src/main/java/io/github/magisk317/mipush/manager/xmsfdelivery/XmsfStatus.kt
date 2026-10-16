@@ -37,6 +37,27 @@ sealed interface XmsfInstallResult {
     data class Failed(val message: String) : XmsfInstallResult
 }
 
+/**
+ * Outcome of an [XmsfDelivery.checkLatestRuntime] probe: a pure check that
+ * never installs anything and never mutates the status flow.
+ */
+sealed interface XmsfLatestCheck {
+    /**
+     * A compatible runtime newer than the installed one exists in the
+     * registry. [latest] is the manifest the caller should target when it
+     * decides to update.
+     */
+    data class Available(val latest: XmsfRuntimeManifest) : XmsfLatestCheck
+
+    /** The installed runtime is already the newest compatible one. */
+    data object UpToDate : XmsfLatestCheck
+
+    /** This flavor cannot probe the registry (play: guidance only). */
+    data object Unsupported : XmsfLatestCheck
+
+    data class Failed(val message: String) : XmsfLatestCheck
+}
+
 /** Snapshot consumed by the settings UI. */
 data class XmsfStatus(
     val state: XmsfRuntimeState = XmsfRuntimeState.NOT_INSTALLED,
