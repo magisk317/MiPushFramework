@@ -5,9 +5,7 @@ import org.junit.jupiter.api.Test
 class SdkActivityStartabilityContractTest {
     @Test
     fun `payload-declared sdk activity is gated on cross-uid startability`() {
-        val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
-        ).readText()
+        val source = resolveIntentSupportSources()
 
         assertTrue(source.contains("isStartableFromXmsfProcess"))
         assertTrue(source.contains("if (!activityInfo.exported) return false"))
@@ -46,9 +44,7 @@ class SdkActivityStartabilityContractTest {
 
     @Test
     fun `receiver-built click targets never take the sdk activity route`() {
-        val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
-        ).readText()
+        val source = resolveIntentSupportSources()
 
         // The RichPush SDK (cn.richinfo.richpush, e.g. China Mobile) rebuilds the click landing
         // intent inside the app's own XiaoMiMessageReceiver: the payload's intent_uri names
@@ -98,4 +94,17 @@ class SdkActivityStartabilityContractTest {
         listOf(File(relativePath), File("xmsf/shell/$relativePath"))
             .firstOrNull { it.exists() }
             ?: error("source not found: $relativePath")
+
+    /**
+     * Reads both halves of the split support object: the click-routing facade
+     * (MIPushNotificationIntentSupport.kt) and the effect-intent seams
+     * (MIPushNotificationEffectIntentSupport.kt). Assertions that span the
+     * split use this concatenated view; the ones pinned to the facade alone
+     * keep reading the single file so the split itself stays enforced.
+     */
+    private fun resolveIntentSupportSources(): String =
+        listOf(
+            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationEffectIntentSupport.kt",
+        ).joinToString("\n") { resolveSource(it).readText() }
 }

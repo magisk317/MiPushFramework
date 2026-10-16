@@ -4,9 +4,6 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.logE
-import io.github.magisk317.mipush.common.utils.logI
-import io.github.magisk317.mipush.common.utils.logV
-
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -18,7 +15,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
@@ -30,15 +26,23 @@ import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
-import java.net.MalformedURLException
-import java.net.URISyntaxException
-import java.net.URL
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+/**
+ * Click-routing facade for MiPush notification intents: the publish-time route
+ * decision (url -> launcher fallback -> client data url -> sdk activity ->
+ * bridge activity -> xmsf service), the PendingIntent identity helpers and the
+ * startability gates every payload intent passes through.
+ *
+ * The payload `notify_effect` intent construction and the style-button seams
+ * live in MIPushNotificationEffectIntentSupport.kt as same-package extension
+ * functions on this object, so call sites keep the
+ * `MIPushNotificationIntentSupport.foo(...)` syntax.
+ */
 internal object MIPushNotificationIntentSupport {
-    private const val TAG = "MyNotificationIntent"
+    internal const val TAG = "MyNotificationIntent"
     internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
 
     internal fun shouldUseLauncherFallback(packageName: String?): Boolean {
@@ -70,74 +74,8 @@ internal object MIPushNotificationIntentSupport {
         "com.tencent.mobileqq.activity.JumpActivity",
     )
 
-    private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
-    private const val STYLE_TYPE_VOIP = "6"
-    private const val NOTIFICATION_ACTION_BUTTON_PLACE_MID = 2
-    private const val NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT = 3
-    private const val NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS = "notification_style_button_left_intent_class"
-    private const val NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI = "notification_style_button_left_intent_uri"
-    private const val NOTIFICATION_STYLE_BUTTON_LEFT_NAME = "notification_style_button_left_name"
-    private const val NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT = "notification_style_button_left_notify_effect"
-    private const val NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI = "notification_style_button_left_web_uri"
-    private const val NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS = "notification_style_button_mid_intent_class"
-    private const val NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI = "notification_style_button_mid_intent_uri"
-    private const val NOTIFICATION_STYLE_BUTTON_MID_NAME = "notification_style_button_mid_name"
-    private const val NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT = "notification_style_button_mid_notify_effect"
-    private const val NOTIFICATION_STYLE_BUTTON_MID_WEB_URI = "notification_style_button_mid_web_uri"
-    private const val NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS = "notification_style_button_right_intent_class"
-    private const val NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI = "notification_style_button_right_intent_uri"
-    private const val NOTIFICATION_STYLE_BUTTON_RIGHT_NAME = "notification_style_button_right_name"
-    private const val NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT = "notification_style_button_right_notify_effect"
-    private const val NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI = "notification_style_button_right_web_uri"
-
-    private val FLAG_IMMUTABLE_UPDATE_CURRENT =
+    internal val FLAG_IMMUTABLE_UPDATE_CURRENT =
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-
-    internal data class StyleActionKeys(
-        val name: String,
-        val notifyEffect: String,
-        val intentUri: String,
-        val intentClass: String,
-        val webUri: String
-    )
-
-    fun addStyleActions(
-        builder: NotificationCompat.Builder,
-        context: Context,
-        pkgName: String,
-        notificationId: Int,
-        metaExtra: Map<String, String>
-    ) {
-        for (place in 1..NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT) {
-            val title = getStyleActionTitle(place, metaExtra)
-            if (TextUtils.isEmpty(title)) continue
-            val pendingIntent = getStylePendingIntent(context, pkgName, place, metaExtra, notificationId)
-            if (pendingIntent != null) {
-                builder.addAction(0, title, pendingIntent)
-            }
-        }
-    }
-
-    fun carryPendingIntentForTemporarilyWhitelisted(
-        context: Context,
-        container: XmPushActionContainer,
-        notificationId: Int,
-        builder: NotificationCompat.Builder
-    ) {
-        val targetIntent = MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras(
-            container.packageName,
-            container.metaInfo
-        ).apply {
-            data = pendingIntentIdentity(container.packageName, notificationId, 0)
-        }
-        val pendingIntent = PendingIntent.getService(
-            context,
-            pendingIntentRequestCode(container.packageName, notificationId, 0),
-            targetIntent,
-            FLAG_IMMUTABLE_UPDATE_CURRENT
-        )
-        builder.extras.putParcelable("mipush.target", pendingIntent)
-    }
 
     /**
      * Retrieves the target service PendingIntent created with the notification and clones it
@@ -447,72 +385,6 @@ internal object MIPushNotificationIntentSupport {
 
     internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
 
-    fun getSdkIntent(
-        context: Context,
-        container: XmPushActionContainer,
-        reportAvailability: Boolean = true,
-    ): Intent? {
-        val pkgName = container.packageName
-        val extra = container.metaInfo.extra ?: return null
-        if (!extra.containsKey(PushConstants.EXTRA_PARAM_NOTIFY_EFFECT)) {
-            return null
-        }
-
-        val intent = buildIntentFromEffect(context, pkgName, extra) ?: return null
-        if (isReceiverBuiltClickTarget(intent)) {
-            // A payload pointing at a receiver-built click target carries no landing parameters
-            // of its own; starting that activity from XMSF lands the click in an activity that
-            // cannot resolve its target and dies silently. Report the intent as unavailable so
-            // callers fall back to the app-side routes (BridgeActivity, the XMSF service click
-            // dispatch, or the launcher pull-up), where the app's own receiver rebuilds the
-            // intent. Known case: China Mobile's cn.richinfo.richpush.ClickResultActivity.
-            logW(
-                "$TAG receiver-built click target, skip: pkg=$pkgName " +
-                    "component=${intent.component?.flattenToShortString()}"
-            )
-            return null
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        if (reportAvailability) {
-            ExplicitHookBridge.onIntentAvailabilityChecked(
-                intent,
-                resolveInfo != null,
-                "MIPushNotificationIntentSupport.getSdkIntent"
-            )
-        }
-        val activityInfo = resolveInfo?.activityInfo
-        if (activityInfo == null) {
-            return null
-        }
-        // Require the resolved activity to live inside the target package. An implicit intent (for
-        // example an ACTION_VIEW web jump) can resolve to a generic activity of another app such as
-        // a browser or a system viewer; without this check the click would start the wrong app.
-        // Only an activity inside the target package counts as usable.
-        if (activityInfo.packageName != pkgName) {
-            logW(
-                "$TAG sdk intent resolved outside target package, skip: pkg=$pkgName " +
-                    "resolved=${activityInfo.packageName}/${activityInfo.name}"
-            )
-            return null
-        }
-        if (!isStartableFromXmsfProcess(context, activityInfo)) {
-            // The payload-declared click activity lives in the target app's UID while XMSF runs
-            // as its own, non-platform-signed UID. A non-exported component (for example Baidu
-            // push's com.baidu.android.pushservice.xmproxy.XmNotifyActivity) rejects the cross-UID
-            // start with SecurityException, which consumes the click and launches nothing. Report
-            // the intent as unavailable so callers fall through to the app-side delivery routes
-            // (BridgeActivity, then the XMSF PushMessageHandler click dispatch) instead.
-            logW(
-                "$TAG sdk activity not startable from xmsf, skip: pkg=$pkgName " +
-                    "component=${activityInfo.packageName}/${activityInfo.name} " +
-                    "exported=${activityInfo.exported} permission=${activityInfo.permission}"
-            )
-            return null
-        }
-        return intent
-    }
-
     /**
      * Detects click targets owned by a third-party in-app push SDK whose landing intent is
      * rebuilt by the target app's own message receiver instead of being carried by the payload.
@@ -530,7 +402,7 @@ internal object MIPushNotificationIntentSupport {
      * its first frame and then finishes without navigating, so it is listed in
      * [RECEIVER_BUILT_CLICK_TARGET_PREFIXES] now.
      */
-    private fun isReceiverBuiltClickTarget(intent: Intent): Boolean {
+    internal fun isReceiverBuiltClickTarget(intent: Intent): Boolean {
         if (intent.data != null) return false
         val extras = intent.extras
         if (extras != null && !extras.isEmpty) return false
@@ -543,7 +415,7 @@ internal object MIPushNotificationIntentSupport {
      * platform-signed and holds no START_ANY_ACTIVITY privilege. Such an activity is only usable
      * when it is exported and, when permission-guarded, when XMSF holds that permission.
      */
-    private fun isStartableFromXmsfProcess(context: Context, activityInfo: ActivityInfo): Boolean {
+    internal fun isStartableFromXmsfProcess(context: Context, activityInfo: ActivityInfo): Boolean {
         if (!activityInfo.exported) return false
         val permission = activityInfo.permission
         if (permission.isNullOrBlank()) return true
@@ -806,14 +678,14 @@ internal object MIPushNotificationIntentSupport {
         return context.packageManager.resolveActivity(launcher, 0) != null
     }
 
-    private fun getStylePendingIntent(
+    internal fun getStylePendingIntent(
         context: Context,
         pkgName: String,
         place: Int,
         metaExtra: Map<String, String>?
     ): PendingIntent? = getStylePendingIntent(context, pkgName, place, metaExtra, 0)
 
-    private fun getStylePendingIntent(
+    internal fun getStylePendingIntent(
         context: Context,
         pkgName: String,
         place: Int,
@@ -920,162 +792,6 @@ internal object MIPushNotificationIntentSupport {
             logE("Failed to resolve activity: ${e.message}", e)
         }
         return null
-    }
-
-    private fun buildIntentFromEffect(
-        context: Context,
-        pkgName: String,
-        extra: Map<String, String>
-    ): Intent? {
-        return when (extra[PushConstants.EXTRA_PARAM_NOTIFY_EFFECT]) {
-            PushConstants.NOTIFICATION_CLICK_DEFAULT -> getLaunchIntent(context, pkgName)
-            PushConstants.NOTIFICATION_CLICK_INTENT -> getSdkExplicitIntent(pkgName, extra)
-            PushConstants.NOTIFICATION_CLICK_WEB_PAGE -> getSdkWebIntent(extra)
-            else -> null
-        }
-    }
-
-    private fun getLaunchIntent(context: Context, pkgName: String): Intent? {
-        return try {
-            context.packageManager.getLaunchIntentForPackage(pkgName)
-        } catch (e: Exception) {
-            logE("Failed to get launch intent: ${e.message}", e)
-            null
-        }
-    }
-
-    private fun getSdkExplicitIntent(pkgName: String, extra: Map<String, String>): Intent? {
-        if (extra.containsKey(PushConstants.EXTRA_PARAM_INTENT_URI)) {
-            val intentStr = extra[PushConstants.EXTRA_PARAM_INTENT_URI] ?: return null
-            return try {
-                constrainIntentToPackage(Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME), pkgName)
-            } catch (e: URISyntaxException) {
-                logE("Failed to parse intent URI: ${e.message}", e)
-                null
-            }
-        }
-        if (!extra.containsKey(PushConstants.EXTRA_PARAM_CLASS_NAME)) {
-            return null
-        }
-        val className = extra[PushConstants.EXTRA_PARAM_CLASS_NAME] ?: return null
-        return Intent().apply {
-            component = ComponentName(pkgName, className)
-            try {
-                if (extra.containsKey(PushConstants.EXTRA_PARAM_INTENT_FLAG)) {
-                    flags = extra[PushConstants.EXTRA_PARAM_INTENT_FLAG]!!.toInt()
-                }
-            } catch (e: NumberFormatException) {
-                logE("Cause by intent_flag: ${e.message}", e)
-            }
-        }
-    }
-
-    private fun getSdkWebIntent(extra: Map<String, String>): Intent? {
-        return normalizeWebUri(extra[PushConstants.EXTRA_PARAM_WEB_URI])?.let { uri ->
-            Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse(uri)
-            }
-        }
-    }
-
-    private fun getExplicitIntentForButton(
-        pkgName: String,
-        place: Int,
-        extra: Map<String, String>
-    ): Intent? {
-        val keys = styleActionKeys(place, extra)
-        if (extra.containsKey(keys.intentUri)) {
-            val intentStr = extra[keys.intentUri] ?: return null
-            return try {
-                constrainIntentToPackage(Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME), pkgName)
-            } catch (e: URISyntaxException) {
-                logE("Failed to parse button intent URI: ${e.message}", e)
-                null
-            }
-        }
-        if (!extra.containsKey(keys.intentClass)) {
-            return null
-        }
-        val className = extra[keys.intentClass] ?: return null
-        return Intent().apply {
-            component = ComponentName(pkgName, className)
-        }
-    }
-
-    /**
-     * An explicit component wins over Intent.package during resolution. Reject a payload that
-     * tries to point an explicit component (including a selector component) outside its target
-     * application before adding the target package constraint.
-     */
-    internal fun constrainIntentToPackage(intent: Intent, packageName: String): Intent? {
-        if (packageName.isBlank()) return null
-        val components = listOfNotNull(intent.component, intent.selector?.component)
-        if (components.any { it.packageName != packageName }) return null
-        return intent.apply { `package` = packageName }
-    }
-
-    private fun getWebIntent(place: Int, extra: Map<String, String>): Intent? {
-        val keys = styleActionKeys(place, extra)
-        return normalizeWebUri(extra[keys.webUri])?.let { uri ->
-            Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse(uri)
-            }
-        }
-    }
-
-    internal fun getStyleActionTitle(place: Int, extra: Map<String, String>): String? =
-        extra[styleActionKeys(place, extra).name]
-
-    internal fun styleActionKeys(place: Int, extra: Map<String, String>): StyleActionKeys {
-        if (extra[KEY_NOTIFICATION_STYLE_TYPE] == STYLE_TYPE_VOIP) {
-            return StyleActionKeys(
-                name = "cust_btn_${place}_n",
-                notifyEffect = "cust_btn_${place}_ne",
-                intentUri = "cust_btn_${place}_iu",
-                intentClass = "cust_btn_${place}_ic",
-                webUri = "cust_btn_${place}_wu"
-            )
-        }
-        return when {
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> StyleActionKeys(
-                name = NOTIFICATION_STYLE_BUTTON_LEFT_NAME,
-                notifyEffect = NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT,
-                intentUri = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI,
-                intentClass = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS,
-                webUri = NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI
-            )
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> StyleActionKeys(
-                name = NOTIFICATION_STYLE_BUTTON_MID_NAME,
-                notifyEffect = NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT,
-                intentUri = NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI,
-                intentClass = NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS,
-                webUri = NOTIFICATION_STYLE_BUTTON_MID_WEB_URI
-            )
-            else -> StyleActionKeys(
-                name = NOTIFICATION_STYLE_BUTTON_RIGHT_NAME,
-                notifyEffect = NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT,
-                intentUri = NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI,
-                intentClass = NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS,
-                webUri = NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI
-            )
-        }
-    }
-
-    private fun normalizeWebUri(uri: String?): String? {
-        if (TextUtils.isEmpty(uri)) {
-            return null
-        }
-        var candidate = uri!!.trim()
-        if (!(candidate.startsWith("http://") || candidate.startsWith("https://"))) {
-            candidate = "http://$candidate"
-        }
-        return try {
-            val protocol = URL(candidate).protocol
-            if (protocol == "http" || protocol == "https") candidate else null
-        } catch (e: MalformedURLException) {
-            logE("Malformed web URI: ${e.message}", e)
-            null
-        }
     }
 
 }
