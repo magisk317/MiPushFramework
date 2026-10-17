@@ -830,4 +830,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="xmsf_delivery_installed_snackbar">XMSF runtime installed and verified</string>
     <string name="xmsf_delivery_guidance_opened_snackbar">Release page opened; refresh after installing</string>
     <string name="xmsf_delivery_failed_snackbar">Runtime delivery failed: %1$s</string>
+    <string name="wizard_section_required">Required</string>
+    <string name="wizard_section_optional">Optional</string>
+    <string name="wizard_action_grant_all">Grant all silently</string>
+    <string name="wizard_action_enter_app">Enter app</string>
+    <string name="wizard_status_processing">Working...</string>
+    <string name="wizard_log_granted">Granted: %1$s</string>
+    <string name="wizard_log_denied">Not granted: %1$s</string>
+    <string name="wizard_descr_foreground_covered">Foreground detection is already covered by another mode.</string>
 </resources>

@@ -172,7 +172,7 @@ val managerKoinModule = module {
             get<ApplicationListCacheStore>(),
         )
     }
-    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>()) }
+    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>()) }
 
     single {
         AppUpdateChecker(

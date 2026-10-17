@@ -820,4 +820,12 @@
     <string name="xmsf_delivery_installed_snackbar">XMSF 运行时已安装并验证通过</string>
     <string name="xmsf_delivery_guidance_opened_snackbar">已打开发布页，安装后请刷新状态</string>
     <string name="xmsf_delivery_failed_snackbar">运行时下发失败：%1$s</string>
+    <string name="wizard_section_required">必需</string>
+    <string name="wizard_section_optional">可选</string>
+    <string name="wizard_action_grant_all">全部静默授权</string>
+    <string name="wizard_action_enter_app">进入应用</string>
+    <string name="wizard_status_processing">处理中…</string>
+    <string name="wizard_log_granted">已授权：%1$s</string>
+    <string name="wizard_log_denied">未授权：%1$s</string>
+    <string name="wizard_descr_foreground_covered">前台检测已由其他方式覆盖。</string>
 </resources>

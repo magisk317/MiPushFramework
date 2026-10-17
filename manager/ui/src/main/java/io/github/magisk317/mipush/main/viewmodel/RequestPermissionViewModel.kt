@@ -2,26 +2,37 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.feature.wizard.permission.AlertWindowPermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
-import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
 import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
 import io.github.magisk317.mipush.manager.application.ManagerRootSubjectStatus
 import io.github.magisk317.mipush.manager.application.ManagerRootTarget
-import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
-import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
-import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * One line of the on-screen grant log. Rendering maps [granted] to localized
+ * text; [isRoot] selects the root-specific phrasing.
+ */
+data class GrantLogEntry(
+    val title: String,
+    val granted: Boolean,
+    val isRoot: Boolean = false,
+)
+
 class RequestPermissionViewModel constructor(
     private val permissionGateway: ManagerPermissionGateway,
-    private val preferenceRepository: PreferenceRepository,
 ) : ViewModel() {
 
     private val _permissionStates = MutableStateFlow<Map<Int, Boolean>>(emptyMap())
@@ -32,8 +43,22 @@ class RequestPermissionViewModel constructor(
     )
     val rootAccessSnapshot: StateFlow<ManagerRootAccessSnapshot> = _rootAccessSnapshot.asStateFlow()
 
-    private val _autoRequestCompleted = MutableStateFlow(false)
-    val autoRequestCompleted: StateFlow<Boolean> = _autoRequestCompleted.asStateFlow()
+    private val _grantLog = MutableStateFlow<List<GrantLogEntry>>(emptyList())
+    val grantLog: StateFlow<List<GrantLogEntry>> = _grantLog.asStateFlow()
+
+    private val _grantingAll = MutableStateFlow(false)
+    val grantingAll: StateFlow<Boolean> = _grantingAll.asStateFlow()
+
+    private val _processingKeys = MutableStateFlow<Set<String>>(emptySet())
+    val processingKeys: StateFlow<Set<String>> = _processingKeys.asStateFlow()
+
+    /**
+     * Hard gate for entering the app: both root subjects (manager and runtime)
+     * must hold root access.
+     */
+    val allRequiredValidated: StateFlow<Boolean> = _rootAccessSnapshot
+        .map { snapshot -> snapshot.manager.isGranted && snapshot.runtime.isGranted }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -41,6 +66,10 @@ class RequestPermissionViewModel constructor(
         }
     }
 
+    /**
+     * Refresh-only pass used on first composition and every ON_RESUME: it never
+     * launches a system settings page.
+     */
     fun evaluatePermissions(permissionInfos: List<PermissionInfo>) {
         viewModelScope.launch {
             val refreshedStates = withContext(Dispatchers.IO) {
@@ -57,92 +86,97 @@ class RequestPermissionViewModel constructor(
         }
     }
 
-    fun autoRequestPermissions(
-        permissionInfos: List<PermissionInfo>,
-        alreadyRequested: Set<Int>,
-    ) {
-        viewModelScope.launch {
-            val refreshedStates = withContext(Dispatchers.IO) {
-                _rootAccessSnapshot.value = permissionGateway.getRootAccessSnapshot(refresh = true)
-                evaluatePermissionStates(permissionInfos)
-            }
-            _permissionStates.value = refreshedStates
-
-            val allSatisfied = areAllSatisfied(permissionInfos, refreshedStates)
-            if (allSatisfied) {
-                _autoRequestCompleted.value = true
-                return@launch
-            }
-
-            for ((index, info) in permissionInfos.withIndex()) {
-                if (!info.isRequired) continue
-                if (index in alreadyRequested) continue
-                if (isSatisfied(index, permissionInfos, refreshedStates)) continue
-
-                val grantedSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
-                if (grantedSilently) {
-                    val updatedStates = withContext(Dispatchers.IO) {
-                        evaluatePermissionStates(permissionInfos)
-                    }
-                    _permissionStates.value = updatedStates
-                    break
-                }
-
-                if (info is UsageStatsPermissionInfo) {
-                    requestUsageStats(info)
-                } else {
-                    _permissionStates.value = requestPermissionAndEvaluateStates(
-                        permissionInfo = info,
-                        permissionInfos = permissionInfos,
-                        permissionGateway = permissionGateway,
-                    )
-                }
-                break
-            }
-        }
-    }
-
+    /**
+     * Tap-to-grant one item: silent path first, system settings page only when
+     * no silent path exists, so the user grants exactly one item per tap.
+     */
     fun requestPermission(
         info: PermissionInfo,
+        permissionInfos: List<PermissionInfo>,
         onDone: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
-            val handledSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
-            val isGranted = if (handledSilently) {
-                evaluatePermissionStates(listOf(info))[0] == true
-            } else {
-                requestPermissionAndEvaluateStates(
-                    permissionInfo = info,
-                    permissionInfos = listOf(info),
-                    permissionGateway = permissionGateway,
-                )[0] == true
+            _processingKeys.value = _processingKeys.value + info.permissionTitle
+            val isGranted = withContext(Dispatchers.IO) {
+                val handledSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
+                if (handledSilently) {
+                    evaluatePermissionStatesNow(listOf(info), permissionGateway)[0] == true
+                } else {
+                    requestPermissionAndEvaluateStates(
+                        permissionInfo = info,
+                        permissionInfos = listOf(info),
+                        permissionGateway = permissionGateway,
+                    )[0] == true
+                }
             }
+            _permissionStates.value = withContext(Dispatchers.IO) {
+                evaluatePermissionStates(permissionInfos)
+            }
+            appendGrantLog(GrantLogEntry(info.permissionTitle, isGranted))
+            _processingKeys.value = _processingKeys.value - info.permissionTitle
             onDone(isGranted)
         }
     }
 
+    /**
+     * Grant one root subject. When any subject ends up granted, run the silent
+     * grant-all pass so every bridge-grantable permission is granted without
+     * popping further pages.
+     */
     fun requestRootAccess(
         target: ManagerRootTarget,
+        permissionInfos: List<PermissionInfo>,
         onDone: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
+            _processingKeys.value = _processingKeys.value + rootKey(target)
             val snapshot = withContext(Dispatchers.IO) {
                 permissionGateway.requestRootAccess(target)
             }
             _rootAccessSnapshot.value = snapshot
+            _processingKeys.value = _processingKeys.value - rootKey(target)
+            if (snapshot.manager.isGranted || snapshot.runtime.isGranted) {
+                grantAll(permissionInfos)
+            }
             onDone(snapshot.status(target).isGranted)
         }
     }
 
-    fun requestUsageStats(permissionInfo: PermissionInfo) {
+    /**
+     * Silent grant pass over every optional item. AlertWindow has no silent
+     * path and stays tap-only. Already satisfied items (group-aware) are
+     * skipped so repeated taps stay quiet.
+     */
+    fun grantAll(permissionInfos: List<PermissionInfo>) {
+        if (!_grantingAll.compareAndSet(false, true)) return
         viewModelScope.launch {
-            val requestedBefore = preferenceRepository.usageStatsRequested.first()
-            if (!requestedBefore) {
-                preferenceRepository.setUsageStatsRequested(true)
-                permissionInfo.permissionOperator.requestPermission(permissionGateway)
+            try {
+                val entries = mutableListOf<GrantLogEntry>()
+                val refreshedStates = withContext(Dispatchers.IO) {
+                    var states = evaluatePermissionStates(permissionInfos)
+                    for ((index, info) in permissionInfos.withIndex()) {
+                        if (info is RootPermissionInfo) continue
+                        if (info is AlertWindowPermissionInfo) continue
+                        if (isSatisfied(index, permissionInfos, states)) continue
+                        val granted = info.permissionOperator.requestPermissionSilently(permissionGateway)
+                        entries += GrantLogEntry(info.permissionTitle, granted)
+                        states = evaluatePermissionStates(permissionInfos)
+                    }
+                    states
+                }
+                _permissionStates.value = refreshedStates
+                _grantLog.value = _grantLog.value + entries
+            } finally {
+                _grantingAll.value = false
             }
         }
     }
+
+    fun appendGrantLog(entry: GrantLogEntry) {
+        _grantLog.value = _grantLog.value + entry
+    }
+
+    fun rootKey(target: ManagerRootTarget): String = "root_${target.name.lowercase()}"
 
     private fun isSatisfied(index: Int, permissionInfos: List<PermissionInfo>, states: Map<Int, Boolean>): Boolean {
         val info = permissionInfos[index]
@@ -154,25 +188,6 @@ class RequestPermissionViewModel constructor(
         } else {
             states[index] == true
         }
-    }
-
-    private fun areAllSatisfied(permissionInfos: List<PermissionInfo>, states: Map<Int, Boolean>): Boolean {
-        val requiredGroups = mutableSetOf<String?>()
-        for ((index, info) in permissionInfos.withIndex()) {
-            if (!info.isRequired) continue
-            val groupKey = info.requirementGroupKey()
-            if (groupKey != null) {
-                if (requiredGroups.add(groupKey)) {
-                    val groupSatisfied = permissionInfos.withIndex().any { (i, p) ->
-                        p.requirementGroupKey() == groupKey && states[i] == true
-                    }
-                    if (!groupSatisfied) return false
-                }
-            } else {
-                if (states[index] != true) return false
-            }
-        }
-        return true
     }
 }
 
