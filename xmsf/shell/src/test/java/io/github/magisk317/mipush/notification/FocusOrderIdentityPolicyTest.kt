@@ -68,6 +68,56 @@ class FocusOrderIdentityPolicyTest {
     }
 
     @Test
+    fun `orderKey falls back to the JD package-prefixed notifyId order number`() {
+        // Observed on pudding 2026-10-17: 京东 keys the live session inside the focus param's
+        // notifyId as `<targetPackage><orderNo>` and sends no root orderId/scene.
+        val key = FocusOrderIdentityPolicy.orderKey(
+            """{"title":"预计18:56送达","sequence":1794109999,"updatable":true,""" +
+                """"notifyId":"com.jingdong.app.mall1007816202"}""",
+            "com.jingdong.app.mall",
+        )
+        assertEquals("1007816202", key)
+    }
+
+    @Test
+    fun `orderKey notifyId fallback requires the package prefix and a numeric suffix`() {
+        // Wrong package: hash-shaped notifyIds (Alipay's title.hashCode()) stay on the stock path.
+        assertNull(
+            FocusOrderIdentityPolicy.orderKey(
+                """{"notifyId":"com.jingdong.app.mall1007816202"}""",
+                "com.eg.android.AlipayGphone",
+            ),
+        )
+        assertNull(
+            FocusOrderIdentityPolicy.orderKey(
+                """{"notifyId":"-1325363137"}""",
+                "com.eg.android.AlipayGphone",
+            ),
+        )
+        // Non-numeric suffix is not an order number.
+        assertNull(
+            FocusOrderIdentityPolicy.orderKey(
+                """{"notifyId":"com.jingdong.app.mall1007816202abc"}""",
+                "com.jingdong.app.mall",
+            ),
+        )
+        // No package context: the fallback stays off and stock identity is kept.
+        assertNull(
+            FocusOrderIdentityPolicy.orderKey("""{"notifyId":"com.jingdong.app.mall1007816202"}"""),
+        )
+    }
+
+    @Test
+    fun `orderKey prefers the root order id over the notifyId fallback`() {
+        val key = FocusOrderIdentityPolicy.orderKey(
+            """{"orderId":"order-1","scene":"foodDelivery","updatable":true,""" +
+                """"notifyId":"com.jingdong.app.mall1007816202"}""",
+            "com.jingdong.app.mall",
+        )
+        assertEquals("foodDelivery|order-1", key)
+    }
+
+    @Test
     fun `resolveNotificationId keys same-order updates on the order regardless of notifyId`() {
         fun alipayContainer(notifyId: Int, orderId: String) = com.xiaomi.xmpush.thrift.PushMetaInfo().apply {
             setNotifyId(notifyId)
@@ -95,6 +145,57 @@ class FocusOrderIdentityPolicyTest {
 
         assertEquals(riderDelivering, riderPickingUp)
         assertNotEquals(riderDelivering, otherOrder)
+    }
+
+    @Test
+    fun `resolveNotificationId merges JD live-session updates of one order`() {
+        fun jdContainer(notifyId: Int, focusParam: String) = com.xiaomi.xmpush.thrift.PushMetaInfo().apply {
+            setNotifyId(notifyId)
+            putToExtra(
+                "miui.focus.param",
+                focusParam,
+            )
+        }
+
+        // Observed on pudding 2026-10-17: one JD order (1007816202) pushed three status updates
+        // as separate messages with per-message notifyIds 807997812 / 807964177 / 327792584 and
+        // an identical focus-param notifyId com.jingdong.app.mall1007816202; before the
+        // notifyId fallback they rendered as three separate 灵动岛 sessions.
+        val orderInProgress = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                327792584,
+                """{"title":"您的订单正在进行中","sequence":1792231779,"updatable":true,""" +
+                    """"notifyId":"com.jingdong.app.mall1007816202"}""",
+            ),
+        )
+        val eta1842 = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                807964177,
+                """{"title":"预计18:42送达","sequence":1793145974,"updatable":true,""" +
+                    """"notifyId":"com.jingdong.app.mall1007816202"}""",
+            ),
+        )
+        val eta1856 = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                807997812,
+                """{"title":"预计18:56送达","sequence":1794109999,"updatable":true,""" +
+                    """"notifyId":"com.jingdong.app.mall1007816202"}""",
+            ),
+        )
+        val otherOrder = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                327792584,
+                """{"sequence":1,"updatable":true,"notifyId":"com.jingdong.app.mall1007816203"}""",
+            ),
+        )
+
+        assertEquals(orderInProgress, eta1842)
+        assertEquals(orderInProgress, eta1856)
+        assertNotEquals(orderInProgress, otherOrder)
     }
 
     @Test
