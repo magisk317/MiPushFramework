@@ -230,7 +230,7 @@ jobs:
     runs-on: ubuntu-26.04
     env:
       MAGISK_BUILD_TYPE: debug
-      MIPUSH_ZYGISK_REF: 64b62b0eb025165e1f2a06b0d1b39b756ece1ab0
+      MIPUSH_ZYGISK_REF: 61a6e5a6e078c3e7c4540b8af3d03c2bed510495
     steps:
       - name: Configure GitLab submodule credentials
         env:
