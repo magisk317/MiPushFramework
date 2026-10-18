@@ -774,4 +774,193 @@ class ResourceSmallIconGuardTest {
             ),
         )
     }
+
+    // ─── shouldTintStatusBarGlyph ─────────────────────────────────────────────
+
+    @Test
+    fun `app logo without a substituted glyph or grayscale resource drops the tint`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.bytedance.trae.cn",
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = true,
+                hasSubstitutedGlyph = false,
+                hasMonochromeResource = false,
+            ),
+            "An opaque third-party logo tinted with SRC_IN white becomes a solid white block, so " +
+                "the tint must be dropped when neither the icon pack nor a silhouette provided a " +
+                "monochrome glyph.",
+        )
+    }
+
+    @Test
+    fun `substituted glyph or grayscale resource is tinted under global monochrome`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.bytedance.trae.cn",
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = true,
+                hasSubstitutedGlyph = true,
+            ),
+            "Icon-pack bitmaps and white silhouettes are already monochrome and must be tinted.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.android.mms",
+                uid = USER_APP_UID,
+                isSystemApp = true,
+                canColorize = false,
+                hasSubstitutedGlyph = false,
+                hasMonochromeResource = true,
+            ),
+            "A positively detected grayscale resource stays white via the tint.",
+        )
+    }
+
+    @Test
+    fun `MiPush managed notifications are tinted even without a substituted glyph`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = true,
+                packageName = XMSF_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+                hasSubstitutedGlyph = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `color mode and disabled global monochrome never tint`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = true,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+                packageName = XMSF_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+                hasSubstitutedGlyph = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = false,
+                packageName = FLCLASH_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+                hasSubstitutedGlyph = true,
+            ),
+            "Without global monochrome the hook is not the one painting white; leave it alone.",
+        )
+    }
+
+    @Test
+    fun `pure system uid is tinted only for a monochrome resource`() {
+        val systemBase = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+            colorStatusBarIcon = false,
+            forceGlobalStatusBarIcons = true,
+            isMiPushManaged = false,
+            packageName = SECURITY_CENTER_PACKAGE,
+            uid = SYSTEM_UID,
+            isSystemApp = true,
+            canColorize = true,
+            hasSubstitutedGlyph = false,
+            hasMonochromeResource = false,
+        )
+        assertFalse(systemBase, "OEM rendering of a system uid glyph must be preserved.")
+        assertTrue(
+            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = SECURITY_CENTER_PACKAGE,
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                hasSubstitutedGlyph = false,
+                hasMonochromeResource = true,
+            ),
+        )
+    }
+
+    // ─── Property: tint never exceeds global monochrome eligibility ────────────
+
+    private val tintInputs: Arb<TintInput> = Arb.bind(
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.boolean(),
+        Arb.element(USER_APP_UID, SYSTEM_UID),
+        Arb.boolean(),
+    ) { color, global, managed, substituted, monoRes, uid, canColorize ->
+        TintInput(color, global, managed, substituted, monoRes, uid, canColorize)
+    }
+
+    data class TintInput(
+        val colorStatusBarIcon: Boolean,
+        val forceGlobalStatusBarIcons: Boolean,
+        val isMiPushManaged: Boolean,
+        val hasSubstitutedGlyph: Boolean,
+        val hasMonochromeResource: Boolean,
+        val uid: Int,
+        val canColorize: Boolean,
+    )
+
+    @Test
+    fun `tint implies global monochrome eligibility and a monochrome glyph`() {
+        runBlocking {
+            checkAll(300, tintInputs) { input ->
+                val tint = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                    packageName = FLCLASH_PACKAGE,
+                    uid = input.uid,
+                    isSystemApp = false,
+                    canColorize = input.canColorize,
+                    hasSubstitutedGlyph = input.hasSubstitutedGlyph,
+                    hasMonochromeResource = input.hasMonochromeResource,
+                )
+                val eligible = SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                    packageName = FLCLASH_PACKAGE,
+                    uid = input.uid,
+                    isSystemApp = false,
+                    canColorize = input.canColorize,
+                    hasMonochromeResource = input.hasMonochromeResource,
+                )
+                // MiPush-managed notifications are tinted unconditionally, so the eligibility
+                // invariant only applies to unmanaged ones.
+                if (tint && !input.isMiPushManaged) {
+                    assertTrue(eligible, "Tinted while global monochrome declined: $input")
+                    assertTrue(
+                        input.hasSubstitutedGlyph || input.hasMonochromeResource,
+                        "Tinted without any monochrome glyph: $input",
+                    )
+                }
+            }
+        }
+    }
 }

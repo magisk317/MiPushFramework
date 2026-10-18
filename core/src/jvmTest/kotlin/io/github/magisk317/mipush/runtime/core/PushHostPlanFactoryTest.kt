@@ -49,8 +49,10 @@ class PushHostPlanFactoryTest {
 
         assertFalse(throttled.shouldRequest)
         assertEquals(60_000L, throttled.nextTimestampMs)
+        assertEquals("gslb_request_throttled", throttled.eventAction)
         assertTrue(allowed.shouldRequest)
         assertEquals(120_001L, allowed.nextTimestampMs)
+        assertEquals("gslb_request_allowed", allowed.eventAction)
     }
 
     @Test

@@ -141,6 +141,10 @@ public enum ConfigKey implements TEnum {
     // active on WiFi networks whose digest is unsupported; 145 selects the heartbeat strategy.
     IntelligentHeartbeatForUnsupportWifiDigestBoolean(143),
     IntelligentHeartbeatStrategy(145),
+    // Added from stock XMSF 7.5.79-C bc.j: MdKaSwitch(146) gates the modem TCP keep-alive
+    // offload (com.xiaomi.push.service.hardware.heartbeat). Stock c$c reads it with a
+    // default of true on every availability check.
+    MdKaSwitch(146),
     // Stock XMSF 7.4.67-C za.f: when true on API 35+, a live non-WiFi long connection is reset
     // after the device moves onto WiFi (stock XMPushService network-change branch).
     ResetConnectionSwitch(149),
@@ -407,6 +411,9 @@ public enum ConfigKey implements TEnum {
                 return IntelligentHeartbeatForUnsupportWifiDigestBoolean;
             case 145:
                 return IntelligentHeartbeatStrategy;
+            // Stock 7.5.79-C addition, decoded so the remote OC switch reaches MdKaController.
+            case 146:
+                return MdKaSwitch;
             case 149:
                 return ResetConnectionSwitch;
             case 208:
