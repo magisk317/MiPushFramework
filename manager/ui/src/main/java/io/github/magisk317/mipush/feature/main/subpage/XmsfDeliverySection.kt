@@ -30,9 +30,10 @@ import kotlinx.coroutines.launch
  * Settings block for the XMSF runtime delivery (module `manager:xmsfDelivery`).
  *
  * github flavor: the runtime can be downloaded, same-signature verified and
- * installed in-process, so the install action is offered here. play flavor:
- * the distribution never handles an APK, so only the release-page guidance and
- * the post-install verification state are shown.
+ * installed in-process, so the install action is offered and the manual
+ * release-page guidance stays hidden. play flavor: the distribution never
+ * handles an APK, so only the guidance and the post-install verification
+ * state are shown.
  *
  * The delivery singleton is resolved through [XmsfDeliveryProvider], which
  * binds the flavor-specific implementation by reflection; this UI module stays
@@ -138,11 +139,16 @@ internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
         }
     }
 
-    AppArrowItem(
-        title = stringResource(R.string.xmsf_delivery_guidance_action),
-        summary = stringResource(R.string.xmsf_delivery_guidance_summary),
-        enabled = !busy,
-    ) {
-        delivery.openGuidance(context)
+    // Flavor split: github installs in-process (item above), so the manual
+    // release-page guidance is play-only — showing both would offer two paths
+    // to the same action on one build.
+    if (!delivery.canInstallDirectly) {
+        AppArrowItem(
+            title = stringResource(R.string.xmsf_delivery_guidance_action),
+            summary = stringResource(R.string.xmsf_delivery_guidance_summary),
+            enabled = !busy,
+        ) {
+            delivery.openGuidance(context)
+        }
     }
 }

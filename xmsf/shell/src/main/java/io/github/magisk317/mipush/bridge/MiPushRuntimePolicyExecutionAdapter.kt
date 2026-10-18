@@ -31,7 +31,7 @@ import com.xiaomi.push.service.PushSlimPingPlan
 import com.xiaomi.push.service.PushSlimWritePlan
 import com.xiaomi.push.service.PushSocketFailurePlan
 import com.xiaomi.push.service.PushSocketHostSelectionPlan
-import io.github.magisk317.mipush.bridge.HostManagerRuntime
+import io.github.magisk317.mipush.runtime.core.PushHostPlanFactory
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 import io.github.magisk317.mipush.service.runtime.PushHostRuntime
@@ -218,12 +218,12 @@ internal object MiPushRuntimePolicyExecutionAdapter {
         PushChannelInfoRuntime.applyUpdate(target, hasClientAttr, clientAttr, hasCloudAttr, cloudAttr)
 
     fun planRequestUrls(baseUrl: String, localUrls: List<String>?, reservedHosts: List<String>): HostRequestUrlsPlan {
-        val plan = HostManagerRuntime.planRequestUrls(baseUrl, localUrls, reservedHosts)
+        val plan = PushHostPlanFactory.planRequestUrls(baseUrl, localUrls, reservedHosts)
         return HostRequestUrlsPlan(plan.urls)
     }
 
     fun planRefreshTargets(allHosts: List<String>, hostsWithFallback: Set<String>): HostRefreshTargetsPlan {
-        val plan = HostManagerRuntime.planRefreshTargets(allHosts, hostsWithFallback)
+        val plan = PushHostPlanFactory.planRefreshTargets(allHosts, hostsWithFallback)
         return HostRefreshTargetsPlan(plan.targetHosts)
     }
 
@@ -232,7 +232,7 @@ internal object MiPushRuntimePolicyExecutionAdapter {
         lastRequestTimeMs: Long,
         failureCount: Long,
     ): HostRequestThrottlePlan {
-        val plan = HostManagerRuntime.planRemoteFallbackRequest(nowMs, lastRequestTimeMs, failureCount)
+        val plan = PushHostPlanFactory.planRemoteFallbackRequest(nowMs, lastRequestTimeMs, failureCount)
         return HostRequestThrottlePlan(plan.shouldRequest, plan.nextTimestampMs)
     }
 

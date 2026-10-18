@@ -183,17 +183,6 @@ private fun SettingsBody(
         }
 
         SettingsSectionCard(
-            title = stringResource(R.string.settings_home_configurations_title),
-            summary = stringResource(R.string.settings_home_configurations_summary),
-            expanded = sectionExpanded[SettingsViewModel.SectionId.CONFIGURATIONS],
-            onExpandedChange = { toggleSection(SettingsViewModel.SectionId.CONFIGURATIONS) },
-        ) {
-            ConfigurationsBlock(
-                onNavigateToConfigurations = onNavigateToConfigurations,
-            )
-        }
-
-        SettingsSectionCard(
             title = stringResource(R.string.settings_home_integrations_title),
             summary = stringResource(R.string.settings_home_integrations_summary),
             expanded = sectionExpanded[SettingsViewModel.SectionId.INTEGRATIONS],
@@ -202,15 +191,17 @@ private fun SettingsBody(
             IntegrationsBlock(
                 viewModel = viewModel,
                 snackbarHostState = snackbarHostState,
+                onNavigateToConfigurations = onNavigateToConfigurations,
             )
         }
 
         SettingsSectionCard(
-            title = stringResource(R.string.settings_home_diagnostics_title),
-            summary = stringResource(R.string.settings_home_diagnostics_summary),
+            title = stringResource(R.string.settings_home_services_title),
+            summary = stringResource(R.string.settings_home_services_summary),
             expanded = sectionExpanded[SettingsViewModel.SectionId.DIAGNOSTICS],
             onExpandedChange = { toggleSection(SettingsViewModel.SectionId.DIAGNOSTICS) },
         ) {
+            XmsfDeliveryBlock(snackbarHostState)
             DiagnosticsBlock(viewModel, snackbarHostState)
         }
 

@@ -24,6 +24,7 @@ import io.github.magisk317.mipush.main.viewmodel.IconResourcesUpdateRequester
 import io.github.magisk317.mipush.main.viewmodel.RemoteIconLibrarySource
 import io.github.magisk317.mipush.main.viewmodel.RemoteIconResourcesUpdateRequester
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.mipush.feature.main.subpage.VersionUpdateCoordinator
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
@@ -57,9 +58,7 @@ import io.github.magisk317.uikit.shell.AppInitializer
 import io.github.magisk317.uikit.update.AppUpdateChecker
 import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.uikit.update.AppUpdateDownloader
-import io.github.magisk317.uikit.update.GitHubReleaseUpdateSource
-import io.github.magisk317.uikit.update.GitLabCiArtifactUpdateSource
-import io.github.magisk317.uikit.update.GitLabReleaseUpdateSource
+import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfDeliveryProvider
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -173,41 +172,30 @@ val managerKoinModule = module {
             get<ApplicationListCacheStore>(),
         )
     }
-    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>()) }
+    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>()) }
 
     single {
+        AppUpdateChecker(
+            context = androidContext(),
+            sources = ManagerUpdateSources.create(),
+        )
+    }
+    single {
         val context = androidContext()
-        val isCiOrDebug = BuildConfig.DEBUG ||
-            VERSION_NAME.contains("-202") ||
-            VERSION_NAME.contains("-test") ||
-            VERSION_NAME.contains("-ci")
-
-        val sources = if (isCiOrDebug) {
-            listOf(
-                GitLabCiArtifactUpdateSource(
-                    projectPath = "magisk3171/MiPushFramework",
-                    branch = "beta",
-                    jobName = "android:build",
-                    artifactPath = "ci-dist/mipush-ci.apk",
-                    currentCommitHash = BuildConfig.GIT_COMMIT,
-                ),
-                GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
-            )
-        } else {
-            listOf(
-                GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
-                GitHubReleaseUpdateSource(
-                    repository = "magisk317/MiPushFramework",
-                    gitlabProjectPath = "magisk3171/MiPushFramework",
-                ),
-            )
-        }
-
         AppUpdateController(
             context = context,
-            checker = AppUpdateChecker(context = context, sources = sources),
+            checker = get(),
             downloader = AppUpdateDownloader(context),
             fileProviderAuthority = "${context.packageName}.fileprovider",
+        )
+    }
+    single {
+        VersionUpdateCoordinator(
+            checker = get(),
+            controller = get(),
+            // The flavor-specific delivery is resolved reflectively; the lambda
+            // defers construction until the first check actually needs it.
+            deliveryProvider = { XmsfDeliveryProvider.get(androidContext()) },
         )
     }
 }

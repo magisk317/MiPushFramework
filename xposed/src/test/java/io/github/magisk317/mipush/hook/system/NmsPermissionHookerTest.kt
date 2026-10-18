@@ -102,4 +102,21 @@ class NmsPermissionHookerTest {
             ),
         )
     }
+
+    @Test
+    fun `keeps xmsf calling identity when the target package is xmsf itself`() {
+        assertFalse(
+            NmsPermissionHooker.shouldBypassCallingIdentity(targetPackageName = "com.xiaomi.xmsf"),
+        )
+    }
+
+    @Test
+    fun `bypasses calling identity for foreign target packages`() {
+        assertTrue(
+            NmsPermissionHooker.shouldBypassCallingIdentity(targetPackageName = "com.example.target"),
+        )
+        assertTrue(
+            NmsPermissionHooker.shouldBypassCallingIdentity(targetPackageName = null),
+        )
+    }
 }

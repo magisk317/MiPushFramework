@@ -663,7 +663,6 @@ class SettingsViewModel constructor(
         val keepAlive: Boolean = false,
         val notifications: Boolean = false,
         val appearance: Boolean = false,
-        val configurations: Boolean = false,
         val integrations: Boolean = false,
         val diagnostics: Boolean = false,
     ) {
@@ -672,7 +671,6 @@ class SettingsViewModel constructor(
             SectionId.KEEP_ALIVE -> copy(keepAlive = !keepAlive)
             SectionId.NOTIFICATIONS -> copy(notifications = !notifications)
             SectionId.APPEARANCE -> copy(appearance = !appearance)
-            SectionId.CONFIGURATIONS -> copy(configurations = !configurations)
             SectionId.INTEGRATIONS -> copy(integrations = !integrations)
             SectionId.DIAGNOSTICS -> copy(diagnostics = !diagnostics)
         }
@@ -682,13 +680,12 @@ class SettingsViewModel constructor(
             SectionId.KEEP_ALIVE -> keepAlive
             SectionId.NOTIFICATIONS -> notifications
             SectionId.APPEARANCE -> appearance
-            SectionId.CONFIGURATIONS -> configurations
             SectionId.INTEGRATIONS -> integrations
             SectionId.DIAGNOSTICS -> diagnostics
         }
     }
 
     enum class SectionId {
-        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE, CONFIGURATIONS, INTEGRATIONS, DIAGNOSTICS,
+        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE, INTEGRATIONS, DIAGNOSTICS,
     }
 }

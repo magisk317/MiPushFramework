@@ -20,7 +20,15 @@ class PlayXmsfDelivery(context: Context) :
 
     override val canInstallDirectly: Boolean get() = false
 
-    override suspend fun ensureInstalled(onProgress: (Int) -> Unit): XmsfInstallResult {
+    override suspend fun checkLatestRuntime(): XmsfLatestCheck = XmsfLatestCheck.Unsupported
+
+    override suspend fun ensureInstalled(
+        targetVersionName: String?,
+        onProgress: (Int) -> Unit,
+    ): XmsfInstallResult {
+        // The play distribution never handles an APK, so the requested
+        // target is irrelevant: every install routes through the release
+        // guidance page.
         onProgress(PROGRESS_COMPLETE)
         XmsfGuidance.openReleasePage(appContext)
         return XmsfInstallResult.GuidanceOpened

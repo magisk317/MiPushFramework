@@ -74,6 +74,7 @@ dependencies {
     implementation(project(":manager:application"))
     implementation(project(":manager:port"))
     implementation(project(":manager:client"))
+    implementation(project(":manager:xmsfDelivery"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
     implementation(project(":magisk-ui-kit:update"))
@@ -82,6 +83,7 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotest.property)
     testImplementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 

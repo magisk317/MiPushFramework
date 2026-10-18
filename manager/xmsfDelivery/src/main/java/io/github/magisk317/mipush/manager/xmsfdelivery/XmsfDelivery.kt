@@ -26,15 +26,33 @@ interface XmsfDelivery {
     val canInstallDirectly: Boolean
 
     /**
+     * Probe the registry for the newest runtime compatible with this host
+     * and compare it against the installed one. Pure check: never installs,
+     * never mutates the status flow.
+     *
+     * github: anonymous GitLab package listing plus manifest gating.
+     * play: [XmsfLatestCheck.Unsupported] — the play distribution never
+     * touches the registry.
+     */
+    suspend fun checkLatestRuntime(): XmsfLatestCheck
+
+    /**
      * Install or update the runtime. github: download, verify and install,
      * reporting progress 0..100 through [onProgress]. play: open the release
      * guidance page.
+     *
+     * @param targetVersionName registry version to install; null installs the
+     *   version this build was pinned against. Ignored by the play flavor,
+     *   which routes every install through the guidance page.
      *
      * Threading: [onProgress] may be invoked from a background dispatcher
      * (the downloader verifies on [kotlinx.coroutines.Dispatchers.IO]); hop to
      * the main dispatcher before touching UI state.
      */
-    suspend fun ensureInstalled(onProgress: (Int) -> Unit = {}): XmsfInstallResult
+    suspend fun ensureInstalled(
+        targetVersionName: String? = null,
+        onProgress: (Int) -> Unit = {},
+    ): XmsfInstallResult
 
     /** Open the manual guidance page (release listing) in the browser. */
     fun openGuidance(context: Context)

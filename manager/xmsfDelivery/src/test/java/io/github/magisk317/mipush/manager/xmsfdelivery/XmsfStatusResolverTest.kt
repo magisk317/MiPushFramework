@@ -66,6 +66,30 @@ class XmsfStatusResolverTest {
     }
 
     @Test
+    fun `runtime ahead of the pin is READY, not UPDATE_AVAILABLE`() {
+        // The user updated to the registry latest (1.0.10) while this build
+        // was pinned against 1.0.9: ahead of the pin is still ready.
+        val installed = installed(versionName = "1.0.10", signerHashes = HOST)
+
+        assertEquals(
+            XmsfRuntimeState.READY,
+            XmsfStatusResolver.decideStatus(installed, hostHashes = HOST, expectedVersionName = PINNED_VERSION),
+        )
+    }
+
+    @Test
+    fun `ci pre-release below the pin is UPDATE_AVAILABLE`() {
+        // The exact hot-load scenario: the phone carries a CI build with a
+        // timestamp suffix while the pin is the clean release.
+        val installed = installed(versionName = "1.0.9-20261016_120000", signerHashes = HOST)
+
+        assertEquals(
+            XmsfRuntimeState.UPDATE_AVAILABLE,
+            XmsfStatusResolver.decideStatus(installed, hostHashes = HOST, expectedVersionName = PINNED_VERSION),
+        )
+    }
+
+    @Test
     fun `unknown expected pin keeps the version gate open`() {
         val installed = installed(versionName = "whatever", signerHashes = HOST)
 
