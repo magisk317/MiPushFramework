@@ -27,6 +27,10 @@ if grep -F ':mipush:compileDebugKotlin' "$SHARD_LOG" >/dev/null; then
   echo 'runner still invokes ambiguous mipush Debug compile task' >&2
   exit 1
 fi
+if grep -F ':manager:ui:testDebugUnitTest' "$SHARD_LOG" >/dev/null; then
+  echo 'runner still invokes ambiguous manager:ui unit-test task' >&2
+  exit 1
+fi
 if grep -F ':core:testDebugUnitTest' "$SHARD_LOG" >/dev/null; then
   echo 'runner still invokes obsolete core Android unit-test task' >&2
   exit 1

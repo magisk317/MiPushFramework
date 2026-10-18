@@ -20,6 +20,9 @@ include:
   - project: magisk3171/shared/magisk-ci-toolkit
     ref: v1
     file: /.gitlab/ci/utility.yml
+  - project: magisk3171/shared/magisk-ci-toolkit
+    ref: v1
+    file: /.gitlab/ci/readme-badges.yml
 
 workflow:
   auto_cancel:
@@ -951,3 +954,11 @@ android:release:modules-repo:
   needs:
     - job: android:release:apk
       artifacts: true
+
+# Scheduled/manual README badge sync (replaces the retired GitHub workflow).
+sync:readme-badges:
+  extends:
+    - .magisk_utility_base
+    - .magisk_readme_badges
+  tags:
+    - $MIPUSH_BUILD_RUNNER_TAG
