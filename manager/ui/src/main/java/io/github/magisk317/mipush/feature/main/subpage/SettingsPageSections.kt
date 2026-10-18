@@ -6,7 +6,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import android.content.Intent
 import android.widget.Toast
-import io.github.magisk317.mipush.common.utils.VerboseLogEnableTracker
+import io.github.magisk317.xposed.logging.VerboseLogEnableTracker
 import com.topjohnwu.superuser.Shell
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,8 +32,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.compose.koinInject
+import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
@@ -373,6 +376,8 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
+    val autoUpdateOnStart by viewModel.autoUpdateOnStart.collectAsStateWithLifecycle()
+    val autoUpdateWifiOnly by viewModel.autoUpdateWifiOnly.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -483,6 +488,41 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             ),
         ),
     )
+
+    if (ManagerBuildConfig.HAS_BILLING) {
+        val autoUpdateOnStartTitle = stringResource(R.string.pref_auto_update_on_start_title)
+        SettingsSwitchItem(
+            title = autoUpdateOnStartTitle,
+            summary = stringResource(R.string.pref_auto_update_on_start_summary),
+            checked = autoUpdateOnStart,
+        ) { enabled ->
+            viewModel.setAutoUpdateOnStart(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(autoUpdateOnStartTitle, enabled, success)
+            }
+        }
+
+        val autoUpdateWifiOnlyTitle = stringResource(R.string.pref_auto_update_wifi_only_title)
+        SettingsSwitchItem(
+            title = autoUpdateWifiOnlyTitle,
+            summary = stringResource(R.string.pref_auto_update_wifi_only_summary),
+            checked = autoUpdateWifiOnly,
+            enabled = autoUpdateOnStart,
+        ) { enabled ->
+            viewModel.setAutoUpdateWifiOnly(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(autoUpdateWifiOnlyTitle, enabled, success)
+            }
+        }
+    }
+
+    val updateController = koinInject<AppUpdateController>()
+    SettingsItem(
+        title = stringResource(R.string.check_update_title),
+        summary = stringResource(R.string.check_update_summary),
+    ) {
+        updateController.check(userInitiated = true)
+    }
 
     if (showClearConfirmDialog) {
         ConfirmActionDialog(

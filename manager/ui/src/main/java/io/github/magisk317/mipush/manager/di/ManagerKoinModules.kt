@@ -54,6 +54,12 @@ import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
+import io.github.magisk317.uikit.update.AppUpdateChecker
+import io.github.magisk317.uikit.update.AppUpdateController
+import io.github.magisk317.uikit.update.AppUpdateDownloader
+import io.github.magisk317.uikit.update.GitHubReleaseUpdateSource
+import io.github.magisk317.uikit.update.GitLabCiArtifactUpdateSource
+import io.github.magisk317.uikit.update.GitLabReleaseUpdateSource
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -168,6 +174,42 @@ val managerKoinModule = module {
         )
     }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>()) }
+
+    single {
+        val context = androidContext()
+        val isCiOrDebug = BuildConfig.DEBUG ||
+            VERSION_NAME.contains("-202") ||
+            VERSION_NAME.contains("-test") ||
+            VERSION_NAME.contains("-ci")
+
+        val sources = if (isCiOrDebug) {
+            listOf(
+                GitLabCiArtifactUpdateSource(
+                    projectPath = "magisk3171/MiPushFramework",
+                    branch = "beta",
+                    jobName = "android:build",
+                    artifactPath = "ci-dist/mipush-ci.apk",
+                    currentCommitHash = BuildConfig.GIT_COMMIT,
+                ),
+                GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
+            )
+        } else {
+            listOf(
+                GitLabReleaseUpdateSource("magisk3171/MiPushFramework"),
+                GitHubReleaseUpdateSource(
+                    repository = "magisk317/MiPushFramework",
+                    gitlabProjectPath = "magisk3171/MiPushFramework",
+                ),
+            )
+        }
+
+        AppUpdateController(
+            context = context,
+            checker = AppUpdateChecker(context = context, sources = sources),
+            downloader = AppUpdateDownloader(context),
+            fileProviderAuthority = "${context.packageName}.fileprovider",
+        )
+    }
 }
 
 object ManagerDependencies {

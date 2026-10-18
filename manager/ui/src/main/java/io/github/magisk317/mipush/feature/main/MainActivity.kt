@@ -40,6 +40,7 @@ import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
 import io.github.magisk317.mipush.main.viewmodel.runtimeCommitMismatch
+import io.github.magisk317.mipush.manager.BuildConfig
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.LegacyModuleDetector
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
@@ -48,6 +49,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.compose.koinInject
+import io.github.magisk317.uikit.update.AppUpdateController
+import io.github.magisk317.uikit.update.AppUpdateDialog
+import io.github.magisk317.uikit.update.FlavorPlayUpdateDelegate
+import io.github.magisk317.uikit.update.UpdatePlayPolicy
+import io.github.magisk317.uikit.update.WifiState
+import io.github.magisk317.uikit.shell.PlayUpdateDelegate
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
@@ -72,11 +80,17 @@ open class MainActivity : ComponentActivity() {
     private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
     private var incompatibleModules by mutableStateOf<List<String>>(emptyList())
+    private val playUpdateDelegate: PlayUpdateDelegate by lazy { FlavorPlayUpdateDelegate() }
+    private var autoUpdateChecked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
         applyEdgeToEdge(this)
+        playUpdateDelegate.onCreate(this) {
+            UpdateFallback.openPlayStoreOrGithub(this)
+        }
+        triggerAutoUpdateIfEnabled()
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         mainActivityUtils.initOnCreate(
             context = applicationContext,
@@ -228,6 +242,16 @@ open class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    val updateController = koinInject<AppUpdateController>()
+                    // 冷启动静默检测更新：后台不打扰用户，强制更新照常弹窗
+                    LaunchedEffect(Unit) {
+                        updateController.check(userInitiated = false)
+                    }
+                    AppUpdateDialog(
+                        controller = updateController,
+                        onInstall = { updateController.install(this@MainActivity) },
+                    )
+
                     ThemeRevealOverlay(themeRevealState)
                 }
             }
@@ -238,11 +262,41 @@ open class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
+        playUpdateDelegate.onResume(this) {
+            UpdateFallback.openPlayStoreOrGithub(this)
+        }
     }
 
     override fun onDestroy() {
         mainActivityUtils.close()
+        playUpdateDelegate.onDestroy()
         super.onDestroy()
+    }
+
+    private fun requestPlayUpdateInternal(silentIfNoUpdate: Boolean, fallbackOnQueryFailure: Boolean) {
+        playUpdateDelegate.requestUpdate(
+            activity = this,
+            silentIfNoUpdate = silentIfNoUpdate,
+            fallbackOnQueryFailure = fallbackOnQueryFailure,
+        ) {
+            UpdateFallback.openPlayStoreOrGithub(this)
+        }
+    }
+
+    private fun triggerAutoUpdateIfEnabled() {
+        if (!BuildConfig.HAS_BILLING || autoUpdateChecked) return
+        autoUpdateChecked = true
+
+        lifecycleScope.launch {
+            val enabled = preferenceRepository.autoUpdateOnStart.first()
+            if (!enabled) return@launch
+
+            val wifiOnly = preferenceRepository.autoUpdateWifiOnly.first()
+            val onWifi = WifiState.isOnWifi(this@MainActivity)
+            if (!UpdatePlayPolicy.shouldRunAutoCheck(enabled, wifiOnly, onWifi)) return@launch
+
+            requestPlayUpdateInternal(silentIfNoUpdate = true, fallbackOnQueryFailure = false)
+        }
     }
 }
 

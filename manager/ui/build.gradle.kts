@@ -11,6 +11,19 @@ android {
         missingDimensionStrategy("version", "normal")
     }
 
+    flavorDimensions += "distribution"
+
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "HAS_BILLING", "true")
+        }
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "HAS_BILLING", "false")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -24,7 +37,11 @@ android {
 val navigationPerformancePropertyTests = tasks.register("navigationPerformancePropertyTests") {
     group = "verification"
     description = "Runs Manager and manager:client unit/property tests for navigation performance."
-    dependsOn(":manager:ui:testDebugUnitTest", ":manager:client:testDebugUnitTest")
+    dependsOn(
+        ":manager:ui:testPlayDebugUnitTest",
+        ":manager:ui:testGithubDebugUnitTest",
+        ":manager:client:testDebugUnitTest",
+    )
 }
 
 val navigationPerformanceVerification = tasks.register("verifyNavigationPerformance") {
@@ -59,6 +76,7 @@ dependencies {
     implementation(project(":manager:client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
+    implementation(project(":magisk-ui-kit:update"))
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)
@@ -78,10 +96,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.material.icons.extended)
 
-    implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
 
-    implementation(libs.markdown)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
 

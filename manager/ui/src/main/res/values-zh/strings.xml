@@ -786,4 +786,9 @@
 
     <string name="pref_theme_group_color">色彩</string>
     <string name="pref_theme_group_navigation">导航栏</string>
+    <string name="pref_auto_update_on_start_title">启动时自动检查更新</string>
+    <string name="pref_auto_update_on_start_summary">冷启动时在后台检查更新</string>
+    <string name="pref_auto_update_wifi_only_title">仅 Wi-Fi 自动检查更新</string>
+    <string name="pref_auto_update_wifi_only_summary">仅在 Wi-Fi 下执行启动更新检查</string>
+    <string name="open_browser_failed">没有可用的浏览器打开链接</string>
 </resources>

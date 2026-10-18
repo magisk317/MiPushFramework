@@ -95,6 +95,12 @@ class SettingsViewModel constructor(
     val analyticsEnabled: StateFlow<Boolean> = preferenceRepository.analyticsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val autoUpdateOnStart: StateFlow<Boolean> = preferenceRepository.autoUpdateOnStart
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val autoUpdateWifiOnly: StateFlow<Boolean> = preferenceRepository.autoUpdateWifiOnly
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
 
@@ -280,6 +286,26 @@ class SettingsViewModel constructor(
 
     fun setAnalyticsEnabled(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ENABLE_ANALYTICS_KEY, enabled, onResult)
+
+    fun setAutoUpdateOnStart(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val success = runCatching {
+                withContext(Dispatchers.IO) { preferenceRepository.setAutoUpdateOnStart(enabled) }
+                true
+            }.getOrDefault(false)
+            onResult?.invoke(success)
+        }
+    }
+
+    fun setAutoUpdateWifiOnly(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val success = runCatching {
+                withContext(Dispatchers.IO) { preferenceRepository.setAutoUpdateWifiOnly(enabled) }
+                true
+            }.getOrDefault(false)
+            onResult?.invoke(success)
+        }
+    }
 
     fun setShowAllEvents(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean("show_all_events", enabled, onResult)

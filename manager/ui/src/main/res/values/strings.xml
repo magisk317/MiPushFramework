@@ -793,6 +793,13 @@ This could be the application doing a reverse registration, or the registration 
     <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
     <string name="runtime_commit_mismatch_dialog_message">The manager module and the xmsf runtime were built from different commits (module %1$s, runtime %2$s). A mismatch can cause duplicate notifications or dead notification clicks. Install matching builds of both APKs.</string>
     <string name="runtime_commit_mismatch_toast">Module and xmsf versions mismatch; notifications may misbehave</string>
+    <string name="pref_auto_update_on_start_title">Auto check updates on start</string>
+    <string name="pref_auto_update_on_start_summary">Check for updates in background on cold start</string>
+    <string name="pref_auto_update_wifi_only_title">Wi-Fi only for auto update</string>
+    <string name="pref_auto_update_wifi_only_summary">Only run startup update check on Wi-Fi</string>
+    <string name="open_browser_failed">No browser available to open the link</string>
+    <string name="check_update_title">Check for updates</string>
+    <string name="check_update_summary">Tap to check updates</string>
 
     <string name="pref_theme_group_color">Color</string>
     <string name="pref_theme_group_navigation">Navigation bar</string>
