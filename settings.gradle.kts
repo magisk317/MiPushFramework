@@ -91,6 +91,7 @@ requireExistingProjectDir("pinned")
 include(
     ":magisk-ui-kit",
     ":magisk-ui-kit:billing",
+    ":magisk-ui-kit:update",
     ":magisk-xposed-kit",
     ":magisk-xposed-kit:logging",
     ":magisk-xposed-kit:logging-core",
@@ -119,16 +120,19 @@ include(
     ":manager:application",
     ":manager:client",
     ":manager:ui",
+    ":manager:xmsfDelivery",
 )
 
 // Explicitly remap moved physical paths
 project(":xmsf:runtime").projectDir = file("xmsf/runtime")
 project(":magisk-ui-kit:billing").projectDir = file("magisk-ui-kit/billing")
+project(":magisk-ui-kit:update").projectDir = file("magisk-ui-kit/update")
 project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
 project(":magisk-xposed-kit:logging-core").projectDir = file("magisk-xposed-kit/logging-core")
 project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")
 project(":magisk-xposed-kit:permission").projectDir = file("magisk-xposed-kit/permission")
 project(":manager:ui").projectDir = file("manager/ui")
+project(":manager:xmsfDelivery").projectDir = file("manager/xmsfDelivery")
 project(":manager:port").projectDir = file("manager/port")
 project(":manager:contract").projectDir = file("manager/contract")
 project(":manager:client").projectDir = file("manager/client")

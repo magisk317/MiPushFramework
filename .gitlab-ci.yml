@@ -35,23 +35,31 @@ default:
   interruptible: true
   # ARM runners handle Android compilation; Robolectric remains explicitly on AMD64.
   tags:
-    - magisk-amd64-linux
+    - ct101
 
 stages:
   - build
-  - package
-  - release-build
-  # sync must precede release-publish: android:release:github declares
-  # `needs: sync:github`, and `needs` may only target the same or an earlier
-  # stage. With sync last, GitLab rejects the whole pipeline configuration.
-  - sync
-  - release-publish
-  - notify
+  - release
   - quality
   - maintenance
 
 variables:
   MAGISK_CI_TOOLKIT_REF: "v1"
+  # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
+  # quality stage can move off a busy host.
+  # All Android jobs (test/build/bundle/publish) read these tags, which both
+  # the arm64 and the Debian ct101 amd64 group runners carry. GitLab picks
+  # whichever is free (or the only one left standing), so the release chain
+  # runs on different machines, pipelines overlap, and neither runner is a
+  # single point of failure for producing a build.
+  MIPUSH_QUALITY_RUNNER_TAG: "ci-android"
+  MIPUSH_BUILD_RUNNER_TAG: "ci-android"
+  MIPUSH_BUNDLE_RUNNER_TAG: "ci-android"
+  # Zygisk ARM builds cross-compile against the pinned NDK and must stay on the
+  # ARM host. `ci-android` is shared with the amd64 ct101 runner, so using it
+  # here let this job land on amd64 and burn ~64 min before failing. This tag
+  # is carried by the arm64 runner only.
+  MIPUSH_ZYGISK_ARM_RUNNER_TAG: "magisk-arm64-linux"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   # Cancel the merged MR's own merge_request_event pipeline from the push
   # pipeline that lands the merge. GitLab has no cancel-on-merge hook and
@@ -142,7 +150,7 @@ update:anip-bundle:
   extends: .magisk_utility_base
   stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - !reference [.mipush_signed_android_rules, rules]
   variables:
@@ -164,7 +172,7 @@ android:build:
     - .magisk_android_build
     - .mipush_signed_android_rules
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
@@ -184,6 +192,9 @@ android:build:
       -PbuildSplits
       -PminifyDebug
       -Pkotlin.incremental=false
+    # Bind artifact versionCode to the pipeline iid so the in-app
+    # update check sees a monotonically increasing version axis.
+    MAGISK_GRADLE_ARGS: "--warning-mode all -PversionCode=$CI_PIPELINE_IID"
   # The runner provides persistent SDK/Gradle directories outside the project;
   # the inherited project-relative cache paths only produce empty-cache warnings.
   cache: []
@@ -198,11 +209,29 @@ android:build:
     paths:
       - xmsf/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
+      - ci-dist/mipush-ci.apk
+  # A job-level after_script replaces the one inherited from
+  # .magisk_android_base, so the otel export is restated here before staging.
+  after_script:
+    - |
+      set +e
+      if [ -x "${MAGISK_CI_TOOLKIT_DIR:-}/ci/otel_export.sh" ]; then
+        bash "$MAGISK_CI_TOOLKIT_DIR/ci/otel_export.sh" "ci.job"           "magisk.toolkit_ref=${MAGISK_CI_TOOLKIT_REF:-}"           "magisk.span_source=android_base_after_script"
+      else
+        echo "otel: helper missing, skip"
+      fi
+    # The universal APK name embeds the build timestamp, while
+    # GitLabCiArtifactUpdateSource can only fetch artifacts by exact path
+    # (no glob), so stage a stable copy for the in-app update check.
+    - |
+      set -euo pipefail
+      mkdir -p ci-dist
+      cp mipush/build/outputs/apk/github/debug/universal_*.apk ci-dist/mipush-ci.apk
 
 android:check:
   extends: .magisk_android_build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   stage: quality
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -215,7 +244,7 @@ android:check:
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.99.0-trixie"
+  image: "rust:1.99.1-trixie"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -346,7 +375,7 @@ android:check:
 zygisk:build:arm:
   extends: .mipush_zygisk_build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_ZYGISK_ARM_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG'
       when: never
@@ -363,7 +392,7 @@ zygisk:build:arm:
 zygisk:build:release:
   extends: .mipush_zygisk_build
   tags:
-    - magisk-amd64-linux
+    - ct101
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
     - when: never
@@ -376,7 +405,7 @@ telegram:ci:
   extends:
     - .magisk_telegram_ci
     - .mipush_signed_android_rules
-  stage: notify
+  stage: release
   allow_failure: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
@@ -386,7 +415,7 @@ telegram:ci:
       allow_failure: true
     - when: never
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
@@ -412,7 +441,7 @@ android:detekt:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -448,7 +477,7 @@ android:test:pure-modules:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -479,10 +508,8 @@ android:test:
   # Coverage gate runs on ARM after Beta publishing.
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:test:pure-modules
-      artifacts: true
     - job: android:ci:play-beta
       artifacts: false
       optional: true
@@ -513,7 +540,7 @@ android:module-boundaries:
     - .mipush_android_rules
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -531,7 +558,7 @@ android:shared-compat:
   # Beta publish so it cannot consume the release runner first.
   stage: quality
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
     - job: android:ci:play-beta
       artifacts: false
@@ -552,7 +579,7 @@ android:release:guard:
     - .magisk_android_release_tag_rules
   stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   script:
     - |
       set -euo pipefail
@@ -569,9 +596,9 @@ android:release:apk:
     MAGISK_ANDROID_RELEASE_APK_TASKS: ":xmsf:assembleRelease :mipush:assembleGithubRelease"
     MAGISK_ANDROID_RELEASE_GRADLE_EXTRA_ARGS: "-PbuildSplits=true -Pkotlin.incremental=false"
   resource_group: mipush-android-release-apk
-  stage: release-build
+  stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
@@ -601,9 +628,9 @@ android:release:play-bundle:
     MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
     MAGISK_PLAY_TRACK_OVERRIDE: "production"
   resource_group: mipush-android-release-play
-  stage: release-build
+  stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -624,9 +651,9 @@ android:release:gitlab:
     - .magisk_linux_base
     - .magisk_android_release_owner_rules
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -641,12 +668,45 @@ android:release:gitlab:
       chmod +x scripts/publish_mipush_release.sh
       scripts/publish_mipush_release.sh gitlab-release
 
+xmsf:runtime:publish:
+  # Publishes the github-flavor runtime APK built by android:release:apk to the
+  # GitLab generic package registry, next to the sha256 sidecar and manifest the
+  # manager's in-process downloader expects (XmsfDownloader.BASE_URL layout).
+  # Tag-driven like every release job; the version is resolved once in
+  # android:release:apk and carried in play-release.env, and the publish script
+  # cross-checks the APK against it before uploading. Runs on the utility image
+  # (no Android SDK), hence the explicit --version/--version-code inputs.
+  extends: .magisk_linux_base
+  resource_group: mipush-xmsf-runtime-publish
+  stage: release
+  tags:
+    - $MIPUSH_BUILD_RUNNER_TAG
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - when: never
+  needs:
+    - job: android:release:apk
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      set -a
+      # shellcheck disable=SC1091
+      . "$CI_PROJECT_DIR/play-release.env"
+      set +a
+      : "${MAGISK_PLAY_VERSION_NAME:?play-release.env did not carry a version name}"
+      : "${MAGISK_PLAY_VERSION_CODE:?play-release.env did not carry a version code}"
+      chmod +x scripts/ci/xmsf_runtime_publish.sh
+      scripts/ci/xmsf_runtime_publish.sh publish \
+        --version "$MAGISK_PLAY_VERSION_NAME" \
+        --version-code "$MAGISK_PLAY_VERSION_CODE"
+
 android:release:play:
   extends: .magisk_android_publish_play
   resource_group: mipush-android-release-play
-  stage: release-publish
+  stage: release
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
@@ -667,9 +727,9 @@ android:release:play:
 android:ci:play-beta-bundle:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
-  stage: release-build
+  stage: build
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
   # come from CI variables, assets from the repository), so the publish chain
   # must not wait for the build/package stages: Play publishing keeps
@@ -707,9 +767,9 @@ android:ci:play-beta-bundle:
 android:ci:play-beta:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
-  stage: release-publish
+  stage: release
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: on_success
@@ -747,10 +807,10 @@ android:ci:play-beta:
 telegram:release:
   extends: .magisk_telegram_release
   resource_group: mipush-android-release-publish
-  stage: notify
+  stage: release
   allow_failure: true
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       allow_failure: true
@@ -775,11 +835,11 @@ renovate:gitlab:
   interruptible: false
   stage: maintenance
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
 
 sync:github:
   extends: .magisk_utility_base
-  stage: sync
+  stage: release
   # Kept dependency-free for branch pipelines (the guard only runs on tags),
   # but on a tag pipeline the mirror push must wait for the tag contract check.
   # Without this, a failing guard would leave an orphan tag on the public GitHub
@@ -788,7 +848,7 @@ sync:github:
     - job: android:release:guard
       optional: true
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_TAG'
@@ -817,9 +877,9 @@ sync:github:
 android:release:github:
   extends: .magisk_android_release_github
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   variables:
     # Must stay job-level: the toolkit template pins the same key at job level
     # to "*arm64-v8a*.apk", and job variables outrank the global variables
@@ -885,9 +945,9 @@ android:release:github:
 android:release:modules-repo:
   extends: .magisk_android_publish_modules_repo
   resource_group: mipush-android-release-publish
-  stage: release-publish
+  stage: release
   tags:
-    - magisk-arm64-linux
+    - $MIPUSH_BUILD_RUNNER_TAG
   needs:
     - job: android:release:apk
       artifacts: true

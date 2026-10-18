@@ -4,6 +4,64 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# CI images may ship without ripgrep (MAGISK_LINUX_APT_PACKAGES is a no-op on
+# non-apt bases such as the magisk-ci-toolkit utility image, where grep and find
+# are BusyBox applets without GNU long options). The patterns below are plain
+# ERE, so fall back to a portable grep invocation instead of failing the check.
+if ! command -v rg >/dev/null 2>&1; then
+  rg() {
+    local -a grep_flags=()
+    local -a operands=()
+    local quiet=0
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -q) quiet=1; shift ;;
+        -v) grep_flags+=(-v); shift ;;
+        -n) grep_flags+=(-n); shift ;;
+        -r|--with-filename) shift ;;
+        --) shift; while [ $# -gt 0 ]; do operands+=("$1"); shift; done ;;
+        *) operands+=("$1"); shift ;;
+      esac
+    done
+    if [ "${#operands[@]}" -eq 0 ]; then
+      echo "grep fallback: missing pattern" >&2
+      return 2
+    fi
+    local pattern="${operands[0]}"
+    local -a paths=()
+    if [ "${#operands[@]}" -gt 1 ]; then
+      paths=("${operands[@]:1}")
+    fi
+    if [ "${#paths[@]}" -eq 0 ]; then
+      # Stdin pipeline mode (e.g. `rg -v`): pass lines through unchanged.
+      grep -E ${grep_flags:+"${grep_flags[@]}"} -- "$pattern"
+      return
+    fi
+    # rg recurses into directory operands, but BusyBox grep without -r silently
+    # skips directories, so expand them to a pruned file list first.
+    local -a files=()
+    local path file
+    for path in "${paths[@]}"; do
+      if [ -d "$path" ]; then
+        while IFS= read -r -d '' file; do
+          files+=("$file")
+        done < <(find "$path" \( -name .git -o -name build -o -name .gradle -o -name .cxx -o -name '.*' \) -prune -o -type f -print0)
+      else
+        files+=("$path")
+      fi
+    done
+    if [ "${#files[@]}" -eq 0 ]; then
+      return 1
+    fi
+    if [ "$quiet" -eq 1 ]; then
+      grep -E -q ${grep_flags:+"${grep_flags[@]}"} -- "$pattern" "${files[@]}"
+    else
+      # rg -n emits path:line:content, which callers parse positionally.
+      grep -E -n -H ${grep_flags:+"${grep_flags[@]}"} -- "$pattern" "${files[@]}"
+    fi
+  }
+fi
+
 BASELINE="scripts/module_boundary_baseline.txt"
 VENDOR_BASELINE="scripts/vendor_boundary_baseline.txt"
 COMMON_MAIN_JVM_COMPAT_BASELINE="scripts/common_main_jvm_compat_baseline.txt"
@@ -218,6 +276,7 @@ allowed = {
     "manager/application/build.gradle.kts": {":core", ":manager:port"},
     "manager/port/build.gradle.kts": set(),
     "manager/client/build.gradle.kts": {":manager:contract", ":core", ":magisk-xposed-kit:logging"},
+    "manager/xmsfDelivery/build.gradle.kts": {":manager:client", ":common", ":core"},
     "xmsf/runtime/build.gradle.kts": {
         ":common", ":manager:port", ":core", ":pinned", ":vendor",
         ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
@@ -638,7 +697,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
+    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|manager/xmsfDelivery|manager/xmsfDelivery/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"

@@ -15,6 +15,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import io.github.magisk317.mipush.runtime.android.applyPersistedRegistrationState
+import io.github.magisk317.mipush.runtime.android.channelIdentity
+import io.github.magisk317.mipush.runtime.android.forceTriggerRegistration
+import io.github.magisk317.mipush.runtime.android.getChannelRecords
+import io.github.magisk317.mipush.runtime.android.getRegistrationRecord
+import io.github.magisk317.mipush.runtime.android.observeChannelState
+import io.github.magisk317.mipush.runtime.android.observeConnectionState
+import io.github.magisk317.mipush.runtime.android.observeInboundMessage
+import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
+import io.github.magisk317.mipush.runtime.android.observeRegistrationResult
+import io.github.magisk317.mipush.runtime.android.synchronizeChannels
 
 class PushRuntimeTest {
     @Test

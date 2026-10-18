@@ -3,6 +3,28 @@ package io.github.magisk317.mipush.runtime
 import android.content.Intent
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
+import io.github.magisk317.mipush.runtime.android.forceTriggerRegistration
+import io.github.magisk317.mipush.runtime.android.getChannelRecords
+import io.github.magisk317.mipush.runtime.android.getRegistrationRecord
+import io.github.magisk317.mipush.runtime.android.observeAccountEvent
+import io.github.magisk317.mipush.runtime.android.observeChannelEvent
+import io.github.magisk317.mipush.runtime.android.observeChannelState
+import io.github.magisk317.mipush.runtime.android.observeConnectionState
+import io.github.magisk317.mipush.runtime.android.observeDisconnectReason
+import io.github.magisk317.mipush.runtime.android.observeInboundMessage
+import io.github.magisk317.mipush.runtime.android.observeNotificationEvent
+import io.github.magisk317.mipush.runtime.android.observePingSent
+import io.github.magisk317.mipush.runtime.android.observePingTimeout
+import io.github.magisk317.mipush.runtime.android.observeReadAlive
+import io.github.magisk317.mipush.runtime.android.observeReconnectConnected
+import io.github.magisk317.mipush.runtime.android.observeReconnectStarted
+import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
+import io.github.magisk317.mipush.runtime.android.observeRegistrationResult
+import io.github.magisk317.mipush.runtime.android.observeRegistrationState
+import io.github.magisk317.mipush.runtime.android.observeTransferToApplication
+import io.github.magisk317.mipush.runtime.android.observeUnregistration
+import io.github.magisk317.mipush.runtime.android.synchronizeChannels
+import io.github.magisk317.mipush.runtime.android.synchronizePersistedRegistrationState
 
 object PushRuntime {
     @JvmStatic
