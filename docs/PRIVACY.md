@@ -1,6 +1,6 @@
 # Privacy Policy / 隐私政策
 
-**Effective Date / 生效日期:** 2026-08-01
+**Effective Date / 生效日期:** 2026-10-18
 
 [English Version](#privacy-policy-for-mipush-manager) | [中文版本](#mipush-管理器隐私政策)
 
@@ -23,7 +23,7 @@ MiPush Manager may access:
 - installed application package names, labels, icons, versions, and MiPush compatibility or registration state;
 - application usage events or the current foreground application, when you grant Usage Access.
 
-This information is used locally to list MiPush-capable applications, show their status, apply per-application settings, and support compatibility features. The complete installed-app list and usage history are not included in technical analytics. When you perform an operation on a specific app, the target package name may be included with that operation's technical result as described below.
+This information is used locally to list MiPush-capable applications, show their status, apply per-application settings, and support compatibility features. The complete installed-app list and usage history are not included in technical diagnostics. When you perform an operation on a specific app, the target package name may be included with that operation's technical result as described below.
 
 #### 2.2 Push Runtime State and Records
 
@@ -38,7 +38,7 @@ This data may contain package names, push metadata, device or registration ident
 
 #### 2.3 Settings and Local Files
 
-MiPush Manager stores settings, a random per-installation identifier used for analytics, manager logs, and temporary diagnostic export files in its private app storage. Android may include eligible app data in system backup because app backup is enabled.
+MiPush Manager stores settings, a random per-installation identifier used for technical diagnostics, manager logs, and temporary diagnostic export files in its private app storage. Android may include eligible app data in system backup because app backup is enabled.
 
 You can delete manager-owned data by clearing MiPush Manager's app data or uninstalling it. Runtime records owned by the separate XMSF package must be cleared through the in-app record/log controls, by clearing the XMSF package data, or by uninstalling that runtime.
 
@@ -52,7 +52,7 @@ Google handles this data under the [Google Privacy Policy](https://policies.goog
 
 Depending on Android version and the features you use, MiPush Manager may request or declare:
 
-- **Internet:** remote configuration retrieval, project links, optional technical analytics, and Google Play Billing in the Play build;
+- **Internet:** remote configuration retrieval, project links, optional technical diagnostics, and Google Play Billing in the Play build;
 - **Notifications:** manager status, test, and diagnostic notifications;
 - **All packages access:** locating MiPush-capable applications and presenting per-app controls;
 - **Usage Access:** foreground-app and recent-usage detection for compatibility behavior;
@@ -63,9 +63,9 @@ Depending on Android version and the features you use, MiPush Manager may reques
 
 Permissions and special access are used only for the corresponding features. You can deny or revoke optional access in Android settings, although the related feature may stop working.
 
-### 4. Technical Analytics
+### 4. Technical Diagnostics
 
-Technical analytics is enabled by default and can be disabled in MiPush Manager settings. When enabled, the app sends pseudonymous technical telemetry to the project's GitLab observability endpoint, including:
+Technical diagnostics is enabled by default and can be disabled in MiPush Manager settings. When enabled, the app sends pseudonymous technical diagnostic data to the project's GitLab observability endpoint, including:
 
 - a randomly generated per-installation identifier;
 - app version and release/debug environment;
@@ -73,9 +73,9 @@ Technical analytics is enabled by default and can be disabled in MiPush Manager 
 - operation names and technical result fields such as stage, success/failure, and reason;
 - the target application's package name for specific actions such as force registration, diagnostic message replay, or event deletion.
 
-The random installation identifier is not the Android advertising ID and is not intentionally linked to an account, name, or email address, but its transmission is still data collection. Telemetry is intended for feature usage, reliability, and failure diagnosis. It must not contain push message bodies, registration secrets, tokens, the complete installed-app list, or usage-history records.
+The random installation identifier is not the Android advertising ID and is not intentionally linked to an account, name, or email address, but its transmission is still data collection. This data is used for feature usage, reliability, and failure diagnosis. It must not contain push message bodies, registration secrets, tokens, the complete installed-app list, or usage-history records.
 
-Disabling analytics stops new telemetry events from being sent. The local installation identifier remains in private app storage until app data is cleared or the app is uninstalled. Telemetry already transmitted is retained according to the project's observability-service settings and cannot currently be deleted through an in-app account or per-installation deletion control.
+Disabling technical diagnostics stops new diagnostic events from being sent. The local installation identifier remains in private app storage until app data is cleared or the app is uninstalled. Diagnostic data already transmitted is retained according to the project's observability-service settings and cannot currently be deleted through an in-app account or per-installation deletion control.
 
 ### 5. Diagnostic Export and Sharing
 
@@ -88,7 +88,7 @@ Diagnostic archives are not uploaded automatically. They leave the device only w
 MiPush Manager does not sell personal data and does not operate a mandatory backend that collects your push records. Network access may involve:
 
 - GitHub or GitLab when retrieving project information or remote configuration files;
-- the GitLab observability service when technical analytics is enabled;
+- the GitLab observability service when technical diagnostics is enabled;
 - Google Play when you view or make an optional in-app donation;
 - websites or applications you choose to open from project links.
 
@@ -131,7 +131,7 @@ MiPush 管理器可能访问：
 - 已安装应用的包名、名称、图标、版本，以及 MiPush 兼容或注册状态；
 - 在你授予“使用情况访问权限”后，访问应用使用事件或当前前台应用信息。
 
-这些信息仅在本地用于列出支持 MiPush 的应用、显示状态、应用单独配置和支持兼容功能。完整的已安装应用列表和使用记录不会包含在技术统计数据中；当你对特定应用执行操作时，目标应用包名可能随该操作的技术结果一并发送，具体见下文。
+这些信息仅在本地用于列出支持 MiPush 的应用、显示状态、应用单独配置和支持兼容功能。完整的已安装应用列表和使用记录不会包含在技术诊断数据中；当你对特定应用执行操作时，目标应用包名可能随该操作的技术结果一并发送，具体见下文。
 
 #### 2.2 推送运行时状态与记录
 
@@ -146,7 +146,7 @@ MiPush 管理器可能访问：
 
 #### 2.3 设置与本地文件
 
-MiPush 管理器会在自身的应用私有存储中保存设置、用于技术统计的随机安装标识符、管理器日志和临时诊断导出文件。由于应用允许 Android 系统备份，符合系统备份条件的应用数据可能由 Android 备份。
+MiPush 管理器会在自身的应用私有存储中保存设置、用于技术诊断数据的随机安装标识符、管理器日志和临时诊断导出文件。由于应用允许 Android 系统备份，符合系统备份条件的应用数据可能由 Android 备份。
 
 你可以通过清除 MiPush 管理器的应用数据或卸载管理器删除其自有数据。由独立 XMSF 包保存的运行时记录，需要通过应用内记录/日志清理功能、清除 XMSF 应用数据或卸载该运行时删除。
 
@@ -160,7 +160,7 @@ Google 按照其[隐私权政策](https://policies.google.com/privacy)处理相�
 
 根据 Android 版本和你使用的功能，MiPush 管理器可能声明或申请：
 
-- **网络访问：** 获取远程配置、打开项目链接、发送可选的技术统计，以及在 Play 版本中使用 Google Play 结算；
+- **网络访问：** 获取远程配置、打开项目链接、发送可选的技术诊断数据，以及在 Play 版本中使用 Google Play 结算；
 - **通知权限：** 显示管理器状态、测试和诊断通知；
 - **所有应用查询权限：** 查找支持 MiPush 的应用并提供逐应用管理；
 - **使用情况访问权限：** 检测前台应用和近期使用情况以支持兼容功能；
@@ -171,9 +171,9 @@ Google 按照其[隐私权政策](https://policies.google.com/privacy)处理相�
 
 权限与特殊访问仅用于对应功能。你可以在 Android 设置中拒绝或撤销可选权限，但相关功能可能无法继续工作。
 
-### 4. 技术统计
+### 4. 技术诊断数据
 
-技术统计默认开启，可在 MiPush 管理器设置中关闭。开启时，应用会向本项目的 GitLab 可观测性端点发送以下使用假名标识的技术数据：
+技术诊断数据默认开启，可在 MiPush 管理器设置中关闭。开启时，应用会向本项目的 GitLab 可观测性端点发送以下使用假名标识的技术诊断数据：
 
 - 随机生成的、按安装区分的标识符；
 - 应用版本和正式版/调试版环境；
@@ -181,9 +181,9 @@ Google 按照其[隐私权政策](https://policies.google.com/privacy)处理相�
 - 操作名称，以及阶段、成功/失败、原因等技术结果字段；
 - 在强制注册、诊断消息重放或删除事件等特定操作中涉及的目标应用包名。
 
-随机安装标识符不是 Android 广告 ID，也不会被有意关联到账号、姓名或邮箱，但发送该标识符仍属于数据收集。这些数据用于分析功能使用情况、可靠性和失败原因，不应包含推送消息正文、注册密钥、token、完整的已安装应用列表或应用使用记录。
+随机安装标识符不是 Android 广告 ID，也不会被有意关联到账号、姓名或邮箱，但发送该标识符仍属于数据收集。这些数据用于功能使用、可靠性与失败诊断，不得包含推送消息正文、注册密钥、token、完整的已安装应用列表或应用使用记录。
 
-关闭技术统计后，应用不会再发送新的统计事件；本地安装标识符会保留在应用私有存储中，直到清除应用数据或卸载应用。已经发送的遥测数据按照项目可观测性服务的设置保留，目前无法通过应用内账号或按安装标识符的删除入口清除。
+关闭技术诊断数据后，应用不会再发送新的诊断数据；本地安装标识符会保留在应用私有存储中，直到清除应用数据或卸载应用。已经发送的技术诊断数据按照项目可观测性服务的设置保留，目前无法通过应用内账号或按安装标识符的删除入口清除。
 
 ### 5. 诊断导出与分享
 
@@ -196,7 +196,7 @@ MiPush 管理器可以生成包含管理器和 XMSF 运行时日志的诊断压�
 MiPush 管理器不会出售个人数据，也不运营一个强制收集推送记录的后端。网络访问可能涉及：
 
 - 获取项目信息或远程配置文件时访问 GitHub 或 GitLab；
-- 开启技术统计时访问 GitLab 可观测性服务；
+- 开启技术诊断数据时访问 GitLab 可观测性服务；
 - 查看或进行可选应用内捐赠时访问 Google Play；
 - 访问你从项目链接中主动打开的网站或应用。
 

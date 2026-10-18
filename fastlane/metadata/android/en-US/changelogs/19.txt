@@ -1,1 +1,7 @@
-- Development build; release notes will be updated before publishing.
+- Updated to 1.1.0 (19).
+- In-app updates support OTA with distribution channel split.
+- Added xmsf runtime delivery with runtime status in settings.
+- Permission onboarding consolidated into a single page.
+- Fixed notification focus-card merging and tap routing.
+- Fixed status-bar icon silhouette cropping.
+- https://gitlab.com/magisk3171/MiPushFramework/-/releases
