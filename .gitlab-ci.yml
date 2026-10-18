@@ -698,11 +698,15 @@ xmsf:runtime:publish:
       . "$CI_PROJECT_DIR/play-release.env"
       set +a
       : "${MAGISK_PLAY_VERSION_NAME:?play-release.env did not carry a version name}"
-      : "${MAGISK_PLAY_VERSION_CODE:?play-release.env did not carry a version code}"
+      # The runtime APK carries the catalog pushVersionCode, NOT the Play
+      # store versionCode from play-release.env (different scales: 1003003000
+      # vs 1621). Read it straight from the version catalog.
+      XMSF_RUNTIME_VERSION_CODE="$(sed -nE 's/^pushVersionCode = "([0-9]+)"$/\1/p' gradle/libs.versions.toml)"
+      : "${XMSF_RUNTIME_VERSION_CODE:?unable to read pushVersionCode from gradle/libs.versions.toml}"
       chmod +x scripts/ci/xmsf_runtime_publish.sh
       scripts/ci/xmsf_runtime_publish.sh publish \
         --version "$MAGISK_PLAY_VERSION_NAME" \
-        --version-code "$MAGISK_PLAY_VERSION_CODE"
+        --version-code "$XMSF_RUNTIME_VERSION_CODE"
 
 android:release:play:
   extends: .magisk_android_publish_play
