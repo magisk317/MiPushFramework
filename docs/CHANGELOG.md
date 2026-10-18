@@ -3,12 +3,14 @@
 本日志记录了项目近期的主要变更。
 
 ---
-## [v1.1.0] - Unreleased
+## [v1.1.0] - 2026-10-18
 - 版本：`versionCode 19` / `versionName 1.1.0`。
-- 下一轮开发占位，发布前补充具体变更。
-
+- `[feat]` 更新支持 OTA 与分发渠道分流。
+- `[feat]` 新增 xmsf 运行时交付，设置项展示运行时状态。
+- `[feat]` 权限引导合并为单页，设置页更新检查重构。
+- `[fix]` 修复通知焦点卡片合并与点击跳转。
+- `[fix]` 修复状态栏图标裁剪填充。
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.0.7...v1.1.0
-
 ---
 ## [v1.0.7] - 2026-10-10
 - 版本：`versionCode 18` / `versionName 1.0.7`。
