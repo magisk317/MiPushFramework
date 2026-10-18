@@ -195,7 +195,7 @@ open class MiPushFrameworkApp : Application() {
             System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
         // Debug builds always report so development-time spans are never silently dropped.
         val effectiveEnabled =
-            BuildConfig.DEBUG ||
+            BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD ||
                 ((enabled || systemOtelEnabled) && !TelemetryRemoteGate.isForceDisabled(this))
         MagiskOtel.publishSwitch(this, ENABLE_ANALYTICS_KEY, effectiveEnabled)
         MagiskOtel.configureForInstallation(
@@ -207,7 +207,7 @@ open class MiPushFrameworkApp : Application() {
                 serviceCommit = BuildConfig.GIT_COMMIT,
                 projectId = "83955143",
                 projectName = "MiPushFramework",
-                environment = if (BuildConfig.DEBUG) "debug" else "release",
+                environment = if (BuildConfig.DEBUG) "debug" else if (BuildConfig.IS_CI_BUILD) "ci" else "release",
                 suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
                 suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,
             ),

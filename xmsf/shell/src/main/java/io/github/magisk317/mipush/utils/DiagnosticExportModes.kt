@@ -14,6 +14,6 @@ object DiagnosticExportModes {
                 PreferenceRepository(context.applicationContext.dataStore).isDebugMode.first()
             }
         }.getOrDefault(false)
-        return DiagnosticExportMode.fromDebugLogging(debugLoggingEnabled)
+        return DiagnosticExportMode.FULL
     }
 }

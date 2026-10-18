@@ -6,8 +6,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import android.content.Intent
 import android.widget.Toast
-import io.github.magisk317.xposed.logging.VerboseLogEnableTracker
-import com.topjohnwu.superuser.Shell
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -368,10 +366,7 @@ internal fun notifyPrefChanged(context: Context) {
 }
 
 internal val isCiOrDebugBuild: Boolean =
-    BuildConfig.DEBUG ||
-        BuildConfig.VERSION_NAME.contains("-202") ||
-        BuildConfig.VERSION_NAME.contains("-test") ||
-        BuildConfig.VERSION_NAME.contains("-ci")
+    BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
 
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
@@ -411,13 +406,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     fun saveRuntimeLogBundle() {
-        val blockReason = VerboseLogEnableTracker.checkPreExport(debugMode) { Shell.getShell().isRoot }
-        if (blockReason != null) {
-            val resId = context.resources.getIdentifier(blockReason, "string", context.packageName)
-            val message = if (resId != 0) context.getString(resId) else blockReason
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            return
-        }
         val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
             .format(java.util.Date())
         saveRuntimeLogLauncher.launch("mipush_logs_$timestamp.zip")
@@ -462,7 +450,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::saveRuntimeLogBundle,
             onVerboseLogEnabledChange = { enabled ->
-                VerboseLogEnableTracker.onVerboseLogToggled(enabled)
                 io.github.magisk317.xposed.logging.LogSanitizerConfig
                     .syncFromVerboseMode(enabled)
                 viewModel.setDebugMode(enabled) { success ->
@@ -471,7 +458,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
-            onAnalyticsEnabledChange = if (!BuildConfig.DEBUG) {
+            onAnalyticsEnabledChange = if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
                 { enabled ->
                     viewModel.setAnalyticsEnabled(enabled) { success ->
                         if (success) notifyPrefChanged(context)
