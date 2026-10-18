@@ -5,7 +5,7 @@ import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.compat.legacyhuawei.LegacyHuaweiSignatureCompat
 import io.github.magisk317.mipush.hook.fakedevice.compat.HookPipelineId
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object FakeDevice {

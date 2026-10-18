@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.LoadParam
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,15 +18,15 @@ import org.junit.jupiter.api.Test
 class CommonTest {
     @BeforeEach
     fun setUpLogging() {
-        mockkObject(XLog)
-        every { XLog.d(any(), any()) } just Runs
-        every { XLog.i(any(), any()) } just Runs
-        every { XLog.w(any(), any()) } just Runs
+        mockkStatic(XLog::class)
+        every { XLog.d(any(), any(), *anyVararg()) } just Runs
+        every { XLog.i(any(), any(), *anyVararg()) } just Runs
+        every { XLog.w(any(), any(), *anyVararg()) } just Runs
     }
 
     @AfterEach
     fun tearDownLogging() {
-        unmockkObject(XLog)
+        unmockkStatic(XLog::class)
     }
 
     @Test
@@ -42,6 +42,7 @@ class CommonTest {
             XLog.w(
                 "Common",
                 "build properties failed: IllegalStateException: forced failure: properties",
+                *anyVararg(),
             )
         }
     }
@@ -58,9 +59,9 @@ class CommonTest {
 
         assertFalse(result)
         assertEquals(listOf("properties", "ali_bridge", "class_bridge"), steps)
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("build properties failed:") == true }) }
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("Ali MiPush bridge failed:") == true }) }
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("MIUI class bridge failed:") == true }) }
+        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("build properties failed:") == true }, *anyVararg()) }
+        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("Ali MiPush bridge failed:") == true }, *anyVararg()) }
+        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("MIUI class bridge failed:") == true }, *anyVararg()) }
     }
 
     @Test

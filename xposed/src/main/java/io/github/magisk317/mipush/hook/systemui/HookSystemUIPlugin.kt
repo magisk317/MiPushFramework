@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.hook.systemui
 
 import android.content.ComponentName
 import android.content.ContextWrapper
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.findHookClass
 import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook

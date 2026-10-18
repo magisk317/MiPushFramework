@@ -5,7 +5,7 @@ import java.util.Base64
 import dalvik.system.DexClassLoader
 import io.github.magisk317.mipush.common.LEGACY_HUAWEI_CORE_SIGNATURE
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.*
 
 object LegacyHuaweiSignatureCompat {

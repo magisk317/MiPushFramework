@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.hook.xmsf
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.HookClassNotFoundError
 import io.github.magisk317.xposed.callMethod

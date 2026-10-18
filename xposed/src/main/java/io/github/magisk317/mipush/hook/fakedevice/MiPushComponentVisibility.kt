@@ -10,7 +10,7 @@ import android.content.pm.ProviderInfo
 import android.content.pm.ResolveInfo
 import android.os.Process
 import io.github.magisk317.xposed.LoadParam
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook

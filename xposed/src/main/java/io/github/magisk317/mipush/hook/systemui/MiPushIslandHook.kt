@@ -16,7 +16,7 @@ import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.notification.policy.NotificationClickFallbackContract
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandPreferences

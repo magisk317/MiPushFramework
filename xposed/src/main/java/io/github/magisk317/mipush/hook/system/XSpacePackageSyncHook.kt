@@ -9,7 +9,7 @@ import android.content.IntentFilter
 import android.content.IntentSender
 import android.os.UserHandle
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit

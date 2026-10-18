@@ -3,7 +3,7 @@ import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 
 import android.os.Process
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.findHookClass
 import io.github.magisk317.xposed.hookMethod
 

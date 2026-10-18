@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,15 +18,15 @@ import org.junit.jupiter.api.Test
 class FakePropertyTest {
     @BeforeEach
     fun setUpLogging() {
-        mockkObject(XLog)
-        every { XLog.d(any(), any()) } just Runs
-        every { XLog.i(any(), any()) } just Runs
-        every { XLog.w(any(), any()) } just Runs
+        mockkStatic(XLog::class)
+        every { XLog.d(any(), any(), *anyVararg()) } just Runs
+        every { XLog.i(any(), any(), *anyVararg()) } just Runs
+        every { XLog.w(any(), any(), *anyVararg()) } just Runs
     }
 
     @AfterEach
     fun tearDownLogging() {
-        unmockkObject(XLog)
+        unmockkStatic(XLog::class)
     }
 
     @Test

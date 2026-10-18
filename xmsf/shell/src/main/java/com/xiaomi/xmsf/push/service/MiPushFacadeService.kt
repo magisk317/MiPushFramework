@@ -15,7 +15,9 @@ import android.os.Message
 import android.os.Messenger
 import android.widget.Toast
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
-import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
+import android.os.SystemClock
+import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.service.ForegroundHelper
@@ -179,22 +181,20 @@ open class MiPushFacadeService : Service() {
             MiPushRuntimeBridge.onIntentForwardedToServer(intent)
         }
             .onFailure {
-                RateLimitedWarnLogger.warn(
-                    logTag = TAG,
+                warnLimited(
                     key = "processIntent",
                     message = "process intent failed: action=${intent.action}",
-                    throwable = it
+                    throwable = it,
                 )
             }
         try {
             observeRuntimeRouting(intent)
             forwardToPushServiceMain(intent)
         } catch (e: Throwable) {
-            RateLimitedWarnLogger.warn(
-                logTag = TAG,
+            warnLimited(
                 key = "forwardToPushServiceMain",
                 message = "forward failed: action=${intent.action}",
-                throwable = e
+                throwable = e,
             )
             logE("XMPushService::onHandleIntent: ", e)
             if (e is RuntimeException) {
@@ -372,5 +372,21 @@ open class MiPushFacadeService : Service() {
 
     companion object {
         private const val TAG = "XMPushService Bridge"
+
+        private val warnLimiter = FixedWindowLogLimiter(maxEvents = 1, windowMs = 30_000L)
+
+        /**
+         * Rate-limited warning: one per key per 30s window, then suppressed until the
+         * window rolls. Shares the kit's platform-neutral limiter; output stays on kermit.
+         */
+        private fun warnLimited(key: String, message: String, throwable: Throwable? = null) {
+            if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
+            val text = "[$key] $message"
+            if (throwable == null) {
+                Logger.withTag(TAG).w { text }
+            } else {
+                Logger.e(throwable) { text }
+            }
+        }
     }
 }

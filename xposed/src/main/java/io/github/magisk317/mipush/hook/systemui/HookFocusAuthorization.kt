@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.hook.systemui
 import android.content.Context
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
-import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.findHookClass
 import io.github.magisk317.xposed.hook
