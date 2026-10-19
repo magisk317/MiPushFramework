@@ -6,5 +6,5 @@
   "require_readme_badges": true,
   "require_tag_match": true,
   "allow_non_ascii_commit_subject": true,
-  "project_checks": ["check_release_tag_push_contract", "check_zygisk_version_sync"]
+  "project_checks": ["check_non_ascii_subject_allowlist", "check_release_tag_push_contract", "check_zygisk_version_sync"]
 }
