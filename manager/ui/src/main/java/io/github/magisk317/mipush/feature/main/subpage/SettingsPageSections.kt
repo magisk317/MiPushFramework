@@ -372,7 +372,6 @@ internal val isCiOrDebugBuild: Boolean =
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val autoUpdateOnStart by viewModel.autoUpdateOnStart.collectAsStateWithLifecycle()
     val autoUpdateWifiOnly by viewModel.autoUpdateWifiOnly.collectAsStateWithLifecycle()
@@ -426,14 +425,11 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         }
     }
 
-    val debugModeTitle = stringResource(R.string.settings_debug_mode)
     val analyticsTitle = stringResource(R.string.settings_enable_analytics)
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(
             shareLogTitle = stringResource(R.string.settings_get_log),
             shareLogSummary = stringResource(R.string.settings_get_log_summary),
-            verboseLogTitle = debugModeTitle,
-            verboseLogSummary = stringResource(R.string.settings_debug_mode_summary),
             retentionTitle = stringResource(R.string.settings_runtime_log_retention_days),
             retentionSummary = pluralStringResource(
                 R.plurals.settings_runtime_log_retention_days_summary,
@@ -444,18 +440,10 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             clearLogSummary = stringResource(R.string.runtime_log_clear_summary),
         ),
         state = RuntimeLogDiagnosticsState(
-            verboseLogEnabled = debugMode,
             analyticsEnabled = analyticsEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::saveRuntimeLogBundle,
-            onVerboseLogEnabledChange = { enabled ->
-                io.github.magisk317.xposed.logging.LogSanitizerConfig
-                    .syncFromVerboseMode(enabled)
-                viewModel.setDebugMode(enabled) { success ->
-                    showSwitchFeedback(debugModeTitle, enabled, success)
-                }
-            },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
             onAnalyticsEnabledChange = if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
