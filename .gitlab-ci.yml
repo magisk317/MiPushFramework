@@ -1,27 +1,27 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): sync:github and update:anip-bundle
   # extend it instead of pinning their own image.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+    ref: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -47,7 +47,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "8b602206d915c7912521c56fd1ed1d1b75fe7ae3"
+  MAGISK_CI_TOOLKIT_REF: "ec132da451c0da763fd6b401bfb1b06359d5fb96"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
