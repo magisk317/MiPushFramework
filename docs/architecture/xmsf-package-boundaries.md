@@ -53,7 +53,7 @@ the two Android users have been validated on a phone.
 `runtime/data` exposes notification state through the shared
 `NotificationAvailabilityReader` contract in `common`. The concrete
 `XmsfNotificationAvailabilityReader` is bound in `xmsf` Koin and is the only layer that knows how
-to combine installed-package checks with channel state. `scripts/verify_module_boundaries.sh`
+to combine installed-package checks with channel state. `scripts/checks/verify_module_boundaries.sh`
 rejects a direct `runtime/data -> notification` import.
 
 The notification boundary was the first small extraction; the runtime-core boundary is now the first

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION_FILE="$ROOT_DIR/gradle/libs.versions.toml"
+TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
 
 working_tree_dirty() {
   if ! git -C "$ROOT_DIR" diff --quiet || ! git -C "$ROOT_DIR" diff --cached --quiet; then
@@ -102,12 +103,16 @@ run_pre_push_checks() {
   echo "Running pre-push CI command..."
   (
     cd "$ROOT_DIR"
-    TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
     bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" "${gradle_args[@]}"
-    bash "$ROOT_DIR/scripts/ci/tests/test_select_android_test_tasks.sh"
     bash "$ROOT_DIR/scripts/ci/tests/test_run_test_shards.sh"
+    mapfile -t selected_shards < <(
+      python3 "$TOOLKIT_DIR/ci/select_gradle_tasks.py" \
+        --root "$ROOT_DIR" \
+        --toolkit "$TOOLKIT_DIR" \
+        --config "$ROOT_DIR/scripts/config/android-test-tasks.json"
+    )
     MAGISK_CI_TOOLKIT_DIR="$TOOLKIT_DIR" bash "$ROOT_DIR/scripts/ci/run_test_shards.sh" \
-      android-pure-modules
+      "${selected_shards[@]}"
   )
   echo "Pre-push checks passed."
 }
@@ -143,7 +148,7 @@ if [[ -z "$current_branch" ]]; then
 fi
 
 check_branch_state_before_checks
-"$ROOT_DIR/scripts/check_release_guard.sh" "$TAG_NAME"
+"$ROOT_DIR/scripts/release/check_release_guard.sh" "$TAG_NAME"
 run_pre_push_checks
 
 if [[ "$(git -C "$ROOT_DIR" rev-parse HEAD)" != "$release_head_commit" ]]; then

@@ -1,0 +1,16 @@
+{
+  "gradle_args": ["--no-configuration-cache"],
+  "groups": [
+    {
+      "tasks": [
+        ":magisk-ui-kit:compileAndroidMain",
+        ":magisk-ui-kit:compileKotlinJvm",
+        ":magisk-xposed-kit:compileDebugKotlin",
+        ":manager:ui:compileGithubDebugKotlin",
+        ":manager:ui:compilePlayDebugKotlin",
+        ":xmsf:compileNormalDebugKotlin",
+        ":mipush:compileGithubDebugKotlin"
+      ]
+    }
+  ]
+}

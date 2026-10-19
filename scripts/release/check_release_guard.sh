@@ -2,14 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
 TOOLKIT_SCRIPT="${TOOLKIT_DIR}/release/check_release_guard.sh"
+export MAGISK_RELEASE_POLICY_FILE="$ROOT_DIR/scripts/config/release-policy.json"
+POLICY_FILE="$ROOT_DIR/scripts/config/release-policy.json"
+[[ -f "$POLICY_FILE" ]] || { echo "ERROR: release policy is missing: $POLICY_FILE" >&2; exit 1; }
 
 # MiPushFramework configuration
 TAG_NAME="${1:-}"
 
-"$SCRIPT_DIR/check_release_tag_push_contract.sh"
+"$ROOT_DIR/scripts/release/check_release_tag_push_contract.sh"
 
 check_non_ascii_subject_allowlist() {
   local release_commit="HEAD"

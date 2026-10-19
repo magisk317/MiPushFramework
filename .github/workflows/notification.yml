@@ -32,6 +32,8 @@ jobs:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: a7b6ec3b80c7708e8ce0f18a24a3e3ce36a35cb8
 
       - name: Prepare GitHub release notes
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.name == 'Release' && startsWith(github.event.workflow_run.head_branch, 'v')
@@ -39,7 +41,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.event.workflow_run.head_branch }}
           MAGISK_RELEASE_NOTES_FILE: release-notes-github.md
           MAGISK_RELEASE_PLATFORM: github
-        run: scripts/publish_mipush_release.sh release-notes
+        run: scripts/release/publish_mipush_release.sh release-notes
 
       - name: Download artifacts
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'beta'

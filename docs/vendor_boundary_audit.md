@@ -9,7 +9,7 @@
 ## 审计范围
 
 `vendor/src/main/java/` 中所有 `io.github.magisk317.` 引用（当前共 82 条：17 条 import
-与 65 条行内全限定引用/typealias 表/文档注释行，由 `scripts/vendor_boundary_baseline.txt`
+与 65 条行内全限定引用/typealias 表/文档注释行，由 `scripts/config/vendor_boundary_baseline.txt`
 维护，必须保持无新增）。自 2026-09-12 起，扫描器对整行任意位置的 FQCN 生效（不再仅匹配
 `^import`），行内 plan 委托与 typealias 桥接表对“拒绝新增”检查可见，详见下文 D1 章节。
 
@@ -76,7 +76,7 @@ import debt；baseline 不是允许新增 product 行为的豁免列表。
 
 ### 扫描器行为变更
 
-`scripts/verify_module_boundaries.sh` vendor 检查的匹配模式由 `^import io\.github\.magisk317\.`
+`scripts/checks/verify_module_boundaries.sh` vendor 检查的匹配模式由 `^import io\.github\.magisk317\.`
 放宽为整行任意位置匹配 `io\.github\.magisk317\.`（扫描根 `vendor/src/main`，入库行去除前导
 空白）。注释与字符串行保持在扫描范围内，与既有 baseline 的文档行处理一致。此次扩展一次性入账
 65 条既有 sanctioned 引用（baseline 类别 5-7），此后同类新增将被拒绝。

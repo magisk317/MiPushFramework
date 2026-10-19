@@ -219,13 +219,13 @@ tasks.register("qualityGateKover") {
 tasks.register<Exec>("verifyModuleBoundaries") {
     group = "verification"
     description = "Fail when UI/settings code adds new direct imports of deep Xiaomi runtime/protocol types."
-    commandLine("bash", "scripts/verify_module_boundaries.sh")
+    commandLine("bash", "scripts/checks/verify_module_boundaries.sh")
 }
 
 tasks.register<Exec>("verifyCiToolkitRef") {
     group = "verification"
     description = "Verify all magisk-ci-toolkit references remain pinned to one full SHA."
-    commandLine("bash", "scripts/checks/verify_ci_toolkit_ref.sh")
+    commandLine("bash", "${System.getenv("MAGISK_CI_TOOLKIT_DIR") ?: ".magisk-ci-toolkit"}/ci/verify_toolkit_pin.sh", "--root", project.projectDir.absolutePath)
 }
 
 tasks.register<Exec>("reportGodFiles") {

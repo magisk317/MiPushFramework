@@ -1,0 +1,10 @@
+{
+  "version_file": "gradle/libs.versions.toml",
+  "changelog_file": "docs/CHANGELOG.md",
+  "require_changelog": true,
+  "require_versioncode_increment": true,
+  "require_readme_badges": true,
+  "require_tag_match": true,
+  "allow_non_ascii_commit_subject": true,
+  "project_checks": ["check_release_tag_push_contract", "check_zygisk_version_sync"]
+}

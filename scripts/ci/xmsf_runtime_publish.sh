@@ -15,6 +15,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TOOLKIT_DIR="${MAGISK_CI_TOOLKIT_DIR:-$(bash "$ROOT_DIR/scripts/resolve_ci_toolkit.sh")}"
+source "$TOOLKIT_DIR/ci/gitlab_api.sh"
 TMP_FILES=()
 TMP_DIRS=()
 
@@ -91,14 +93,7 @@ require_supported_env() {
   fi
 }
 
-gitlab_curl() {
-  local token="${GITLAB_TOKEN:-${CI_JOB_TOKEN:-}}"
-  if [[ -z "$token" ]]; then
-    echo "ERROR: neither GITLAB_TOKEN nor CI_JOB_TOKEN is set" >&2
-    return 1
-  fi
-  curl --silent --show-error --location --header "PRIVATE-TOKEN: ${token}" "$@"
-}
+gitlab_curl() { gitlab_api_curl_url "$@"; }
 
 find_aapt2() {
   local candidate
