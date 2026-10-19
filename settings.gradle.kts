@@ -4,12 +4,6 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven {
-            url = uri("https://jitpack.io")
-            content {
-                includeGroupByRegex("com\\.github\\..*")
-            }
-        }
     }
 }
 
@@ -30,6 +24,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
+            name = "JitPack"
             url = uri("https://jitpack.io")
             content {
                 includeGroupByRegex("com\\.github\\..*")
