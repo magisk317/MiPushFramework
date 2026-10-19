@@ -471,7 +471,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
             itemOrder = listOf(
                 RuntimeLogDiagnosticsItem.SHARE_LOG,
-                RuntimeLogDiagnosticsItem.VERBOSE_LOG,
                 RuntimeLogDiagnosticsItem.RETENTION,
                 RuntimeLogDiagnosticsItem.CLEAR_LOG,
                 RuntimeLogDiagnosticsItem.ANALYTICS,

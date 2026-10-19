@@ -146,7 +146,7 @@ class PreferenceRepository constructor(
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
     val isLogSanitizationEnabled: Flow<Boolean> = dataStore.data.map { it[LOG_SANITIZATION_ENABLED] ?: false }
-    val isAnalyticsEnabled: Flow<Boolean> = dataStore.data.map { it[ENABLE_ANALYTICS] ?: false }
+    val isAnalyticsEnabled: Flow<Boolean> = dataStore.data.map { it[ENABLE_ANALYTICS] ?: true }
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
     val startPushAsForegroundService: Flow<Boolean> = dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }

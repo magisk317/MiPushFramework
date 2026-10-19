@@ -79,7 +79,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         )
         XLog.configure(
             tag = "mipush",
-            logLevel = if (BuildConfig.DEBUG) Log.DEBUG else Log.INFO,
+            logLevel = if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) Log.DEBUG else Log.INFO,
             logToXposed = false,
             defaultRoute = "hook",
             sink = LogSink { event ->

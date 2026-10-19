@@ -38,6 +38,7 @@ object LogBundleExporter {
     private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
     private const val DEFAULT_HASH_BUFFER_SIZE = 64 * 1024
     private const val PRIVATE_LOG_DIR_NAME = "log"
+    const val BLOCK_REASON_NEED_ROOT = "uikit_log_export_need_root"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
@@ -86,10 +87,14 @@ object LogBundleExporter {
         rootCommandAccess = DefaultRootCommandAccess
     }
 
+    fun checkPreExport(): String? =
+        if (!AppRootAccessFacade.refreshRootAccessIfGranted()) BLOCK_REASON_NEED_ROOT else null
+
     fun buildLogBundle(
         context: Context,
         mode: DiagnosticExportMode,
     ): ExportResult = synchronized(opLock) {
+        checkPreExport()?.let { reason -> return@synchronized ExportResult(file = null, details = reason) }
         val exportStarted = SystemClock.elapsedRealtime()
         val now = Date()
         val timestamp = LogUtils.dateInfo(now)
