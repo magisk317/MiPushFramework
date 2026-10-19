@@ -1,5 +1,6 @@
 plugins {
     id("magisk.android.library")
+    id("magisk.android.distribution")
     id("magisk.android.compose")
     alias(libs.plugins.kotlin.serialization)
 }
@@ -9,19 +10,6 @@ android {
 
     defaultConfig {
         missingDimensionStrategy("version", "normal")
-    }
-
-    flavorDimensions += "distribution"
-
-    productFlavors {
-        create("play") {
-            dimension = "distribution"
-            buildConfigField("boolean", "HAS_BILLING", "true")
-        }
-        create("github") {
-            dimension = "distribution"
-            buildConfigField("boolean", "HAS_BILLING", "false")
-        }
     }
 
     buildFeatures {
