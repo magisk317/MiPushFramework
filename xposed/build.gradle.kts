@@ -140,6 +140,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":core"))
     api(project(":magisk-xposed-kit"))
+    implementation(project(":magisk-xposed-kit:keepalive"))
     compileOnly(libs.libxposed.api)
     implementation(libs.hyperisland.kit) {
         exclude(group = "androidx.appcompat", module = "appcompat")

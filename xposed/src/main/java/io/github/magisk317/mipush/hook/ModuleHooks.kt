@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.hook.fakedevice.FakeDeviceHook
 import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
 import io.github.magisk317.mipush.hook.island.IslandPreferences
-import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
+import io.github.magisk317.mipush.hook.keepalive.XmsfKeepAliveHook
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolicy
@@ -56,7 +56,7 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     override val hooks: List<BaseHook> = listOf(
         HookSystemService(),
-        KeepAliveHook(),
+        XmsfKeepAliveHook(),
         HookSystemUI(),
         SecurityCoreXSpaceMiPushHook(),
         DocumentsUiXSpaceHook(),
