@@ -15,7 +15,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
@@ -58,7 +57,6 @@ internal object ManagerRuntimePreferenceCommandSupport {
             KEEPALIVE_PREF_OOM_ADJ -> preferenceRepository.setKeepAliveOomAdj(enabled)
             KEEPALIVE_PREF_ANTI_KILL -> preferenceRepository.setKeepAliveAntiKill(enabled)
             KEEPALIVE_PREF_STANDBY_BYPASS -> preferenceRepository.setKeepAliveStandbyBypass(enabled)
-            KEEPALIVE_PREF_DOZE_BYPASS -> preferenceRepository.setKeepAliveDozeBypass(enabled)
             FREEZE_PREF_ENABLED -> preferenceRepository.setFreezeEnabled(enabled)
             ISLAND_PREF_ENABLED -> preferenceRepository.setIslandEnabled(enabled)
             ISLAND_PREF_FIRST_FLOAT -> preferenceRepository.setIslandFirstFloat(enabled)
@@ -125,7 +123,7 @@ internal object ManagerRuntimePreferenceCommandSupport {
         COLOR_STATUS_BAR_ICON_KEY, COLOR_STATUS_BAR_ICON_GLOBAL_KEY, "debug_mode",
         LOG_SANITIZATION_ENABLED_KEY, ENABLE_ANALYTICS_KEY, "show_all_events", "start_foreground",
         "start_push_as_foreground_service", KEEPALIVE_PREF_OOM_ADJ, KEEPALIVE_PREF_ANTI_KILL,
-        KEEPALIVE_PREF_STANDBY_BYPASS, KEEPALIVE_PREF_DOZE_BYPASS, ISLAND_PREF_ENABLED,
+        KEEPALIVE_PREF_STANDBY_BYPASS, ISLAND_PREF_ENABLED,
         ISLAND_PREF_FIRST_FLOAT, ISLAND_PREF_ENABLE_FLOAT, ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, ISLAND_PREF_FOCUS_NOTIF, FREEZE_PREF_ENABLED,
     )

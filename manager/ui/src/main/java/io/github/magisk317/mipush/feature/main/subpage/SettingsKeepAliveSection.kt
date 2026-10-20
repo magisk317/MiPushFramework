@@ -34,7 +34,6 @@ internal fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: App
     val keepAliveOomAdj by viewModel.keepAliveOomAdj.collectAsStateWithLifecycle()
     val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
     val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
-    val keepAliveDozeBypass by viewModel.keepAliveDozeBypass.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     val lifecycleOwner = LocalLifecycleOwner.current
     var accessibilityStatusRefresh by remember { mutableIntStateOf(0) }
@@ -96,17 +95,6 @@ internal fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: App
         ) { enabled ->
             viewModel.setKeepAliveStandbyBypass(enabled) { success ->
                 showSwitchFeedback(keepAliveStandbyBypassTitle, enabled, success)
-            }
-        }
-
-        val keepAliveDozeBypassTitle = stringResource(R.string.pref_keepalive_doze_bypass_title)
-        SettingsSwitchItem(
-            title = keepAliveDozeBypassTitle,
-            summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
-            checked = keepAliveDozeBypass,
-        ) { enabled ->
-            viewModel.setKeepAliveDozeBypass(enabled) { success ->
-                showSwitchFeedback(keepAliveDozeBypassTitle, enabled, success)
             }
         }
 

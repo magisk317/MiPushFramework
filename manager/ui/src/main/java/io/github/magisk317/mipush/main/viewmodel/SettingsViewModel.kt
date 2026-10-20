@@ -19,7 +19,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
@@ -114,9 +113,6 @@ class SettingsViewModel constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val keepAliveStandbyBypass: StateFlow<Boolean> = preferenceRepository.keepAliveStandbyBypass
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val freezeEnabled: StateFlow<Boolean> = preferenceRepository.freezeEnabled
@@ -321,9 +317,6 @@ class SettingsViewModel constructor(
 
     fun setKeepAliveStandbyBypass(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(KEEPALIVE_PREF_STANDBY_BYPASS, value, onResult)
-
-    fun setKeepAliveDozeBypass(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(KEEPALIVE_PREF_DOZE_BYPASS, value, onResult)
 
     fun setFreezeEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(FREEZE_PREF_ENABLED, value, onResult)

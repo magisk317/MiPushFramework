@@ -13,7 +13,6 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_KEY
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
@@ -51,7 +50,6 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
         KEEPALIVE_PREF_OOM_ADJ,
         KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS,
-        KEEPALIVE_PREF_DOZE_BYPASS,
     )
 
     private val lock = Any()
@@ -226,7 +224,6 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
                 oomAdj = values.getValue(KEEPALIVE_PREF_OOM_ADJ),
                 antiKill = values.getValue(KEEPALIVE_PREF_ANTI_KILL),
                 standbyBypass = values.getValue(KEEPALIVE_PREF_STANDBY_BYPASS),
-                dozeBypass = values.getValue(KEEPALIVE_PREF_DOZE_BYPASS),
             )
         }.onSuccess { updated ->
             val previous = snapshot
@@ -235,8 +232,7 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
                 XLog.i(
                     TAG,
                     "keepalive preferences ready=true oom=${updated.oomAdj} " +
-                        "antiKill=${updated.antiKill} standby=${updated.standbyBypass} " +
-                        "doze=${updated.dozeBypass}",
+                        "antiKill=${updated.antiKill} standby=${updated.standbyBypass} ",
                 )
             }
         }.onFailure {

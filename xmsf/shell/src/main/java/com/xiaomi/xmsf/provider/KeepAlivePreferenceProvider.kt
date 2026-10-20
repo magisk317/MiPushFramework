@@ -12,7 +12,6 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_KEY
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
@@ -26,7 +25,6 @@ class KeepAlivePreferenceProvider : ContentProvider() {
         KEEPALIVE_PREF_OOM_ADJ,
         KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS,
-        KEEPALIVE_PREF_DOZE_BYPASS,
     )
 
     override fun onCreate(): Boolean = true
@@ -54,7 +52,6 @@ class KeepAlivePreferenceProvider : ContentProvider() {
                 KEEPALIVE_PREF_OOM_ADJ to snapshot.oomAdj,
                 KEEPALIVE_PREF_ANTI_KILL to snapshot.antiKill,
                 KEEPALIVE_PREF_STANDBY_BYPASS to snapshot.standbyBypass,
-                KEEPALIVE_PREF_DOZE_BYPASS to snapshot.dozeBypass,
             )
             requestedKeys.forEach { key ->
                 addRow(arrayOf<Any>(key, if (flags[key] == true) 1 else 0))
