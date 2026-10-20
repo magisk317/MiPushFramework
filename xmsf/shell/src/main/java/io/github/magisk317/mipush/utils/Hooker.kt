@@ -8,6 +8,7 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.hook.XMPushServerProvider
@@ -138,7 +139,13 @@ object Hooker {
 
     private fun initMiSdkLogger(logger: LoggerInterface) {
         MyLog.setLogger(logger)
-        MyLog.setLogLevel(MyLog.INFO)
+        // MyLog thresholds by verbosity, inverted from the Android constants: INFO(0) lets
+        // everything through while WARN(2) is the class default. Stay consistent with the
+        // kit XLog pipeline configured in ModuleHooks - verbose on CI/debug, quiet on
+        // formal releases - instead of forcing full verbosity for every build.
+        MyLog.setLogLevel(
+            if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) MyLog.INFO else MyLog.WARN,
+        )
     }
 
     private const val TAG = "PushCore"

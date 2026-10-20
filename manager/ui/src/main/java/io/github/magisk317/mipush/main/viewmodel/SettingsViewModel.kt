@@ -570,6 +570,15 @@ class SettingsViewModel constructor(
      * Binder export starts, leaving that document at zero bytes. This scope outlives the screen;
      * its supervisor job isolates this one export from other work in the Manager process.
      */
+    /**
+     * Whether the device satisfies the log-export root gate.
+     *
+     * The bundle pulls module log dirs under /data, so a non-root device would run the
+     * whole foreground export only to fail at the very end. Ask first and explain why,
+     * rather than handing the user a document picker they cannot complete.
+     */
+    suspend fun hasExportRootAccess(): Boolean = permissionGateway.refreshRootAccessIfGranted()
+
     fun saveRuntimeLogBundle(
         context: android.content.Context,
         destination: android.net.Uri,

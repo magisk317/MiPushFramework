@@ -5,7 +5,10 @@
 ---
 ## [v1.1.1] - Unreleased
 - 版本：`versionCode 20` / `versionName 1.1.1`。
-- 下一轮开发占位，发布前补充具体变更。
+- `[fix]` 导出日志前先做 root 预检，提示本地化的「需要 root 权限」，不再把未翻译的资源名显示给用户。
+- `[fix]` 日志脱敏改为随构建派生（CI/调试明文、正式版脱敏），此前依赖偏好项且默认为关闭，正式版可能明文输出。
+- `[fix]` vendor logger 级别改为随构建派生，正式版回到 WARN 阈值而非全量输出。
+- `[docs]` 子模块 pin 矩阵对齐实况；README 补充导出需 root 的前提。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.0...v1.1.1
 
