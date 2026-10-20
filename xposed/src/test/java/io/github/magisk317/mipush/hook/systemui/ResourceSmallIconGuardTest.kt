@@ -798,7 +798,7 @@ class ResourceSmallIconGuardTest {
     }
 
     @Test
-    fun `substituted glyph or grayscale resource is tinted under global monochrome`() {
+    fun `substituted glyph is tinted while a monochrome resource keeps the native tint`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
                 colorStatusBarIcon = false,
@@ -812,7 +812,7 @@ class ResourceSmallIconGuardTest {
             ),
             "Icon-pack bitmaps and white silhouettes are already monochrome and must be tinted.",
         )
-        assertTrue(
+        assertFalse(
             SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
                 colorStatusBarIcon = false,
                 forceGlobalStatusBarIcons = true,
@@ -824,7 +824,7 @@ class ResourceSmallIconGuardTest {
                 hasSubstitutedGlyph = false,
                 hasMonochromeResource = true,
             ),
-            "A positively detected grayscale resource stays white via the tint.",
+            "A grayscale resource is already status-bar ready and is left to SystemUI tinting.",
         )
     }
 
@@ -874,7 +874,7 @@ class ResourceSmallIconGuardTest {
     }
 
     @Test
-    fun `pure system uid is tinted only for a monochrome resource`() {
+    fun `pure system uid keeps OEM rendering even for a monochrome resource`() {
         val systemBase = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
             colorStatusBarIcon = false,
             forceGlobalStatusBarIcons = true,
@@ -887,7 +887,7 @@ class ResourceSmallIconGuardTest {
             hasMonochromeResource = false,
         )
         assertFalse(systemBase, "OEM rendering of a system uid glyph must be preserved.")
-        assertTrue(
+        assertFalse(
             SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
                 colorStatusBarIcon = false,
                 forceGlobalStatusBarIcons = true,
@@ -899,6 +899,7 @@ class ResourceSmallIconGuardTest {
                 hasSubstitutedGlyph = false,
                 hasMonochromeResource = true,
             ),
+            "A monochrome resource defers to SystemUI even for a system uid.",
         )
     }
 
