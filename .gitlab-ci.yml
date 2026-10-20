@@ -569,7 +569,8 @@ android:shared-compat:
   before_script:
     - !reference [.magisk_android_base, before_script]
   script:
-    - bash "$MAGISK_CI_TOOLKIT_DIR/gradle/verify_consumer_compat.sh" \
+    - |
+      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/verify_consumer_compat.sh" \
         --root "$CI_PROJECT_DIR" \
         --config "$CI_PROJECT_DIR/scripts/config/compat-check.json" \
         --toolkit "$MAGISK_CI_TOOLKIT_DIR"
