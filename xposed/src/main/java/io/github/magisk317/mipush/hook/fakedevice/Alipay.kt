@@ -16,6 +16,8 @@ class Alipay : Common() {
             "com.alipay.mobile.common.netsdkextdependapi.beaninfo.BeanInfoManagerFactory"
         private const val BEAN_INFO_MANAGER_CLASS =
             "com.alipay.mobile.common.netsdkextdependapi.beaninfo.BeanInfoManager"
+        private const val APUI_MANAGER_LEGACY_CLASS =
+            "com.alipay.mobile.common.netsdkextdepend.p162ui.DefaultAPUIManager"
 
         /**
          * This is the mapping assembled by the newer DefaultBeanInfoManager. The idlefish
@@ -90,6 +92,8 @@ class Alipay : Common() {
         val factoryClass = lpparam.classLoader.findClass(BEAN_INFO_MANAGER_FACTORY_CLASS)
         val managerClass = lpparam.classLoader.findClass(BEAN_INFO_MANAGER_CLASS)
         val classLoader = managerClass.classLoader ?: lpparam.classLoader
+        val beanClassNames =
+            FALLBACK_BEAN_CLASS_NAMES + ("APUIManager" to apuiManagerClassName(classLoader))
 
         factoryClass.hookMethod("newDefaultBean") {
             replace {
@@ -100,7 +104,7 @@ class Alipay : Common() {
                         when (method.name) {
                             "getBeanClassName" -> {
                                 val key = args?.firstOrNull() as? String
-                                FALLBACK_BEAN_CLASS_NAMES[key]
+                                beanClassNames[key]
                             }
                             "toString" -> "MiPushAlipayBeanInfoManagerFallback"
                             "hashCode" -> System.identityHashCode(this)
@@ -114,6 +118,19 @@ class Alipay : Common() {
             }
         }
         XLog.i(TAG, "BeanInfoManagerFactory.newDefaultBean hook installed")
+    }
+
+    /**
+     * Newer SDKs ship the relocated `ui` package, older generations the obfuscated `p162ui`
+     * one. Pick whichever the target APK has so the schema fallback keeps working for both.
+     */
+    private fun apuiManagerClassName(classLoader: ClassLoader): String {
+        val candidates = listOf(
+            FALLBACK_BEAN_CLASS_NAMES.getValue("APUIManager"),
+            APUI_MANAGER_LEGACY_CLASS,
+        )
+        return candidates.firstOrNull { runCatching { classLoader.findClass(it) }.isSuccess }
+            ?: candidates.first()
     }
 
     /**
