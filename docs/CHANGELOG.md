@@ -9,6 +9,7 @@
 - `[fix]` 日志脱敏改为随构建派生（CI/调试明文、正式版脱敏），此前依赖偏好项且默认为关闭，正式版可能明文输出。
 - `[fix]` vendor logger 级别改为随构建派生，正式版回到 WARN 阈值而非全量输出。
 - `[docs]` 子模块 pin 矩阵对齐实况；README 补充导出需 root 的前提。
+- `[feat]` 导出包补「构建身份戳」：`app/log/runtime_summary.json` 记录 package/version/channel/commit/CI 标记及各包 apkSha256，与 XSC、xinyi-relay 的 runtime_summary.json 对齐。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.0...v1.1.1
 

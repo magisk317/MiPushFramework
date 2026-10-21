@@ -17,7 +17,10 @@ import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.Constants
+import org.json.JSONArray
+import org.json.JSONObject
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -39,6 +42,7 @@ object LogBundleExporter {
     private const val DEFAULT_HASH_BUFFER_SIZE = 64 * 1024
     private const val PRIVATE_LOG_DIR_NAME = "log"
     const val BLOCK_REASON_NEED_ROOT = "uikit_log_export_need_root"
+    private const val RUNTIME_SUMMARY_FILE_NAME = "runtime_summary.json"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
@@ -155,18 +159,12 @@ object LogBundleExporter {
         details: MutableList<String>,
         mode: DiagnosticExportMode,
     ) {
-        appendPackageIdentity(
-            context = context,
-            details = details,
-            label = "manager/module",
-            packageName = Constants.MANAGER_APP_NAME,
+        val identities = listOf(
+            readPackageIdentity(context, "manager/module", Constants.MANAGER_APP_NAME),
+            readPackageIdentity(context, "xmsf host", Constants.SERVICE_APP_NAME),
         )
-        appendPackageIdentity(
-            context = context,
-            details = details,
-            label = "xmsf host",
-            packageName = Constants.SERVICE_APP_NAME,
-        )
+        identities.forEach { details += it.toSummaryLine() }
+        writeRuntimeLogSummaryFile(context, stagingDir, details, identities)
         val safeDetails = Collections.synchronizedList(details)
         val workers = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(6)
         val pool = Executors.newFixedThreadPool(workers)
@@ -423,26 +421,108 @@ object LogBundleExporter {
         }
     }
 
-    private fun appendPackageIdentity(
+    private data class PackageIdentity(
+        val label: String,
+        val packageName: String,
+        val versionName: String,
+        val versionCode: String,
+        val apkPath: String,
+        val apkSha256: String,
+    ) {
+        fun toSummaryLine(): String = "$label package=$packageName versionName=$versionName " +
+            "versionCode=$versionCode apkPath=${apkPath.ifBlank { "unavailable" }} " +
+            "apkSha256=$apkSha256"
+
+        fun toJson(): JSONObject = JSONObject()
+            .put("label", label)
+            .put("packageName", packageName)
+            .put("versionName", versionName)
+            .put("versionCode", versionCode)
+            .put("apkPath", apkPath.ifBlank { "unavailable" })
+            .put("apkSha256", apkSha256)
+    }
+
+    private fun readPackageIdentity(
         context: Context,
-        details: MutableList<String>,
         label: String,
         packageName: String,
-    ) {
+    ): PackageIdentity {
         val packageInfo = try {
             context.packageManager.getPackageInfo(packageName, 0)
         } catch (error: Exception) {
-            details += "$label package=$packageName status=unavailable " +
-                "error=${error.javaClass.simpleName}"
-            return
+            return PackageIdentity(
+                label = label,
+                packageName = packageName,
+                versionName = "unavailable",
+                versionCode = "unavailable",
+                apkPath = "",
+                apkSha256 = "unavailable:${error.javaClass.simpleName}",
+            )
         }
         val apkPath = packageInfo.applicationInfo?.sourceDir.orEmpty()
-        val apkSha256 = sha256FileOrUnavailable(apkPath)
-        details += "$label package=$packageName " +
-            "versionName=${packageInfo.versionName.orEmpty()} " +
-            "versionCode=${packageInfo.longVersionCode} " +
-            "apkPath=${apkPath.ifBlank { "unavailable" }} " +
-            "apkSha256=$apkSha256"
+        return PackageIdentity(
+            label = label,
+            packageName = packageName,
+            versionName = packageInfo.versionName.orEmpty().ifBlank { "unavailable" },
+            versionCode = packageInfo.longVersionCode.toString(),
+            apkPath = apkPath,
+            apkSha256 = sha256FileOrUnavailable(apkPath),
+        )
+    }
+
+    /**
+     * Record which build produced this bundle, mirroring the runtime_summary.json that
+     * smscode-core writes for XSC and xinyi-relay, so a report handed over from a
+     * hand-built install can be told apart from a distributed release.
+     */
+    private fun writeRuntimeLogSummaryFile(
+        context: Context,
+        stagingDir: File,
+        details: MutableList<String>,
+        identities: List<PackageIdentity>,
+    ) {
+        runCatching {
+            val summary = LogUtils.summarizeFiles(context)
+            val channel = com.xiaomi.xmsf.BuildConfig.FLAVOR
+            val files = JSONArray()
+            summary.files.forEach { file ->
+                files.put(
+                    JSONObject()
+                        .put("name", file.name)
+                        .put("sizeBytes", file.sizeBytes)
+                        .put("lineCount", file.lineCount)
+                        .put("firstTimestamp", file.firstTimestamp ?: JSONObject.NULL)
+                        .put("lastTimestamp", file.lastTimestamp ?: JSONObject.NULL),
+                )
+            }
+            val packages = JSONArray()
+            identities.forEach { packages.put(it.toJson()) }
+            val payload = JSONObject()
+                .put("packageName", BuildConfig.APPLICATION_ID)
+                .put("versionName", BuildConfig.VERSION_NAME)
+                .put("versionCode", BuildConfig.VERSION_CODE.toString())
+                .put("distributionChannel", channel)
+                .put("commitSha", BuildConfig.GIT_COMMIT)
+                .put("isCiBuild", BuildConfig.IS_CI_BUILD)
+                .put("fileCount", summary.fileCount)
+                .put("totalBytes", summary.totalBytes)
+                .put("entryCount", summary.entryCount)
+                .put("firstTimestamp", summary.firstTimestamp ?: JSONObject.NULL)
+                .put("lastTimestamp", summary.lastTimestamp ?: JSONObject.NULL)
+                .put("files", files)
+                .put("packages", packages)
+            val target = File(stagingDir, "app/log")
+            target.mkdirs()
+            File(target, RUNTIME_SUMMARY_FILE_NAME).writeText(payload.toString(2))
+            details += "app package=${BuildConfig.APPLICATION_ID} " +
+                "versionName=${BuildConfig.VERSION_NAME} " +
+                "versionCode=${BuildConfig.VERSION_CODE} " +
+                "distributionChannel=$channel " +
+                "commitSha=${BuildConfig.GIT_COMMIT} " +
+                "apkSha256=${identities.firstOrNull()?.apkSha256 ?: "unavailable"}"
+        }.onFailure { error ->
+            logW("LogBundleExporter runtime summary unavailable: ${error.javaClass.simpleName}")
+        }
     }
 
     private fun sha256FileOrUnavailable(path: String): String {
