@@ -25,7 +25,8 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.AUTO_UPDATE_ON_START_KEY
@@ -47,7 +48,8 @@ data class IslandSettingsSnapshot(
     val showOriginalNotification: Boolean,
     val focusNotification: Boolean,
     val colorStatusBarIcon: Boolean,
-    val colorStatusBarIconGlobal: Boolean,
+    val thirdPartyIconPack: Boolean,
+    val systemAppIconPack: Boolean,
     val dualAppEnabled: Boolean,
     val logSanitizationEnabled: Boolean,
 )
@@ -133,7 +135,8 @@ class PreferenceRepository constructor(
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
     private val CONFIG_REMOTE_ACCELERATOR = stringPreferencesKey("config_remote_accelerator")
     private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
-    private val COLOR_STATUS_BAR_ICON_GLOBAL = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_GLOBAL_KEY)
+    private val THIRD_PARTY_ICON_PACK = booleanPreferencesKey(THIRD_PARTY_ICON_PACK_KEY)
+    private val SYSTEM_APP_ICON_PACK = booleanPreferencesKey(SYSTEM_APP_ICON_PACK_KEY)
     private val DUAL_APP_ENABLED = booleanPreferencesKey(DUAL_APP_ENABLED_KEY)
     private val LAST_WELCOME_NOTIFIED_UPDATE_TIME = longPreferencesKey("last_welcome_notified_update_time")
 
@@ -165,7 +168,8 @@ class PreferenceRepository constructor(
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
     val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: false }
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
-    val colorStatusBarIconGlobal: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON_GLOBAL] ?: true }
+    val thirdPartyIconPack: Flow<Boolean> = dataStore.data.map { it[THIRD_PARTY_ICON_PACK] ?: true }
+    val systemAppIconPack: Flow<Boolean> = dataStore.data.map { it[SYSTEM_APP_ICON_PACK] ?: true }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
 
     suspend fun keepAliveSettingsSnapshot(): KeepAliveSettingsSnapshot {
@@ -356,8 +360,12 @@ class PreferenceRepository constructor(
         dataStore.edit { it[COLOR_STATUS_BAR_ICON] = enable }
     }
 
-    suspend fun setColorStatusBarIconGlobal(enable: Boolean) {
-        dataStore.edit { it[COLOR_STATUS_BAR_ICON_GLOBAL] = enable }
+    suspend fun setThirdPartyIconPack(enable: Boolean) {
+        dataStore.edit { it[THIRD_PARTY_ICON_PACK] = enable }
+    }
+
+    suspend fun setSystemAppIconPack(enable: Boolean) {
+        dataStore.edit { it[SYSTEM_APP_ICON_PACK] = enable }
     }
 
     suspend fun setDualAppEnabled(enabled: Boolean) {
@@ -590,7 +598,8 @@ class PreferenceRepository constructor(
         showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
         focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
         colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
-        colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
+        thirdPartyIconPack = preferences[THIRD_PARTY_ICON_PACK] ?: true,
+        systemAppIconPack = preferences[SYSTEM_APP_ICON_PACK] ?: true,
         dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
         logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
     )

@@ -1,7 +1,8 @@
 package io.github.magisk317.mipush.data
 
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
@@ -105,8 +106,13 @@ object PreferenceOwnership {
             false,
         ),
         runtimeBoolean(
-            COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
-            "Global status bar icon color",
+            THIRD_PARTY_ICON_PACK_KEY,
+            "Third-party app icon-pack status icons",
+            true,
+        ),
+        runtimeBoolean(
+            SYSTEM_APP_ICON_PACK_KEY,
+            "System app icon-pack status icons",
             true,
         ),
         runtimeInt("runtime_log_retention_days", "Runtime log retention", 2),

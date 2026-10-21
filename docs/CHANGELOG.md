@@ -5,10 +5,15 @@
 ---
 ## [v1.1.1] - Unreleased
 - 版本：`versionCode 20` / `versionName 1.1.1`。
-- `[log]` 日志策略改由 `magisk-xposed-kit` 按构建类型判定：发行构建脱敏且只导出有界内容，debug/CI 构建不脱敏并尽量采集 LSPosed 日志、全量 logcat 与 root 诊断。
-- `[log]` 导出模式不再读取设置项偏好，避免旧偏好让发行版继续采集明文；调试开关只能提高脱敏，不能取消它。
+- `[log]` 日志策略改由 `magisk-xposed-kit` 按构建类型判定：发行构建脱敏且只导出有界内容，debug/CI 构建不脱敏并尽量采集 LSPosed 日志、全量 logcat 与 root 诊断；此前的偏好项默认关闭，正式版可能明文输出，现已随构建派生。
+- `[log]` 导出模式不再读取设置项偏好，调试开关只能提高脱敏，不能取消它。
 - `[log]` 归档名、暂存目录与私有导出目录统一由产品名 `mipush` 派生，管理端与运行时共用一个日志包，旧 `xmsf_logs` 目录纳入清理。
 - `[log]` 日志保留天数默认 2 天并取子模块常量，崩溃文件改由子模块写入者落盘，导出包 `crash/` 不再为空。
+- `[fix]` 导出日志前先做 root 预检，提示本地化的「需要 root 权限」，不再把未翻译的资源名显示给用户。
+- `[fix]` vendor logger 级别改为随构建派生，正式版回到 WARN 阈值而非全量输出。
+- `[docs]` 子模块 pin 矩阵对齐实况；README 补充导出需 root 的前提。
+- `[feat]` 导出包补「构建身份戳」：`app/log/runtime_summary.json` 记录 package/version/channel/commit/CI 标记及各包 apkSha256，字段取自子模块的同一身份对象，与 XSC、xinyi-relay 的 runtime_summary.json 对齐。
+- `[fix]` `build-logic`、`magisk-ui-kit` 子模块指针此前指向 2026-10-13 历史重写前的旧 lineage（缺 `magisk.android.distribution` 插件），现回到各自 main 现役 lineage。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.0...v1.1.1
 

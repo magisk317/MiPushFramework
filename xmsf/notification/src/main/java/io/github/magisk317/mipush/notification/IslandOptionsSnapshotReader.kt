@@ -138,7 +138,8 @@ object IslandOptionsSnapshotReader {
                 focusNotification = settings.focusNotification &&
                     (!packageScoped || appFocusNotification == true),
                 colorStatusBarIcon = settings.colorStatusBarIcon,
-                colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
+                thirdPartyIconPack = settings.thirdPartyIconPack,
+                systemAppIconPack = settings.systemAppIconPack,
                 dualAppEnabled = settings.dualAppEnabled,
             ),
             logSanitizationEnabled = settings.logSanitizationEnabled,

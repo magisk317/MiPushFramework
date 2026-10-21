@@ -40,7 +40,8 @@ import io.github.magisk317.uikit.text.AppText
 
 private data class PendingStatusBarToggle(
     val managed: Boolean? = null,
-    val global: Boolean? = null,
+    val thirdParty: Boolean? = null,
+    val systemApp: Boolean? = null,
     val title: String,
     val enabled: Boolean,
 )
@@ -52,13 +53,15 @@ fun StatusBarIconSettingsPage(
 ) {
     val context = LocalContext.current
     val monochromeStatusBarIcon by viewModel.monochromeStatusBarIcon.collectAsStateWithLifecycle()
-    val monochromeStatusBarIconGlobal by viewModel.monochromeStatusBarIconGlobal.collectAsStateWithLifecycle()
+    val thirdPartyIconPack by viewModel.thirdPartyIconPack.collectAsStateWithLifecycle()
+    val systemAppIconPack by viewModel.systemAppIconPack.collectAsStateWithLifecycle()
     val snackbarHostState = remember { AppSnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
     val scope = rememberCoroutineScope()
     val rebootFailedMessage = stringResource(R.string.pref_color_status_bar_icon_reboot_failed)
     val managedTitle = stringResource(R.string.pref_color_status_bar_icon_mipush_title)
-    val globalTitle = stringResource(R.string.pref_color_status_bar_icon_global_title)
+    val thirdPartyTitle = stringResource(R.string.pref_icon_pack_third_party_title)
+    val systemAppTitle = stringResource(R.string.pref_icon_pack_system_app_title)
     var pendingToggle by remember { mutableStateOf<PendingStatusBarToggle?>(null) }
 
     val body: @Composable (PaddingValues, Modifier) -> Unit = { listPadding, scrollModifier ->
@@ -66,9 +69,11 @@ fun StatusBarIconSettingsPage(
             listPadding = listPadding,
             scrollModifier = scrollModifier,
             monochromeStatusBarIcon = monochromeStatusBarIcon,
-            monochromeStatusBarIconGlobal = monochromeStatusBarIconGlobal,
+            thirdPartyIconPack = thirdPartyIconPack,
+            systemAppIconPack = systemAppIconPack,
             managedTitle = managedTitle,
-            globalTitle = globalTitle,
+            thirdPartyTitle = thirdPartyTitle,
+            systemAppTitle = systemAppTitle,
             onManagedToggle = { enabled ->
                 pendingToggle = PendingStatusBarToggle(
                     managed = enabled,
@@ -76,10 +81,17 @@ fun StatusBarIconSettingsPage(
                     enabled = enabled,
                 )
             },
-            onGlobalToggle = { enabled ->
+            onThirdPartyToggle = { enabled ->
                 pendingToggle = PendingStatusBarToggle(
-                    global = enabled,
-                    title = globalTitle,
+                    thirdParty = enabled,
+                    title = thirdPartyTitle,
+                    enabled = enabled,
+                )
+            },
+            onSystemAppToggle = { enabled ->
+                pendingToggle = PendingStatusBarToggle(
+                    systemApp = enabled,
+                    title = systemAppTitle,
                     enabled = enabled,
                 )
             },
@@ -114,7 +126,8 @@ fun StatusBarIconSettingsPage(
                         pendingToggle = null
                         viewModel.applyMonochromeStatusBarIconWithRestart(
                             managed = target.managed,
-                            global = target.global,
+                            thirdParty = target.thirdParty,
+                            systemApp = target.systemApp,
                             onPrepared = { success ->
                                 if (success) notifyStatusBarIconPreferenceChanged(context)
                                 showSwitchFeedback(target.title, target.enabled, success)
@@ -144,11 +157,14 @@ private fun StatusBarIconSettingsBody(
     listPadding: PaddingValues,
     scrollModifier: Modifier,
     monochromeStatusBarIcon: Boolean,
-    monochromeStatusBarIconGlobal: Boolean,
+    thirdPartyIconPack: Boolean,
+    systemAppIconPack: Boolean,
     managedTitle: String,
-    globalTitle: String,
+    thirdPartyTitle: String,
+    systemAppTitle: String,
     onManagedToggle: (Boolean) -> Unit,
-    onGlobalToggle: (Boolean) -> Unit,
+    onThirdPartyToggle: (Boolean) -> Unit,
+    onSystemAppToggle: (Boolean) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     SectionColumn(
@@ -182,16 +198,22 @@ private fun StatusBarIconSettingsBody(
                     onCheckedChange = onManagedToggle,
                 )
 
-                // The enhancement only exists on top of monochrome; the policy short-circuits
-                // it otherwise, so hide it instead of offering a switch that does nothing.
-                if (monochromeStatusBarIcon) {
-                    SettingsSwitchItem(
-                        title = globalTitle,
-                        summary = stringResource(R.string.pref_color_status_bar_icon_global_summary),
-                        checked = monochromeStatusBarIconGlobal,
-                        onCheckedChange = onGlobalToggle,
-                    )
-                }
+                // Product rule (2026-10): icon pack or native rendering. The two category
+                // switches gate icon-pack substitution only — a pack miss always falls back
+                // to the system's own rendering, which never paints a white block.
+                SettingsSwitchItem(
+                    title = thirdPartyTitle,
+                    summary = stringResource(R.string.pref_icon_pack_third_party_summary),
+                    checked = thirdPartyIconPack,
+                    onCheckedChange = onThirdPartyToggle,
+                )
+
+                SettingsSwitchItem(
+                    title = systemAppTitle,
+                    summary = stringResource(R.string.pref_icon_pack_system_app_summary),
+                    checked = systemAppIconPack,
+                    onCheckedChange = onSystemAppToggle,
+                )
             }
         }
     }

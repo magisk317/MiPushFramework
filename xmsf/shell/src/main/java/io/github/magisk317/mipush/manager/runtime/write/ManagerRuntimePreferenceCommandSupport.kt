@@ -4,7 +4,8 @@ import android.content.Context
 import android.content.Intent
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
@@ -44,7 +45,8 @@ internal object ManagerRuntimePreferenceCommandSupport {
         val enabled = request.booleanArgument
         when (key) {
             COLOR_STATUS_BAR_ICON_KEY -> preferenceRepository.setColorStatusBarIcon(enabled)
-            COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> preferenceRepository.setColorStatusBarIconGlobal(enabled)
+            THIRD_PARTY_ICON_PACK_KEY -> preferenceRepository.setThirdPartyIconPack(enabled)
+            SYSTEM_APP_ICON_PACK_KEY -> preferenceRepository.setSystemAppIconPack(enabled)
             "debug_mode" -> preferenceRepository.setDebugMode(enabled)
             LOG_SANITIZATION_ENABLED_KEY -> preferenceRepository.setLogSanitizationEnabled(enabled)
             ENABLE_ANALYTICS_KEY -> preferenceRepository.setAnalyticsEnabled(enabled)
@@ -120,7 +122,7 @@ internal object ManagerRuntimePreferenceCommandSupport {
     )
 
     private val allowedRuntimeBooleanKeys = setOf(
-        COLOR_STATUS_BAR_ICON_KEY, COLOR_STATUS_BAR_ICON_GLOBAL_KEY, "debug_mode",
+        COLOR_STATUS_BAR_ICON_KEY, THIRD_PARTY_ICON_PACK_KEY, SYSTEM_APP_ICON_PACK_KEY, "debug_mode",
         LOG_SANITIZATION_ENABLED_KEY, ENABLE_ANALYTICS_KEY, "show_all_events", "start_foreground",
         "start_push_as_foreground_service", KEEPALIVE_PREF_OOM_ADJ, KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS, ISLAND_PREF_ENABLED,

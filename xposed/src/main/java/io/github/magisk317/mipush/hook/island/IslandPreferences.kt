@@ -23,7 +23,8 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.xposed.logging.XLog
@@ -48,7 +49,8 @@ object IslandPreferences {
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
-        COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        THIRD_PARTY_ICON_PACK_KEY,
+        SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
         LOG_SANITIZATION_ENABLED_KEY,
     )
@@ -149,7 +151,7 @@ object IslandPreferences {
                     "refreshed options: showNotification=${it.showNotification} " +
                         "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
                         "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon} " +
-                        "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal} " +
+                        "thirdPartyIconPack=${it.thirdPartyIconPack} systemAppIconPack=${it.systemAppIconPack} " +
                         "dualAppEnabled=${it.dualAppEnabled}",
                 )
             }
@@ -381,7 +383,8 @@ object IslandPreferences {
                 values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
-            colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, true),
+            thirdPartyIconPack = values.booleanValue(THIRD_PARTY_ICON_PACK_KEY, true),
+            systemAppIconPack = values.booleanValue(SYSTEM_APP_ICON_PACK_KEY, true),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }

@@ -97,7 +97,8 @@ class IslandOptionsSnapshotReaderPolicyTest {
         showOriginalNotification = showOriginalNotification,
         focusNotification = focusNotification,
         colorStatusBarIcon = false,
-        colorStatusBarIconGlobal = false,
+        thirdPartyIconPack = true,
+        systemAppIconPack = true,
         dualAppEnabled = false,
         logSanitizationEnabled = false,
     )

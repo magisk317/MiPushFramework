@@ -4,7 +4,8 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
@@ -154,7 +155,10 @@ class SettingsViewModel constructor(
         .map { !it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val monochromeStatusBarIconGlobal: StateFlow<Boolean> = preferenceRepository.colorStatusBarIconGlobal
+    val thirdPartyIconPack: StateFlow<Boolean> = preferenceRepository.thirdPartyIconPack
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val systemAppIconPack: StateFlow<Boolean> = preferenceRepository.systemAppIconPack
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
@@ -351,8 +355,11 @@ class SettingsViewModel constructor(
     fun setMonochromeStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, !value, onResult)
 
-    fun setMonochromeStatusBarIconGlobal(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, value, onResult)
+    fun setThirdPartyIconPack(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(THIRD_PARTY_ICON_PACK_KEY, value, onResult)
+
+    fun setSystemAppIconPack(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(SYSTEM_APP_ICON_PACK_KEY, value, onResult)
 
     /**
      * Apply the status-bar icon preference, push to runtime (xmsf), then **reboot the device**.
@@ -363,13 +370,15 @@ class SettingsViewModel constructor(
      */
     fun applyMonochromeStatusBarIconWithRestart(
         managed: Boolean? = null,
-        global: Boolean? = null,
+        thirdParty: Boolean? = null,
+        systemApp: Boolean? = null,
         onPrepared: ((Boolean) -> Unit)? = null,
         onRebootFailed: ((String) -> Unit)? = null,
     ) = viewModelScope.launch {
         val preferenceUpdated = withContext(Dispatchers.IO) {
             (managed == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_KEY, !managed)) &&
-                (global == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, global))
+                (thirdParty == null || runtimePreferenceGateway.setBoolean(THIRD_PARTY_ICON_PACK_KEY, thirdParty)) &&
+                (systemApp == null || runtimePreferenceGateway.setBoolean(SYSTEM_APP_ICON_PACK_KEY, systemApp))
         }
         onPrepared?.invoke(preferenceUpdated)
         if (!preferenceUpdated) return@launch
@@ -570,6 +579,15 @@ class SettingsViewModel constructor(
      * Binder export starts, leaving that document at zero bytes. This scope outlives the screen;
      * its supervisor job isolates this one export from other work in the Manager process.
      */
+    /**
+     * Whether the device satisfies the log-export root gate.
+     *
+     * The bundle pulls module log dirs under /data, so a non-root device would run the
+     * whole foreground export only to fail at the very end. Ask first and explain why,
+     * rather than handing the user a document picker they cannot complete.
+     */
+    suspend fun hasExportRootAccess(): Boolean = permissionGateway.refreshRootAccessIfGranted()
+
     fun saveRuntimeLogBundle(
         context: android.content.Context,
         destination: android.net.Uri,
