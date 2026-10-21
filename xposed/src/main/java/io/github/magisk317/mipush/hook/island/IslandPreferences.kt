@@ -8,7 +8,6 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
-import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
@@ -24,7 +23,8 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.xposed.logging.XLog
@@ -49,7 +49,8 @@ object IslandPreferences {
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
-        COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        THIRD_PARTY_ICON_PACK_KEY,
+        SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
         LOG_SANITIZATION_ENABLED_KEY,
     )
@@ -150,7 +151,7 @@ object IslandPreferences {
                     "refreshed options: showNotification=${it.showNotification} " +
                         "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
                         "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon} " +
-                        "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal} " +
+                        "thirdPartyIconPack=${it.thirdPartyIconPack} systemAppIconPack=${it.systemAppIconPack} " +
                         "dualAppEnabled=${it.dualAppEnabled}",
                 )
             }
@@ -352,11 +353,9 @@ object IslandPreferences {
         } ?: error("island preference provider returned no cursor")
         check(values.isNotEmpty()) { "island preference provider returned no values" }
 
-        // Log redaction is build-derived, matching XposedSmsCode and xinyi-relay: CI/debug
-        // builds keep plaintext so diagnostics stay readable, formal releases redact by
-        // default. The legacy LOG_SANITIZATION_ENABLED_KEY preference is no longer consumed,
-        // so a stale false value can no longer silently disable redaction in releases.
-        LogSanitizerConfig.syncFromVerboseMode(BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD)
+        // Reuse the single provider query above instead of a second readFlag round-trip.
+        val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
+        LogSanitizerConfig.syncFromVerboseMode(!logSanitizationEnabled)
 
         buildOptionsFromValues(values)
     }.onFailure {
@@ -383,7 +382,8 @@ object IslandPreferences {
                 values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
-            colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, true),
+            thirdPartyIconPack = values.booleanValue(THIRD_PARTY_ICON_PACK_KEY, true),
+            systemAppIconPack = values.booleanValue(SYSTEM_APP_ICON_PACK_KEY, true),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }

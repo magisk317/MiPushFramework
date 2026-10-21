@@ -89,24 +89,20 @@ class GetSmallIconHookBugConditionTest {
 
     private fun hookIntercepts(colorStatusBarIcon: Boolean, extras: NotificationExtras): Boolean {
         val isMiPushManaged = isMiPushManagedNotification(extras)
-        // Mirror the live guard: monochrome + MiPush (or strong global) still intercepts BITMAP/RESOURCE.
+        // Mirror the live guard: managed posts intercept BITMAP glyphs; unmanaged pack misses
+        // stay on the native renderer.
         return SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-            colorStatusBarIcon = colorStatusBarIcon,
-            forceGlobalStatusBarIcons = false,
-            isMiPushManaged = isMiPushManaged,
+            isMiPushManaged = isMiPushManaged && !colorStatusBarIcon,
+            iconPackHit = false,
             iconType = SystemUiNotificationPolicy.ICON_TYPE_BITMAP,
             resId = 0,
             resPackage = null,
-            packageName = "com.example.app",
-            uid = 10123,
-            isSystemApp = false,
-            canColorize = false,
         )
     }
 
     @BeforeEach
     fun setup() {
-        IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = false))
+        IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = false, thirdPartyIconPack = false, systemAppIconPack = false))
     }
 
     @AfterEach

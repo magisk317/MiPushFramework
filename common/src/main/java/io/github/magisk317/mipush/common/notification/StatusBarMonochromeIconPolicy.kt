@@ -33,6 +33,7 @@ import io.github.magisk317.mipush.common.ICON_PACK_PREF_PATH_ICON
  */
 object StatusBarMonochromeIconPolicy {
     private const val SILHOUETTE_LOG_TAG = "MiPushSilhouette"
+    private const val ICON_PACK_LOG_TAG = "MiPushIconPack"
 
     @JvmStatic
     fun clearCacheForTest() {
@@ -103,6 +104,71 @@ object StatusBarMonochromeIconPolicy {
     @JvmStatic
     fun frameworkAndroidLogoIconOrNull(): Icon? = frameworkAndroidLogoIcon
 
+    /**
+     * Guarantees the glyph cannot tint into a solid white block on the status bar.
+     *
+     * Icon-pack assets are authored per app and usually ship transparent, but a mis-authored
+     * opaque bitmap pushed through the pack would tint into a full white square. The check is
+     * the outer pixel ring: a shape asset always has transparent margins, an opaque backdrop
+     * bleeds to every edge. Opaque glyphs are re-synthesized as white-alpha silhouettes, so the
+     * module's product promise ("icon pack or native rendering, never a white block") holds
+     * regardless of pack authoring quality.
+     *
+     * @return the original icon when safe, a white-alpha silhouette when opaque, null when the
+     *   icon cannot be inspected (callers keep the original in that case; the pack bitmap is
+     *   then trusted as-authored).
+     */
+    @JvmStatic
+    fun statusSafeGlyphOrNull(context: Context?, icon: Icon): Icon? {
+        val drawable = runCatching { icon.loadDrawable(context) }.getOrNull()
+        if (drawable == null) {
+            Log.w(SILHOUETTE_LOG_TAG, "statusSafe loadDrawable failed; trusting pack bitmap")
+            return null
+        }
+        val bitmap = (drawable as? BitmapDrawable)?.bitmap
+        if (bitmap == null) {
+            Log.w(SILHOUETTE_LOG_TAG, "statusSafe drawable not bitmap; trusting pack bitmap")
+            return null
+        }
+        val inspected = if (bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            bitmap
+        }
+        if (inspected == null) {
+            Log.w(SILHOUETTE_LOG_TAG, "statusSafe hardware copy failed; trusting pack bitmap")
+            return null
+        }
+        return if (hasOpaqueBacking(inspected)) {
+            Log.i(SILHOUETTE_LOG_TAG, "statusSafe opaque backing detected; re-synthesizing silhouette")
+            whiteGlyphFrom(inspected) ?: icon
+        } else {
+            icon
+        }
+    }
+
+    private fun hasOpaqueBacking(bitmap: Bitmap): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) return false
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        fun opaque(x: Int, y: Int): Boolean = Color.alpha(pixels[y * width + x]) == 0xff
+        for (x in 0 until width) {
+            if (!opaque(x, 0) || !opaque(x, height - 1)) return false
+        }
+        for (y in 0 until height) {
+            if (!opaque(0, y) || !opaque(width - 1, y)) return false
+        }
+        // Every edge pixel opaque => the backdrop reaches the border => tint would fill the slot.
+        return true
+    }
+
+    private fun whiteGlyphFrom(bitmap: Bitmap): Icon? = runCatching {
+        val white = ImgUtils.convertToTransparentAndWhite(bitmap) ?: return@runCatching null
+        Icon.createWithBitmap(normalizeSilhouetteBounds(white))
+    }.getOrNull()
+
     private val frameworkAndroidLogoIcon: Icon? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         runCatching {
             val bytes = Base64.decode(
@@ -170,7 +236,8 @@ object StatusBarMonochromeIconPolicy {
         if (packageName.isBlank() || userId < 0) return null
         val key = iconPackCacheKey(userId, packageName)
         val entry = iconPackCache[key]
-        return when (decideIconPackCache(entry, System.currentTimeMillis())) {
+        val decision = decideIconPackCache(entry, System.currentTimeMillis())
+        val resolved = when (decision) {
             IconPackCacheDecision.HIT_FRESH -> entry?.icon
             IconPackCacheDecision.HIT_STALE -> {
                 // Serve the stale bitmap immediately; refresh in the background.
@@ -183,24 +250,46 @@ object StatusBarMonochromeIconPolicy {
                 null
             }
         }
+        Log.d(
+            ICON_PACK_LOG_TAG,
+            "lookup key=$key decision=$decision age=${entry?.let { System.currentTimeMillis() - it.storedAtMs }}" +
+                " inFlight=${inFlightIconPackPrefetches.contains(key)} hit=${resolved != null}",
+        )
+        return resolved
     }
 
     private fun scheduleIconPackPrefetch(context: Context, key: String, packageName: String, userId: Int) {
-        if (!inFlightIconPackPrefetches.add(key)) return
+        if (!inFlightIconPackPrefetches.add(key)) {
+            // A prefetch that never returns pins its key here forever, so every later lookup
+            // silently keeps missing the pack. Log it: this is the "never resolves" symptom.
+            Log.w(ICON_PACK_LOG_TAG, "prefetch skipped: key=$key already in flight (stuck worker?)")
+            return
+        }
         val appContext = context.applicationContext ?: context
         iconPackPrefetchExecutor.execute {
+            val startedAtMs = System.currentTimeMillis()
             try {
                 val icon = queryIconPackProvider(appContext, packageName, userId)
                 iconPackCache[key] = IconPackEntry(icon, System.currentTimeMillis())
-            } catch (_: Throwable) {
+                Log.i(
+                    ICON_PACK_LOG_TAG,
+                    "prefetch done key=$key hit=${icon != null} took=${System.currentTimeMillis() - startedAtMs}ms",
+                )
+            } catch (t: Throwable) {
                 // Provider failures are expected while XMSF is cold at boot: retain any
                 // previously resolved bitmap and back off through the entry timestamp.
                 val retained = iconPackCache[key]?.icon
                 iconPackCache[key] = IconPackEntry(retained, System.currentTimeMillis())
+                Log.w(
+                    ICON_PACK_LOG_TAG,
+                    "prefetch failed key=$key retained=${retained != null} " +
+                        "took=${System.currentTimeMillis() - startedAtMs}ms: ${t.message}",
+                )
             } finally {
                 inFlightIconPackPrefetches.remove(key)
             }
         }
+        Log.d(ICON_PACK_LOG_TAG, "prefetch scheduled key=$key")
     }
 
     /**
@@ -215,12 +304,32 @@ object StatusBarMonochromeIconPolicy {
             .appendQueryParameter(ICON_PACK_PREF_COLUMN_PACKAGE, packageName)
             .appendQueryParameter(ICON_PACK_PREF_COLUMN_USER, userId.toString())
             .build()
-        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            val index = cursor.getColumnIndex(ICON_PACK_PREF_COLUMN_BITMAP)
-            if (index < 0) return@use null
-            val bytes = cursor.getBlob(index)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(Icon::createWithBitmap)
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        if (cursor == null) {
+            Log.w(ICON_PACK_LOG_TAG, "provider returned no cursor pkg=$packageName user=$userId")
+            return null
+        }
+        return cursor.use {
+            if (!it.moveToFirst()) {
+                Log.d(ICON_PACK_LOG_TAG, "provider empty cursor pkg=$packageName user=$userId (not configured)")
+                return@use null
+            }
+            val index = it.getColumnIndex(ICON_PACK_PREF_COLUMN_BITMAP)
+            if (index < 0) {
+                Log.w(ICON_PACK_LOG_TAG, "provider cursor has no bitmap column pkg=$packageName")
+                return@use null
+            }
+            val bytes = it.getBlob(index)
+            if (bytes == null) {
+                Log.w(ICON_PACK_LOG_TAG, "provider returned null blob pkg=$packageName user=$userId")
+                return@use null
+            }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            Log.d(
+                ICON_PACK_LOG_TAG,
+                "provider row pkg=$packageName user=$userId bytes=${bytes.size} decoded=${bitmap != null}",
+            )
+            bitmap?.let(Icon::createWithBitmap)
         }
     }
 

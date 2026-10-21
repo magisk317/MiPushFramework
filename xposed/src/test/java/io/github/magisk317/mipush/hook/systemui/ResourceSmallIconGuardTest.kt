@@ -1,37 +1,17 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import io.kotest.property.Arb
-import io.kotest.property.arbitrary.bind
-import io.kotest.property.arbitrary.boolean
-import io.kotest.property.arbitrary.element
-import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Resource Small Icon Guard Tests
+ * Tests for the 2026-10 icon policy: "icon pack or native rendering, never a white block".
  *
- * Covers [SystemUiNotificationPolicy.isResourceSmallIconLoadable] and
- * [SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard].
- *
- * Background: a third-party module (e.g. `fansirsqi.xposed.sesame`) posts a notification under
- * another app's package (`com.eg.android.AlipayGphone`) but sets a framework small icon via
- * `setSmallIcon(android.R.drawable.xxx)`. The resulting Icon carries a framework resource id
- * (`0x0108____`) tagged with `resPackage=com.eg.android.AlipayGphone`, which cannot be resolved
- * against Alipay's resource table and renders as a broken glyph.
- *
- * In color mode the getSmallIcon hook does not intercept, so MIUI's native fallback substitutes
- * the posting app's icon and the glyph looks correct. In strong monochrome mode the hook forces
- * `notification.smallIcon` into the status bar, exposing the broken framework/package mismatch as
- * a monochrome broken glyph.
- *
- * The guard declines to intercept when a RESOURCE icon's id/package pairing is unloadable, letting
- * MIUI's native fallback run in monochrome mode too.
+ * The module substitutes an icon-pack glyph only when the owner's category switch allows it
+ * AND the pack covers the app; everything else stays on SystemUI's native rendering, which is
+ * the verified white-block-free baseline. The module never authors a tint.
  */
 class ResourceSmallIconGuardTest {
-
     companion object {
         private const val ICON_TYPE_RESOURCE = SystemUiNotificationPolicy.ICON_TYPE_RESOURCE
         private const val ICON_TYPE_BITMAP = 1
@@ -44,16 +24,12 @@ class ResourceSmallIconGuardTest {
         private const val ALIPAY_PACKAGE = "com.eg.android.AlipayGphone"
         private const val SECURITY_CENTER_PACKAGE = "com.miui.securitycenter"
         private const val SYSTEMUI_PACKAGE = "com.android.systemui"
-        private const val XMSF_PACKAGE = "com.xiaomi.xmsf"
 
-        // Framework resource id segment (android.R.drawable.ic_dialog_info == 0x0108009b).
         private const val FRAMEWORK_INFO_RES_ID = 0x0108009b
-        // Another framework id observed in the field (the Alipay/sesame broken icon).
         private const val FRAMEWORK_ALIPAY_BROKEN_RES_ID = 0x01080093
-        // A typical app resource id segment (0x7f______).
+        private const val FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID = 0x010805c7
         private const val APP_RES_ID = 0x7f081c55
-        // The MiPush island dispatcher icon id observed after the framework-icon fallback fix.
-        private const val MIPUSH_PROXY_RES_ID = 0x7f0e0000
+        private const val FLAG_GROUP_SUMMARY = 0x00000200
         private const val FLAG_AUTOGROUP_SUMMARY = 0x00000400
     }
 
@@ -149,819 +125,306 @@ class ResourceSmallIconGuardTest {
         }
     }
 
-    // ─── shouldInterceptSmallIconWithIconGuard ───────────────────────────────────
+    // ─── shouldAttemptIconPackSubstitution ───────────────────────────────────────
 
     @Test
-    fun `strong monochrome declines to intercept a broken framework icon`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = FRAMEWORK_ALIPAY_BROKEN_RES_ID,
-                resPackage = ALIPAY_PACKAGE,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-            "Strong monochrome mode must not force a broken framework/package icon into the status " +
-                "bar; it should defer to MIUI's native fallback.",
-        )
-    }
-
-    @Test
-    fun `strong monochrome still intercepts a valid third party icon`() {
+    fun `managed notifications always attempt the pack`() {
         assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = APP_RES_ID,
-                resPackage = FLCLASH_PACKAGE,
-                packageName = FLCLASH_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `malformed alipay icon still allows tinting the fallback drawable`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = FRAMEWORK_ALIPAY_BROKEN_RES_ID,
-                resPackage = ALIPAY_PACKAGE,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-            "The getSmallIcon hook should defer malformed Sesame/Alipay icons to MIUI fallback, " +
-                "but the final fallback drawable still belongs to a user app and should be tinted.",
-        )
-    }
-
-    @Test
-    fun `strong monochrome skips security center colorized system icon`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = APP_RES_ID,
-                resPackage = SECURITY_CENTER_PACKAGE,
-                packageName = SECURITY_CENTER_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = SECURITY_CENTER_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-            ),
-            "SecurityCenter uses MIUI/system colorized notification resources; strong mode should not hard-fix it.",
-        )
-    }
-
-    @Test
-    fun `strong monochrome applies to colorizable third-party posts`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = true,
-            ),
-            "FLAG_CAN_COLORIZE must not exempt third-party icons from strong monochrome.",
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_BITMAP,
-                resId = 0,
-                resPackage = null,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = true,
-            ),
-        )
-    }
-
-    @Test
-    fun `strong monochrome covers system uid only with a native monochrome resource`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.android.server.telecom",
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                hasMonochromeResource = false,
-            ),
-            "A system notification without a proven monochrome smallIcon must keep OEM rendering.",
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.android.server.telecom",
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                hasMonochromeResource = true,
-            ),
-            "A loadable grayscale Telecom smallIcon can safely follow status-bar tint.",
-        )
-    }
-
-    @Test
-    fun `native monochrome proof keeps framework resource from system package`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0x0108007f,
-                resPackage = "com.android.server.telecom",
-                packageName = "com.android.server.telecom",
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                hasMonochromeResource = true,
-            ),
-            "Successful grayscale detection also proves the system resource is loadable.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0x0108007f,
-                resPackage = "com.android.server.telecom",
-                packageName = "com.android.server.telecom",
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                hasMonochromeResource = false,
-            ),
-            "Without monochrome proof, preserve the native system fallback.",
-        )
-    }
-
-    @Test
-    fun `monochrome blocks MIUI small-icon substitution for MiPush and strong global`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = false,
+            SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = false,
+                systemAppIconPack = false,
                 isMiPushManaged = true,
-            ),
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                colorStatusBarIcon = true,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = true,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = false,
-                isMiPushManaged = false,
+                uid = USER_APP_UID,
+                isSystemApp = false,
             ),
         )
     }
 
     @Test
-    fun `strong monochrome keeps MiPush island proxy eligible even when posted by SystemUI`() {
+    fun `third party and system categories map to their own switches`() {
         assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
+            SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = true,
+                systemAppIconPack = false,
+                isMiPushManaged = false,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = false,
+                systemAppIconPack = true,
+                isMiPushManaged = false,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+            ),
+        )
+        // System uid / system package follow the system-app switch.
+        assertTrue(
+            SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = false,
+                systemAppIconPack = true,
+                isMiPushManaged = false,
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = true,
+                systemAppIconPack = false,
+                isMiPushManaged = false,
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+            ),
+        )
+    }
+
+    // ─── shouldReplaceResourceWithPackageMonochrome ──────────────────────────────
+
+    @Test
+    fun `multi-color RESOURCE swap is category gated`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                attemptsIconPack = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                isGrayscaleIcon = false,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                attemptsIconPack = false,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                isGrayscaleIcon = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `grayscale glyphs and non-resource icons are never swapped`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                attemptsIconPack = true,
                 isMiPushManaged = true,
                 iconType = ICON_TYPE_RESOURCE,
-                resId = MIPUSH_PROXY_RES_ID,
-                resPackage = XMSF_PACKAGE,
-                packageName = SYSTEMUI_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = false,
+                isGrayscaleIcon = true,
             ),
+            "Grayscale status glyphs are already status-bar ready; a silhouette swap is lossy.",
         )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = true,
-                packageName = SYSTEMUI_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `guard never intercepts when the base policy declines`() {
-        // Base policy declines: color mode ON but not MiPush-managed and not global.
         assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = true,
-                forceGlobalStatusBarIcons = false,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = APP_RES_ID,
-                resPackage = FLCLASH_PACKAGE,
-                packageName = FLCLASH_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-        )
-    }
-
-    // ─── Property: guard only ever narrows the base decision ─────────────────────
-
-    private val guardInputs: Arb<GuardInput> = Arb.bind(
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.element(ICON_TYPE_RESOURCE, ICON_TYPE_BITMAP, ICON_TYPE_URI, -1),
-        Arb.element(0, FRAMEWORK_INFO_RES_ID, FRAMEWORK_ALIPAY_BROKEN_RES_ID, APP_RES_ID),
-        Arb.element("android", "com.android.systemui", "com.eg.android.AlipayGphone", ""),
-    ) { color, global, managed, type, resId, pkg ->
-        GuardInput(color, global, managed, type, resId, pkg)
-    }
-
-    data class GuardInput(
-        val colorStatusBarIcon: Boolean,
-        val forceGlobalStatusBarIcons: Boolean,
-        val isMiPushManaged: Boolean,
-        val iconType: Int,
-        val resId: Int,
-        val resPackage: String,
-    )
-
-    @Test
-    fun `guarded intercept implies base intercept`() {
-        runBlocking {
-            checkAll(300, guardInputs) { input ->
-                val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                )
-                val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                    iconType = input.iconType,
-                    resId = input.resId,
-                    resPackage = input.resPackage,
-                    packageName = FLCLASH_PACKAGE,
-                    uid = USER_APP_UID,
-                    isSystemApp = false,
-                    canColorize = false,
-                )
-                // The guard may only turn a true into false (decline a broken icon), never the reverse.
-                if (guarded) {
-                    assertTrue(base, "Guard intercepted while base policy declined: $input")
-                }
-            }
-        }
-    }
-
-    @Test
-    fun `guard declines exactly when base intercepts an unloadable icon`() {
-        runBlocking {
-            checkAll(300, guardInputs) { input ->
-                val base = SystemUiNotificationPolicy.shouldInterceptSmallIcon(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                )
-                val loadable = SystemUiNotificationPolicy.isResourceSmallIconLoadable(
-                    iconType = input.iconType,
-                    resId = input.resId,
-                    resPackage = input.resPackage,
-                )
-                val guarded = SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                    iconType = input.iconType,
-                    resId = input.resId,
-                    resPackage = input.resPackage,
-                    packageName = FLCLASH_PACKAGE,
-                    uid = USER_APP_UID,
-                    isSystemApp = false,
-                    canColorize = false,
-                )
-                assertTrue(
-                    guarded == (base && loadable),
-                    "Guard must equal base AND loadable for all icon types including monochrome BITMAP: $input",
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `monochrome intercepts BITMAP for MiPush managed icons`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = false,
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                attemptsIconPack = true,
                 isMiPushManaged = true,
                 iconType = ICON_TYPE_BITMAP,
-                resId = 0,
-                resPackage = null,
-                packageName = XMSF_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-            ),
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = true,
-                iconType = ICON_TYPE_BITMAP,
-                resId = 0,
-                resPackage = null,
-                packageName = XMSF_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
+                isGrayscaleIcon = false,
             ),
         )
     }
 
-    @Test
-    fun `monochrome replaces MiPush bitmap launcher icons with package fallback`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                isMiPushManaged = true,
-                iconType = ICON_TYPE_BITMAP,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = true,
-                isMiPushManaged = true,
-                iconType = ICON_TYPE_BITMAP,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_BITMAP,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                isMiPushManaged = true,
-                iconType = ICON_TYPE_RESOURCE,
-            ),
-        )
-    }
+    // ─── shouldReplaceBrokenResourceSmallIcon ────────────────────────────────────
 
     @Test
-    fun `zero resource small icon is replaced instead of forced or declined`() {
+    fun `zero resource small icon is replaced`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
                 iconType = ICON_TYPE_RESOURCE,
                 resId = 0,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
-                iconType = ICON_TYPE_RESOURCE,
-                resId = APP_RES_ID,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
-                iconType = ICON_TYPE_BITMAP,
-                resId = 0,
-            ),
-        )
-        // Guard still declines forcing the broken zero-res icon itself; hook replaces separately.
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0,
-                resPackage = ALIPAY_PACKAGE,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
+                resPackage = null,
+                notificationFlags = 0,
             ),
         )
     }
 
     @Test
     fun `autogroup summary framework glyph is replaced for group headers`() {
-        val summaryFlags = SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY
         assertTrue(
             SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
                 iconType = ICON_TYPE_RESOURCE,
-                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
-                resPackage = "android",
-                notificationFlags = summaryFlags,
-            ),
-            "Alipay-style AUTOGROUP summary uses ic_notification_summary_auto; replace it.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
-                iconType = ICON_TYPE_RESOURCE,
-                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
-                resPackage = "android",
-                notificationFlags = 0,
-            ),
-            "Non-summary posts must not treat the framework id as a summary replacement trigger.",
-        )
-        assertTrue(
-            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryIcon(
-                iconType = ICON_TYPE_RESOURCE,
-                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
-                resPackage = "android",
+                resId = FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
+                resPackage = null,
+                notificationFlags = FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
             ),
         )
     }
 
     @Test
-    fun `only framework autogroup summaries use package icon fallback`() {
-        assertTrue(
-            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0x010805c7,
-                resPackage = "android",
-                notificationFlags =
-                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
-            ),
-        )
+    fun `ordinary group summaries are not treated as broken`() {
         assertFalse(
-            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
                 iconType = ICON_TYPE_RESOURCE,
                 resId = APP_RES_ID,
-                resPackage = ALIPAY_PACKAGE,
-                notificationFlags =
-                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
+                resPackage = FLCLASH_PACKAGE,
+                notificationFlags = FLAG_GROUP_SUMMARY,
             ),
-            "A normal Alipay app resource must keep its existing native icon path.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0x01080a0b,
-                resPackage = "android",
-                notificationFlags =
-                    SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or FLAG_AUTOGROUP_SUMMARY,
-            ),
-            "Developer/USB framework summaries must not use the Android autogroup logo fallback.",
         )
     }
 
+    // ─── shouldReplaceBitmapWithPackageMonochrome ────────────────────────────────
+
     @Test
-    fun `strong monochrome includes messaging system app but not security center`() {
+    fun `managed BITMAP is replaced in monochrome mode`() {
         assertTrue(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
                 colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.android.mms",
-                uid = USER_APP_UID,
-                isSystemApp = true,
-                canColorize = false,
-            ),
-            "SMS is a user-facing system app and must follow strong monochrome.",
-        )
-        // Multi-color RESOURCE logos still become package silhouettes.
-        assertTrue(
-            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                packageName = "com.android.mms",
-                uid = USER_APP_UID,
-                isSystemApp = true,
-                canColorize = false,
-                isGrayscaleIcon = false,
-            ),
-            "Multi-color Messaging RESOURCE logos may still use package monochrome.",
-        )
-        // stat_notify_sms is already a grayscale status glyph — keep it.
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                packageName = "com.android.mms",
-                uid = USER_APP_UID,
-                isSystemApp = true,
-                canColorize = false,
-                isGrayscaleIcon = true,
-            ),
-            "Grayscale stat_notify_sms must not be replaced by the green launcher badge silhouette.",
-        )
-        // Inconclusive grayscale detection defaults to keep-original at the hook; policy mirrors
-        // that when callers pass isGrayscaleIcon=true.
-        assertTrue(
-            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                resId = 0x7f0806c4,
-                resPackage = "com.android.mms",
-                packageName = "com.android.mms",
-                uid = USER_APP_UID,
-                isSystemApp = true,
-                canColorize = false,
-            ),
-            "SMS glyph still intercepts getSmallIcon so MIUI cannot swap in AppIconsManager color.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = SECURITY_CENTER_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-            ),
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                iconType = ICON_TYPE_RESOURCE,
-                packageName = SECURITY_CENTER_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                isGrayscaleIcon = false,
-            ),
-        )
-        // BITMAP launcher icons use the separate status-bar-only fallback path.
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
                 isMiPushManaged = true,
                 iconType = ICON_TYPE_BITMAP,
-                packageName = ALIPAY_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
             ),
-        )
-    }
-
-    // ─── shouldTintStatusBarGlyph ─────────────────────────────────────────────
-
-    @Test
-    fun `app logo without a substituted glyph or grayscale resource drops the tint`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.bytedance.trae.cn",
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = true,
-                hasSubstitutedGlyph = false,
-                hasMonochromeResource = false,
-            ),
-            "An opaque third-party logo tinted with SRC_IN white becomes a solid white block, so " +
-                "the tint must be dropped when neither the icon pack nor a silhouette provided a " +
-                "monochrome glyph.",
-        )
-    }
-
-    @Test
-    fun `substituted glyph is tinted while a monochrome resource keeps the native tint`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.bytedance.trae.cn",
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = true,
-                hasSubstitutedGlyph = true,
-            ),
-            "Icon-pack bitmaps and white silhouettes are already monochrome and must be tinted.",
+            "Opaque launcher bitmaps tint into white blocks; the silhouette must take over.",
         )
         assertFalse(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
-                isMiPushManaged = false,
-                packageName = "com.android.mms",
-                uid = USER_APP_UID,
-                isSystemApp = true,
-                canColorize = false,
-                hasSubstitutedGlyph = false,
-                hasMonochromeResource = true,
-            ),
-            "A grayscale resource is already status-bar ready and is left to SystemUI tinting.",
-        )
-    }
-
-    @Test
-    fun `MiPush managed notifications are tinted even without a substituted glyph`() {
-        assertTrue(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = false,
-                isMiPushManaged = true,
-                packageName = XMSF_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-                hasSubstitutedGlyph = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `color mode and disabled global monochrome never tint`() {
-        assertFalse(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
                 colorStatusBarIcon = true,
-                forceGlobalStatusBarIcons = true,
                 isMiPushManaged = true,
-                packageName = XMSF_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-                hasSubstitutedGlyph = true,
+                iconType = ICON_TYPE_BITMAP,
             ),
+            "Managed color mode ships color assets from XMSF and stays native.",
         )
         assertFalse(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
                 colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = false,
                 isMiPushManaged = false,
-                packageName = FLCLASH_PACKAGE,
-                uid = USER_APP_UID,
-                isSystemApp = false,
-                canColorize = false,
-                hasSubstitutedGlyph = true,
+                iconType = ICON_TYPE_BITMAP,
             ),
-            "Without global monochrome the hook is not the one painting white; leave it alone.",
+        )
+    }
+
+    // ─── shouldInterceptSmallIconWithIconGuard ───────────────────────────────────
+
+    @Test
+    fun `guard declines when neither managed nor a pack hit`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = APP_RES_ID,
+                resPackage = FLCLASH_PACKAGE,
+            ),
+            "A pack miss must stay on the native renderer — never force the posted glyph.",
         )
     }
 
     @Test
-    fun `pure system uid keeps OEM rendering even for a monochrome resource`() {
-        val systemBase = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-            colorStatusBarIcon = false,
-            forceGlobalStatusBarIcons = true,
-            isMiPushManaged = false,
-            packageName = SECURITY_CENTER_PACKAGE,
-            uid = SYSTEM_UID,
-            isSystemApp = true,
-            canColorize = true,
-            hasSubstitutedGlyph = false,
-            hasMonochromeResource = false,
-        )
-        assertFalse(systemBase, "OEM rendering of a system uid glyph must be preserved.")
+    fun `guard declines a broken framework icon even on a hit`() {
         assertFalse(
-            SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                colorStatusBarIcon = false,
-                forceGlobalStatusBarIcons = true,
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
                 isMiPushManaged = false,
-                packageName = SECURITY_CENTER_PACKAGE,
-                uid = SYSTEM_UID,
-                isSystemApp = true,
-                canColorize = true,
-                hasSubstitutedGlyph = false,
+                iconPackHit = true,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = FRAMEWORK_ALIPAY_BROKEN_RES_ID,
+                resPackage = ALIPAY_PACKAGE,
+            ),
+            "Forcing a broken framework/package icon renders garbage; defer to MIUI's fallback.",
+        )
+    }
+
+    @Test
+    fun `guard keeps managed BITMAP and pack-hit RESOURCE intercepts`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                isMiPushManaged = true,
+                iconPackHit = false,
+                iconType = ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                isMiPushManaged = false,
+                iconPackHit = true,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = APP_RES_ID,
+                resPackage = FLCLASH_PACKAGE,
+            ),
+        )
+    }
+
+    @Test
+    fun `proven monochrome resource keeps the intercept even with a package mismatch`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                isMiPushManaged = true,
+                iconPackHit = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x0108007f,
+                resPackage = "com.android.server.telecom",
                 hasMonochromeResource = true,
             ),
-            "A monochrome resource defers to SystemUI even for a system uid.",
+            "Successful grayscale detection also proves the system resource is loadable.",
         )
     }
 
-    // ─── Property: tint never exceeds global monochrome eligibility ────────────
-
-    private val tintInputs: Arb<TintInput> = Arb.bind(
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.boolean(),
-        Arb.element(USER_APP_UID, SYSTEM_UID),
-        Arb.boolean(),
-    ) { color, global, managed, substituted, monoRes, uid, canColorize ->
-        TintInput(color, global, managed, substituted, monoRes, uid, canColorize)
-    }
-
-    data class TintInput(
-        val colorStatusBarIcon: Boolean,
-        val forceGlobalStatusBarIcons: Boolean,
-        val isMiPushManaged: Boolean,
-        val hasSubstitutedGlyph: Boolean,
-        val hasMonochromeResource: Boolean,
-        val uid: Int,
-        val canColorize: Boolean,
-    )
+    // ─── shouldBlockSmallIconSubstitution ────────────────────────────────────────
 
     @Test
-    fun `tint implies global monochrome eligibility and a monochrome glyph`() {
-        runBlocking {
-            checkAll(300, tintInputs) { input ->
-                val tint = SystemUiNotificationPolicy.shouldTintStatusBarGlyph(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                    packageName = FLCLASH_PACKAGE,
-                    uid = input.uid,
-                    isSystemApp = false,
-                    canColorize = input.canColorize,
-                    hasSubstitutedGlyph = input.hasSubstitutedGlyph,
-                    hasMonochromeResource = input.hasMonochromeResource,
-                )
-                val eligible = SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                    packageName = FLCLASH_PACKAGE,
-                    uid = input.uid,
-                    isSystemApp = false,
-                    canColorize = input.canColorize,
-                    hasMonochromeResource = input.hasMonochromeResource,
-                )
-                // MiPush-managed notifications are tinted unconditionally, so the eligibility
-                // invariant only applies to unmanaged ones.
-                if (tint && !input.isMiPushManaged) {
-                    assertTrue(eligible, "Tinted while global monochrome declined: $input")
-                    assertTrue(
-                        input.hasSubstitutedGlyph || input.hasMonochromeResource,
-                        "Tinted without any monochrome glyph: $input",
-                    )
-                }
-            }
-        }
+    fun `MIUI substitution blocking only covers managed posts and pack hits`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = true,
+                iconPackHit = false,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+            ),
+            "Pack miss: the native colored-logo substitution IS the product behavior.",
+        )
+    }
+
+    // ─── statusBarSmallIconTransport ─────────────────────────────────────────────
+
+    @Test
+    fun `transport carries the posted glyph only when intercepting`() {
+        val intercepted = SystemUiNotificationPolicy.statusBarSmallIconTransport(
+            notificationSmallIcon = null,
+            shouldIntercept = true,
+        )
+        assertTrue(
+            intercepted.source ==
+                SystemUiNotificationPolicy.StatusBarSmallIconSource.FRAMEWORK_NOTIFICATION_SMALL_ICON,
+        )
+        val native = SystemUiNotificationPolicy.statusBarSmallIconTransport(
+            notificationSmallIcon = null,
+            shouldIntercept = false,
+        )
+        assertTrue(
+            native.source == SystemUiNotificationPolicy.StatusBarSmallIconSource.NATIVE_SYSTEMUI,
+        )
+    }
+
+    // ─── statusBarIconPreLTagOverride ────────────────────────────────────────────
+
+    @Test
+    fun `pre-L tag marks monochrome participation and passes others through`() {
+        assertTrue(
+            SystemUiNotificationPolicy.statusBarIconPreLTagOverride(
+                attemptsIconPack = false,
+                isMiPushManaged = true,
+            ) == false,
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.statusBarIconPreLTagOverride(
+                attemptsIconPack = true,
+                isMiPushManaged = false,
+            ) == false,
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.statusBarIconPreLTagOverride(
+                attemptsIconPack = false,
+                isMiPushManaged = false,
+            ) == null,
+        )
     }
 }
