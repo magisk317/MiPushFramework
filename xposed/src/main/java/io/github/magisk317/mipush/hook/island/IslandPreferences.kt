@@ -353,11 +353,12 @@ object IslandPreferences {
 
         // Reuse the single provider query above instead of a second readFlag round-trip.
         val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
-        LogSanitizerConfig.syncFromVerboseMode(!logSanitizationEnabled)
+        LogSanitizerConfig.applyUserSwitch(logSanitizationEnabled)
 
         buildOptionsFromValues(values)
     }.onFailure {
-        LogSanitizerConfig.syncFromVerboseMode(null)
+        // A failed read cannot turn redaction off: fall back to what the build itself requires.
+        LogSanitizerConfig.applyUserSwitch(false)
     }
 
     /**

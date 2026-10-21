@@ -44,6 +44,7 @@ import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
 import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.xposed.logging.AnonymousInstallationId
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.preferences.LibXposedPreferenceSources
 import io.github.magisk317.xposed.preferences.PreferenceRead
@@ -72,6 +73,13 @@ class LibXposedEntry : BaseLibXposedEntry {
     override val hookIdPrefix: String = "mipush"
 
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
+        // A hooked process is its own JVM: nothing installed by an Application reaches it, so the
+        // policy is evaluated here from these build flags before the first hook log line.
+        MagiskLogPolicy.install(
+            isDebugBuild = BuildConfig.DEBUG,
+            isCiBuild = BuildConfig.IS_CI_BUILD,
+            allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
+        )
         XposedRuntime.install(module, hookApi)
         XposedLogClient.configure(
             authority = "com.xiaomi.xmsf.module.log",
@@ -79,7 +87,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         )
         XLog.configure(
             tag = "mipush",
-            logLevel = if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) Log.DEBUG else Log.INFO,
+            logLevel = if (MagiskLogPolicy.current().verboseLogging) Log.DEBUG else Log.INFO,
             logToXposed = false,
             defaultRoute = "hook",
             sink = LogSink { event ->

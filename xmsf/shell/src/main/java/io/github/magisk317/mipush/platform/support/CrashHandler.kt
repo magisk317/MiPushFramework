@@ -2,17 +2,12 @@ package io.github.magisk317.mipush.platform.support
 
 import android.widget.Toast
 import java.io.File
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Date
-import java.util.Locale
 import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.CrashLogRecorder
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.common.utils.Utils
 
 object CrashHandler {
-    private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private var defaultHandler: Thread.UncaughtExceptionHandler? = null
 
     init {
@@ -35,26 +30,12 @@ object CrashHandler {
             }
             Utils.makeText(crashInfo, Toast.LENGTH_LONG)
             Logger.withTag(tag).e(e) { "Mi Push Crash" }
-            writeCrashToFile(logDir, e)
         }
+        // Installed last so the recorder chains through the reporter above and owns the file:
+        // the crash name and whether the stack is redacted come from the kit policy, and the
+        // retention prune of this directory stays in LogUtils.pruneAllLogArtifacts.
+        CrashLogRecorder.install(dirProvider = { logDir })
     }
-
-    private fun writeCrashToFile(logDir: File, throwable: Throwable) {
-        try {
-            if (!logDir.exists()) logDir.mkdirs()
-            val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
-            val now = Instant.now()
-            val currentDate = LogUtils.currentDateString(Date.from(now))
-            LogUtils.pruneDailyFiles(logDir, currentDate, crashFilePattern)
-            val fileName = "Crash_${currentDate}.txt"
-            val file = File(logDir, fileName)
-            val time = now.atZone(ZoneId.systemDefault()).format(timeFormatter)
-            val line = "$time [ERROR] CrashHandler: Mi Push Crash ${throwable.stackTraceToString()}\n"
-            file.appendText(line)
-        } catch (_: Exception) {}
-    }
-
-
 
     @JvmStatic
     fun install(handler: Thread.UncaughtExceptionHandler) {
@@ -66,6 +47,7 @@ object CrashHandler {
 
     @JvmStatic
     fun uninstall() {
+        CrashLogRecorder.uninstall()
         Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
     }
 

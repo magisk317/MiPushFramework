@@ -12,6 +12,7 @@ import io.github.magisk317.xposed.logging.JsonLineEncoder
 import io.github.magisk317.xposed.logging.JsonLineField
 import io.github.magisk317.xposed.logging.LogSink
 import io.github.magisk317.xposed.logging.LoggingKit
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.XLog as SharedXLog
 import java.io.File
 import java.time.Instant
@@ -24,8 +25,6 @@ import java.util.Date
 import java.util.Locale
 
 object LogUtils {
-    private const val DEFAULT_RETENTION_DAYS = 2
-    private const val MIN_RETENTION_DAYS = 1
     private const val MAX_READ_LINES = 2000
     private const val DEFAULT_ROUTE = "app"
     private val dailyDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
@@ -66,7 +65,7 @@ object LogUtils {
     private var appContext: Context? = null
 
     @Volatile
-    private var retentionDays: Int = DEFAULT_RETENTION_DAYS
+    private var retentionDays: Int = MagiskLogPolicy.DEFAULT_LOG_RETENTION_DAYS
 
     @Volatile
     private var minLogLevel: Severity = Severity.Verbose
@@ -154,7 +153,7 @@ object LogUtils {
     internal fun resetForTest() {
         synchronized(writeLock) {
             appContext = null
-            retentionDays = DEFAULT_RETENTION_DAYS
+            retentionDays = MagiskLogPolicy.DEFAULT_LOG_RETENTION_DAYS
             lastFullPruneAtMs = 0L
         }
         Logger.setLogWriters(emptyList())
@@ -337,26 +336,8 @@ object LogUtils {
         return file.isFile && redundantAppRouteRuntimeLogPattern.matches(file.name)
     }
 
-    @JvmStatic
-    fun logArchiveName(date: Date): String {
-        return "logs_" + dateInfo(date)
-    }
-
-    @JvmStatic
-    fun dateInfo(date: Date): String {
-        return Instant.ofEpochMilli(date.time).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", Locale.US))
-    }
-
     internal fun currentDateString(now: Date = Date()): String =
         Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(dailyDateFormatter)
-
-    internal fun pruneAppLogsForToday(logDir: File, now: Date = Date()) {
-        pruneExpiredRuntimeLogs(logDir, now)
-    }
-
-    internal fun pruneModuleLogsForToday(moduleLogDir: File, now: Date = Date()) {
-        pruneExpiredRuntimeLogs(moduleLogDir, now)
-    }
 
     /**
      * Prune every log-related artifact owned by this package under the retention window:
@@ -386,20 +367,8 @@ object LogUtils {
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, -(retentionDays.coerceAtLeast(MIN_RETENTION_DAYS) - 1))
+            add(Calendar.DAY_OF_YEAR, -(MagiskLogPolicy.retentionDays(retentionDays) - 1))
         }.timeInMillis
-    }
-
-    internal fun pruneDailyFiles(logDir: File, currentDate: String, pattern: Regex) {
-        // Keep behavior for callers that still want "not today" cleanup, but prefer
-        // [pruneAllLogArtifacts] / retention-based prune for production paths.
-        runCatching {
-            logDir.listFiles()?.forEach { child ->
-                if (child.isFile && pattern.matches(child.name) && !child.name.contains(currentDate)) {
-                    child.delete()
-                }
-            }
-        }
     }
 
     private fun getRuntimeLogFiles(context: Context): List<File> {
@@ -476,7 +445,7 @@ object LogUtils {
 
     private fun updateRetentionDays(days: Int, context: Context?) {
         synchronized(writeLock) {
-            retentionDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
+            retentionDays = MagiskLogPolicy.retentionDays(days)
             context?.let { pruneAllLogArtifacts(it, Date(), force = true) }
         }
     }

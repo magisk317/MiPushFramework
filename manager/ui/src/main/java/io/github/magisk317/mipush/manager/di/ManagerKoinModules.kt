@@ -302,9 +302,11 @@ object ManagerDependencies {
         if (!logSanitizationSyncStarted) {
             logSanitizationSyncStarted = true
             appScope.launch {
+                // The debug switch only ever asks for less redaction; the build policy keeps the
+                // floor, so a released manager cannot be talked into plaintext logs.
                 koin.get<PreferenceRepository>().isDebugMode
-                    .catch { LogSanitizerConfig.syncFromVerboseMode(null) }
-                    .collect { LogSanitizerConfig.syncFromVerboseMode(it) }
+                    .catch { LogSanitizerConfig.applyUserSwitch(false) }
+                    .collect { LogSanitizerConfig.applyUserSwitch(!it) }
             }
         }
         if (!runtimePreferenceSyncStarted) {

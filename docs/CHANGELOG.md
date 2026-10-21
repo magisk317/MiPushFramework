@@ -5,7 +5,10 @@
 ---
 ## [v1.1.1] - Unreleased
 - 版本：`versionCode 20` / `versionName 1.1.1`。
-- 下一轮开发占位，发布前补充具体变更。
+- `[log]` 日志策略改由 `magisk-xposed-kit` 按构建类型判定：发行构建脱敏且只导出有界内容，debug/CI 构建不脱敏并尽量采集 LSPosed 日志、全量 logcat 与 root 诊断。
+- `[log]` 导出模式不再读取设置项偏好，避免旧偏好让发行版继续采集明文；调试开关只能提高脱敏，不能取消它。
+- `[log]` 归档名、暂存目录与私有导出目录统一由产品名 `mipush` 派生，管理端与运行时共用一个日志包，旧 `xmsf_logs` 目录纳入清理。
+- `[log]` 日志保留天数默认 2 天并取子模块常量，崩溃文件改由子模块写入者落盘，导出包 `crash/` 不再为空。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.0...v1.1.1
 
