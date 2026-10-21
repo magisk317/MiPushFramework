@@ -16,6 +16,7 @@
 - `[docs]` 子模块 pin 矩阵对齐实况；README 补充导出需 root 的前提。
 - `[feat]` 导出包补「构建身份戳」：`app/log/runtime_summary.json` 记录 package/version/channel/commit/CI 标记及各包 apkSha256，字段取自子模块的同一身份对象，与 XSC、xinyi-relay 的 runtime_summary.json 对齐。
 - `[fix]` `build-logic`、`magisk-ui-kit` 子模块指针此前指向 2026-10-13 历史重写前的旧 lineage（缺 `magisk.android.distribution` 插件），现回到各自 main 现役 lineage。
+- `[xposed]` 修闲鱼冷启动死锁：FakeDevice 管线此前在 `packageLoaded`（`LoadedApk.createAppFactory` 内）加载目标类并安装全局 `ClassLoader.loadClass` 探针，现改为在 `packageReady` 分发并移除该探针；同时修正支付宝 `APUIManager` 的过期包名。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.0...v1.1.1
 
