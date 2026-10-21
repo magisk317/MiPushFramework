@@ -10,6 +10,7 @@
 - `[log]` 归档名、暂存目录与私有导出目录统一由产品名 `mipush` 派生，管理端与运行时共用一个日志包，旧 `xmsf_logs` 目录纳入清理。
 - `[log]` 日志保留天数默认 2 天并取子模块常量，崩溃文件改由子模块写入者落盘，导出包 `crash/` 不再为空。
 - `[log]` 状态栏单色图标策略的 18 处裸 `android.util.Log` 改走本模块统一的 Kermit `Logger.withTag`（tag 与文案不变）：这类调用绕过构建类型决定的 writer 与脱敏链路，且在移除 Robolectric 后的单测里必抛 `Method d in android.util.Log not mocked`。
+- `[quality]` 清掉两处既有编译告警：`whiteGlyphFrom` 对非空 `Bitmap` 返回值多写的 elvis（USELESS_ELVIS），以及 `CommonTest` 里对非空 `String` 参数多余的 `?.`（UNNECESSARY_SAFE_CALL）——CI 以 `--warning-mode all` 把它们报成 problem，此前一直挂着。
 - `[fix]` 导出日志前先做 root 预检，提示本地化的「需要 root 权限」，不再把未翻译的资源名显示给用户。
 - `[fix]` vendor logger 级别改为随构建派生，正式版回到 WARN 阈值而非全量输出。
 - `[docs]` 子模块 pin 矩阵对齐实况；README 补充导出需 root 的前提。

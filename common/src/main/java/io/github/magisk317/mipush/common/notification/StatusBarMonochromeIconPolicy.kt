@@ -169,7 +169,7 @@ object StatusBarMonochromeIconPolicy {
     }
 
     private fun whiteGlyphFrom(bitmap: Bitmap): Icon? = runCatching {
-        val white = ImgUtils.convertToTransparentAndWhite(bitmap) ?: return@runCatching null
+        val white = ImgUtils.convertToTransparentAndWhite(bitmap)
         Icon.createWithBitmap(normalizeSilhouetteBounds(white))
     }.getOrNull()
 
