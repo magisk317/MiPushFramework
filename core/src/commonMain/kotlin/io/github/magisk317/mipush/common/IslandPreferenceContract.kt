@@ -17,7 +17,7 @@ const val ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION =
     io.github.magisk317.mipush.common.island.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 const val ISLAND_PREF_FOCUS_NOTIF = io.github.magisk317.mipush.common.island.ISLAND_PREF_FOCUS_NOTIF
 const val COLOR_STATUS_BAR_ICON_KEY = io.github.magisk317.mipush.common.island.COLOR_STATUS_BAR_ICON_KEY
-const val COLOR_STATUS_BAR_ICON_GLOBAL_KEY =
-    io.github.magisk317.mipush.common.island.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+const val THIRD_PARTY_ICON_PACK_KEY = io.github.magisk317.mipush.common.island.THIRD_PARTY_ICON_PACK_KEY
+const val SYSTEM_APP_ICON_PACK_KEY = io.github.magisk317.mipush.common.island.SYSTEM_APP_ICON_PACK_KEY
 const val DUAL_APP_ENABLED_KEY = io.github.magisk317.mipush.common.island.DUAL_APP_ENABLED_KEY
 const val LOG_SANITIZATION_ENABLED_KEY = io.github.magisk317.mipush.common.island.LOG_SANITIZATION_ENABLED_KEY

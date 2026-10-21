@@ -19,7 +19,8 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
@@ -49,7 +50,8 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
-        COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        THIRD_PARTY_ICON_PACK_KEY,
+        SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
         LOG_SANITIZATION_ENABLED_KEY,
     )
