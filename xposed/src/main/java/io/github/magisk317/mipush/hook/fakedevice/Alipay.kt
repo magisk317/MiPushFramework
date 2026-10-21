@@ -39,7 +39,7 @@ class Alipay : Common() {
             "SystemInfoManager" to "com.alipay.mobile.common.netsdkextdepend.system.DefaultSystemInfoManager",
             "SyncRpcManager" to "com.alipay.mobile.common.netsdkextdepend.rpc.DefaultSyncRpcManager",
             "RpcConfigManager" to "com.alipay.mobile.common.netsdkextdepend.rpc.DefaultRpcConfigManager",
-            "APUIManager" to "com.alipay.mobile.common.netsdkextdepend.p162ui.DefaultAPUIManager",
+            "APUIManager" to "com.alipay.mobile.common.netsdkextdepend.ui.DefaultAPUIManager",
         )
     }
 

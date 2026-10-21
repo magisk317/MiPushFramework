@@ -140,6 +140,10 @@ object FakeDevice {
 
 /** [BaseHook] adapter for [FakeDevice] to participate in the hook dispatch list. */
 class FakeDeviceHook : BaseHook() {
+    // FakeDevice.fake() loads target classes and installs process-wide probes; doing that inside
+    // LoadedApk.createAppFactory deadlocks on class init while the framework holds its lock.
+    override fun deferUntilPackageReady(): Boolean = true
+
     override fun onLoadPackage(param: LoadParam) {
         if (param.processName.isBlank()) return
         if (param.packageName == "android" || param.packageName == "system") return
