@@ -3,4 +3,5 @@ system
 com.android.systemui
 com.miui.securitycore
 com.google.android.documentsui
+com.miui.personalassistant
 com.xiaomi.xmsf

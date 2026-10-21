@@ -232,9 +232,11 @@ class LibXposedEntry : BaseLibXposedEntry {
                     ?.let { mapOf(SECURITY_CORE_PACKAGE_NAME to it) }
                     ?: emptyMap()
             }
-            "com.miui.personalassistant" -> {
-                resolveLoadedPackageClassLoader("com.miui.personalassistant")
-                    ?.let { mapOf("com.miui.personalassistant" to it) }
+            // The widget-center hooks are keyed to MIUI Personal Assistant's package name, so
+            // hot reload has to resolve its classLoader like the other system companions.
+            PERSONAL_ASSISTANT_PACKAGE_NAME -> {
+                resolveLoadedPackageClassLoader(PERSONAL_ASSISTANT_PACKAGE_NAME)
+                    ?.let { mapOf(PERSONAL_ASSISTANT_PACKAGE_NAME to it) }
                     ?: emptyMap()
             }
             else -> emptyMap()
@@ -312,5 +314,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         private const val TAG = "LibXposedEntry"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
+        private const val PERSONAL_ASSISTANT_PACKAGE_NAME =
+            PersonalAssistantPickerHook.PA_PACKAGE_NAME
     }
 }

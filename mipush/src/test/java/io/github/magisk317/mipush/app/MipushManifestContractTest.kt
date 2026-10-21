@@ -153,6 +153,7 @@ class MipushManifestContractTest {
         assertTrue("resolveLoadedPackageClassLoader(XMSF_PACKAGE_NAME)" in entrySource)
         assertTrue("resolveLoadedPackageClassLoader(DOCUMENTS_UI_PACKAGE_NAME)" in entrySource)
         assertTrue("resolveLoadedPackageClassLoader(SECURITY_CORE_PACKAGE_NAME)" in entrySource)
+        assertTrue("resolveLoadedPackageClassLoader(PERSONAL_ASSISTANT_PACKAGE_NAME)" in entrySource)
 
         val scope = resolveProjectFile("xposed/src/main/resources/META-INF/xposed/scope.list")
             .readLines()
@@ -164,10 +165,25 @@ class MipushManifestContractTest {
                 "com.android.systemui",
                 "com.miui.securitycore",
                 "com.google.android.documentsui",
+                "com.miui.personalassistant",
                 "com.xiaomi.xmsf",
             ),
             scope,
         )
+
+        // scope.list decides whether LSPosed injects the module at all, and the log-provider
+        // allowlist decides whether that process's XLog reaches disk. Dropping either one
+        // silently disables the feature or leaves it undebuggable, so they move together.
+        val logProviderSource = resolveProjectFile(
+            "xmsf/shell/src/main/java/com/xiaomi/xmsf/utils/ModuleLogProvider.kt",
+        ).readText()
+        HOOK_REQUIRED_SYSTEM_PACKAGES.forEach { packageName ->
+            assertTrue(packageName in scope, "scope.list must declare $packageName")
+            assertTrue(
+                "\"$packageName\"" in logProviderSource,
+                "ModuleLogIngressPolicy must trust $packageName",
+            )
+        }
     }
 
 
@@ -257,5 +273,14 @@ class MipushManifestContractTest {
 
     private companion object {
         const val ANDROID_NS = "http://schemas.android.com/apk/res/android"
+
+        // Platform entries (android, system) and the XMSF runtime itself are outside this set:
+        // the guard short-circuits on privileged UIDs for those callers.
+        val HOOK_REQUIRED_SYSTEM_PACKAGES = listOf(
+            "com.android.systemui",
+            "com.miui.securitycore",
+            "com.google.android.documentsui",
+            "com.miui.personalassistant",
+        )
     }
 }

@@ -24,6 +24,14 @@ class ModuleLogProviderPolicyTest {
                 ApplicationInfo.FLAG_UPDATED_SYSTEM_APP,
             ),
         )
+        // Personal Assistant installs to /product/priv-app and reports FLAG_SYSTEM without
+        // FLAG_UPDATED_SYSTEM_APP on OS 4, so this mirrors the flag set the guard really sees.
+        assertTrue(
+            ModuleLogIngressPolicy.isTrustedSystemPackage(
+                "com.miui.personalassistant",
+                ApplicationInfo.FLAG_SYSTEM,
+            ),
+        )
         assertFalse(ModuleLogIngressPolicy.isTrustedSystemPackage("com.android.systemui", 0))
         assertFalse(
             ModuleLogIngressPolicy.isTrustedSystemPackage(
