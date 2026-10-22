@@ -25,7 +25,7 @@ object ManagerUpdateSources {
     /** CI track: latest successful pipeline on this branch. */
     const val CI_BRANCH = "beta"
     const val CI_JOB_NAME = "android:build"
-    const val CI_ARTIFACT_PATH = "ci-dist/mipush-ci.apk"
+    const val CI_ARTIFACT_PATH = "ci-dist/io.github.magisk317.mipush/mipush-ci.apk"
 
     /** True for debug builds and CI/test version names (the CI track is live). */
     val isCiOrDebugBuild: Boolean
@@ -44,6 +44,7 @@ object ManagerUpdateSources {
                     branch = CI_BRANCH,
                     jobName = CI_JOB_NAME,
                     artifactPath = CI_ARTIFACT_PATH,
+                    versionFilePath = "ci-dist/io.github.magisk317.mipush/version.txt",
                     currentCommitHash = gitCommit,
                 ),
                 GitLabReleaseUpdateSource(GITLAB_PROJECT_PATH),

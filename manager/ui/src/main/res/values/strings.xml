@@ -828,6 +828,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="xmsf_delivery_guidance_action">Open release page to install manually</string>
     <string name="xmsf_delivery_guidance_summary">This distribution never downloads APKs in-process</string>
     <string name="xmsf_delivery_installed_snackbar">XMSF runtime installed and verified</string>
+    <string name="xmsf_delivery_up_to_date_snackbar">XMSF runtime is already up to date</string>
     <string name="xmsf_delivery_guidance_opened_snackbar">Release page opened; refresh after installing</string>
     <string name="xmsf_delivery_failed_snackbar">Runtime delivery failed: %1$s</string>
     <string name="wizard_section_required">Required</string>

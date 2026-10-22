@@ -215,8 +215,8 @@ android:build:
     paths:
       - xmsf/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
-      - ci-dist/mipush-ci.apk
-      - ci-dist/version.txt
+      - ci-dist/io.github.magisk317.mipush/**
+      - ci-dist/com.xiaomi.xmsf/**
   # A job-level after_script replaces the one inherited from
   # .magisk_android_base, so the otel export is restated here before staging.
   after_script:
@@ -234,10 +234,44 @@ android:build:
     # dialog can display the real build timestamp.
     - |
       set -euo pipefail
-      mkdir -p ci-dist
-      cp mipush/build/outputs/apk/github/debug/universal_*.apk ci-dist/mipush-ci.apk
+      mkdir -p ci-dist/io.github.magisk317.mipush
+      cp mipush/build/outputs/apk/github/debug/universal_*.apk ci-dist/io.github.magisk317.mipush/mipush-ci.apk
       apk_name=$(basename mipush/build/outputs/apk/github/debug/universal_*.apk)
-      echo "$apk_name" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p' > ci-dist/version.txt
+      echo "$apk_name" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p' > ci-dist/io.github.magisk317.mipush/version.txt
+      # Stage the xmsf runtime under its own package-name directory, keyed by
+      # versionName (com.xiaomi.xmsf/<versionName>/...) - the same two-level
+      # shape the generic package registry uses, so the in-app downloader only
+      # swaps its base URL and keeps its whole verification chain (manifest
+      # gate -> sha256 sidecar -> same-signature). The raw artifacts endpoint
+      # exposes no per-file listing, so the version travels in a plain-text
+      # sidecar (com.xiaomi.xmsf/version.txt), exactly like ci-dist/version.txt.
+      # minManagerVersionCode is the pipeline iid: the same axis the manager's
+      # own versionCode uses, so old managers never pull a newer runtime.
+      xmsf_apk=$(ls xmsf/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
+      xmsf_version=$(basename "$xmsf_apk" | sed -n 's/^universal_.*_xmsf_v\(.*\)_debug\.apk$/\1/p')
+      mkdir -p "ci-dist/com.xiaomi.xmsf/$xmsf_version"
+      cp "$xmsf_apk" "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk"
+      xmsf_sha=$(sha256sum "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk" | cut -d' ' -f1)
+      printf '%s  xmsf-runtime.apk\n' "$xmsf_sha" \
+        > "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk.sha256"
+      python3 - "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime-manifest.json" \
+        "$xmsf_version" "$CI_PIPELINE_IID" "$CI_PIPELINE_IID" "$xmsf_sha" <<'PYEOF'
+import json
+import sys
+
+output_file, version_name, version_code, min_manager, sha256 = sys.argv[1:6]
+manifest = {
+    "schema": 1,
+    "variant": "github",
+    "versionName": version_name,
+    "versionCode": int(version_code),
+    "minManagerVersionCode": int(min_manager),
+    "sha256": sha256,
+}
+with open(output_file, "w", encoding="utf-8") as handle:
+    handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+PYEOF
+      printf '%s' "$xmsf_version" > ci-dist/com.xiaomi.xmsf/version.txt
 
 android:check:
   extends: .magisk_android_build
