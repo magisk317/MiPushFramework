@@ -418,6 +418,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
     <string name="runtime_log_exporting">Exporting logs…</string>
     <string name="runtime_log_saved">Logs saved locally</string>
+    <string name="runtime_log_saved_local_only">Runtime logs unavailable, saved a manager-local diagnostics bundle</string>
     <string name="runtime_log_share_failed">Share failed: %1$s</string>
     <string name="runtime_log_cleared">Logs and crash files cleared</string>
     <string name="runtime_log_clear_partial_failed">Partially cleared: %1$s</string>

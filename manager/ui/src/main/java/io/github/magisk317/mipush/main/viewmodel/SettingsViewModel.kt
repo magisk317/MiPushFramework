@@ -25,6 +25,7 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
@@ -582,11 +583,21 @@ class SettingsViewModel constructor(
     /**
      * Whether the device satisfies the log-export root gate.
      *
-     * The bundle pulls module log dirs under /data, so a non-root device would run the
-     * whole foreground export only to fail at the very end. Ask first and explain why,
-     * rather than handing the user a document picker they cannot complete.
+     * Root is what unlocks the module log dirs under /data that a runtime bundle pulls, so a
+     * non-root device would otherwise run the whole foreground export only to fail at the very
+     * end. Ask first and explain why, rather than handing the user a picker they cannot complete.
      */
     suspend fun hasExportRootAccess(): Boolean = permissionGateway.refreshRootAccessIfGranted()
+
+    /**
+     * Whether the export degrades to the manager-local bundle instead of the runtime one.
+     *
+     * The fallback reads only manager-owned files, so it needs neither root nor the Binder.
+     * Without this the two failures compound: a device with no root and an unreachable runtime
+     * could not produce any archive at all, which is precisely the report the user needs.
+     */
+    fun exportFallsBackToLocalBundle(): Boolean =
+        runtimeClient.availability.value !is ManagerRuntimeAvailability.Available
 
     fun saveRuntimeLogBundle(
         context: android.content.Context,
