@@ -25,7 +25,12 @@ object ManagerUpdateSources {
     /** CI track: latest successful pipeline on this branch. */
     const val CI_BRANCH = "beta"
     const val CI_JOB_NAME = "android:build"
-    const val CI_ARTIFACT_PATH = "ci-dist/io.github.magisk317.mipush/mipush-ci.apk"
+    /**
+     * Version-keyed staging path: the {versionName} segment is resolved from
+     * the sidecar below (see GitLabCiArtifactUpdateSource), keeping the
+     * ci-dist/<package>/<versionName>/ layout symmetric with the XMSF runtime.
+     */
+    const val CI_ARTIFACT_PATH = "ci-dist/io.github.magisk317.mipush/{versionName}/mipush-ci.apk"
 
     /** True for debug builds and CI/test version names (the CI track is live). */
     val isCiOrDebugBuild: Boolean

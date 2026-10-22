@@ -229,22 +229,27 @@ android:build:
       fi
     # The universal APK name embeds the build timestamp, while
     # GitLabCiArtifactUpdateSource can only fetch artifacts by exact path
-    # (no glob), so stage a stable copy for the in-app update check, plus
-    # the embedded version string as a plain-text sidecar so the update
-    # dialog can display the real build timestamp.
+    # (no glob), so stage a stable copy for the in-app update check under a
+    # version-keyed directory, plus the embedded version string as a
+    # plain-text sidecar so the update dialog can display the real build
+    # timestamp and the source can resolve the {versionName} path segment.
+    # The layout is symmetric across both packages:
+    #   ci-dist/<package>/version.txt + ci-dist/<package>/<versionName>/*
     - |
       set -euo pipefail
-      mkdir -p ci-dist/io.github.magisk317.mipush
-      cp mipush/build/outputs/apk/github/debug/universal_*.apk ci-dist/io.github.magisk317.mipush/mipush-ci.apk
-      apk_name=$(basename mipush/build/outputs/apk/github/debug/universal_*.apk)
-      echo "$apk_name" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p' > ci-dist/io.github.magisk317.mipush/version.txt
+      mipush_apk=$(ls mipush/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
+      mipush_version=$(basename "$mipush_apk" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p')
+      mkdir -p "ci-dist/io.github.magisk317.mipush/$mipush_version"
+      cp "$mipush_apk" "ci-dist/io.github.magisk317.mipush/$mipush_version/mipush-ci.apk"
+      printf '%s' "$mipush_version" > ci-dist/io.github.magisk317.mipush/version.txt
       # Stage the xmsf runtime under its own package-name directory, keyed by
       # versionName (com.xiaomi.xmsf/<versionName>/...) - the same two-level
       # shape the generic package registry uses, so the in-app downloader only
       # swaps its base URL and keeps its whole verification chain (manifest
       # gate -> sha256 sidecar -> same-signature). The raw artifacts endpoint
       # exposes no per-file listing, so the version travels in a plain-text
-      # sidecar (com.xiaomi.xmsf/version.txt), exactly like ci-dist/version.txt.
+      # sidecar (com.xiaomi.xmsf/version.txt), exactly like
+      # ci-dist/io.github.magisk317.mipush/version.txt above.
       # minManagerVersionCode is the pipeline iid: the same axis the manager's
       # own versionCode uses, so old managers never pull a newer runtime.
       xmsf_apk=$(ls xmsf/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
