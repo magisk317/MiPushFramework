@@ -187,6 +187,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="wizard_root_permission_denied_toast">Root access not granted</string>
     <string name="wizard_root_permission_target_granted_toast">%1$s root access granted</string>
     <string name="wizard_root_permission_target_denied_toast">%1$s root access not granted</string>
+    <string name="wizard_root_permission_target_unavailable_toast">%1$s is unreachable, so its root state could not be read</string>
     <string name="wizard_root_space_primary">Current space: Primary (User 0)</string>
     <string name="wizard_root_space_dual">Current space: Dual app (User 999)</string>
     <string name="wizard_root_space_other">Current space: User %1$d</string>
@@ -786,6 +787,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="runtime_missing_dialog_title">Usable xmsf not detected</string>
     <string name="runtime_missing_dialog_message">The xmsf runtime may be missing or incompatible. Install the matching xmsf runtime, then reopen Manager.</string>
     <string name="dialog_acknowledge">Got it</string>
+    <string name="runtime_warning_check_permissions">Check permissions</string>
     <string name="legacy_module_dialog_title">Incompatible MiPush module detected</string>
     <string name="legacy_module_dialog_message">Incompatible module detected: %1$s. Uninstall it, then reopen Manager.</string>
     <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
@@ -834,6 +836,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="wizard_section_optional">Optional</string>
     <string name="wizard_action_grant_all">Grant all silently</string>
     <string name="wizard_action_enter_app">Enter app</string>
+    <string name="wizard_report_title">Permission status</string>
+    <string name="wizard_report_granted">%1$d of %2$d requirements ready</string>
+    <string name="wizard_report_missing">%1$d still missing; push delivery can stay broken until they are granted.</string>
     <string name="wizard_status_processing">Working...</string>
     <string name="wizard_log_granted">Granted: %1$s</string>
     <string name="wizard_log_denied">Not granted: %1$s</string>

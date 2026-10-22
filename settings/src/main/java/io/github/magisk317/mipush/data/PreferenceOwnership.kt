@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
 import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
 import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
+import io.github.magisk317.mipush.common.KEY_WIZARD_SEEN_VERSION
 
 /**
  * Classifies every preference key owned by the current shared DataStore so the manager/runtime
@@ -125,7 +126,11 @@ object PreferenceOwnership {
             PreferenceOwner.MANAGER,
             "Manager SAF tree URI grant",
         ),
-        PreferenceOwnershipEntry("show_wizard", PreferenceOwner.MANAGER, "Onboarding progress"),
+        PreferenceOwnershipEntry(
+            KEY_WIZARD_SEEN_VERSION,
+            PreferenceOwner.MANAGER,
+            "Dismissed onboarding report version",
+        ),
         PreferenceOwnershipEntry(
             "usage_stats_requested",
             PreferenceOwner.MANAGER,

@@ -205,6 +205,7 @@
     <string name="wizard_root_permission_denied_toast">Root 权限未授权</string>
     <string name="wizard_root_permission_target_granted_toast">%1$s Root 权限已授权</string>
     <string name="wizard_root_permission_target_denied_toast">%1$s Root 权限未授权</string>
+    <string name="wizard_root_permission_target_unavailable_toast">无法连接 %1$s，暂时读不到它的 Root 状态</string>
     <string name="wizard_root_space_primary">当前空间：主空间（User 0）</string>
     <string name="wizard_root_space_dual">当前空间：应用分身（User 999）</string>
     <string name="wizard_root_space_other">当前空间：User %1$d</string>
@@ -776,6 +777,7 @@
     <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
     <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="dialog_acknowledge">我知道了</string>
+    <string name="runtime_warning_check_permissions">查看权限状态</string>
     <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
     <string name="runtime_commit_mismatch_dialog_title">管理器与运行时版本不匹配</string>
@@ -824,6 +826,9 @@
     <string name="wizard_section_optional">可选</string>
     <string name="wizard_action_grant_all">全部静默授权</string>
     <string name="wizard_action_enter_app">进入应用</string>
+    <string name="wizard_report_title">权限状态</string>
+    <string name="wizard_report_granted">已就绪 %1$d / %2$d 项</string>
+    <string name="wizard_report_missing">仍有 %1$d 项缺失，未处理时推送可能不可用。</string>
     <string name="wizard_status_processing">处理中…</string>
     <string name="wizard_log_granted">已授权：%1$s</string>
     <string name="wizard_log_denied">未授权：%1$s</string>

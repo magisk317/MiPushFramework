@@ -4,7 +4,6 @@ package io.github.magisk317.mipush.feature.wizard
 
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -38,7 +37,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.wizard.permission.AccessibilityPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.AlertWindowPermissionInfo
@@ -49,6 +47,7 @@ import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermission
 import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.main.viewmodel.GrantLogEntry
+import io.github.magisk317.mipush.main.viewmodel.GrantOutcome
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
@@ -56,13 +55,14 @@ import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
 import io.github.magisk317.mipush.manager.application.ManagerRootTarget
 import io.github.magisk317.uikit.onboarding.OnboardingActionRowCard
 import io.github.magisk317.uikit.onboarding.OnboardingInfoCard
+import io.github.magisk317.uikit.onboarding.OnboardingItemState
 import io.github.magisk317.uikit.onboarding.OnboardingLogCard
+import io.github.magisk317.uikit.onboarding.OnboardingSummaryHeader
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
-import io.github.magisk317.uikit.text.AppText
-import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.surface.SectionHeading
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import org.koin.android.ext.android.inject
@@ -116,7 +116,7 @@ fun PermissionMainActivity(
     val grantLog by permissionViewModel.grantLog.collectAsState()
     val grantingAll by permissionViewModel.grantingAll.collectAsState()
     val processingKeys by permissionViewModel.processingKeys.collectAsState()
-    val allRequiredValidated by permissionViewModel.allRequiredValidated.collectAsState()
+    val canGrantSilently by permissionViewModel.canGrantSilently.collectAsState()
 
     var checkTrigger by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -158,9 +158,11 @@ fun PermissionMainActivity(
             AppSecondaryButton(
                 text = stringResource(R.string.wizard_action_grant_all),
                 onClick = { permissionViewModel.grantAll(permissionInfos) },
-                enabled = allRequiredValidated && !grantingAll,
+                enabled = canGrantSilently && !grantingAll,
                 modifier = Modifier.weight(1f),
             )
+            // Entering is never gated: this report is the only screen that explains an
+            // unmet requirement, and the diagnostics live behind it.
             AppPrimaryButton(
                 text = stringResource(
                     if (recheckOnly) R.string.status_ok else R.string.wizard_action_enter_app,
@@ -170,10 +172,8 @@ fun PermissionMainActivity(
                         (context as? ComponentActivity)?.finish()
                     } else {
                         onFinishWizard()
-                        context.startActivity(Intent(context, MainActivity::class.java))
                     }
                 },
-                enabled = allRequiredValidated,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -199,7 +199,7 @@ fun PermissionMainActivity(
                 }
             },
             onRequestRootAccess = { target ->
-                permissionViewModel.requestRootAccess(target, permissionInfos) { granted ->
+                permissionViewModel.requestRootAccess(target, permissionInfos) { state ->
                     val title = context.getString(
                         if (target == ManagerRootTarget.MANAGER) {
                             R.string.wizard_root_manager_title
@@ -208,19 +208,13 @@ fun PermissionMainActivity(
                         },
                     )
                     permissionViewModel.appendGrantLog(
-                        GrantLogEntry(title = title, granted = granted, isRoot = true),
-                    )
-                    showToast(
-                        context,
-                        context.getString(
-                            if (granted) {
-                                R.string.wizard_root_permission_target_granted_toast
-                            } else {
-                                R.string.wizard_root_permission_target_denied_toast
-                            },
-                            title,
+                        GrantLogEntry(
+                            title = title,
+                            outcome = state.toGrantOutcome(),
+                            isRoot = true,
                         ),
                     )
+                    showToast(context, context.getString(rootToastResId(state), title))
                 }
             },
             modifier = Modifier
@@ -269,6 +263,11 @@ private fun PermissionSinglePage(
                 permissionInfos.getOrNull(index) is AccessibilityPermissionInfo
             )
     }
+    val rootRows = listOf(rootAccessSnapshot.runtime, rootAccessSnapshot.manager)
+    val grantedCount = rootRows.count { it.isGranted } +
+        permissionInfos.indices.count { isPermissionRequirementSatisfied(it, permissionInfos, permissionStates) }
+    val totalCount = rootRows.size + permissionInfos.size
+    val outstandingCount = totalCount - grantedCount
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -281,17 +280,27 @@ private fun PermissionSinglePage(
             )
         }
         item {
-            SectionHeader(text = stringResource(R.string.wizard_section_required))
+            OnboardingSummaryHeader(
+                title = stringResource(R.string.wizard_report_title),
+                grantedText = stringResource(R.string.wizard_report_granted, grantedCount, totalCount),
+                missingText = if (outstandingCount > 0) {
+                    stringResource(R.string.wizard_report_missing, outstandingCount)
+                } else {
+                    null
+                },
+            )
+        }
+        item {
+            SectionHeading(title = stringResource(R.string.wizard_section_required))
         }
         item {
             val status = rootAccessSnapshot.runtime
+            val processing = isRootProcessing(processingKeys, ManagerRootTarget.RUNTIME)
             OnboardingActionRowCard(
                 label = stringResource(R.string.wizard_root_runtime_title),
                 desc = stringResource(R.string.wizard_root_runtime_summary),
-                actionText = rootStatusText(
-                    state = status.state,
-                    processing = isRootProcessing(processingKeys, ManagerRootTarget.RUNTIME),
-                ),
+                actionText = rootStatusText(state = status.state, processing = processing),
+                state = onboardingItemState(processing = processing, granted = status.isGranted),
                 onClick = {
                     if (!status.isGranted) onRequestRootAccess(ManagerRootTarget.RUNTIME)
                 },
@@ -299,13 +308,12 @@ private fun PermissionSinglePage(
         }
         item {
             val status = rootAccessSnapshot.manager
+            val processing = isRootProcessing(processingKeys, ManagerRootTarget.MANAGER)
             OnboardingActionRowCard(
                 label = stringResource(R.string.wizard_root_manager_title),
                 desc = stringResource(R.string.wizard_root_manager_summary),
-                actionText = rootStatusText(
-                    state = status.state,
-                    processing = isRootProcessing(processingKeys, ManagerRootTarget.MANAGER),
-                ),
+                actionText = rootStatusText(state = status.state, processing = processing),
+                state = onboardingItemState(processing = processing, granted = status.isGranted),
                 onClick = {
                     if (!status.isGranted) onRequestRootAccess(ManagerRootTarget.MANAGER)
                 },
@@ -316,11 +324,14 @@ private fun PermissionSinglePage(
                 OnboardingLogCard(
                     lines = grantLog.map { entry ->
                         val resId = when {
-                            entry.isRoot && entry.granted ->
+                            entry.isRoot && entry.outcome == GrantOutcome.GRANTED ->
                                 R.string.wizard_root_permission_target_granted_toast
 
+                            entry.isRoot && entry.outcome == GrantOutcome.UNAVAILABLE ->
+                                R.string.wizard_root_permission_target_unavailable_toast
+
                             entry.isRoot -> R.string.wizard_root_permission_target_denied_toast
-                            entry.granted -> R.string.wizard_log_granted
+                            entry.outcome == GrantOutcome.GRANTED -> R.string.wizard_log_granted
                             else -> R.string.wizard_log_denied
                         }
                         stringResource(resId, entry.title)
@@ -329,7 +340,7 @@ private fun PermissionSinglePage(
             }
         }
         item {
-            SectionHeader(text = stringResource(R.string.wizard_section_optional))
+            SectionHeading(title = stringResource(R.string.wizard_section_optional))
         }
         itemsIndexed(permissionInfos) { index, info ->
             val granted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates)
@@ -350,19 +361,11 @@ private fun PermissionSinglePage(
                     granted -> stringResource(R.string.status_granted)
                     else -> stringResource(R.string.status_pending)
                 },
+                state = onboardingItemState(processing = processing, granted = granted),
                 onClick = { if (!granted) onRequestPermission(info) },
             )
         }
     }
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-    AppText(
-        text = text,
-        role = AppTextRole.Subtitle,
-        modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-    )
 }
 
 @Composable
@@ -375,6 +378,24 @@ private fun rootStatusText(state: ManagerRootAccessState, processing: Boolean): 
 
 private fun isRootProcessing(processingKeys: Set<String>, target: ManagerRootTarget): Boolean =
     "root_${target.name.lowercase()}" in processingKeys
+
+private fun onboardingItemState(processing: Boolean, granted: Boolean): OnboardingItemState = when {
+    processing -> OnboardingItemState.Pending
+    granted -> OnboardingItemState.Granted
+    else -> OnboardingItemState.Outstanding
+}
+
+private fun ManagerRootAccessState.toGrantOutcome(): GrantOutcome = when (this) {
+    ManagerRootAccessState.GRANTED -> GrantOutcome.GRANTED
+    ManagerRootAccessState.NOT_GRANTED -> GrantOutcome.DENIED
+    ManagerRootAccessState.UNAVAILABLE -> GrantOutcome.UNAVAILABLE
+}
+
+private fun rootToastResId(state: ManagerRootAccessState): Int = when (state) {
+    ManagerRootAccessState.GRANTED -> R.string.wizard_root_permission_target_granted_toast
+    ManagerRootAccessState.NOT_GRANTED -> R.string.wizard_root_permission_target_denied_toast
+    ManagerRootAccessState.UNAVAILABLE -> R.string.wizard_root_permission_target_unavailable_toast
+}
 
 private fun showToast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()

@@ -49,6 +49,9 @@ const val AUTO_UPDATE_ON_START_KEY = "pref_auto_update_on_start"
 
 const val AUTO_UPDATE_WIFI_ONLY_KEY = "pref_auto_update_wifi_only"
 
+/** DataStore key holding the version code whose onboarding report was dismissed. */
+const val KEY_WIZARD_SEEN_VERSION = "wizard_seen_version_code"
+
 /** High-volume heartbeat spans that carry no diagnostic value. */
 val SUPPRESSED_OTEL_EVENT_NAMES: Set<String> = setOf("push.keepalive", "push.lifecycle")
 
