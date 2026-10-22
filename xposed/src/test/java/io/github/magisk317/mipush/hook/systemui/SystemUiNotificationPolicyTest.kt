@@ -148,6 +148,87 @@ class SystemUiNotificationPolicyTest {
     }
 
     @Test
+    fun `only third-party posts are inspected for a self-supplied monochrome glyph`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = false,
+                thirdPartyIconPack = true,
+                isMiPushManaged = false,
+                uid = 10287,
+                isSystemApp = false,
+            )
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = true,
+                thirdPartyIconPack = true,
+                isMiPushManaged = false,
+                uid = 10287,
+                isSystemApp = false,
+            ),
+            "Color mode keeps the native colorful launcher logo.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = false,
+                thirdPartyIconPack = false,
+                isMiPushManaged = false,
+                uid = 10287,
+                isSystemApp = false,
+            ),
+            "The third-party switch owns this behavior.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = false,
+                thirdPartyIconPack = true,
+                isMiPushManaged = true,
+                uid = 10287,
+                isSystemApp = false,
+            ),
+            "MiPush-managed posts already own their status-bar asset.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = false,
+                thirdPartyIconPack = true,
+                isMiPushManaged = false,
+                uid = 10123,
+                isSystemApp = true,
+            ),
+            "System apps participate only through the system-app icon-pack switch.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                colorStatusBarIcon = false,
+                thirdPartyIconPack = true,
+                isMiPushManaged = false,
+                uid = 1000,
+                isSystemApp = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `a self-supplied monochrome glyph blocks substitution without a pack hit`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                keepsOwnMonochromeGlyph = true,
+            ),
+            "SystemUI tints the app's own grayscale glyph; the colorful substitution is a downgrade.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                keepsOwnMonochromeGlyph = false,
+            ),
+        )
+    }
+
+    @Test
     fun `legacy interception requires managed or a pack hit`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldInterceptSmallIcon(
