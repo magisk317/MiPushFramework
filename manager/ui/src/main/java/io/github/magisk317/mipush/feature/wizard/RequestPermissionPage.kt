@@ -30,6 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -63,7 +68,9 @@ import io.github.magisk317.uikit.surface.AppIconButton
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.SectionHeading
+import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.uikit.theme.appColor
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import org.koin.android.ext.android.inject
 import org.koin.compose.viewmodel.koinViewModel
@@ -241,6 +248,27 @@ fun PermissionMainActivity(
 }
 
 /**
+ * Intro body carrying the repository URL as a real hyperlink. `wizard_descr`
+ * keeps the wording and owns the `%1$s` placement, so each locale decides its
+ * own punctuation; the link target stays a single non-translatable resource.
+ */
+@Composable
+private fun wizardIntroSummary(): AnnotatedString {
+    val url = stringResource(R.string.wizard_repo_url)
+    val linkColor = appColor(AppColorRole.Primary)
+    val body = stringResource(R.string.wizard_descr, url)
+    return buildAnnotatedString {
+        append(body)
+        val start = body.indexOf(url)
+        if (start >= 0) {
+            val end = start + url.length
+            addStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline), start, end)
+            addLink(LinkAnnotation.Url(url), start, end)
+        }
+    }
+}
+
+/**
  * Single-page grant surface in the DataBackup spirit: intro card, required
  * root rows, live grant log and tap-to-grant optional rows. No step wizard,
  * no stacked system pages.
@@ -276,7 +304,7 @@ private fun PermissionSinglePage(
         item {
             OnboardingInfoCard(
                 title = stringResource(R.string.app_name),
-                summary = stringResource(R.string.wizard_descr),
+                summary = wizardIntroSummary(),
             )
         }
         item {
