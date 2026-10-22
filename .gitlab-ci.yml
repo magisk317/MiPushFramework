@@ -856,6 +856,11 @@ renovate:gitlab:
   stage: maintenance
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
+  variables:
+    # Renovate skips github-tags/github-releases deps when no GitHub token is
+    # present. GITHUB_PAT is a protected group variable; this job runs on the
+    # protected default branch, so it is available here.
+    GITHUB_TOKEN: "$GITHUB_PAT"
 
 sync:github:
   # The shared anchor owns the push: default branch plus release tags, with the
