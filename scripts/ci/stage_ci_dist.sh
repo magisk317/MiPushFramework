@@ -54,7 +54,16 @@ EOF
 # only swaps its base URL and keeps its whole verification chain (manifest
 # gate -> sha256 sidecar -> same-signature check).
 # ---------------------------------------------------------------------------
-xmsf_apk=$(ls xmsf/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
+# The runtime builds under its own "version" flavor dimension (normal/vc105);
+# CI assembles every flavor, so pin the one the registry publishes (normal,
+# see scripts/ci/xmsf_runtime_publish.sh) instead of guessing a directory.
+# after_script failures cannot fail the job, so exit loudly on a missing APK
+# rather than staging a half-empty ci-dist silently.
+xmsf_apk=$(find xmsf/build/outputs/apk/normal/debug -type f -name 'universal_*_xmsf_v*_debug.apk' | sort | tail -n 1)
+if [ -z "$xmsf_apk" ]; then
+  echo "ERROR: no universal xmsf debug APK under xmsf/build/outputs/apk/normal/debug" >&2
+  exit 1
+fi
 xmsf_version=$(basename "$xmsf_apk" | sed -n 's/^universal_.*_xmsf_v\(.*\)_debug\.apk$/\1/p')
 xmsf_dir="ci-dist/com.xiaomi.xmsf/$xmsf_version"
 mkdir -p "$xmsf_dir"
