@@ -283,13 +283,28 @@ class HookSystemUI : BaseHook() {
                             SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
                                 sbn.notification?.flags ?: 0,
                             )
+                        // A third-party app that already posts a standard monochrome glyph gets to
+                        // keep it: SystemUI tints that glyph, while MIUI's substitution would put a
+                        // multi-color launcher logo in the status bar.
+                        val keepsOwnMonochromeGlyph = !iconPackHit &&
+                            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                                colorStatusBarIcon = options.colorStatusBarIcon,
+                                thirdPartyIconPack = options.thirdPartyIconPack,
+                                isMiPushManaged = isMiPushManaged,
+                                uid = sbn.uid,
+                                isSystemApp = isSystemApplication(context, sbn.packageName),
+                            ) && isPositivelyGrayscaleSmallIcon(context, sbn.notification?.smallIcon)
                         if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
                                 isMiPushManaged = isMiPushManaged,
                                 iconPackHit = iconPackHit,
                                 isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
                                 colorStatusBarIcon = options.colorStatusBarIcon,
+                                keepsOwnMonochromeGlyph = keepsOwnMonochromeGlyph,
                             )
                         ) {
+                            if (keepsOwnMonochromeGlyph) {
+                                XLog.d(TAG, "status bar glyph kept pkg=${sbn.packageName} source=posted-monochrome")
+                            }
                             result = false
                         }
                     }

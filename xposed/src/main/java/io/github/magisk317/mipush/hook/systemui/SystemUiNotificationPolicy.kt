@@ -291,20 +291,38 @@ internal object SystemUiNotificationPolicy {
     }
 
     /**
+     * Whether a posted glyph is worth inspecting for "this app already ships a standard monochrome
+     * small icon". Only third-party posts qualify: MiPush-managed and icon-pack categories already
+     * own their status-bar asset, and system apps are covered by the icon-pack switch alone.
+     */
+    fun shouldInspectPostedGlyphForMonochrome(
+        colorStatusBarIcon: Boolean,
+        thirdPartyIconPack: Boolean,
+        isMiPushManaged: Boolean,
+        uid: Int,
+        isSystemApp: Boolean,
+    ): Boolean = !colorStatusBarIcon && thirdPartyIconPack && !isMiPushManaged &&
+        isApplicationUid(uid) && !isSystemApp
+
+    /**
      * Whether MIUI must NOT substitute the multi-color launcher icon for status-bar rendering.
      * Blocking only matters where the module owns the status-bar glyph: MiPush-managed
-     * notifications, icon-pack hits, and synthetic auto-group summaries under monochrome.
-     * A synthetic summary loses the child's target_package marker but keeps its colorful
-     * launcher icon, so the native substitution would colorize the group glyph. Everywhere
-     * else, and in color mode, the native substitution IS the product behavior.
+     * notifications, icon-pack hits, synthetic auto-group summaries under monochrome, and
+     * third-party apps whose own small icon is already a standard monochrome glyph (SystemUI tints
+     * those, so the colorful launcher logo would be a downgrade). A synthetic summary loses the
+     * child's target_package marker but keeps its colorful launcher icon, so the native
+     * substitution would colorize the group glyph. Everywhere else, and in color mode, the native
+     * substitution IS the product behavior.
      */
     fun shouldBlockSmallIconSubstitution(
         isMiPushManaged: Boolean,
         iconPackHit: Boolean,
         isSyntheticAutogroupSummary: Boolean = false,
         colorStatusBarIcon: Boolean = false,
+        keepsOwnMonochromeGlyph: Boolean = false,
     ): Boolean = isMiPushManaged || iconPackHit ||
-        (isSyntheticAutogroupSummary && !colorStatusBarIcon)
+        (isSyntheticAutogroupSummary && !colorStatusBarIcon) ||
+        keepsOwnMonochromeGlyph
 
     /** Status-bar icon view class whose [updateIconColor] is the only status-bar caller of
      * [NotifImageUtil.shouldSubstituteSmallIcon]. */
