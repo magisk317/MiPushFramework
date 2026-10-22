@@ -571,9 +571,12 @@ class HookSystemUI : BaseHook() {
                             val icon = packIcon ?: silhouette
                             // Framework ids (0x01......) resolve through SystemUI resources;
                             // app ids stay opaque hex unless the owning package is loaded.
-                            val smallIconResName = runCatching {
-                                systemUiContext.resources.getResourceName(resId)
-                            }.getOrNull() ?: "0x${Integer.toHexString(resId)}"
+                            val smallIconResName = smallIconResourceName(
+                                systemUiContext,
+                                iconType,
+                                resId,
+                                resPackage ?: sbn.packageName,
+                            )
                             XLog.i(
                                 TAG,
                                 "descriptor source pkg=${sbn.packageName} managed=$isMiPushManaged " +
@@ -710,6 +713,31 @@ class HookSystemUI : BaseHook() {
         val resId = runCatching { icon.callMethod("getResId") as? Int }.getOrNull() ?: 0
         val resPackage = runCatching { icon.callMethod("getResPackage") as? String }.getOrNull()
         return Triple(type, resId, resPackage)
+    }
+
+    /**
+     * Resolves the posted small icon's resource name against the package that owns it.
+     *
+     * SystemUI's own resources reinterpret a foreign resId as a SystemUI id and return an
+     * unrelated name (a "$ic_device_camera_on_anim__0" style anim), which made the descriptor
+     * log impossible to act on during triage. Foreign ids resolve through a package context.
+     */
+    private fun smallIconResourceName(
+        context: Context,
+        iconType: Int,
+        resId: Int,
+        ownerPackage: String?,
+    ): String {
+        val hexId = "0x${Integer.toHexString(resId)}"
+        if (iconType != SystemUiNotificationPolicy.ICON_TYPE_RESOURCE || resId == 0) return hexId
+        return runCatching {
+            val resources = if (ownerPackage.isNullOrBlank() || ownerPackage == context.packageName) {
+                context.resources
+            } else {
+                context.createPackageContext(ownerPackage, 0).resources
+            }
+            resources.getResourceName(resId)
+        }.getOrNull() ?: hexId
     }
 
     private fun Notification.canColorize(): Boolean = flags and FLAG_CAN_COLORIZE != 0
