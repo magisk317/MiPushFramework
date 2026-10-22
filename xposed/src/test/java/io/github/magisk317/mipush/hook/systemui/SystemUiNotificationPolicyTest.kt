@@ -105,6 +105,49 @@ class SystemUiNotificationPolicyTest {
     }
 
     @Test
+    fun `synthetic autogroup summaries are identified by flags alone`() {
+        assertTrue(
+            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY or
+                    SystemUiNotificationPolicy.FLAG_AUTOGROUP_SUMMARY,
+            )
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY,
+            ),
+            "An app-authored group summary is not a synthetic autogroup record.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                SystemUiNotificationPolicy.FLAG_AUTOGROUP_SUMMARY,
+            ),
+        )
+    }
+
+    @Test
+    fun `monochrome synthetic summaries block MIUI substitution`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+                colorStatusBarIcon = false,
+            ),
+            "The summary copies a colorful launcher icon but loses target_package.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+                colorStatusBarIcon = true,
+            ),
+            "Color mode keeps the native colorful summary icon.",
+        )
+    }
+
+    @Test
     fun `legacy interception requires managed or a pack hit`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldInterceptSmallIcon(
