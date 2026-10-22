@@ -584,7 +584,41 @@ class HookSystemUI : BaseHook() {
                                     "attempt=$attemptsIconPack " +
                                     "source=${if (packIcon != null) "iconpack" else if (silhouette != null) "silhouette" else "posted-native"}",
                             )
-                            if (icon == null) return@runCatching
+                            if (icon == null) {
+                                // Android 17's IconManager already swapped descriptor.icon for the app's
+                                // launcher asset before this callback runs. Keeping it is only correct when the
+                                // post has no status glyph of its own: an opaque launcher bitmap is what renders
+                                // as the rounded white block. Where the app posted a standard monochrome small
+                                // icon the module owns that glyph -- the same rule shouldSubstituteSmallIcon uses
+                                // to block MIUI's substitution -- so write it back over the launcher asset.
+                                val postedGlyph = notification.smallIcon ?: return@runCatching
+                                val keepsPostedGlyph =
+                                    SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                                        colorStatusBarIcon = options.colorStatusBarIcon,
+                                        thirdPartyIconPack = options.thirdPartyIconPack,
+                                        isMiPushManaged = isMiPushManaged,
+                                        uid = sbn.uid,
+                                        isSystemApp = isSystemApplication(systemUiContext, sbn.packageName),
+                                    ) && isPositivelyGrayscaleSmallIcon(systemUiContext, postedGlyph)
+                                if (!keepsPostedGlyph) return@runCatching
+                                val restoredGlyph = StatusBarMonochromeIconPolicy.statusSafeGlyphOrNull(
+                                    systemUiContext,
+                                    postedGlyph,
+                                ) ?: postedGlyph
+                                markSubstitutedStatusBarGlyph(
+                                    entry = entry,
+                                    descriptor = descriptor,
+                                    substituted = true,
+                                )
+                                setHookObjectField(descriptor, "icon", restoredGlyph)
+                                XLog.i(
+                                    TAG,
+                                    "descriptor restored pkg=${sbn.packageName} " +
+                                        "smallIcon=$smallIconResName source=posted-monochrome",
+                                )
+                                return@runCatching
+                            }
+
                             markSubstitutedStatusBarGlyph(
                                 entry = entry,
                                 descriptor = descriptor,
