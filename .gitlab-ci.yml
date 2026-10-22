@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -50,7 +50,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "30dcb9c64facc024eb140a04a0f607dc07d21792"
+  MAGISK_CI_TOOLKIT_REF: "5a9cef57abe852dc7798664e03ad50256a0204dd"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
