@@ -179,7 +179,7 @@
 
     <!-- Wizard -->
 
-    <string name="wizard_descr"><![CDATA[这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情访问本项目项目于 GitHub 的页面：<a href="https://github.io/github/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr">这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情见 GitLab 项目页面：https://gitlab.com/magisk3171/MiPushFramework</string>
     <string name="wizard_connect">正在连接</string>
 
     <string name="wizard_title_run_in_background">允许后台活动</string>
