@@ -80,13 +80,9 @@
     <string name="pref_color_status_bar_icon_mipush_title">单色图标</string>
     <string name="pref_color_status_bar_icon_mipush_summary">默认开启：MiPush 通知的状态栏图标统一为白色单色剪影；关闭则保留应用原本的颜色</string>
     <string name="pref_icon_pack_third_party_title">三方应用</string>
-    <string name="pref_icon_pack_third_party_summary">三方应用通知改用图标包图标。仅对图标包内配置的应用生效，其余应用保持系统原生渲染</string>
+    <string name="pref_icon_pack_third_party_summary">三方应用通知改用图标包图标。单色模式下，状态栏图标本身就是标准单色剪影的应用会保留自己的图标；其余仅对图标包内配置的应用生效，其它应用保持系统原生渲染</string>
     <string name="pref_icon_pack_system_app_title">系统应用</string>
     <string name="pref_icon_pack_system_app_summary">系统应用通知改用图标包图标。仅对图标包内配置的应用生效，其余应用保持系统原生渲染</string>
-    <string name="pref_color_status_bar_icon_restart_title">需要重启手机</string>
-    <string name="pref_color_status_bar_icon_restart_message">修改此项会重启手机，否则状态栏图标单色策略不会在系统侧完整生效。</string>
-    <string name="pref_color_status_bar_icon_restart_confirm">应用并重启手机</string>
-    <string name="pref_color_status_bar_icon_reboot_failed">设置已保存，但设备重启失败，请检查 Root 权限</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_runtime_preference_update_failed">无法更新%1$s，请确认推送服务已连接</string>

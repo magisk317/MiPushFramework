@@ -62,13 +62,9 @@
     <string name="pref_color_status_bar_icon_mipush_title">Monochrome icons</string>
     <string name="pref_color_status_bar_icon_mipush_summary">On by default: MiPush status-bar icons become white monochrome silhouettes. Turn off to keep the app\'s own colors</string>
     <string name="pref_icon_pack_third_party_title">Third-party apps</string>
-    <string name="pref_icon_pack_third_party_summary">Use icon-pack glyphs for third-party app notifications. Only apps configured in the icon pack are affected; all others keep the system\'s native rendering</string>
+    <string name="pref_icon_pack_third_party_summary">Use icon-pack glyphs for third-party app notifications. Under monochrome, an app whose own status-bar glyph is already a standard silhouette keeps it; otherwise only apps configured in the icon pack are affected and the rest keep the system\'s native rendering</string>
     <string name="pref_icon_pack_system_app_title">System apps</string>
     <string name="pref_icon_pack_system_app_summary">Use icon-pack glyphs for system app notifications. Only apps configured in the icon pack are affected; all others keep the system\'s native rendering</string>
-    <string name="pref_color_status_bar_icon_restart_title">Device reboot required</string>
-    <string name="pref_color_status_bar_icon_restart_message">Changing this switch reboots the device so the status-bar monochrome icon policy takes effect system-wide.</string>
-    <string name="pref_color_status_bar_icon_restart_confirm">Apply and reboot</string>
-    <string name="pref_color_status_bar_icon_reboot_failed">The preference was saved, but the device could not reboot. Check Root access.</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_runtime_preference_update_failed">Could not update %1$s. Check that the push service is connected.</string>
