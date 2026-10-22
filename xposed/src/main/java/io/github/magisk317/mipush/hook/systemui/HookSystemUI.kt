@@ -279,9 +279,15 @@ class HookSystemUI : BaseHook() {
                             postedPackage = sbn.packageName,
                             userId = userId,
                         )
+                        val isSyntheticAutogroupSummary =
+                            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                                sbn.notification?.flags ?: 0,
+                            )
                         if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
                                 isMiPushManaged = isMiPushManaged,
                                 iconPackHit = iconPackHit,
+                                isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
+                                colorStatusBarIcon = options.colorStatusBarIcon,
                             )
                         ) {
                             result = false
@@ -416,11 +422,12 @@ class HookSystemUI : BaseHook() {
      * the monochrome pipeline tints them. Keep the custom icon for notification headers, but use
      * the already-validated transparent MiPush smallIcon for the status bar descriptor.
      *
-     * Synthetic AUTOGROUP_SUMMARY records are different: their framework smallIcon is a generic
-     * two-block glyph (for example android:0x010805c7), not a real app status icon. The
-     * replacement is gated by the monochrome switch: monochrome mode resolves through the
-     * icon-pack first; color mode uses the owning package's colorful icon. The Android logo is
-     * the last resort in both modes. Ordinary application group summaries never enter this branch.
+     * Synthetic AUTOGROUP_SUMMARY records are different: HyperOS either ships a generic
+     * framework glyph (android:0x010805c7) or copies the representative child's colorful
+     * launcher icon, and never inherits the child's target_package extras. The replacement is
+     * gated by the monochrome switch: monochrome resolves icon pack -> white silhouette; color
+     * mode uses the owning package's colorful icon. The Android logo is the last resort.
+     * Ordinary application group summaries never enter this branch.
      */
     private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
         runCatching {
@@ -444,12 +451,9 @@ class HookSystemUI : BaseHook() {
                                 notification.extras,
                             )
                             val (iconType, resId, resPackage) = readIconResourceFields(notification.smallIcon)
-                            val isFrameworkAutogroupSummary =
-                                SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
-                                    iconType = iconType,
-                                    resId = resId,
-                                    resPackage = resPackage,
-                                    notificationFlags = notification.flags,
+                            val isSyntheticAutogroupSummary =
+                                SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                                    notification.flags,
                                 )
                             fun iconPackIcon(): Icon? {
                                 return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
@@ -480,23 +484,28 @@ class HookSystemUI : BaseHook() {
                                     packageName = sbn.packageName,
                                 )
                             }
-                            if (isFrameworkAutogroupSummary) {
-                                // Autogroup summaries ship a broken generic glyph that must be
-                                // replaced with something renderable: icon pack (category-gated),
-                                // then the package's colorful icon, then the Android logo. None
-                                // of these can tint into a white block.
+                            fun colorfulAppIcon(): Icon? {
+                                StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                    context = systemUiContext,
+                                    packageName = owner,
+                                )?.let { return it }
+                                if (owner == sbn.packageName) return null
+                                return StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                    context = systemUiContext,
+                                    packageName = sbn.packageName,
+                                )
+                            }
+                            if (isSyntheticAutogroupSummary) {
+                                // Synthetic summaries copy the child's smallIcon but not its
+                                // target_package extras, so they never look MiPush-managed. On
+                                // HyperOS that icon is often the app's colorful launcher resource.
+                                // Monochrome resolves icon pack -> white silhouette -> Android logo;
+                                // only color mode may use the package's colorful icon.
                                 val summaryIcon = iconPackIcon()
-                                    ?: StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                                        context = systemUiContext,
-                                        packageName = owner,
-                                    )
-                                    ?: (if (owner != sbn.packageName) {
-                                        StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                                            context = systemUiContext,
-                                            packageName = sbn.packageName,
-                                        )
+                                    ?: (if (options.colorStatusBarIcon) {
+                                        colorfulAppIcon()
                                     } else {
-                                        null
+                                        monochromeSilhouette()
                                     })
                                     ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
                                 if (summaryIcon != null) {
@@ -581,14 +590,7 @@ class HookSystemUI : BaseHook() {
         options: IslandOptions,
     ) {
         val notification = sbn.notification ?: return
-        val (iconType, resId, resPackage) = readIconResourceFields(notification.smallIcon)
-        if (!SystemUiNotificationPolicy.isFrameworkAutogroupSummaryNotification(
-                iconType = iconType,
-                resId = resId,
-                resPackage = resPackage,
-                notificationFlags = notification.flags,
-            )
-        ) {
+        if (!SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(notification.flags)) {
             return
         }
         val imageView = iconView as? ImageView ?: return
@@ -604,10 +606,16 @@ class HookSystemUI : BaseHook() {
                 packageName = packageName,
                 userId = userId,
             )
-        // Autogroup summaries ship a broken generic glyph; replace with icon pack
-        // (category-gated) or the package's colorful icon, then the Android logo.
+        // Autogroup summaries ship a broken generic glyph or a copied colorful launcher icon;
+        // replace with icon pack (category-gated), then a monochrome silhouette or the package's
+        // colorful icon depending on the mode, then the Android logo.
         fun colorfulAppIcon(packageName: String): Icon? =
             StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                context = context,
+                packageName = packageName,
+            )
+        fun silhouetteIcon(packageName: String): Icon? =
+            StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
                 context = context,
                 packageName = packageName,
             )
@@ -616,10 +624,21 @@ class HookSystemUI : BaseHook() {
             icon = iconPackIcon(sbn.packageName)
         }
         if (icon == null) {
-            icon = colorfulAppIcon(owner)
-        }
-        if (icon == null && owner != sbn.packageName) {
-            icon = colorfulAppIcon(sbn.packageName)
+            icon = if (options.colorStatusBarIcon) {
+                colorfulAppIcon(owner)
+                    ?: if (owner != sbn.packageName) {
+                        colorfulAppIcon(sbn.packageName)
+                    } else {
+                        null
+                    }
+            } else {
+                silhouetteIcon(owner)
+                    ?: if (owner != sbn.packageName) {
+                        silhouetteIcon(sbn.packageName)
+                    } else {
+                        null
+                    }
+            }
         }
         if (icon == null) {
             icon = StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
@@ -628,7 +647,10 @@ class HookSystemUI : BaseHook() {
         val drawable = runCatching { icon.loadDrawable(context) }.getOrNull() ?: return
         imageView.setImageDrawable(drawable)
         imageView.invalidate()
-        XLog.d(TAG, "setIcon applied framework autogroup package icon owner=$owner")
+        XLog.d(
+            TAG,
+            "setIcon applied autogroup summary icon owner=$owner color=${options.colorStatusBarIcon}",
+        )
     }
 
     private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {

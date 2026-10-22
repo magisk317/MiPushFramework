@@ -131,17 +131,13 @@ internal object SystemUiNotificationPolicy {
 
     /**
      * True only for the synthetic Android/HyperOS summary, not ordinary app group summaries.
-     * This path must not fall back to the framework summary glyph when a package icon is needed.
+     * The synthetic summary copies the representative child's smallIcon (often the app's
+     * colorful launcher resource on HyperOS) and does not inherit the child's target_package
+     * extras, so the flags are the only reliable marker.
      */
-    fun isFrameworkAutogroupSummaryNotification(
-        iconType: Int,
-        resId: Int,
-        resPackage: String?,
-        notificationFlags: Int,
-    ): Boolean {
+    fun isSyntheticAutogroupSummaryNotification(notificationFlags: Int): Boolean {
         return notificationFlags and FLAG_GROUP_SUMMARY != 0 &&
-            notificationFlags and FLAG_AUTOGROUP_SUMMARY != 0 &&
-            isFrameworkAutogroupSummaryIcon(iconType, resId, resPackage)
+            notificationFlags and FLAG_AUTOGROUP_SUMMARY != 0
     }
 
     /**
@@ -297,13 +293,18 @@ internal object SystemUiNotificationPolicy {
     /**
      * Whether MIUI must NOT substitute the multi-color launcher icon for status-bar rendering.
      * Blocking only matters where the module owns the status-bar glyph: MiPush-managed
-     * notifications and icon-pack hits. Everywhere else the native substitution IS the product
-     * behavior (colored logo, system-owned, never a white block).
+     * notifications, icon-pack hits, and synthetic auto-group summaries under monochrome.
+     * A synthetic summary loses the child's target_package marker but keeps its colorful
+     * launcher icon, so the native substitution would colorize the group glyph. Everywhere
+     * else, and in color mode, the native substitution IS the product behavior.
      */
     fun shouldBlockSmallIconSubstitution(
         isMiPushManaged: Boolean,
         iconPackHit: Boolean,
-    ): Boolean = isMiPushManaged || iconPackHit
+        isSyntheticAutogroupSummary: Boolean = false,
+        colorStatusBarIcon: Boolean = false,
+    ): Boolean = isMiPushManaged || iconPackHit ||
+        (isSyntheticAutogroupSummary && !colorStatusBarIcon)
 
     /** Status-bar icon view class whose [updateIconColor] is the only status-bar caller of
      * [NotifImageUtil.shouldSubstituteSmallIcon]. */
