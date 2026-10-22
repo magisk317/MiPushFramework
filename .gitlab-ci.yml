@@ -227,56 +227,13 @@ android:build:
       else
         echo "otel: helper missing, skip"
       fi
-    # The universal APK name embeds the build timestamp, while
-    # GitLabCiArtifactUpdateSource can only fetch artifacts by exact path
-    # (no glob), so stage a stable copy for the in-app update check under a
-    # version-keyed directory, plus the embedded version string as a
-    # plain-text sidecar so the update dialog can display the real build
-    # timestamp and the source can resolve the {versionName} path segment.
-    # The layout is symmetric across both packages:
-    #   ci-dist/<package>/version.txt + ci-dist/<package>/<versionName>/*
-    - |
-      set -euo pipefail
-      mipush_apk=$(ls mipush/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
-      mipush_version=$(basename "$mipush_apk" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p')
-      mkdir -p "ci-dist/io.github.magisk317.mipush/$mipush_version"
-      cp "$mipush_apk" "ci-dist/io.github.magisk317.mipush/$mipush_version/mipush-ci.apk"
-      printf '%s' "$mipush_version" > ci-dist/io.github.magisk317.mipush/version.txt
-      # Stage the xmsf runtime under its own package-name directory, keyed by
-      # versionName (com.xiaomi.xmsf/<versionName>/...) - the same two-level
-      # shape the generic package registry uses, so the in-app downloader only
-      # swaps its base URL and keeps its whole verification chain (manifest
-      # gate -> sha256 sidecar -> same-signature). The raw artifacts endpoint
-      # exposes no per-file listing, so the version travels in a plain-text
-      # sidecar (com.xiaomi.xmsf/version.txt), exactly like
-      # ci-dist/io.github.magisk317.mipush/version.txt above.
-      # minManagerVersionCode is the pipeline iid: the same axis the manager's
-      # own versionCode uses, so old managers never pull a newer runtime.
-      xmsf_apk=$(ls xmsf/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
-      xmsf_version=$(basename "$xmsf_apk" | sed -n 's/^universal_.*_xmsf_v\(.*\)_debug\.apk$/\1/p')
-      mkdir -p "ci-dist/com.xiaomi.xmsf/$xmsf_version"
-      cp "$xmsf_apk" "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk"
-      xmsf_sha=$(sha256sum "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk" | cut -d' ' -f1)
-      printf '%s  xmsf-runtime.apk\n' "$xmsf_sha" \
-        > "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime.apk.sha256"
-      python3 - "ci-dist/com.xiaomi.xmsf/$xmsf_version/xmsf-runtime-manifest.json" \
-        "$xmsf_version" "$CI_PIPELINE_IID" "$CI_PIPELINE_IID" "$xmsf_sha" <<'PYEOF'
-import json
-import sys
-
-output_file, version_name, version_code, min_manager, sha256 = sys.argv[1:6]
-manifest = {
-    "schema": 1,
-    "variant": "github",
-    "versionName": version_name,
-    "versionCode": int(version_code),
-    "minManagerVersionCode": int(min_manager),
-    "sha256": sha256,
-}
-with open(output_file, "w", encoding="utf-8") as handle:
-    handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-PYEOF
-      printf '%s' "$xmsf_version" > ci-dist/com.xiaomi.xmsf/version.txt
+    # The universal APK name embeds the build timestamp, while the in-app
+    # update probes can only fetch artifacts by exact path (no glob), so
+    # stage a version-keyed copy of both packages plus the sidecars the
+    # probes verify (version.txt, .sha256, manifest). Kept in a script
+    # because a top-level heredoc terminator cannot live inside a YAML
+    # block scalar.
+    - bash scripts/ci/stage_ci_dist.sh
 
 android:check:
   extends: .magisk_android_build
