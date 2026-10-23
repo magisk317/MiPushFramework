@@ -18,12 +18,26 @@
 # pipeline iid any more: the in-app updater judges a build by this manifest's
 # versionCode, and the iid is no longer that number.
 #
+# GitLab runs after_script in its own shell, so the export made in script does
+# not reach here. The toolkit writes the number to .magisk-version-code instead,
+# and ci/allocated_version_code.sh reads it back (preferring MAGISK_VERSION_CODE
+# when it is set) and fails loudly naming both sources when neither is there —
+# the alternative being a green build whose manifest silently disappears and an
+# updater that falls back to the pipeline iid.
+#
 # Called from android:build's after_script; kept out of the YAML so the
 # heredocs below stay valid shell (YAML block scalars cannot host a
 # top-level heredoc terminator).
 set -euo pipefail
 
 cd "$CI_PROJECT_DIR"
+
+version_code="${MAGISK_VERSION_CODE:-}"
+if [ -z "$version_code" ] && [ -n "${MAGISK_CI_TOOLKIT_DIR:-}" ] \
+   && [ -x "$MAGISK_CI_TOOLKIT_DIR/ci/allocated_version_code.sh" ]; then
+  version_code="$(bash "$MAGISK_CI_TOOLKIT_DIR/ci/allocated_version_code.sh")"
+fi
+: "${version_code:?allocated versionCode unavailable: MAGISK_VERSION_CODE is unset and .magisk-version-code is missing or empty}"
 
 # ---------------------------------------------------------------------------
 # Manager APK: io.github.magisk317.mipush/<versionName>/mipush-ci.apk
@@ -41,10 +55,10 @@ cat > "$mipush_dir/mipush-ci-manifest.json" <<EOF
   "schema": 1,
   "variant": "github",
   "versionName": "$mipush_version",
-  "versionCode": ${MAGISK_VERSION_CODE:?version code was not allocated},
+  "versionCode": $version_code,
   "sha256": "$mipush_sha",
   "force": true,
-  "minSupportedVersionCode": ${MAGISK_VERSION_CODE:?version code was not allocated}
+  "minSupportedVersionCode": $version_code
 }
 EOF
 
