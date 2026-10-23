@@ -199,9 +199,14 @@ android:build:
       -PbuildSplits
       -PminifyDebug
       -Pkotlin.incremental=false
-    # Bind artifact versionCode to the pipeline iid so the in-app
-    # update check sees a monotonically increasing version axis.
-    MAGISK_GRADLE_ARGS: "--warning-mode all -PversionCode=$CI_PIPELINE_IID"
+    # Bind artifact versionCode to the shared allocator: the pipeline iid used to
+    # play this role, but Play's own scale runs ahead of it and Google Play compares
+    # versionCode, not versionName -- which is how a 1.1.1 CI build came to be
+    # offered the 1.1.0 release as an update. The template appends the allocated
+    # -PversionCode itself (last one wins) and exports MAGISK_VERSION_CODE for
+    # staging.
+    MAGISK_VERSION_SCOPE: "gitlab:$CI_PROJECT_ID:$CI_PIPELINE_IID"
+    MAGISK_GRADLE_ARGS: "--warning-mode all"
   # The runner provides persistent SDK/Gradle directories outside the project;
   # the inherited project-relative cache paths only produce empty-cache warnings.
   cache: []

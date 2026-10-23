@@ -12,9 +12,11 @@
 # and verify the sha256 before anything installs, so a staged set must always
 # travel complete: APK + .sha256 + manifest.
 #
-# Version gates ride the pipeline iid — the same axis the manager APK's
-# versionCode uses (see -PversionCode=$CI_PIPELINE_IID) — so old managers
-# never pull a build they cannot run.
+# Version gates ride the allocated versionCode — the same number the APK itself
+# carries (the build template allocates it and exports MAGISK_VERSION_CODE) — so
+# old managers never pull a build they cannot run. It is deliberately NOT the
+# pipeline iid any more: the in-app updater judges a build by this manifest's
+# versionCode, and the iid is no longer that number.
 #
 # Called from android:build's after_script; kept out of the YAML so the
 # heredocs below stay valid shell (YAML block scalars cannot host a
@@ -39,10 +41,10 @@ cat > "$mipush_dir/mipush-ci-manifest.json" <<EOF
   "schema": 1,
   "variant": "github",
   "versionName": "$mipush_version",
-  "versionCode": $CI_PIPELINE_IID,
+  "versionCode": ${MAGISK_VERSION_CODE:?version code was not allocated},
   "sha256": "$mipush_sha",
   "force": true,
-  "minSupportedVersionCode": $CI_PIPELINE_IID
+  "minSupportedVersionCode": ${MAGISK_VERSION_CODE:?version code was not allocated}
 }
 EOF
 
