@@ -4,6 +4,7 @@ import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PROCESS_NAME
 import io.github.magisk317.mipush.hook.documentsui.DocumentsUiXSpaceHook
+import io.github.magisk317.mipush.hook.fakedevice.DouyinMiuiGateHook
 import io.github.magisk317.mipush.hook.fakedevice.FakeDeviceHook
 import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
@@ -80,6 +81,12 @@ class LibXposedEntry : BaseLibXposedEntry {
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         XposedRuntime.install(module, hookApi)
+        // The Douyin provider gate caches a negative answer, so a compiled or inlined copy of the
+        // original body can keep answering false even once the hook exists. Hand the framework's
+        // deoptimization entry point to that one hook: XposedRuntime keeps its own reference
+        // private and the kit is shared across six consumers, so plumbing it through the kit would
+        // be a cross-repo change for a single call site (issue #143).
+        DouyinMiuiGateHook.bindDeoptimizer(module)
         XposedLogClient.configure(
             authority = "com.xiaomi.xmsf.module.log",
             source = "mipush",
