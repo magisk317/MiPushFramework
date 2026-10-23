@@ -16,7 +16,6 @@ import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
-import io.github.magisk317.xposed.logging.MagiskLogPolicy
 
 import java.io.File
 import java.io.OutputStream
@@ -84,12 +83,6 @@ class SettingsManager constructor(
         context: Context,
         destination: OutputStream,
     ): ManagerLogBundleWriteResult {
-        if (!MagiskLogPolicy.current().allowsLogExport) {
-            return ManagerLogBundleWriteResult(
-                success = false,
-                details = "log export disabled: release build",
-            )
-        }
         (logGateway as? ManagerLogBundleWriter)?.let { writer ->
             return writer.writeLogBundle(context, destination)
         }

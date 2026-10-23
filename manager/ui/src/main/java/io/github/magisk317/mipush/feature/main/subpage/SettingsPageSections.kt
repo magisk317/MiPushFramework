@@ -396,7 +396,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         ActivityResultContracts.CreateDocument("application/zip"),
     ) { destination ->
         if (destination == null) return@rememberLauncherForActivityResult
-        if (!allowsLogExport) return@rememberLauncherForActivityResult
         Toast.makeText(context, R.string.runtime_log_exporting, Toast.LENGTH_SHORT).show()
         viewModel.saveRuntimeLogBundle(context, destination) { result ->
             val message = when {
@@ -409,7 +408,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     fun saveRuntimeLogBundle() {
-        if (!allowsLogExport) return
         scope.launch {
             // Fail fast instead of letting the foreground export run to completion:
             // the bundle pulls /data/adb/lspd/log, which a non-root device cannot read.
@@ -462,9 +460,21 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             analyticsEnabled = analyticsEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
-            onShareLog = ::saveRuntimeLogBundle,
-            onRetentionClick = { showRuntimeLogRetentionDialog = true },
-            onClearLogClick = { showClearConfirmDialog = true },
+            onShareLog = if (allowsLogExport) {
+                { saveRuntimeLogBundle() }
+            } else {
+                {}
+            },
+            onRetentionClick = if (allowsLogExport) {
+                { showRuntimeLogRetentionDialog = true }
+            } else {
+                {}
+            },
+            onClearLogClick = if (allowsLogExport) {
+                { showClearConfirmDialog = true }
+            } else {
+                {}
+            },
             onAnalyticsEnabledChange = if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
                 { enabled ->
                     viewModel.setAnalyticsEnabled(enabled) { success ->
