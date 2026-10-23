@@ -85,7 +85,7 @@ variables:
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "true"
   # NOTE: the Play track is selected by MAGISK_PLAY_TRACK_OVERRIDE (consumed by
   # the toolkit's resolve_play_release.sh) and is set explicitly by
-  # android:release:play-bundle / android:release:play below.
+  # android:release:aab / android:release:publish-play below.
   # MAGISK_ANDROID_RELEASE_PLAY_TRACK used to live here but has no consumer in
   # the toolkit, so setting it silently did nothing. Removed.
   MAGISK_PLAY_INITIAL_VERSION_CODE: "1569"
@@ -173,6 +173,7 @@ update:anip-bundle:
     expire_in: 1 day
   allow_failure: true
 
+# The in-app updater resolves this job by name; do not rename it.
 android:build:
   extends:
     - .magisk_android_build
@@ -450,7 +451,7 @@ android:detekt:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:play-beta
+    - job: android:ci:publish-play
       artifacts: false
       optional: true
   cache: []
@@ -486,7 +487,7 @@ android:test:pure-modules:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:play-beta
+    - job: android:ci:publish-play
       artifacts: false
       optional: true
   cache: []
@@ -516,7 +517,7 @@ android:test:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:play-beta
+    - job: android:ci:publish-play
       artifacts: false
       optional: true
   cache: []
@@ -548,7 +549,7 @@ android:module-boundaries:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:play-beta
+    - job: android:ci:publish-play
       artifacts: false
       optional: true
   variables:
@@ -566,7 +567,7 @@ android:shared-compat:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:play-beta
+    - job: android:ci:publish-play
       artifacts: false
       optional: true
   cache: []
@@ -632,7 +633,7 @@ android:release:apk:
       # build its "<versionCode>-<versionName>" release tag.
       - play-release.env
 
-android:release:play-bundle:
+android:release:aab:
   extends: .magisk_android_release_aab
   variables:
     MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
@@ -715,7 +716,7 @@ xmsf:runtime:publish:
         --version "$MAGISK_PLAY_VERSION_NAME" \
         --version-code "$XMSF_RUNTIME_VERSION_CODE"
 
-android:release:play:
+android:release:publish-play:
   extends: .magisk_android_publish_play
   resource_group: mipush-android-release-play
   stage: release
@@ -728,7 +729,7 @@ android:release:play:
     MAGISK_PLAY_TRACK_OVERRIDE: "production"
     MAGISK_ANDROID_APP_MODULE: "mipush"
   needs:
-    - job: android:release:play-bundle
+    - job: android:release:aab
       artifacts: true
   artifacts:
     reports:
@@ -738,7 +739,7 @@ android:release:play:
     when: always
     expire_in: 1 day
 
-android:ci:play-beta-bundle:
+android:ci:aab:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
   stage: build
@@ -780,7 +781,7 @@ android:ci:play-beta-bundle:
       - mipush/build/outputs/mapping/**/mapping.txt
       - play-release.env
 
-android:ci:play-beta:
+android:ci:publish-play:
   extends: .magisk_android_base
   resource_group: mipush-android-release-play
   stage: release
@@ -796,7 +797,7 @@ android:ci:play-beta:
       when: on_success
     - when: never
   needs:
-    - job: android:ci:play-beta-bundle
+    - job: android:ci:aab
       artifacts: true
   script:
     - |
