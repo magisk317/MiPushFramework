@@ -486,8 +486,16 @@ PY
 }
 
 publish_gitlab_release() {
+  # Only android:release:gitlab calls this mode, and that job always runs inside
+  # GitLab CI. If these variables are missing, the job is not on GitLab -- and
+  # returning 0 here reported "release published" while nothing was published,
+  # which is the failure mode that costs a release: the job is green, the tag
+  # exists, and the GitLab Release is simply absent. Fail loudly instead.
   if ! require_supported_env CI_API_V4_URL CI_PROJECT_ID CI_PROJECT_URL CI_JOB_TOKEN; then
-    return 0
+    echo "ERROR: cannot publish the GitLab release without the GitLab CI environment." >&2
+    echo "       This mode must run inside a GitLab job (android:release:gitlab)." >&2
+    echo "       The message above names the missing variables." >&2
+    return 1
   fi
 
   local tag_name notes_file asset_dir package_name

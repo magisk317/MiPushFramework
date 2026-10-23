@@ -1,3 +1,92 @@
+# GitHub fallback for the Android release axis.
+#
+# GitLab owns releases: .gitlab-ci.yml runs the same scripts through
+# .gitlab/ci/android-release.yml, gated by the $RELEASE_OWNER group variable.
+# This file exists for the one situation where that chain cannot run at all --
+# the GitLab runner fleet is down -- so a release can still be cut, published to
+# the GitHub Release, submitted to Play, and pushed to Xposed-Modules-Repo.
+#
+# The publishing itself lives in the toolkit
+# (magisk317/magisk-ci-toolkit/.github/workflows/release-android.yml,
+# .gitlab-ci.yml pins it at the same SHA the GitLab pipeline includes), so the
+# two hosts share one implementation instead of two that drift. See
+# docs/hosting-cutover.md, "GitHub fallback release chain".
+#
+# This file replaces the in-repo chain that duplicated those ~560 lines here.
+# `name: Release` is kept: notification.yml still keys off a completed run of
+# the workflow called "Release".
+#
+# Deploying this file does not enable publishing. GitHub publishes only while the
+# repository variable RELEASE_OWNER is exactly `github`:
+#   Settings -> Secrets and variables -> Actions -> Repository variables
+# That equality is deliberate -- sync:github force-pushes every GitLab release
+# tag here, so an unset variable would make every mirrored tag a second publish
+# from the mirror's own pushes.
+#
+# Emergency sequence -- the full procedure, including the recovery checklist, is
+# docs/github-fallback-release.md in the toolkit. Short form:
+#   1. scripts/release/release_tag.sh creates the signed annotated tag locally
+#      (it sources the toolkit's release/release_tag.sh; no signing key exists
+#      on GitHub and none is created here).
+#   2. push the branch and the tag to github only. sync:github cannot run while
+#      the fleet is down, so the mirror push is manual -- and pushing the tag to
+#      GitLab now would queue a tag pipeline that publishes a second time as
+#      soon as a runner returns. The tag goes back during recovery.
+#   3. set RELEASE_OWNER=github on this repository.
+#   4. Run workflow -> Release, tag name, publish switches as required.
+#      Steps 3 and 4 are the only actions that produce external side effects, so
+#      rehearse first with dry_run=true and RELEASE_OWNER left as `gitlab`: a dry
+#      run builds and verifies and writes nothing outside the runner. It does not
+#      need a tag that exists yet, because the guard compares the tag name with
+#      versionName -- so the next version is a valid rehearsal target.
+#   5. When GitLab runners are back, run the toolkit's
+#      release/reconcile_github_refs.sh (read-only first, then --apply) and only
+#      then set RELEASE_OWNER back, or the next sync:github force-push overwrites
+#      whatever this chain published.
+#
+# What this chain does not cover, and why that is acceptable in an outage:
+#   * android:release:gitlab and xmsf:runtime:publish. Both write to the GitLab
+#     side -- the GitLab Release and the generic package registry that
+#     XmsfDownloader downloads from -- and neither has a GitHub equivalent to
+#     write to. During an outage the registry keeps serving whatever it already
+#     holds, and the GitLab Release is cut from the same tag by the same scripts
+#     once the fleet returns.
+#   * Telegram. The release card is reviewed by a human before it goes out
+#     (notification.yml stays workflow_dispatch only), so nothing here sends it.
+#   * sync:github. The mirror is exactly what is down; the operator pushes the
+#     tag by hand in step 2 above.
+#   * scripts/release/publish_mipush_release.sh validate-assets, the full
+#     asset-set gate (10 XMSF APKs across both flavor dimensions, the mipush
+#     github APKs, three mapping files, native debug symbols, 5 Zygisk ZIPs).
+#     A caller cannot interleave a job inside the reusable workflow, so it can
+#     only run before or after the whole chain, and after is too late to matter.
+#     What runs here instead: the toolkit's APK signature validator in the build
+#     job, and the Zygisk ZIP count contract in publish-zygisk-zips. Run
+#     `publish_mipush_release.sh validate-assets` by hand against the downloaded
+#     artifacts if a partial release is suspected.
+#
+# Project-specific choices below:
+#   * apk_tasks builds both modules (:xmsf:assembleRelease :mipush:assembleGithubRelease)
+#     and apk_roots names both output trees, mirroring
+#     MAGISK_ANDROID_RELEASE_APK_ROOTS -- the signature validator refuses to run
+#     when it finds no release APK, so a single-module root would fail the job.
+#   * The Zygisk module ZIPs are appended by the two project-specific jobs at the
+#     bottom. They live in MiPushZygisk/build, a Rust project cross-compiled with
+#     its own NDK, and the toolkit's asset walker only searches the APK output
+#     roots -- the same reason .gitlab-ci.yml appends them with an extra step in
+#     android:release:github. The contract is identical: 5 ZIPs, or a
+#     .zygisk-skip marker when the pinned source is unavailable.
+#   * github_asset_pattern is *.apk because the GitHub Release carries every ABI
+#     of both modules (15 APKs on a full release); the toolkit default would
+#     publish only the arm64 artifact. That is also the full asset list on the
+#     GitLab side -- the retired in-repo chain additionally attached mapping.txt
+#     and every *.zip, which is one of the divergences this file removes. The
+#     bundle and the mapping files are build inputs to the publish, not release
+#     assets.
+#   * initial_version_code mirrors MAGISK_PLAY_INITIAL_VERSION_CODE: the floor the
+#     release version resolver starts from. It is not the current Play
+#     versionCode -- that is resolved from Play at build time, and Play always
+#     wins because it is the scale users are already on.
 name: Release
 
 on:
@@ -5,272 +94,148 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Signed release tag to publish (created locally with scripts/release/release_tag.sh)'
+        required: true
+        type: string
+      publish_github_release:
+        description: 'Create or update the GitHub Release'
+        type: boolean
+        default: true
+      publish_play:
+        description: 'Submit the Play bundle to Google Play'
+        type: boolean
+        default: true
+      publish_modules_repo:
+        description: 'Publish the channel tag to Xposed-Modules-Repo'
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Build and verify only; no GitHub Release, Play or Xposed-Modules-Repo side effects'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# A half-finished publish must never be cancelled out from under a re-run: the
+# GitHub Release would exist without the Zygisk ZIPs and the Xposed-Modules-Repo
+# channel tag, and the next run would upload into that mixture.
 concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+  group: release-${{ inputs.release_tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  validate-release:
-    name: Validate Release Metadata
-    if: ${{ vars.RELEASE_OWNER == '' || vars.RELEASE_OWNER == 'github' }}
+  # Decides, and says out loud why. A fallback workflow that silently produced an
+  # empty green run is how a release gets "published" by nobody.
+  release-eligibility:
+    name: Check release ownership
     runs-on: ubuntu-26.04
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      publishes: ${{ steps.gate.outputs.publishes }}
     steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
-            exit 1
-          fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: ./.github/actions/resolve-ci-toolkit
-        with:
-          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
-      - name: Setup Android CI
-        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
-        with:
-          checkout: 'false'
-
-      - name: Validate release notes and tag/version consistency
-        run: |
-          chmod +x scripts/release/check_release_guard.sh
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            scripts/release/check_release_guard.sh "${GITHUB_REF_NAME}"
-          else
-            scripts/release/check_release_guard.sh
-          fi
-
-  build-xmsf-apk:
-    name: Build XMSF Release APK
-    needs: [validate-release]
-    runs-on: ubuntu-26.04
-    env:
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
-    steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
-            exit 1
-          fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: ./.github/actions/resolve-ci-toolkit
-        with:
-          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
-      - name: Setup Android CI
-        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
-        with:
-          checkout: 'false'
-
-
-      - name: Decode Keystore
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
-      - name: Resolve Play release version
-        if: env.HAS_RELEASE_SIGNING == 'true'
+      - id: gate
         shell: bash
         env:
-          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+          OWNER: ${{ vars.RELEASE_OWNER }}
+          EVENT: ${{ github.event_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          bash .magisk-ci-toolkit/release/resolve_play_release.sh \
-            --package-name io.github.magisk317.mipush \
-            --version-file gradle/libs.versions.toml \
-            --output play-release.env \
-            --initial-version-code 1569
-          cat play-release.env >> "$GITHUB_ENV"
-
-      - name: Skip unsupported release signing
-        if: env.HAS_RELEASE_SIGNING != 'true'
-        run: echo "SKIP release build; complete signing credentials are not configured."
-
-      - name: Build XMSF release APK
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
-        with:
-          arguments: :xmsf:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
-        env:
-          KEYSTORE_FILE: release.jks
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Package release debug files
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: |
-          mkdir -p release-debug-files
-          copy_optional() {
-            local source_file="$1"
-            local target_file="$2"
-            if [[ -f "$source_file" ]]; then
-              cp "$source_file" "release-debug-files/$target_file"
+          set -euo pipefail
+          proceed=false
+          publishes=false
+          mode=''
+          if [[ "$OWNER" == "github" ]]; then
+            proceed=true
+            if [[ "$DRY_RUN" == "true" ]]; then
+              mode='dry run while RELEASE_OWNER=github'
             else
-              echo "SKIP optional release asset: $source_file"
+              publishes=true
+              mode='publishing (RELEASE_OWNER=github)'
             fi
-          }
-          copy_optional xmsf/build/outputs/mapping/normalRelease/mapping.txt mapping-normal-release.txt
-          copy_optional xmsf/build/outputs/mapping/vc105Release/mapping.txt mapping-vc105-release.txt
-          copy_optional xmsf/build/outputs/native-debug-symbols/normalRelease/native-debug-symbols.zip native-symbols-normal-release.zip
-          copy_optional xmsf/build/outputs/native-debug-symbols/vc105Release/native-debug-symbols.zip native-symbols-vc105-release.zip
-
-      - name: Upload XMSF release artifact
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: apks-xmsf
-          path: |
-            xmsf/build/outputs/apk/normal/release/**/*.apk
-            xmsf/build/outputs/apk/vc105/release/**/*.apk
-            release-debug-files/
-
-  build-mipush-apk:
-    name: Build MiPush Release APK
-    needs: [validate-release]
-    runs-on: ubuntu-26.04
-    env:
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
-    steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+          elif [[ "$EVENT" == "workflow_dispatch" && "$DRY_RUN" == "true" ]]; then
+            # A rehearsal writes nothing outside the runner, so it is allowed
+            # while GitLab still owns the release.
+            proceed=true
+            mode="dry run (RELEASE_OWNER=${OWNER:-unset})"
+          elif [[ "$EVENT" == "workflow_dispatch" ]]; then
+            echo "::error::GitHub is not the release owner (RELEASE_OWNER=${OWNER:-unset})."
+            echo "   Either set RELEASE_OWNER=github on this repository to publish from here,"
+            echo "   or re-run with dry_run checked to rehearse without side effects."
             exit 1
+          else
+            mode="not the owner (RELEASE_OWNER=${OWNER:-unset}); tag ref left unhandled"
           fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: ./.github/actions/resolve-ci-toolkit
-        with:
-          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
-      - name: Setup Android CI
-        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
-        with:
-          checkout: 'false'
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+          echo "publishes=$publishes" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release eligibility"
+            echo ""
+            echo "- Event: \`$EVENT\`"
+            echo "- RELEASE_OWNER: \`${OWNER:-unset}\`"
+            echo "- Decision: **$mode**"
+          } >> "$GITHUB_STEP_SUMMARY"
 
+  release:
+    name: Release (toolkit chain)
+    needs: release-eligibility
+    if: needs.release-eligibility.outputs.proceed == 'true'
+    permissions:
+      contents: write
+    uses: magisk317/magisk-ci-toolkit/.github/workflows/release-android.yml@af0295f4631f61a163e981d52bc863e5b8f00dde
+    with:
+      # Must equal the ref above, MAGISK_CI_TOOLKIT_REF and every GitLab
+      # include.ref; ci/verify_toolkit_pin.sh in the toolkit checks it.
+      toolkit_ref: af0295f4631f61a163e981d52bc863e5b8f00dde
+      release_tag: ${{ inputs.release_tag }}
+      package_name: io.github.magisk317.mipush
+      release_cert_sha256: 027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a
+      # The same project-specific values .gitlab-ci.yml passes to the GitLab
+      # release templates, under the input names that mirror those variables.
+      apk_tasks: :xmsf:assembleRelease :mipush:assembleGithubRelease
+      gradle_extra_args: -PbuildSplits=true -Pkotlin.incremental=false
+      aab_tasks: :mipush:bundlePlayRelease
+      apk_roots: xmsf/build/outputs/apk mipush/build/outputs/apk
+      app_module: mipush
+      play_track_override: production
+      initial_version_code: '1569'
+      modules_repo: Xposed-Modules-Repo/io.github.magisk317.mipush
+      play_url: https://play.google.com/store/apps/details?id=io.github.magisk317.mipush
+      gitlab_project_url: https://gitlab.com/magisk3171/MiPushFramework
+      # github_repository is left at its default: the calling repository already
+      # is magisk317/MiPushFramework, and the GitLab value exists only because
+      # that pipeline runs somewhere else.
+      #
+      # keystore_path stays at the template default (repo-root release.jks),
+      # which is what both GitLab release jobs write and export as KEYSTORE_FILE.
+      github_asset_pattern: '*.apk'
+      # The bundle goes to Play; it never reaches the GitHub Release on either
+      # host.
+      attach_aab: false
+      # On a tag push every channel is on, exactly as the old chain behaved. On a
+      # dispatch the operator picks; dry_run still turns all of them off inside
+      # the chain.
+      publish_github_release: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_github_release }}
+      publish_play: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_play }}
+      publish_modules_repo: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_modules_repo }}
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      enabled: ${{ needs.release-eligibility.outputs.proceed == 'true' }}
+      # Submodules are GitLab-hosted, so the chain needs GITLAB_TOKEN to check
+      # them out; it arrives through `secrets: inherit`.
+      checkout_submodules: recursive
+    secrets: inherit
 
-      - name: Decode Keystore
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
-
-      - name: Skip unsupported release signing
-        if: env.HAS_RELEASE_SIGNING != 'true'
-        run: echo "SKIP release build; complete signing credentials are not configured."
-
-      - name: Build MiPush release APK
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
-        with:
-          arguments: :mipush:assembleGithubRelease -PbuildSplits=true -Pkotlin.incremental=false
-        env:
-          KEYSTORE_FILE: release.jks
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Package MiPush release debug files
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: |
-          mkdir -p release-debug-files
-          copy_optional() {
-            local source_file="$1"
-            local target_file="$2"
-            if [[ -f "$source_file" ]]; then
-              cp "$source_file" "release-debug-files/$target_file"
-            else
-              echo "SKIP optional release asset: $source_file"
-            fi
-          }
-          copy_optional mipush/build/outputs/mapping/githubRelease/mapping.txt mapping-mipush-release.txt
-
-      - name: Upload MiPush release artifact
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: apks-mipush
-          path: |
-            mipush/build/outputs/apk/github/release/**/*.apk
-            release-debug-files/
-
-  build-mipush-aab:
-    name: Build MiPush Play Bundle
-    needs: [validate-release]
-    runs-on: ubuntu-26.04
-    env:
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
-    steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
-            exit 1
-          fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: ./.github/actions/resolve-ci-toolkit
-        with:
-          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
-      - name: Setup Android CI
-        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
-        with:
-          checkout: 'false'
-      - name: Decode Keystore
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
-      - name: Skip unsupported release signing
-        if: env.HAS_RELEASE_SIGNING != 'true'
-        run: echo "SKIP Play bundle; complete signing credentials are not configured."
-      - name: Build MiPush Play bundle
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
-        with:
-          arguments: :mipush:bundlePlayRelease -Pkotlin.incremental=false -PversionName=${{ env.MAGISK_PLAY_VERSION_NAME }} -PversionCode=${{ env.MAGISK_PLAY_VERSION_CODE }}
-        env:
-          KEYSTORE_FILE: release.jks
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      - name: Upload MiPush Play bundle
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: apks-mipush-play
-          path: |
-            mipush/build/outputs/bundle/playRelease/*.aab
-            mipush/build/outputs/mapping/**/mapping.txt
-            mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
-            play-release.env
-
+  # Project-specific: the Zygisk module. Runs whenever the toolkit chain runs, so
+  # a rehearsal proves the Rust/NDK build still works too; only the upload is
+  # gated on a real publish.
   build-zygisk-module:
     name: Build Zygisk Module
-    needs: [validate-release]
+    needs: release-eligibility
+    if: needs.release-eligibility.outputs.proceed == 'true'
     runs-on: ubuntu-26.04
+    timeout-minutes: 90
     env:
       MIPUSH_ZYGISK_REF: 61a6e5a6e078c3e7c4540b8af3d03c2bed510495
     steps:
@@ -278,12 +243,14 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
+          set -euo pipefail
           if [[ -z "$GITLAB_TOKEN" ]]; then
             echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
             exit 1
           fi
           git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
           echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
+
       - name: Checkout MiPushFramework
         uses: actions/checkout@v7
         with:
@@ -294,6 +261,7 @@ jobs:
         id: zygisk-source
         shell: bash
         run: |
+          set -euo pipefail
           probe_dir="$(mktemp -d)"
           trap 'rm -rf "$probe_dir"' EXIT
           git -C "$probe_dir" init -q
@@ -331,233 +299,101 @@ jobs:
         if: steps.zygisk-source.outputs.supported == 'true'
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          # Same switch .gitlab-ci.yml's zygisk:build:release exports on a tag
+          # pipeline: a release module is built release-grade and without the
+          # build timestamp. build.sh defaults to release, so stating it here is
+          # about being explicit rather than relying on a default that the debug
+          # CI job overrides.
+          MAGISK_BUILD_TYPE: release
         run: |
+          set -euo pipefail
+          unset MAGISK_BUILD_TIMESTAMP
           source MiPushFramework/scripts/resolve_zygisk_version_env.sh
           cd MiPushZygisk
           ./build.sh
 
-      - name: Upload Zygisk release artifact
-        if: steps.zygisk-source.outputs.supported == 'true'
+      # One artifact either way: the ZIPs, or the skip marker the publish job
+      # looks for. An empty artifact would make the upload below fail for a
+      # reason that has nothing to do with the release.
+      - name: Collect Zygisk assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p zygisk
+          if [[ "${{ steps.zygisk-source.outputs.supported }}" == "true" ]]; then
+            shopt -s nullglob
+            zips=(MiPushZygisk/build/*.zip)
+            shopt -u nullglob
+            if [[ "${#zips[@]}" -eq 0 ]]; then
+              echo "::error::Zygisk build reported success but produced no ZIP" >&2
+              exit 1
+            fi
+            cp "${zips[@]}" zygisk/
+            echo "Collected ${#zips[@]} Zygisk ZIP(s)"
+          else
+            printf 'source-unavailable\n' > zygisk/.zygisk-skip
+            echo "Recorded skip marker; no Zygisk ZIPs this run"
+          fi
+
+      - name: Upload Zygisk artifact
         uses: actions/upload-artifact@v7
         with:
-          name: apks-zygisk
-          path: MiPushZygisk/build/*.zip
+          name: zygisk-zips
+          path: zygisk/*
+          if-no-files-found: error
 
-  create-release:
-    name: Create Release
-    needs: [build-xmsf-apk, build-mipush-apk, build-mipush-aab, build-zygisk-module]
+  # Appends the Zygisk ZIPs to the release the toolkit chain just published. The
+  # toolkit's asset walker only searches the APK output roots, so these cannot be
+  # part of its asset list -- the same split .gitlab-ci.yml makes inside
+  # android:release:github.
+  publish-zygisk-zips:
+    name: Publish Zygisk Module ZIPs
+    needs: [release-eligibility, release, build-zygisk-module]
+    if: needs.release-eligibility.outputs.publishes == 'true' && needs.build-zygisk-module.result == 'success'
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     permissions:
       contents: write
-    env:
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
-            exit 1
-          fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - uses: actions/download-artifact@v8
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING == 'true'
-        with:
-          pattern: apks-*
-          path: artifacts/apks
-          merge-multiple: true
-
-      - name: Skip unsupported release publication
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING != 'true'
-        run: echo "SKIP GitHub Release; complete signing credentials are not configured."
-
-      - name: Publish Release
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          tag_name="${GITHUB_REF_NAME}"
-          release_name="$tag_name"
-          MAGISK_RELEASE_NOTES_FILE=release-notes.md \
-          MAGISK_RELEASE_PLATFORM=github \
-            scripts/release/publish_mipush_release.sh release-notes
-
-          mapfile -d '' release_assets < <(
-            find artifacts/apks -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.zip' -o -name '*.txt' \) -print0 | sort -z
-          )
-          if [[ ${#release_assets[@]} == 0 ]]; then
-            echo "ERROR: no release assets found under artifacts/apks" >&2
-            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
-            exit 1
-          fi
-
-          if gh release view "$tag_name" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${release_assets[@]}" --clobber
-            gh release edit "$tag_name" \
-              --title "$release_name" \
-              --draft=false \
-              --notes-file release-notes.md
-          else
-            gh release create "$tag_name" "${release_assets[@]}" \
-              --title "$release_name" \
-              --verify-tag \
-              --notes-file release-notes.md
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
-
-  publish-to-modules-repo:
-    name: Publish to Xposed-Modules-Repo
-    needs: [create-release]
-    runs-on: ubuntu-26.04
-    continue-on-error: true
-    if: startsWith(github.ref, 'refs/tags/')
-    env:
-      HAS_MODULES_REPO_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN != '' }}
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
-      MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
-    steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
-            exit 1
-          fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Download Artifacts
-        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_SIGNING == 'true'
+      - name: Download Zygisk ZIPs
         uses: actions/download-artifact@v8
         with:
-          pattern: apks-*
-          path: artifacts/apks
-          merge-multiple: true
+          name: zygisk-zips
+          path: zygisk
 
-      - name: Skip unsupported modules repository publication
-        if: env.HAS_MODULES_REPO_TOKEN != 'true' || env.HAS_RELEASE_SIGNING != 'true'
-        run: echo "SKIP Xposed-Modules-Repo; token or complete signing credentials are not configured."
-
-      - name: Publish Release in Xposed-Modules-Repo
-        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_SIGNING == 'true'
+      - name: Append Zygisk ZIPs to the GitHub Release
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+          RELEASE_TAG_NAME: ${{ needs.release.outputs.release_tag }}
+          TARGET_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag_name="${GITHUB_REF_NAME}"
-          release_name="$tag_name"
-          MAGISK_RELEASE_NOTES_FILE=release-notes.md \
-          MAGISK_RELEASE_PLATFORM=github \
-            scripts/release/publish_mipush_release.sh release-notes
+          shopt -s nullglob
+          zygisk_zips=(zygisk/*.zip)
+          shopt -u nullglob
 
-          mapfile -d '' apk_files < <(find artifacts/apks -type f -name '*.apk' -print0 | sort -z)
-          if [[ ${#apk_files[@]} -eq 0 ]]; then
-            echo "ERROR: no APK files found under artifacts/apks" >&2
-            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
+          if [[ "${#zygisk_zips[@]}" -eq 0 ]]; then
+            # zygisk:build:release signals a deliberately skipped build this way.
+            if [[ -f zygisk/.zygisk-skip ]]; then
+              echo "SKIP: Zygisk source unavailable; GitHub release keeps the APK set only."
+              exit 0
+            fi
+            echo "::error::neither Zygisk ZIPs nor a skip marker were downloaded"
             exit 1
           fi
-
-          if gh release view "$tag_name" --repo "${{ env.MODULES_REPO }}" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${apk_files[@]}" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --clobber
-            gh release edit "$tag_name" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --title "$release_name" \
-              --draft=false \
-              --notes-file release-notes.md
-          else
-            gh release create "$tag_name" \
-              "${apk_files[@]}" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --title "$release_name" \
-              --notes-file release-notes.md
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}
-
-  publish-play:
-    name: Publish MiPush Manager to Google Play
-    needs: [create-release, build-mipush-aab]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-26.04
-    env:
-      HAS_GOOGLE_PLAY_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS != '' }}
-      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
-    steps:
-      - name: Configure GitLab submodule credentials
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          if [[ -z "$GITLAB_TOKEN" ]]; then
-            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+          # Keep the same contract as scripts/release/publish_mipush_release.sh so
+          # the GitLab and GitHub releases never disagree on the asset set.
+          if [[ -e zygisk/.zygisk-skip ]]; then
+            echo "::error::Zygisk ZIPs and a skip marker were produced together"
             exit 1
           fi
-          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
-          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: ./.github/actions/resolve-ci-toolkit
-        with:
-          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
-      - uses: actions/download-artifact@v8
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        with:
-          name: apks-mipush-play
-          path: artifacts/bundle
-      - name: Load Play release version
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        run: cat artifacts/bundle/play-release.env >> "$GITHUB_ENV"
-      - name: Resolve Play bundle
-        if: env.HAS_RELEASE_SIGNING == 'true'
-        id: resolve_play
-        shell: bash
-        run: |
-          set -euo pipefail
-          aab_file="$(find artifacts/bundle -type f -name '*.aab' | sort | head -n 1)"
-          if [[ -z "$aab_file" ]]; then
-            echo "ERROR: no MiPush manager AAB found" >&2
+          if [[ "${#zygisk_zips[@]}" -ne 5 ]]; then
+            echo "::error::partial Zygisk asset set; expected 5 ZIPs, found ${#zygisk_zips[@]}"
             exit 1
           fi
-          echo "aab_file=$aab_file" >> "$GITHUB_OUTPUT"
-          mapping_file="$(find artifacts/bundle -type f -name mapping.txt | sort | head -n 1 || true)"
-          if [[ -n "$mapping_file" ]]; then
-            echo "has_mapping=true" >> "$GITHUB_OUTPUT"
-            echo "mapping_file=$mapping_file" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_mapping=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Publish to Google Play
-        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
-        env:
-          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
-          FASTLANE_SKIP_UPDATE_CHECK: '1'
-          FASTLANE_DISABLE_COLORS: '1'
-          CI: 'true'
-        run: |
-          set -euo pipefail
-          MAGISK_ANDROID_RELEASE_PACKAGE_NAME="io.github.magisk317.mipush"
-          MAGISK_PLAY_AAB_FILE="$(find artifacts/bundle -type f -name '*.aab' | sort | head -n 1)"
-          MAGISK_PLAY_MAPPING_FILE="$(find artifacts/bundle -type f -name mapping.txt | sort | head -n 1 || true)"
-          MAGISK_PLAY_SYMBOLS_FILE="$(find artifacts/bundle -type f -name native-debug-symbols.zip | sort | head -n 1 || true)"
-          export MAGISK_ANDROID_RELEASE_PACKAGE_NAME MAGISK_PLAY_AAB_FILE MAGISK_PLAY_MAPPING_FILE MAGISK_PLAY_SYMBOLS_FILE
-          export MAGISK_RELEASE_ENV_FILE=play-release-status.env
-          bash .magisk-ci-toolkit/release/publish_play.sh
-      - name: Skip Google Play publication
-        if: env.HAS_RELEASE_SIGNING != 'true' || env.HAS_GOOGLE_PLAY_CREDENTIALS != 'true'
-        run: echo "SKIP Google Play publication; signing or publisher credentials are not configured."
+          echo "Uploading ${#zygisk_zips[@]} Zygisk ZIP(s) to ${TARGET_REPO}"
+          gh release upload "$RELEASE_TAG_NAME" "${zygisk_zips[@]}" \
+            --repo "$TARGET_REPO" --clobber
+          echo "GitHub release assets: 15 APK + ${#zygisk_zips[@]} Zygisk ZIP"
+          echo "GitHub release ready: https://github.com/${TARGET_REPO}/releases/tag/${RELEASE_TAG_NAME}"
