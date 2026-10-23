@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.utils.LogBundleExporter
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import android.os.SystemClock
@@ -15,6 +16,13 @@ class ManagerLogExportRuntimeReader(
     private val context: Context,
 ) {
     fun export(): ManagerLogExportResultDto {
+        if (!MagiskLogPolicy.current().allowsLogExport) {
+            return ManagerLogExportResultDto(
+                success = false,
+                details = "log export disabled: release build",
+                parcelFileDescriptor = null,
+            )
+        }
         val started = SystemClock.elapsedRealtime()
         logI("ManagerRuntime exportRuntimeLogs start")
         val result = LogBundleExporter.buildLogBundle(context = context)

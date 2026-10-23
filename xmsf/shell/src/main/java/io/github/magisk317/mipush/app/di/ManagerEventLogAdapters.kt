@@ -76,6 +76,7 @@ import io.github.magisk317.mipush.manager.runtime.read.toStoredApplicationSnapsh
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import kotlinx.coroutines.launch
@@ -199,6 +200,12 @@ class XmsfManagerLogGateway : ManagerLogGateway {
     }
 
     override suspend fun buildLogBundle(context: Context): ManagerLogExportResult {
+        if (!MagiskLogPolicy.current().allowsLogExport) {
+            return ManagerLogExportResult(
+                archivePath = null,
+                details = "log export disabled: release build",
+            )
+        }
         val result = LogBundleExporter.buildLogBundle(context = context)
         return ManagerLogExportResult(archivePath = result.file?.absolutePath, details = result.details)
     }
