@@ -125,6 +125,17 @@ object FocusOrderIdentityPolicy {
     internal fun notificationIdFor(packageName: String, orderKey: String): Int =
         (packageName.hashCode() / 10) * 10 + orderKey.hashCode()
 
+    /**
+     * True when the payload carries a focus param at all. Lets a caller tell "this is not a
+     * live session" apart from "this is a live session whose shape the policy no longer
+     * recognises": both return a null order key from [resolveNotificationId] and both fall
+     * back to the stock per-message identity, so without this signal a vendor moving its
+     * session fields is indistinguishable from an app that never had an order key. That
+     * silence is what kept the 京东 `param_v2` move unnoticed for six days.
+     */
+    fun hasFocusParam(metaInfo: PushMetaInfo?): Boolean =
+        !metaInfo?.extra?.get(FOCUS_PARAM).isNullOrBlank()
+
     /** Order-derived notification id, or null when the payload is not an order-keyed session. */
     fun resolveNotificationId(packageName: String, metaInfo: PushMetaInfo?): Int? {
         if (metaInfo == null) return null

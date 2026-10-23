@@ -1,8 +1,10 @@
 package io.github.magisk317.mipush.notification
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class FocusOrderIdentityPolicyTest {
@@ -304,5 +306,31 @@ class FocusOrderIdentityPolicyTest {
             ),
         )
         assertNull(FocusOrderIdentityPolicy.resolveNotificationId("com.example.app", null))
+    }
+
+    @Test
+    fun `hasFocusParam separates a live session from a plain notification`() {
+        assertFalse(FocusOrderIdentityPolicy.hasFocusParam(null))
+        assertFalse(
+            FocusOrderIdentityPolicy.hasFocusParam(
+                com.xiaomi.xmpush.thrift.PushMetaInfo().apply { setNotifyId(42) },
+            ),
+        )
+        assertFalse(
+            FocusOrderIdentityPolicy.hasFocusParam(
+                com.xiaomi.xmpush.thrift.PushMetaInfo().apply {
+                    putToExtra("miui.focus.param", "")
+                },
+            ),
+        )
+        // The case the fallback log exists for: a focus payload the policy cannot key on.
+        // resolveNotificationId says null here, exactly as it does for a plain notification,
+        // so only hasFocusParam tells the two apart.
+        val unkeyable = com.xiaomi.xmpush.thrift.PushMetaInfo().apply {
+            setNotifyId(42)
+            putToExtra("miui.focus.param", """{"param_v3":{"orderId":"order-1"}}""")
+        }
+        assertTrue(FocusOrderIdentityPolicy.hasFocusParam(unkeyable))
+        assertNull(FocusOrderIdentityPolicy.resolveNotificationId("com.example.app", unkeyable))
     }
 }
