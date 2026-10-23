@@ -36,6 +36,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
       - name: Detekt
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
@@ -67,6 +72,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
       - name: Test
         shell: bash
         run: |
@@ -119,6 +129,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
       - name: Require release signing
         if: env.HAS_RELEASE_SIGNING != 'true'
         run: |
@@ -383,6 +398,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
       - name: Verify shared compat
         run: |
           set -euo pipefail
