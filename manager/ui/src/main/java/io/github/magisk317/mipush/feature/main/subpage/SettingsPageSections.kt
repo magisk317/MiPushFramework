@@ -42,6 +42,7 @@ import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItem
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItems
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLabels
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLayout
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsState
@@ -366,8 +367,8 @@ internal fun notifyPrefChanged(context: Context) {
     context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
-internal val allowsLogExport: Boolean =
-    BuildConfig.BUILD_TYPE == "debug" || BuildConfig.ALLOW_PLAINTEXT_LOGS
+internal val allowsLogExport: Boolean
+    get() = MagiskLogPolicy.current().allowsLogExport
 
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
@@ -395,6 +396,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         ActivityResultContracts.CreateDocument("application/zip"),
     ) { destination ->
         if (destination == null) return@rememberLauncherForActivityResult
+        if (!allowsLogExport) return@rememberLauncherForActivityResult
         Toast.makeText(context, R.string.runtime_log_exporting, Toast.LENGTH_SHORT).show()
         viewModel.saveRuntimeLogBundle(context, destination) { result ->
             val message = when {
@@ -407,6 +409,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     fun saveRuntimeLogBundle() {
+        if (!allowsLogExport) return
         scope.launch {
             // Fail fast instead of letting the foreground export run to completion:
             // the bundle pulls /data/adb/lspd/log, which a non-root device cannot read.
@@ -473,12 +476,16 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         ),
         layout = RuntimeLogDiagnosticsLayout(
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
-            itemOrder = listOf(
-                RuntimeLogDiagnosticsItem.SHARE_LOG,
-                RuntimeLogDiagnosticsItem.RETENTION,
-                RuntimeLogDiagnosticsItem.CLEAR_LOG,
-                RuntimeLogDiagnosticsItem.ANALYTICS,
-            ),
+            itemOrder = if (allowsLogExport) {
+                listOf(
+                    RuntimeLogDiagnosticsItem.SHARE_LOG,
+                    RuntimeLogDiagnosticsItem.RETENTION,
+                    RuntimeLogDiagnosticsItem.CLEAR_LOG,
+                    RuntimeLogDiagnosticsItem.ANALYTICS,
+                )
+            } else {
+                listOf(RuntimeLogDiagnosticsItem.ANALYTICS)
+            },
         ),
         enabled = allowsLogExport,
     )

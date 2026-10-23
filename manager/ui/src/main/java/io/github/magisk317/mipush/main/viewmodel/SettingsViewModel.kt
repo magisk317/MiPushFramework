@@ -28,6 +28,7 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
@@ -568,6 +569,15 @@ class SettingsViewModel constructor(
         destination: android.net.Uri,
         onResult: (io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult) -> Unit,
     ) {
+        if (!MagiskLogPolicy.current().allowsLogExport) {
+            onResult(
+                io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult(
+                    success = false,
+                    details = "log export disabled: release build",
+                ),
+            )
+            return
+        }
         val applicationContext = context.applicationContext
         runCatching {
             val foregroundIntent = Intent().setClassName(applicationContext, RUNTIME_LOG_EXPORT_SERVICE)
@@ -624,8 +634,15 @@ class SettingsViewModel constructor(
     suspend fun saveRuntimeLogBundle(
         context: android.content.Context,
         destination: java.io.OutputStream,
-    ): io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult =
-        settingsManager.saveRuntimeLogBundle(context, destination)
+    ): io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult {
+        if (!MagiskLogPolicy.current().allowsLogExport) {
+            return io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult(
+                success = false,
+                details = "log export disabled: release build",
+            )
+        }
+        return settingsManager.saveRuntimeLogBundle(context, destination)
+    }
 
     suspend fun clearRuntimeLogFolders(context: android.content.Context) =
         settingsManager.clearRuntimeLogFolders(context)
