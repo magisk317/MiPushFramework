@@ -92,8 +92,7 @@ open class MiPushFrameworkApp : Application() {
         // Every process of this package evaluates the policy from its own build flags before the
         // first log line: it decides redaction, verbosity and how much an export collects.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.DEBUG,
-            isCiBuild = BuildConfig.IS_CI_BUILD,
+            isDebugBuild = BuildConfig.BUILD_TYPE == "debug",
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         TelemetryDisabler.disableAll(this)

@@ -366,8 +366,8 @@ internal fun notifyPrefChanged(context: Context) {
     context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
-internal val isCiOrDebugBuild: Boolean =
-    BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
+internal val allowsLogExport: Boolean =
+    BuildConfig.BUILD_TYPE == "debug" || BuildConfig.ALLOW_PLAINTEXT_LOGS
 
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
@@ -480,7 +480,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
                 RuntimeLogDiagnosticsItem.ANALYTICS,
             ),
         ),
-        enabled = isCiOrDebugBuild,
+        enabled = allowsLogExport,
     )
 
     if (ManagerBuildConfig.HAS_BILLING) {

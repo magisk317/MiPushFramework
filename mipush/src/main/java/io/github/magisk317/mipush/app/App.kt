@@ -19,8 +19,9 @@ class App : Application() {
         // Standalone manager builds run this Application instead of MiPushFrameworkApp, so the
         // policy has to be installed here too or the manager logs under the neutral default.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.DEBUG,
-            isCiBuild = BuildConfig.IS_CI_BUILD,
+            // -PminifyDebug makes the debug variant non-debuggable, which clears
+            // BuildConfig.DEBUG; the build type still identifies the capture channel.
+            isDebugBuild = BuildConfig.BUILD_TYPE == "debug",
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         Utils.setApplicationContext(this)
