@@ -199,6 +199,94 @@ class FocusOrderIdentityPolicyTest {
     }
 
     @Test
+    fun `orderKey reads the JD session notifyId from param_v2`() {
+        // Observed on pudding 2026-10-23: 京东 folded the whole session under param_v2 and the
+        // root now holds nothing but that container, so a root-only lookup found no notifyId.
+        val key = FocusOrderIdentityPolicy.orderKey(
+            """{"param_v2":{"baseInfo":{"title":"您的订单正在进行中","content":"来份炒饼","type":2},""" +
+                """"param_island":{"islandProperty":1,"islandTimeout":7200,"highlightColor":"#FF0400"},""" +
+                """"ticker":"进行中","sequence":1792764366,"protocol":1,"updatable":true,""" +
+                """"notifyId":"com.jingdong.app.mall2117"}}""",
+            "com.jingdong.app.mall",
+        )
+        assertEquals("2117", key)
+    }
+
+    @Test
+    fun `orderKey falls back to param_v1 when param_v2 is absent`() {
+        val key = FocusOrderIdentityPolicy.orderKey(
+            """{"param_v1":{"sequence":1792764366,"updatable":true,"notifyId":"com.jingdong.app.mall2117"}}""",
+            "com.jingdong.app.mall",
+        )
+        assertEquals("2117", key)
+    }
+
+    @Test
+    fun `orderKey prefers a param_v2 order id over the notifyId fallback`() {
+        val key = FocusOrderIdentityPolicy.orderKey(
+            """{"param_v2":{"orderId":"order-1","scene":"foodDelivery","updatable":true,""" +
+                """"notifyId":"com.jingdong.app.mall2117"}}""",
+            "com.jingdong.app.mall",
+        )
+        assertEquals("foodDelivery|order-1", key)
+    }
+
+    @Test
+    fun `orderKey rejects hash-shaped notifyIds nested in param_v2`() {
+        // Alipay's title.hashCode() nested in a versioned container must stay on the stock path.
+        assertNull(
+            FocusOrderIdentityPolicy.orderKey(
+                """{"param_v2":{"updatable":true,"notifyId":"-1325363137"}}""",
+                "com.eg.android.AlipayGphone",
+            ),
+        )
+    }
+
+    @Test
+    fun `resolveNotificationId merges JD param_v2 updates of one order`() {
+        fun jdContainer(notifyId: Int, focusParam: String) = com.xiaomi.xmpush.thrift.PushMetaInfo().apply {
+            setNotifyId(notifyId)
+            putToExtra(
+                "miui.focus.param",
+                focusParam,
+            )
+        }
+
+        // Observed on pudding 2026-10-23: one JD order (2117) pushed its updates as separate
+        // messages with per-message notifyIds 327792584 / 1523639136 and an identical param_v2
+        // notifyId com.jingdong.app.mall2117; with a root-only lookup they rendered as two
+        // coexisting 灵动岛 sessions (ids 1501889864 and -1597230880).
+        val orderInProgress = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                327792584,
+                """{"param_v2":{"baseInfo":{"title":"您的订单正在进行中","content":"来份炒饼","type":2},""" +
+                    """"param_island":{"islandProperty":1,"islandTimeout":7200},""" +
+                    """"sequence":1792764366,"updatable":true,"notifyId":"com.jingdong.app.mall2117"}}""",
+            ),
+        )
+        val riderArriving = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                1523639136,
+                """{"param_v2":{"baseInfo":{"title":"骑手正在赶往目的地","type":2},""" +
+                    """"param_island":{"islandProperty":1,"islandTimeout":14400},""" +
+                    """"sequence":1793375157,"updatable":true,"notifyId":"com.jingdong.app.mall2117"}}""",
+            ),
+        )
+        val otherOrder = FocusOrderIdentityPolicy.resolveNotificationId(
+            "com.jingdong.app.mall",
+            jdContainer(
+                327792584,
+                """{"param_v2":{"sequence":1,"updatable":true,"notifyId":"com.jingdong.app.mall2118"}}""",
+            ),
+        )
+
+        assertEquals(orderInProgress, riderArriving)
+        assertNotEquals(orderInProgress, otherOrder)
+    }
+
+    @Test
     fun `resolveNotificationId keeps stock identity for payloads without an order key`() {
         assertNull(
             FocusOrderIdentityPolicy.resolveNotificationId(
