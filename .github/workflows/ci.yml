@@ -72,6 +72,10 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
+          # Guards the after_script staging path, same as GitLab's
+          # android:test:pure-modules: a lost allocated versionCode used to vanish
+          # silently instead of failing the job.
+          bash scripts/ci/tests/test_stage_ci_dist.sh
           toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}"
           mapfile -t selected_shards < <(
             python3 "$toolkit_dir/ci/select_gradle_tasks.py" \
@@ -115,6 +119,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+      - name: Require release signing
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: |
+          echo "::error::Release signing is unavailable (RELEASE_KEYSTORE / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD). Every build and upload step below is gated on it, so without this the job would report success while producing no artifact at all."
+          exit 1
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
@@ -321,3 +330,64 @@ jobs:
         with:
           name: mipush-zygisk-universal
           path: MiPushZygisk/build/universal_*.zip
+
+  # --- gates mirrored from .gitlab-ci.yml --------------------------------------
+  # security:gitleaks: same image, same flags. No submodule checkout here because
+  # the scan covers this repository's own tree and history, and GitLab clones with
+  # GIT_DEPTH: "0" -- hence fetch-depth: 0 so both sides see the same history.
+  gitleaks:
+    runs-on: ubuntu-26.04
+    container:
+      image: ghcr.io/gitleaks/gitleaks:v8.30.1
+      options: --entrypoint ""
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        run: gitleaks detect --source . --redact --no-banner
+
+  # android:module-boundaries: one script, ripgrep with a grep fallback, no Gradle.
+  module-boundaries:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify module boundaries
+        run: bash scripts/checks/verify_module_boundaries.sh
+
+  # android:shared-compat: compile-only consumer compatibility check through the
+  # same pinned toolkit the GitLab job resolves.
+  shared-compat:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
+      - name: Setup Android CI
+        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
+        with:
+          checkout: 'false'
+      - name: Verify shared compat
+        run: |
+          set -euo pipefail
+          toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}"
+          bash "$toolkit_dir/gradle/verify_consumer_compat.sh" \
+            --root "$PWD" \
+            --config "$PWD/scripts/config/compat-check.json" \
+            --toolkit "$toolkit_dir"
