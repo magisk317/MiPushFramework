@@ -42,7 +42,7 @@ fi
 # ---------------------------------------------------------------------------
 # Manager APK: io.github.magisk317.mipush/<versionName>/mipush-ci.apk
 # ---------------------------------------------------------------------------
-mipush_apk=$(ls mipush/build/outputs/apk/github/debug/universal_*.apk | tail -n 1)
+mipush_apk=$(find mipush/build/outputs/apk/github/debug -type f -name 'universal_*.apk' | sort | tail -n 1)
 mipush_version=$(basename "$mipush_apk" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p')
 mipush_dir="ci-dist/io.github.magisk317.mipush/$mipush_version"
 mkdir -p "$mipush_dir"

@@ -512,6 +512,9 @@ android:test:pure-modules:
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       bash scripts/ci/tests/test_run_test_shards.sh
+      # Guards the after_script staging path: a lost allocated versionCode
+      # used to vanish silently instead of failing the job.
+      bash scripts/ci/tests/test_stage_ci_dist.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"
