@@ -9,7 +9,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -138,6 +140,50 @@ class StatusBarMonochromeIconPolicyTest {
             StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0),
         )
         assertEquals(1, capturedTasks.size)
+    }
+
+    @Test
+    fun `opaque to every edge pixel ring is treated as a white block`() {
+        val width = 4
+        val height = 4
+        val opaque = 0xFF000000.toInt()
+        val block = IntArray(width * height) { opaque }
+        assertTrue(StatusBarMonochromeIconPolicy.hasOpaqueBackingPixels(width, height, block))
+    }
+
+    @Test
+    fun `transparent edge ring keeps a manufactured silhouette usable`() {
+        val width = 4
+        val height = 4
+        val opaque = 0xFF000000.toInt()
+        val glyph = IntArray(width * height) { opaque }
+        // A shape asset always has transparent margins: clear the whole outer ring, glyph inside.
+        for (x in 0 until width) {
+            glyph[x] = 0
+            glyph[(height - 1) * width + x] = 0
+        }
+        for (y in 0 until height) {
+            glyph[y * width] = 0
+            glyph[y * width + width - 1] = 0
+        }
+        assertFalse(StatusBarMonochromeIconPolicy.hasOpaqueBackingPixels(width, height, glyph))
+    }
+
+    @Test
+    fun `edge ring is only opaque when all four sides are covered`() {
+        val width = 4
+        val height = 4
+        val opaque = 0xFF000000.toInt()
+        val glyph = IntArray(width * height) { opaque }
+        glyph[2 * width + 0] = 0
+        assertFalse(StatusBarMonochromeIconPolicy.hasOpaqueBackingPixels(width, height, glyph))
+    }
+
+    @Test
+    fun `degenerate pixel input is never reported as opaque backing`() {
+        assertFalse(StatusBarMonochromeIconPolicy.hasOpaqueBackingPixels(0, 0, IntArray(0)))
+        val opaque = 0xFF000000.toInt()
+        assertFalse(StatusBarMonochromeIconPolicy.hasOpaqueBackingPixels(2, 2, IntArray(3) { opaque }))
     }
 
     @Test

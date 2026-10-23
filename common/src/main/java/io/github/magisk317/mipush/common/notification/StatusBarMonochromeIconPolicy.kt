@@ -119,8 +119,8 @@ object StatusBarMonochromeIconPolicy {
      * regardless of pack authoring quality.
      *
      * @return the original icon when safe, a white-alpha silhouette when opaque, null when the
-     *   icon cannot be inspected (callers keep the original in that case; the pack bitmap is
-     *   then trusted as-authored).
+     *   icon cannot be inspected or when even the re-synthesized glyph would still be a block
+     *   (callers keep the original in that case; the pack bitmap is then trusted as-authored).
      */
     @JvmStatic
     fun statusSafeGlyphOrNull(context: Context?, icon: Icon): Icon? {
@@ -157,7 +157,12 @@ object StatusBarMonochromeIconPolicy {
         if (width <= 0 || height <= 0) return false
         val pixels = IntArray(width * height)
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-        fun opaque(x: Int, y: Int): Boolean = Color.alpha(pixels[y * width + x]) == FULLY_OPAQUE_ALPHA
+        return hasOpaqueBackingPixels(width, height, pixels)
+    }
+
+    internal fun hasOpaqueBackingPixels(width: Int, height: Int, pixels: IntArray): Boolean {
+        if (width <= 0 || height <= 0 || pixels.size < width * height) return false
+        fun opaque(x: Int, y: Int): Boolean = (pixels[y * width + x] ushr 24) == FULLY_OPAQUE_ALPHA
         for (x in 0 until width) {
             if (!opaque(x, 0) || !opaque(x, height - 1)) return false
         }
@@ -169,9 +174,26 @@ object StatusBarMonochromeIconPolicy {
     }
 
     private fun whiteGlyphFrom(bitmap: Bitmap): Icon? = runCatching {
-        val white = ImgUtils.convertToTransparentAndWhite(bitmap)
-        Icon.createWithBitmap(normalizeSilhouetteBounds(white))
+        silhouetteIconOrNull(normalizeSilhouetteBounds(ImgUtils.convertToTransparentAndWhite(bitmap)), "pack")
     }.getOrNull()
+
+    /**
+     * Wrap a manufactured white-alpha glyph for the status bar, refusing it when the opaque region
+     * reaches every edge.
+     *
+     * A bitmap [Icon] is drawn without an adaptive mask, so unlike an app's shaped layers the
+     * platform never clips it to the icon slot's outline. [normalizeSilhouetteBounds] returns a
+     * full-bleed bitmap unchanged, which means a monochrome layer filled edge to edge (or an
+     * ANIP-style pass-through of one) would be cached as a solid white block -- the defect this
+     * module exists to prevent. Rejected glyphs fall through to the next link of the chain.
+     */
+    private fun silhouetteIconOrNull(bitmap: Bitmap, from: String): Icon? {
+        if (hasOpaqueBacking(bitmap)) {
+            silhouetteLogger.w { "silhouette rejected from=$from opaque-backing ${bitmap.width}x${bitmap.height}" }
+            return null
+        }
+        return runCatching { Icon.createWithBitmap(bitmap) }.getOrNull()
+    }
 
     private val frameworkAndroidLogoIcon: Icon? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         runCatching {
@@ -376,8 +398,9 @@ object StatusBarMonochromeIconPolicy {
      *
      * Legacy (non-adaptive) launcher icons ship as flattened bitmaps. Monochrome mode tints the
      * posted glyph regardless, so keeping such an opaque bitmap produces a solid white block;
-     * converting it to white-alpha keeps the logo silhouette instead, which is strictly better
-     * than a colorless block even when the bitmap is fully opaque.
+     * converting it to white-alpha keeps the logo silhouette instead. When the rework leaves the
+     * glyph opaque to every edge, the artwork carries no shape to recover and the result is
+     * rejected rather than cached.
      */
     private fun createWhiteSilhouetteIcon(context: Context, packageName: String): Icon? {
         val appIcon = runCatching {
@@ -417,7 +440,7 @@ object StatusBarMonochromeIconPolicy {
             "src=${white.width}x${white.height} out=${normalized.width}x${normalized.height} " +
             "changed=${normalized !== white}"
         }
-        return runCatching { Icon.createWithBitmap(normalized) }.getOrNull()
+        return silhouetteIconOrNull(normalized, "pkg=$packageName layer=$layer")
     }
 
     /**
