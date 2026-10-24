@@ -94,6 +94,13 @@ jobs:
         # cancel. Parity first, widening only once the stall is understood.
         env:
           MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
+          # GitLab's runner forces org.gradle.daemon=false from its pre_build_script
+          # (a warm daemon squatting RAM caused exit-137 pipelines on 2026-10-21). GitHub
+          # kept the setup-gradle default, and run_gradle_with_retry.sh then hangs in its
+          # `wait` after the tasks finish: run 361 printed its last real line at 00:42,
+          # one AAPT2 daemon-shutdown line at 00:45, then 18 minutes of nothing until the
+          # 30-minute timeout had to kill five orphan JVMs.
+          MAGISK_GRADLE_ARGS: --warning-mode all -Dorg.gradle.daemon=false
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
