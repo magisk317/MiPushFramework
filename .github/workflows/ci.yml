@@ -50,11 +50,22 @@ jobs:
   test:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
-    # Non-blocking by decision, not by accident. This job stalls with zero log output on
-    # GitHub while the same pinned shard (android-pure-modules, no path-selector widening)
-    # finishes in ~8 min on GitLab, and pinning the shard did not avoid it -- so it is a
-    # stall to chase, not a signal to gate the whole CI on. The six real gates still decide
-    # the run; a stall here fails normally at timeout and stays visible as an allowed failure.
+    # Guarded rather than gated, and for a narrower reason than when this was written.
+    # The zero-output stall that earned the flag was a product bug, not a CI mystery: the
+    # shared kit's DiagnosticShell.runSuCommand drained `su` stdout before it applied its
+    # own timeout and never closed the child's stdin, so on a host where su falls back to
+    # an interactive password prompt -- GitHub-hosted runners run as uid 1001 and ship
+    # /usr/bin/su, while GitLab's containers and the Debian build host are root --
+    # :magisk-xposed-kit:diagnostics:testDebugUnitTest hung forever and the Gradle client
+    # waited on a build result that could never be sent. Fixed in magisk-xposed-kit
+    # 6233ee8; with that kit commit the identical shard finishes green on ubuntu-26.04 in
+    # 18m49s (run 369).
+    #
+    # The flag stays until the submodule pointer below moves to the fix, because until
+    # then this job reproduces the hang by design. And the budget stays in-shell rather
+    # than as timeout-minutes: a runner-side timeout reports the job as cancelled, which
+    # continue-on-error does not absorb -- the whole run goes red (verified on run 363) --
+    # while `timeout` exits 124, an ordinary step failure the flag can swallow.
     continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
@@ -132,7 +143,7 @@ jobs:
           rc=0
           timeout --kill-after=60s 25m bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS" || rc=$?
           if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-            echo "::warning::test shard exceeded its 25m budget (exit $rc); known stall, see the chase notes. Failing the step, not the run."
+            echo "::warning::test shard exceeded its 25m budget (exit $rc). If the kit pointer still predates magisk-xposed-kit 6233ee8, this is the su stdin stall, not a new fault. Failing the step, not the run."
             exit "$rc"
           fi
           exit "$rc"
