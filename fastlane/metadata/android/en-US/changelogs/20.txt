@@ -1,1 +1,6 @@
-- Development build; release notes will be updated before publishing.
+- Updated to 1.1.1 (20).
+- Log policy now follows the build type.
+- Status bar icon switches now separate third-party and system apps.
+- The XMSF runtime ships with the distribution artifacts.
+- Fixed the Douyin hook registration failure (#143).
+- https://gitlab.com/magisk3171/MiPushFramework/-/releases
