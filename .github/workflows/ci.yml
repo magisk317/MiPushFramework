@@ -12,6 +12,7 @@ on: workflow_dispatch
 jobs:
   detekt:
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
@@ -48,6 +49,7 @@ jobs:
 
   test:
     runs-on: ubuntu-26.04
+    timeout-minutes: 30
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
@@ -79,6 +81,13 @@ jobs:
           java-version: '27'
       - name: Test
         shell: bash
+        # Pin the same named shard GitLab's android:test:pure-modules runs. Passing the
+        # path selector's task list instead made this job a superset of anything GitLab
+        # executes, and on 2026-10-23 it stalled inside one of those extra invocations:
+        # output stopped at 22:46:48 and the job then burned 65 minutes before a manual
+        # cancel. Parity first, widening only once the stall is understood.
+        env:
+          MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
@@ -86,21 +95,12 @@ jobs:
           # android:test:pure-modules: a lost allocated versionCode used to vanish
           # silently instead of failing the job.
           bash scripts/ci/tests/test_stage_ci_dist.sh
-          toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}"
-          mapfile -t selected_shards < <(
-            python3 "$toolkit_dir/ci/select_gradle_tasks.py" \
-              --root "$PWD" \
-              --toolkit "$toolkit_dir" \
-              --config scripts/config/android-test-tasks.json
-          )
-          if ((${#selected_shards[@]} == 0)); then
-            echo "No Android test tasks selected for this change."
-            exit 0
-          fi
-          bash scripts/ci/run_test_shards.sh "${selected_shards[@]}"
+          : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
+          bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
 
   build:
     runs-on: ubuntu-26.04
+    timeout-minutes: 45
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
       MAGISK_BUILD_TYPE: debug
@@ -263,6 +263,7 @@ jobs:
 
   build-zygisk:
     runs-on: ubuntu-26.04
+    timeout-minutes: 45
     env:
       MAGISK_BUILD_TYPE: debug
       MIPUSH_ZYGISK_REF: 61a6e5a6e078c3e7c4540b8af3d03c2bed510495
@@ -352,6 +353,7 @@ jobs:
   # GIT_DEPTH: "0" -- hence fetch-depth: 0 so both sides see the same history.
   gitleaks:
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     container:
       image: ghcr.io/gitleaks/gitleaks:v8.30.1
       options: --entrypoint ""
@@ -365,6 +367,7 @@ jobs:
   # android:module-boundaries: one script, ripgrep with a grep fallback, no Gradle.
   module-boundaries:
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -376,6 +379,7 @@ jobs:
   # same pinned toolkit the GitLab job resolves.
   shared-compat:
     runs-on: ubuntu-26.04
+    timeout-minutes: 25
     steps:
       - name: Configure GitLab submodule credentials
         env:
