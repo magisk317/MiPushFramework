@@ -121,7 +121,7 @@ graph.
   runtime ownership rather than the manager UI surface. The same scan also rejects string-literal
   references to deep `com.xiaomi.*` classes under `manager`/`settings`, so reflection cannot be
   used there to tunnel around the import boundary for runtime probes or compatibility checks.
-  The baseline file at `scripts/module_boundary_baseline.txt` is currently empty of exceptions.
+  The baseline file at `scripts/config/module_boundary_baseline.txt` is currently empty of exceptions.
   New entries should be moved behind a runtime/bridge adapter or explicit shared contract unless
   the baseline update is a deliberate compatibility exception. The check also fails stale baseline
   entries, so resolved debt must be removed from the baseline in the same change. The same task also
@@ -286,8 +286,8 @@ graph.
 ./gradlew qualityGateKoverVerify   # Explicit coverage gate
 ```
 
-The boundary baseline file is maintained at `scripts/module_boundary_baseline.txt` and validated by
-`scripts/verify_module_boundaries.sh`; it is allowed to contain only comments when no exceptions
+The boundary baseline file is maintained at `scripts/config/module_boundary_baseline.txt` and validated by
+`scripts/checks/verify_module_boundaries.sh`; it is allowed to contain only comments when no exceptions
 remain.
 
 Kover is intentionally loaded only for explicit `qualityGateKover*` tasks, direct Kover tasks, or

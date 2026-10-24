@@ -79,7 +79,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         )
         XLog.configure(
             tag = "mipush",
-            logLevel = if (BuildConfig.DEBUG) Log.DEBUG else Log.INFO,
+            logLevel = if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) Log.DEBUG else Log.INFO,
             logToXposed = false,
             defaultRoute = "hook",
             sink = LogSink { event ->
@@ -147,13 +147,13 @@ class LibXposedEntry : BaseLibXposedEntry {
             }
         MagiskOtel.configureIfAbsent(
             MagiskOtel.Config(
-                enabled = BuildConfig.DEBUG || userEnabled,
+                enabled = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD || userEnabled,
                 serviceName = "mipushframework",
                 serviceVersion = VERSION_NAME,
                 serviceCommit = BuildConfig.GIT_COMMIT,
                 projectId = "83955143",
                 projectName = "MiPushFramework",
-                environment = if (BuildConfig.DEBUG) "debug" else "release",
+                environment = if (BuildConfig.DEBUG) "debug" else if (BuildConfig.IS_CI_BUILD) "ci" else "release",
                 serviceInstanceId = installationId,
                 suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
                 suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,

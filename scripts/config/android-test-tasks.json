@@ -1,0 +1,41 @@
+{
+  "full_tasks": [
+    "android-pure-modules",
+    "xmsf-compile",
+    "mipush-compile"
+  ],
+  "full_paths": [
+    "build.gradle*",
+    "settings.gradle*",
+    "gradle.properties",
+    "gradle/*",
+    "build-logic/*",
+    ".gitmodules",
+    "scripts/*",
+    ".magisk-ci-toolkit/*"
+  ],
+  "ignore_paths": [
+    "impact",
+    ".gitlab-ci.yml",
+    ".github/workflows/*",
+    "docs/*",
+    "README*",
+    "LICENSE*",
+    "CHANGELOG*"
+  ],
+  "unknown": "full",
+  "rules": [
+    {
+      "paths": ["xmsf/src/*", "xmsf/build.gradle.kts", "xmsf/proguard-rules.pro"],
+      "tasks": ["xmsf-compile"]
+    },
+    {
+      "paths": ["common/*", "core/*", "xmsf/*", "xposed/*", "manager/ui/*", "manager/contract/*", "manager/client/*", "manager/port/*", "settings/*", "configuration/*", "vendor/*", "pinned/*"],
+      "tasks": ["android-pure-modules"]
+    },
+    {
+      "paths": ["mipush/*"],
+      "tasks": ["mipush-compile"]
+    }
+  ]
+}

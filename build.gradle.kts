@@ -17,11 +17,11 @@ buildscript {
             // rejects major 71. ASM 9.10.1 adds V27; force the family here because
             // this is the classpath AGP actually runs on (project-level forces do
             // not reach the plugin classpath).
-            force("org.ow2.asm:asm:9.11")
-            force("org.ow2.asm:asm-analysis:9.11")
-            force("org.ow2.asm:asm-commons:9.11")
-            force("org.ow2.asm:asm-tree:9.11")
-            force("org.ow2.asm:asm-util:9.11")
+            force("org.ow2.asm:asm:9.11.1")
+            force("org.ow2.asm:asm-analysis:9.11.1")
+            force("org.ow2.asm:asm-commons:9.11.1")
+            force("org.ow2.asm:asm-tree:9.11.1")
+            force("org.ow2.asm:asm-util:9.11.1")
         }
     }
 }
@@ -219,13 +219,13 @@ tasks.register("qualityGateKover") {
 tasks.register<Exec>("verifyModuleBoundaries") {
     group = "verification"
     description = "Fail when UI/settings code adds new direct imports of deep Xiaomi runtime/protocol types."
-    commandLine("bash", "scripts/verify_module_boundaries.sh")
+    commandLine("bash", "scripts/checks/verify_module_boundaries.sh")
 }
 
 tasks.register<Exec>("verifyCiToolkitRef") {
     group = "verification"
     description = "Verify all magisk-ci-toolkit references remain pinned to one full SHA."
-    commandLine("bash", "scripts/checks/verify_ci_toolkit_ref.sh")
+    commandLine("bash", "${System.getenv("MAGISK_CI_TOOLKIT_DIR") ?: ".magisk-ci-toolkit"}/ci/verify_toolkit_pin.sh", "--root", project.projectDir.absolutePath)
 }
 
 tasks.register<Exec>("reportGodFiles") {

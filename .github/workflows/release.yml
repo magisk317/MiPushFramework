@@ -34,6 +34,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 174d78104f79bb2073e7175125a0e0dbb989edb5
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -41,11 +43,11 @@ jobs:
 
       - name: Validate release notes and tag/version consistency
         run: |
-          chmod +x scripts/check_release_guard.sh
+          chmod +x scripts/release/check_release_guard.sh
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            scripts/check_release_guard.sh "${GITHUB_REF_NAME}"
+            scripts/release/check_release_guard.sh "${GITHUB_REF_NAME}"
           else
-            scripts/check_release_guard.sh
+            scripts/release/check_release_guard.sh
           fi
 
   build-xmsf-apk:
@@ -70,6 +72,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 174d78104f79bb2073e7175125a0e0dbb989edb5
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -157,6 +161,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 174d78104f79bb2073e7175125a0e0dbb989edb5
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -228,6 +234,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 174d78104f79bb2073e7175125a0e0dbb989edb5
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -380,7 +388,7 @@ jobs:
           release_name="$tag_name"
           MAGISK_RELEASE_NOTES_FILE=release-notes.md \
           MAGISK_RELEASE_PLATFORM=github \
-            scripts/publish_mipush_release.sh release-notes
+            scripts/release/publish_mipush_release.sh release-notes
 
           mapfile -d '' release_assets < <(
             find artifacts/apks -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.zip' -o -name '*.txt' \) -print0 | sort -z
@@ -453,7 +461,7 @@ jobs:
           release_name="$tag_name"
           MAGISK_RELEASE_NOTES_FILE=release-notes.md \
           MAGISK_RELEASE_PLATFORM=github \
-            scripts/publish_mipush_release.sh release-notes
+            scripts/release/publish_mipush_release.sh release-notes
 
           mapfile -d '' apk_files < <(find artifacts/apks -type f -name '*.apk' -print0 | sort -z)
           if [[ ${#apk_files[@]} -eq 0 ]]; then
@@ -505,6 +513,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 174d78104f79bb2073e7175125a0e0dbb989edb5
       - uses: actions/download-artifact@v8
         if: env.HAS_RELEASE_SIGNING == 'true'
         with:

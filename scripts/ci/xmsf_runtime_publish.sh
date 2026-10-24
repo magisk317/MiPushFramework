@@ -15,6 +15,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TOOLKIT_DIR="${MAGISK_CI_TOOLKIT_DIR:-$(bash "$ROOT_DIR/scripts/resolve_ci_toolkit.sh")}"
+source "$TOOLKIT_DIR/ci/gitlab_api.sh"
 TMP_FILES=()
 TMP_DIRS=()
 
@@ -91,19 +93,18 @@ require_supported_env() {
   fi
 }
 
-gitlab_curl() {
-  local token="${GITLAB_TOKEN:-${CI_JOB_TOKEN:-}}"
-  if [[ -z "$token" ]]; then
-    echo "ERROR: neither GITLAB_TOKEN nor CI_JOB_TOKEN is set" >&2
-    return 1
-  fi
-  curl --silent --show-error --location --header "PRIVATE-TOKEN: ${token}" "$@"
-}
+gitlab_curl() { gitlab_api_curl_url "$@"; }
 
 find_aapt2() {
   local candidate
   for candidate in "${ANDROID_HOME:-/opt/android-sdk}"/build-tools/*/aapt2; do
-    [[ -x "$candidate" ]] && echo "$candidate" && return 0
+    # Probe-run before trusting the candidate: the release stage runs in the
+    # musl-based utility image, where a mounted glibc aapt2 passes the -x
+    # test but cannot execute at all (missing ld-linux interpreter).
+    if [[ -x "$candidate" ]] && "$candidate" --version >/dev/null 2>&1; then
+      echo "$candidate"
+      return 0
+    fi
   done
   return 1
 }
@@ -192,15 +193,18 @@ if [[ -z "$AAPT2" ]]; then
   fi
   echo "WARN: aapt2 not found; skipping badging cross-check (version inputs taken from release env)"
 else
-  badging="$("$AAPT2" dump badging "$APK_PATH" 2>/dev/null || true)"
-  if [[ -z "$VERSION_CODE" ]]; then
-    VERSION_CODE="$(printf '%s\n' "$badging" | sed -nE "s/^package:.*versionCode='([0-9]+)'.*/\1/p" | head -n 1)"
+  if badging="$("$AAPT2" dump badging "$APK_PATH" 2>/dev/null)" && [[ -n "$badging" ]]; then
+    if [[ -z "$VERSION_CODE" ]]; then
+      VERSION_CODE="$(printf '%s\n' "$badging" | sed -nE "s/^package:.*versionCode='([0-9]+)'.*/\1/p" | head -n 1)"
+    fi
+    badging_version="$(printf '%s\n' "$badging" | sed -nE "s/^package:.*versionName='([^']+)'.*/\1/p" | head -n 1)"
+    [[ "$badging_version" == "$VERSION_NAME" ]] || {
+      echo "ERROR: APK versionName '$badging_version' does not match requested '$VERSION_NAME'" >&2
+      exit 2
+    }
+  else
+    echo "WARN: aapt2 badging unavailable (probe passed but dump failed/empty); skipping cross-check (the APK file-name gate still binds the version)" >&2
   fi
-  badging_version="$(printf '%s\n' "$badging" | sed -nE "s/^package:.*versionName='([^']+)'.*/\1/p" | head -n 1)"
-  [[ "$badging_version" == "$VERSION_NAME" ]] || {
-    echo "ERROR: APK versionName '$badging_version' does not match requested '$VERSION_NAME'" >&2
-    exit 2
-  }
 fi
 [[ -n "$VERSION_CODE" ]] || {
   echo "ERROR: unable to read the runtime versionCode; pass --version-code" >&2

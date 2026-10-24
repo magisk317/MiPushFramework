@@ -1,27 +1,27 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): sync:github and update:anip-bundle
   # extend it instead of pinning their own image.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: v1
+    ref: "174d78104f79bb2073e7175125a0e0dbb989edb5"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -47,7 +47,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "v1"
+  MAGISK_CI_TOOLKIT_REF: "174d78104f79bb2073e7175125a0e0dbb989edb5"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -493,9 +493,8 @@ android:test:pure-modules:
       set -euo pipefail
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      bash scripts/ci/tests/test_select_android_test_tasks.sh
       bash scripts/ci/tests/test_run_test_shards.sh
-      bash scripts/ci/run_test_shards.sh $MAGISK_ANDROID_TEST_SHARDS
+      bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"
     when: always
@@ -551,7 +550,7 @@ android:module-boundaries:
   variables:
     MAGISK_LINUX_APT_PACKAGES: "ripgrep"
   script:
-    - bash scripts/verify_module_boundaries.sh
+    - bash scripts/checks/verify_module_boundaries.sh
 
 android:shared-compat:
   extends:
@@ -570,7 +569,10 @@ android:shared-compat:
   before_script:
     - !reference [.magisk_android_base, before_script]
   script:
-    - bash scripts/checks/verify_shared_submodule_compat.sh
+    - bash "$MAGISK_CI_TOOLKIT_DIR/gradle/verify_consumer_compat.sh" \
+        --root "$CI_PROJECT_DIR" \
+        --config "$CI_PROJECT_DIR/scripts/config/compat-check.json" \
+        --toolkit "$MAGISK_CI_TOOLKIT_DIR"
   artifacts:
     name: "MiPushFramework-shared-compat-$CI_COMMIT_REF_SLUG"
     when: always
@@ -586,8 +588,8 @@ android:release:guard:
   script:
     - |
       set -euo pipefail
-      chmod +x scripts/check_release_guard.sh
-      scripts/check_release_guard.sh "$CI_COMMIT_TAG"
+      chmod +x scripts/release/check_release_guard.sh
+      scripts/release/check_release_guard.sh "$CI_COMMIT_TAG"
 
 android:release:apk:
   # Driven by the shared toolkit template. The project only declares what is
@@ -668,8 +670,8 @@ android:release:gitlab:
   script:
     - |
       set -euo pipefail
-      chmod +x scripts/publish_mipush_release.sh
-      scripts/publish_mipush_release.sh gitlab-release
+      chmod +x scripts/release/publish_mipush_release.sh
+      scripts/release/publish_mipush_release.sh gitlab-release
 
 xmsf:runtime:publish:
   # Publishes the github-flavor runtime APK built by android:release:apk to the
@@ -698,11 +700,15 @@ xmsf:runtime:publish:
       . "$CI_PROJECT_DIR/play-release.env"
       set +a
       : "${MAGISK_PLAY_VERSION_NAME:?play-release.env did not carry a version name}"
-      : "${MAGISK_PLAY_VERSION_CODE:?play-release.env did not carry a version code}"
+      # The runtime APK carries the catalog pushVersionCode, NOT the Play
+      # store versionCode from play-release.env (different scales: 1003003000
+      # vs 1621). Read it straight from the version catalog.
+      XMSF_RUNTIME_VERSION_CODE="$(sed -nE 's/^pushVersionCode = "([0-9]+)"$/\1/p' gradle/libs.versions.toml)"
+      : "${XMSF_RUNTIME_VERSION_CODE:?unable to read pushVersionCode from gradle/libs.versions.toml}"
       chmod +x scripts/ci/xmsf_runtime_publish.sh
       scripts/ci/xmsf_runtime_publish.sh publish \
         --version "$MAGISK_PLAY_VERSION_NAME" \
-        --version-code "$MAGISK_PLAY_VERSION_CODE"
+        --version-code "$XMSF_RUNTIME_VERSION_CODE"
 
 android:release:play:
   extends: .magisk_android_publish_play
@@ -743,6 +749,8 @@ android:ci:play-beta-bundle:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
       when: on_success
     - when: never
+  variables:
+    MAGISK_IS_CI_BUILD: "true"
   script:
     - |
       set -euo pipefail
@@ -924,7 +932,7 @@ android:release:github:
           exit 1
         fi
       else
-        # Keep the same contract as scripts/publish_mipush_release.sh so the
+        # Keep the same contract as scripts/release/publish_mipush_release.sh so the
         # GitLab and GitHub releases never disagree on the asset set.
         if [[ -e MiPushZygisk/build/.zygisk-skip ]]; then
           echo "ERROR: Zygisk ZIPs and a skip marker were produced together" >&2

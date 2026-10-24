@@ -6,8 +6,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import android.content.Intent
 import android.widget.Toast
-import io.github.magisk317.xposed.logging.VerboseLogEnableTracker
-import com.topjohnwu.superuser.Shell
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -368,16 +366,12 @@ internal fun notifyPrefChanged(context: Context) {
 }
 
 internal val isCiOrDebugBuild: Boolean =
-    BuildConfig.DEBUG ||
-        BuildConfig.VERSION_NAME.contains("-202") ||
-        BuildConfig.VERSION_NAME.contains("-test") ||
-        BuildConfig.VERSION_NAME.contains("-ci")
+    BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
 
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val autoUpdateOnStart by viewModel.autoUpdateOnStart.collectAsStateWithLifecycle()
     val autoUpdateWifiOnly by viewModel.autoUpdateWifiOnly.collectAsStateWithLifecycle()
@@ -411,13 +405,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     fun saveRuntimeLogBundle() {
-        val blockReason = VerboseLogEnableTracker.checkPreExport(debugMode) { Shell.getShell().isRoot }
-        if (blockReason != null) {
-            val resId = context.resources.getIdentifier(blockReason, "string", context.packageName)
-            val message = if (resId != 0) context.getString(resId) else blockReason
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            return
-        }
         val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
             .format(java.util.Date())
         saveRuntimeLogLauncher.launch("mipush_logs_$timestamp.zip")
@@ -438,14 +425,11 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         }
     }
 
-    val debugModeTitle = stringResource(R.string.settings_debug_mode)
     val analyticsTitle = stringResource(R.string.settings_enable_analytics)
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(
             shareLogTitle = stringResource(R.string.settings_get_log),
             shareLogSummary = stringResource(R.string.settings_get_log_summary),
-            verboseLogTitle = debugModeTitle,
-            verboseLogSummary = stringResource(R.string.settings_debug_mode_summary),
             retentionTitle = stringResource(R.string.settings_runtime_log_retention_days),
             retentionSummary = pluralStringResource(
                 R.plurals.settings_runtime_log_retention_days_summary,
@@ -456,22 +440,13 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             clearLogSummary = stringResource(R.string.runtime_log_clear_summary),
         ),
         state = RuntimeLogDiagnosticsState(
-            verboseLogEnabled = debugMode,
             analyticsEnabled = analyticsEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::saveRuntimeLogBundle,
-            onVerboseLogEnabledChange = { enabled ->
-                VerboseLogEnableTracker.onVerboseLogToggled(enabled)
-                io.github.magisk317.xposed.logging.LogSanitizerConfig
-                    .syncFromVerboseMode(enabled)
-                viewModel.setDebugMode(enabled) { success ->
-                    showSwitchFeedback(debugModeTitle, enabled, success)
-                }
-            },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
-            onAnalyticsEnabledChange = if (!BuildConfig.DEBUG) {
+            onAnalyticsEnabledChange = if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
                 { enabled ->
                     viewModel.setAnalyticsEnabled(enabled) { success ->
                         if (success) notifyPrefChanged(context)
@@ -484,7 +459,6 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
             itemOrder = listOf(
                 RuntimeLogDiagnosticsItem.SHARE_LOG,
-                RuntimeLogDiagnosticsItem.VERBOSE_LOG,
                 RuntimeLogDiagnosticsItem.RETENTION,
                 RuntimeLogDiagnosticsItem.CLEAR_LOG,
                 RuntimeLogDiagnosticsItem.ANALYTICS,

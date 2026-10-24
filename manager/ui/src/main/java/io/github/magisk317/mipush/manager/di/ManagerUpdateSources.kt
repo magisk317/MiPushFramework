@@ -29,10 +29,7 @@ object ManagerUpdateSources {
 
     /** True for debug builds and CI/test version names (the CI track is live). */
     val isCiOrDebugBuild: Boolean
-        get() = BuildConfig.DEBUG ||
-            VERSION_NAME.contains("-202") ||
-            VERSION_NAME.contains("-test") ||
-            VERSION_NAME.contains("-ci")
+        get() = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
 
     /**
      * Ordered source list for the current build type. CI/debug builds see the

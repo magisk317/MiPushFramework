@@ -8,7 +8,7 @@ warning_lines=900
 exception_lines=1200
 limit=20
 mode="${1:---report}"
-baseline="scripts/god_file_limits.txt"
+baseline="scripts/config/god_file_limits.txt"
 
 if [[ "$mode" != "--report" && "$mode" != "--verify" ]]; then
   echo "Usage: $0 [--report|--verify]" >&2
@@ -67,7 +67,7 @@ if mode == '--report':
     exceptions = [row for row in rows if row[0] >= exception_lines]
     print()
     print(f'Summary: {len(flagged)} file(s) at or above warning threshold; {len(exceptions)} at or above exception-review threshold.')
-    print('Action: files at or above 900 lines are pinned by scripts/god_file_limits.txt; new files or line-count growth fail verifyGodFileLimits.')
+    print('Action: files at or above 900 lines are pinned by scripts/config/god_file_limits.txt; new files or line-count growth fail verifyGodFileLimits.')
     raise SystemExit(0)
 
 if not baseline_path.is_file():

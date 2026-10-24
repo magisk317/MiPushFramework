@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 # CI images may ship without ripgrep (MAGISK_LINUX_APT_PACKAGES is a no-op on
@@ -62,10 +62,10 @@ if ! command -v rg >/dev/null 2>&1; then
   }
 fi
 
-BASELINE="scripts/module_boundary_baseline.txt"
-VENDOR_BASELINE="scripts/vendor_boundary_baseline.txt"
-COMMON_MAIN_JVM_COMPAT_BASELINE="scripts/common_main_jvm_compat_baseline.txt"
-AIDL_CHANGE_ALLOWLIST="scripts/aidl_change_allowlist.txt"
+BASELINE="scripts/config/module_boundary_baseline.txt"
+VENDOR_BASELINE="scripts/config/vendor_boundary_baseline.txt"
+COMMON_MAIN_JVM_COMPAT_BASELINE="scripts/config/common_main_jvm_compat_baseline.txt"
+AIDL_CHANGE_ALLOWLIST="scripts/config/aidl_change_allowlist.txt"
 if [ ! -f "$BASELINE" ]; then
   echo "Missing module boundary baseline: $BASELINE" >&2
   exit 1
@@ -129,7 +129,7 @@ require_scan_roots() {
   for root in "$@"; do
     if [ ! -d "$root" ]; then
       echo "Configured module-boundary scan root is missing: $root" >&2
-      echo "Update scripts/verify_module_boundaries.sh when module source roots move." >&2
+      echo "Update scripts/checks/verify_module_boundaries.sh when module source roots move." >&2
       exit 1
     fi
   done
@@ -697,7 +697,7 @@ trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidd
 while IFS= read -r changed_path; do
   [ -n "$changed_path" ] || continue
   case "$changed_path" in
-    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|manager/xmsfDelivery|manager/xmsfDelivery/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/check_release_guard.sh|scripts/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/verify_shared_submodule_compat.sh|scripts/checks/verify_ci_toolkit_ref.sh|scripts/checks/report_god_files.sh|scripts/god_file_limits.txt|scripts/aidl_change_allowlist.txt|scripts/ci/*|scripts/publish_mipush_release.sh|scripts/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|scripts/verify_module_boundaries.sh|scripts/vendor_boundary_baseline.txt|scripts/common_main_jvm_compat_baseline.txt|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
+    build-logic|build-logic/*|magisk-ui-kit|magisk-ui-kit/*|magisk-xposed-kit|magisk-xposed-kit/*|manager/ui/*|manager/client/*|manager/contract/*|manager/application/*|manager/port/*|manager/xmsfDelivery|manager/xmsfDelivery/*|settings|settings/*|xposed/*|core|core/*|xmsf/*|vendor/*|pinned|pinned/*|common|common/*|configuration|configuration/*|mipush|mipush/*|config/detekt/*|README.md|.github/workflows/ci.yml|.github/workflows/release.yml|.gitignore|.gitlab-ci.yml|scripts/build_release.sh|scripts/release/check_release_guard.sh|scripts/release/check_release_tag_push_contract.sh|scripts/check_zygisk_version_sync.sh|scripts/checks/*|scripts/config/*|scripts/release/*|scripts/ci/*|scripts/release/publish_mipush_release.sh|scripts/release/release_tag.sh|scripts/resolve_zygisk_source.sh|scripts/resolve_zygisk_version_env.sh|build.gradle.kts|settings.gradle.kts|gradle/libs.versions.toml|docs|docs/*|fastlane|fastlane/*)
       ;;
     *)
       printf '%s\n' "$changed_path" >> "$tmp_boundary_violations"
