@@ -85,22 +85,35 @@ jobs:
           # a JVM older than the target, and GitLab never sees that because its
           # runner image already ships 27 -- only a GitHub-hosted runner does.
           java-version: '27'
+      - name: Decode keystore for the signing plugin
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
+          echo "keystore_bytes=$(wc -c < release.jks)"
       - name: Test
         shell: bash
-        # Pin the same named shard GitLab's android:test:pure-modules runs. Passing the
-        # path selector's task list instead made this job a superset of anything GitLab
-        # executes, and on 2026-10-23 it stalled inside one of those extra invocations:
-        # output stopped at 22:46:48 and the job then burned 65 minutes before a manual
-        # cancel. Parity first, widening only once the stall is understood.
+        # Pin the same named shard GitLab's android:test:pure-modules runs, so both hosts
+        # execute the same work and their timings stay comparable.
         env:
           MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
-          # GitLab's runner forces org.gradle.daemon=false from its pre_build_script
-          # (a warm daemon squatting RAM caused exit-137 pipelines on 2026-10-21). GitHub
-          # kept the setup-gradle default, and run_gradle_with_retry.sh then hangs in its
-          # `wait` after the tasks finish: run 361 printed its last real line at 00:42,
-          # one AAPT2 daemon-shutdown line at 00:45, then 18 minutes of nothing until the
-          # 30-minute timeout had to kill five orphan JVMs.
+          # GitLab's runner forces org.gradle.daemon=false in pre_build_script (a warm daemon
+          # squatting RAM caused exit-137 pipelines on 2026-10-21). This does NOT remove the
+          # daemon on either host: the project's org.gradle.jvmargs need more heap than the
+          # launcher JVM has, so Gradle still forks a single-use daemon per invocation
+          # ("a single-use Daemon process will be forked"). Kept purely for parity -- it was
+          # tried as the stall fix on 2026-10-24 and changed nothing.
           MAGISK_GRADLE_ARGS: --warning-mode all -Dorg.gradle.daemon=false
+          # magisk.app.signing throws at apply time without signing info
+          # (SigningTaskPolicy.requiresReleaseSigning). Invisible on GitLab, where
+          # RELEASE_KEYSTORE / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD are group variables
+          # injected into every job; here only the build job had them, so the shard's later
+          # invocations died in ~0.5s with "Failed to apply plugin 'magisk.app.signing'"
+          # (runs 363 and 364, byte-identical stalls). The test job now gets the same
+          # environment GitLab's does.
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
