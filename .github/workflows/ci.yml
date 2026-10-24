@@ -137,6 +137,66 @@ jobs:
           fi
           exit "$rc"
 
+  coverage:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    env:
+      GRADLE_OPTS: -Dorg.gradle.warning.mode=all
+    # Mirrors GitLab's android:test: one Gradle invocation of the Kover gate with the
+    # detekt/module-boundary exclusions, because this job is the coverage decision and
+    # must not re-run the gates that already have jobs of their own. GitLab publishes the
+    # JUnit XML as a test report; the runner has no report surface, so the XMLs are kept
+    # as an artifact instead (when: always, the same as GitLab's artifacts policy).
+    steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: af0295f4631f61a163e981d52bc863e5b8f00dde
+      - name: Setup Android CI
+        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
+        with:
+          checkout: 'false'
+          # See the detekt job: the project targets Java 27, the toolkit defaults to 26,
+          # and only a GitHub-hosted runner notices.
+          java-version: '27'
+      - name: Derive the GitLab-equivalent ref slug
+        id: slug
+        shell: bash
+        # CI_COMMIT_REF_SLUG on GitLab: lowercased, non [a-z0-9-] collapsed to single
+        # hyphens, no leading/trailing hyphen, at most 80 characters. GitHub exposes only
+        # the raw ref name, and actions/upload-artifact refuses a name containing '/'.
+        run: |
+          set -euo pipefail
+          slug="$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -E 's/-+/-/g; s/^[-]+//; s/[-]+$//')"
+          slug="${slug:0:80}"
+          echo "ref_slug=$slug" >> "$GITHUB_OUTPUT"
+          echo "artifact slug=$slug"
+      - name: Kover coverage gate
+        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
+        with:
+          arguments: --warning-mode all qualityGateKoverVerify -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries
+      - name: Upload JUnit and Kover reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-test-merged-${{ steps.slug.outputs.ref_slug }}
+          path: |
+            **/build/test-results/test*/TEST-*.xml
+            **/build/reports/kover/**
+          if-no-files-found: ignore
+          retention-days: 14
   build:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
