@@ -12,6 +12,7 @@ on: workflow_dispatch
 jobs:
   detekt:
     runs-on: ubuntu-26.04
+    timeout-minutes: 20
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
@@ -36,6 +37,11 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
       - name: Detekt
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
@@ -43,6 +49,25 @@ jobs:
 
   test:
     runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    # Non-blocking by standing decision: test results feed code changes afterwards and
+    # must never gate the build or the publish path. The budget also stays in-shell rather
+    # than as timeout-minutes, because a runner-side timeout reports the job as
+    # *cancelled*, and continue-on-error does not absorb cancellation -- the whole run
+    # goes red (verified on run 363). `timeout` exits 124 instead: an ordinary step
+    # failure the flag swallows, with the ::warning:: below left behind as the signal.
+    #
+    # Why the flag was introduced is worth keeping straight, because the reason is gone.
+    # It went in while this job stalled with zero log output; that stall was product
+    # code -- the shared kit's DiagnosticShell.runSuCommand drained `su` stdout before
+    # applying its own timeout and never closed the child's stdin, so on a host where su
+    # falls back to an interactive prompt (GitHub-hosted runners are uid 1001 and ship
+    # /usr/bin/su; GitLab's containers and the Debian host are root)
+    # :magisk-xposed-kit:diagnostics:testDebugUnitTest hung forever. Fixed in
+    # magisk-xposed-kit 6233ee8, which is the pointer this branch now carries: the shard
+    # then runs genuinely green in 18m13s with the step timeout never firing (run 370).
+    # So a green run here is no longer a green run *despite* this job.
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
@@ -67,26 +92,150 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
+      - name: Decode keystore for the signing plugin
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
+          echo "keystore_bytes=$(wc -c < release.jks)"
       - name: Test
         shell: bash
+        # Selection works the way it does in XposedSmsCode and xinyi-relay: the shared
+        # toolkit's path selector maps changed paths onto a selection. What MiPush selects
+        # is *named shards* rather than raw Gradle tasks, so a full selection is still
+        # exactly the unit of work GitLab's android:test:pure-modules runs and the timings
+        # of the two hosts stay comparable. scripts/config/android-test-tasks.json holds the
+        # mapping and scripts/ci/tests/test_android_test_tasks_config.sh pins it.
+        env:
+          # GitLab's runner forces org.gradle.daemon=false in pre_build_script (a warm daemon
+          # squatting RAM caused exit-137 pipelines on 2026-10-21). This does NOT remove the
+          # daemon on either host: the project's org.gradle.jvmargs need more heap than the
+          # launcher JVM has, so Gradle still forks a single-use daemon per invocation
+          # ("a single-use Daemon process will be forked"). Kept purely for parity -- it was
+          # tried as the stall fix on 2026-10-24 and changed nothing.
+          MAGISK_GRADLE_ARGS: --warning-mode all -Dorg.gradle.daemon=false
+          # The same four names GitLab injects into every job as group variables, for
+          # environment parity only. The shard does not need them: magisk.app.signing
+          # throws at apply time solely when the task list contains a packaging task
+          # (SigningTaskPolicy.requiresReleaseSigning), and android-pure-modules requests
+          # test tasks exclusively. The "Failed to apply plugin 'magisk.app.signing'"
+          # lines that read like shard failures in runs 363-365 are :build-logic:test's
+          # own TestKit negative assertions (AndroidApplicationPluginFunctionalTest,
+          # '/tmp/junit-*/build.gradle' line 3) and appear twice per invocation because
+          # run_gradle_with_retry.sh cats its log file after the build returns.
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
-          toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}"
-          mapfile -t selected_shards < <(
-            python3 "$toolkit_dir/ci/select_gradle_tasks.py" \
+          # Guards the after_script staging path, same as GitLab's
+          # android:test:pure-modules: a lost allocated versionCode used to vanish
+          # silently instead of failing the job.
+          bash scripts/ci/tests/test_stage_ci_dist.sh
+          # Fails when the selector config drifts from the shards run_test_shards.sh
+          # implements, or from the single shard GitLab runs on a full selection.
+          bash scripts/ci/tests/test_android_test_tasks_config.sh
+          # Command substitution, not `mapfile < <(...)`: with the process-substitution
+          # form the selector's exit status vanishes, and a dead selector (missing toolkit,
+          # unreadable config) would look exactly like "nothing matched this change" -- a
+          # green job with every test skipped.
+          if ! selected="$(
+            python3 "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}/ci/select_gradle_tasks.py" \
               --root "$PWD" \
-              --toolkit "$toolkit_dir" \
+              --toolkit "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}" \
               --config scripts/config/android-test-tasks.json
-          )
-          if ((${#selected_shards[@]} == 0)); then
-            echo "No Android test tasks selected for this change."
+          )"; then
+            echo "::error::the test task selector failed; refusing to report a passing job with no tests"
+            exit 1
+          fi
+          mapfile -t selected_shards <<< "$selected"
+          if [[ ${#selected_shards[@]} -eq 0 || -z "${selected_shards[0]}" ]]; then
+            echo "No test shards selected for this change."
             exit 0
           fi
-          bash scripts/ci/run_test_shards.sh "${selected_shards[@]}"
+          printf 'selected shards: %s\n' "${selected_shards[*]}"
+          # A step-level timeout, not just timeout-minutes: when the runner kills a job
+          # for exceeding timeout-minutes the job is reported as *cancelled*, and
+          # continue-on-error does not absorb cancellation -- the whole run goes red
+          # (verified on run 363). `timeout` exits 124 instead, which is an ordinary
+          # step failure the allow-failure flag can swallow.
+          rc=0
+          timeout --kill-after=60s 25m bash scripts/ci/run_test_shards.sh "${selected_shards[@]}" || rc=$?
+          if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+            echo "::warning::test shard exceeded its 25m budget (exit $rc). The run stays green by policy, but a timeout here is not a passing test: find which invocation stopped producing output."
+            exit "$rc"
+          fi
+          exit "$rc"
 
+  coverage:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    env:
+      GRADLE_OPTS: -Dorg.gradle.warning.mode=all
+    # Mirrors GitLab's android:test: one Gradle invocation of the Kover gate with the
+    # detekt/module-boundary exclusions, because this job is the coverage decision and
+    # must not re-run the gates that already have jobs of their own. GitLab publishes the
+    # JUnit XML as a test report; the runner has no report surface, so the XMLs are kept
+    # as an artifact instead (when: always, the same as GitLab's artifacts policy).
+    steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 65505809acb199c24ae9e63df1975cdea2ab494b
+      - name: Setup Android CI
+        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
+        with:
+          checkout: 'false'
+          # See the detekt job: the project targets Java 27, the toolkit defaults to 26,
+          # and only a GitHub-hosted runner notices.
+          java-version: '27'
+      - name: Derive the GitLab-equivalent ref slug
+        id: slug
+        shell: bash
+        # CI_COMMIT_REF_SLUG on GitLab: lowercased, non [a-z0-9-] collapsed to single
+        # hyphens, no leading/trailing hyphen, at most 80 characters. GitHub exposes only
+        # the raw ref name, and actions/upload-artifact refuses a name containing '/'.
+        run: |
+          set -euo pipefail
+          slug="$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -E 's/-+/-/g; s/^[-]+//; s/[-]+$//')"
+          slug="${slug:0:80}"
+          echo "ref_slug=$slug" >> "$GITHUB_OUTPUT"
+          echo "artifact slug=$slug"
+      - name: Kover coverage gate
+        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
+        with:
+          arguments: --warning-mode all qualityGateKoverVerify -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt -x verifyModuleBoundaries
+      - name: Upload JUnit and Kover reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-test-merged-${{ steps.slug.outputs.ref_slug }}
+          path: |
+            **/build/test-results/test*/TEST-*.xml
+            **/build/reports/kover/**
+          if-no-files-found: ignore
+          retention-days: 14
   build:
     runs-on: ubuntu-26.04
+    timeout-minutes: 45
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
       MAGISK_BUILD_TYPE: debug
@@ -115,6 +264,16 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
+      - name: Require release signing
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: |
+          echo "::error::Release signing is unavailable (RELEASE_KEYSTORE / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD). Every build and upload step below is gated on it, so without this the job would report success while producing no artifact at all."
+          exit 1
       - name: Decode Keystore
         if: env.HAS_RELEASE_SIGNING == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > release.jks
@@ -239,6 +398,7 @@ jobs:
 
   build-zygisk:
     runs-on: ubuntu-26.04
+    timeout-minutes: 45
     env:
       MAGISK_BUILD_TYPE: debug
       MIPUSH_ZYGISK_REF: 29dfb4432ab5a95392781f11d5d044cb76c87f82
@@ -321,3 +481,72 @@ jobs:
         with:
           name: mipush-zygisk-universal
           path: MiPushZygisk/build/universal_*.zip
+
+  # --- gates mirrored from .gitlab-ci.yml --------------------------------------
+  # security:gitleaks: same image, same flags. No submodule checkout here because
+  # the scan covers this repository's own tree and history, and GitLab clones with
+  # GIT_DEPTH: "0" -- hence fetch-depth: 0 so both sides see the same history.
+  gitleaks:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/gitleaks/gitleaks:v8.30.1
+      options: --entrypoint ""
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        run: gitleaks detect --source . --redact --no-banner
+
+  # android:module-boundaries: one script, ripgrep with a grep fallback, no Gradle.
+  module-boundaries:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify module boundaries
+        run: bash scripts/checks/verify_module_boundaries.sh
+
+  # android:shared-compat: compile-only consumer compatibility check through the
+  # same pinned toolkit the GitLab job resolves.
+  shared-compat:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    steps:
+      - name: Configure GitLab submodule credentials
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [[ -z "$GITLAB_TOKEN" ]]; then
+            echo "::error::GITLAB_TOKEN secret is not set; cannot clone gitlab.com submodules"
+            exit 1
+          fi
+          git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
+          echo "GITLAB_TOKEN=$GITLAB_TOKEN" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/resolve-ci-toolkit
+        with:
+          ref: 65505809acb199c24ae9e63df1975cdea2ab494b
+      - name: Setup Android CI
+        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
+        with:
+          checkout: 'false'
+          # The toolkit defaults to 26, but this project targets 27 (see
+          # gradle/libs.versions.toml: java / javaBytecode). Lint refuses to run on
+          # a JVM older than the target, and GitLab never sees that because its
+          # runner image already ships 27 -- only a GitHub-hosted runner does.
+          java-version: '27'
+      - name: Verify shared compat
+        run: |
+          set -euo pipefail
+          toolkit_dir="${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}"
+          bash "$toolkit_dir/gradle/verify_consumer_compat.sh" \
+            --root "$PWD" \
+            --config "$PWD/scripts/config/compat-check.json" \
+            --toolkit "$toolkit_dir"

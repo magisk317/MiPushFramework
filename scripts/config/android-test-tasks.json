@@ -1,8 +1,6 @@
 {
   "full_tasks": [
-    "android-pure-modules",
-    "xmsf-compile",
-    "mipush-compile"
+    "android-pure-modules"
   ],
   "full_paths": [
     "build.gradle*",
@@ -16,26 +14,56 @@
   ],
   "ignore_paths": [
     "impact",
+    "log/*",
+    "art/*",
+    "fastlane/*",
     ".gitlab-ci.yml",
     ".github/workflows/*",
     "docs/*",
     "README*",
     "LICENSE*",
-    "CHANGELOG*"
+    "CHANGELOG*",
+    ".github/*",
+    ".gitlab/*",
+    "config/*"
   ],
   "unknown": "full",
   "rules": [
     {
-      "paths": ["xmsf/src/*", "xmsf/build.gradle.kts", "xmsf/proguard-rules.pro"],
-      "tasks": ["xmsf-compile"]
+      "paths": [
+        "xmsf/src/*",
+        "xmsf/build.gradle.kts",
+        "xmsf/proguard-rules.pro"
+      ],
+      "tasks": [
+        "xmsf-compile"
+      ]
     },
     {
-      "paths": ["common/*", "core/*", "xmsf/*", "xposed/*", "manager/ui/*", "manager/contract/*", "manager/client/*", "manager/port/*", "settings/*", "configuration/*", "vendor/*", "pinned/*"],
-      "tasks": ["android-pure-modules"]
+      "paths": [
+        "mipush/*"
+      ],
+      "tasks": [
+        "mipush-compile"
+      ]
     },
     {
-      "paths": ["mipush/*"],
-      "tasks": ["mipush-compile"]
+      "paths": [
+        "common/*",
+        "core/*",
+        "xmsf/*",
+        "xposed/*",
+        "manager/*",
+        "settings/*",
+        "configuration/*",
+        "vendor/*",
+        "pinned/*",
+        "magisk-ui-kit/*",
+        "magisk-xposed-kit/*"
+      ],
+      "tasks": [
+        "android-pure-modules"
+      ]
     }
   ]
 }
