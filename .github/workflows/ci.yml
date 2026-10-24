@@ -109,7 +109,18 @@ jobs:
           # silently instead of failing the job.
           bash scripts/ci/tests/test_stage_ci_dist.sh
           : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
-          bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
+          # A step-level timeout, not just timeout-minutes: when the runner kills a job
+          # for exceeding timeout-minutes the job is reported as *cancelled*, and
+          # continue-on-error does not absorb cancellation -- the whole run goes red
+          # (verified on run 363). `timeout` exits 124 instead, which is an ordinary
+          # step failure the allow-failure flag can swallow.
+          rc=0
+          timeout --kill-after=60s 25m bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS" || rc=$?
+          if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+            echo "::warning::test shard exceeded its 25m budget (exit $rc); known stall, see the chase notes. Failing the step, not the run."
+            exit "$rc"
+          fi
+          exit "$rc"
 
   build:
     runs-on: ubuntu-26.04
