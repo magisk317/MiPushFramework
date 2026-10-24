@@ -1,27 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
-  # Utility-job anchor (alpine, pinned): sync:github and update:anip-bundle
-  # extend it instead of pinning their own image.
+  # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
+  # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
+    file: /.gitlab/ci/github-sync.yml
+  - project: magisk3171/shared/magisk-ci-toolkit
+    ref: "5a9cef57abe852dc7798664e03ad50256a0204dd"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -47,7 +50,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "eb3f93a050ec0ade996d0452c00d871e52189fca"
+  MAGISK_CI_TOOLKIT_REF: "5a9cef57abe852dc7798664e03ad50256a0204dd"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -213,6 +216,7 @@ android:build:
       - xmsf/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
       - ci-dist/mipush-ci.apk
+      - ci-dist/version.txt
   # A job-level after_script replaces the one inherited from
   # .magisk_android_base, so the otel export is restated here before staging.
   after_script:
@@ -225,11 +229,15 @@ android:build:
       fi
     # The universal APK name embeds the build timestamp, while
     # GitLabCiArtifactUpdateSource can only fetch artifacts by exact path
-    # (no glob), so stage a stable copy for the in-app update check.
+    # (no glob), so stage a stable copy for the in-app update check, plus
+    # the embedded version string as a plain-text sidecar so the update
+    # dialog can display the real build timestamp.
     - |
       set -euo pipefail
       mkdir -p ci-dist
       cp mipush/build/outputs/apk/github/debug/universal_*.apk ci-dist/mipush-ci.apk
+      apk_name=$(basename mipush/build/outputs/apk/github/debug/universal_*.apk)
+      echo "$apk_name" | sed -n 's/^universal_.*_v\(.*\)_debug\.apk$/\1/p' > ci-dist/version.txt
 
 android:check:
   extends: .magisk_android_build
@@ -850,39 +858,25 @@ renovate:gitlab:
     - $MIPUSH_BUILD_RUNNER_TAG
 
 sync:github:
-  extends: .magisk_utility_base
+  # The shared anchor owns the push: default branch plus release tags, with the
+  # internal safety-net prefixes (backup/, archive/, tmp/, wip/, keep/) withheld.
+  # It also runs on the arm64 utility runner instead of ci-android, so a mirror
+  # push no longer occupies a slot in the Android build queue.
+  extends: .magisk_github_sync
+  # Kept in the release stage because android:release:github needs the tag to be
+  # on GitHub before it creates the release there, and because the quality stage
+  # must not gate the redundancy copy.
   stage: release
-  # Kept dependency-free for branch pipelines (the guard only runs on tags),
-  # but on a tag pipeline the mirror push must wait for the tag contract check.
-  # Without this, a failing guard would leave an orphan tag on the public GitHub
-  # mirror, and --tags --force would have pushed every tag with it.
+  # Dependency-free for branch pipelines (the guard only runs on tags), but on a
+  # tag pipeline the mirror push must wait for the tag contract check: a failing
+  # guard would otherwise leave an orphan tag on the public mirror.
   needs:
     - job: android:release:guard
       optional: true
-  tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_COMMIT_TAG'
-    - when: never
-  script:
-    - |
-      set -euo pipefail
-      # GITHUB_PAT is a group-level protected variable, so it is only injected on
-      # protected branches. A tag pipeline is not protected and falls back to the
-      # project-level GITHUB_RELEASE_TOKEN, which is available on tags.
-      sync_token="${GITHUB_PAT:-${GITHUB_RELEASE_TOKEN:-}}"
-      if [ -z "$sync_token" ]; then
-        echo "ERROR: neither GITHUB_PAT nor GITHUB_RELEASE_TOKEN is available on $CI_COMMIT_REF_NAME" >&2
-        exit 1
-      fi
-      git remote add github "https://magisk317:${sync_token}@github.com/magisk317/${CI_PROJECT_NAME}.git" || true
-      if [ -n "${CI_COMMIT_TAG:-}" ]; then
-        git push github "$CI_COMMIT_TAG" --force
-        git push github --tags --force
-      else
-        git push github "HEAD:refs/heads/$CI_COMMIT_BRANCH" --force
-      fi
+  variables:
+    # Written out rather than reused from MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY:
+    # the mirror target is its own contract and must not follow a release setting.
+    MAGISK_GITHUB_MIRROR_REPOSITORY: "magisk317/MiPushFramework"
 
 # Mirrors the GitLab-owned release to GitHub (tag, notes, release APKs, Zygisk ZIPs).
 # Inert unless GITHUB_RELEASE_TOKEN is configured for the project.

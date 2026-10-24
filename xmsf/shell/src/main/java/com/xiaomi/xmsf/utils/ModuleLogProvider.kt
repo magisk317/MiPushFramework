@@ -91,10 +91,15 @@ internal object ModuleLogIngressPolicy {
         "manager",
     )
 
+    // Hook processes may only write logs when they are both declared in the module's
+    // META-INF/xposed/scope.list and a system package; Personal Assistant ships from
+    // /product/priv-app with FLAG_SYSTEM, so it clears PackageCallerGuard the same way the
+    // other three do. MipushManifestContractTest pins the two lists against each other.
     private val trustedHookPackages = setOf(
         "com.android.systemui",
         "com.miui.securitycore",
         "com.google.android.documentsui",
+        "com.miui.personalassistant",
     )
     private val callerGuard = PackageCallerGuard(trustedHookPackages)
 

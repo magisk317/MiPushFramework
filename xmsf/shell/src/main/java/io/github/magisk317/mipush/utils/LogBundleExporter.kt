@@ -28,12 +28,19 @@ import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.diagnostics.DiagnosticArchive
+import io.github.magisk317.xposed.diagnostics.DiagnosticBundleIdentity
+import io.github.magisk317.xposed.diagnostics.DiagnosticBundleNames
 import io.github.magisk317.xposed.diagnostics.DiagnosticExportMode
 import io.github.magisk317.xposed.diagnostics.DiagnosticShell
 
 object LogBundleExporter {
-    private const val EXPORT_FILE_PREFIX = "mipush_logs_"
-    private const val STAGING_DIR_PREFIX = ".tmp_mipush_logs_"
+    /**
+     * Manager and xmsf runtime share one token: a user triggers a single export, and both
+     * package identities are stamped inside that one archive instead of splitting it in two.
+     */
+    private const val PRODUCT = "mipush"
+    private val EXPORT_FILE_PREFIX = DiagnosticBundleNames.exportFilePrefix(PRODUCT)
+    private val STAGING_DIR_PREFIX = DiagnosticBundleNames.stagingDirPrefix(PRODUCT)
     private const val STAGING_STALE_MAX_AGE_MS = 30L * 60L * 1000L
     private const val XMSF_KEEPER_PACKAGE = "com.xiaomi.xmsfkeeper"
     private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
@@ -44,13 +51,11 @@ object LogBundleExporter {
     const val BLOCK_REASON_NEED_ROOT = "uikit_log_export_need_root"
     private const val RUNTIME_SUMMARY_FILE_NAME = "runtime_summary.json"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
-    private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
+    private val PRIVATE_EXPORT_DIR_NAME = DiagnosticBundleNames.privateExportDirName(PRODUCT)
+    private val LEGACY_PRIVATE_EXPORT_DIR_NAMES = listOf("xmsf_logs")
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
     private const val MI_PUSH_LOG_DIR_NAME = "MiPushLog"
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
-    private val LSPOSED_LOG_DIRS = listOf(
-        "/data/adb/lspd/log",
-    )
     private val SYSTEMUI_HOOK_LOG_DIRS = listOf(
         "/data/user/0/com.android.systemui/files/mipush-hook",
         "/data/user_de/0/com.android.systemui/files/mipush-hook",
@@ -96,19 +101,20 @@ object LogBundleExporter {
 
     fun buildLogBundle(
         context: Context,
-        mode: DiagnosticExportMode,
+        mode: DiagnosticExportMode = DiagnosticExportMode.current(),
     ): ExportResult = synchronized(opLock) {
         checkPreExport()?.let { reason -> return@synchronized ExportResult(file = null, details = reason) }
         val exportStarted = SystemClock.elapsedRealtime()
         val now = Date()
-        val timestamp = LogUtils.dateInfo(now)
+        val identity = buildBundleIdentity(context)
+        val timestamp = DiagnosticBundleNames.exportTimestamp(now.time)
         val exportDir = getPrivateExportDir(context)
         // Free disk I/O capacity before a full export: leftover staging can be tens of MB.
         purgeAllStagingDirs(exportDir)
         LogUtils.pruneAllLogArtifacts(context, now, force = true)
         val deletedLegacyLogs = LogUtils.deleteLegacyTextLogFiles(context)
         val result = DiagnosticArchive.buildBundle(
-            context = context,
+            identity = identity,
             timestamp = timestamp,
             exportDir = exportDir,
             exportFilePrefix = EXPORT_FILE_PREFIX,
@@ -118,8 +124,7 @@ object LogBundleExporter {
                 if (deletedLegacyLogs > 0) {
                     details += "legacy runtime text logs cleared: $deletedLegacyLogs"
                 }
-                details += "export mode=${mode.name}"
-                collectWithMaxParallelism(context, stagingDir, details, mode)
+                collectWithMaxParallelism(context, identity, stagingDir, details, mode)
             },
             onInfo = { logI(it) },
             onWarning = { logW(it) },
@@ -155,6 +160,7 @@ object LogBundleExporter {
      */
     private fun collectWithMaxParallelism(
         context: Context,
+        identity: DiagnosticBundleIdentity,
         stagingDir: File,
         details: MutableList<String>,
         mode: DiagnosticExportMode,
@@ -164,7 +170,7 @@ object LogBundleExporter {
             readPackageIdentity(context, "xmsf host", Constants.SERVICE_APP_NAME),
         )
         identities.forEach { details += it.toSummaryLine() }
-        writeRuntimeLogSummaryFile(context, stagingDir, details, identities)
+        writeRuntimeLogSummaryFile(context, stagingDir, details, identity, identities)
         val safeDetails = Collections.synchronizedList(details)
         val workers = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(6)
         val pool = Executors.newFixedThreadPool(workers)
@@ -195,7 +201,7 @@ object LogBundleExporter {
             if (mode.capturesRootHeavyDiagnostics) {
                 run {
                     val started = SystemClock.elapsedRealtime()
-                    copyLsposedLogs(stagingDir, safeDetails)
+                    copyLsposedLogs(stagingDir, safeDetails, mode)
                     safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
                 }
                 run {
@@ -239,7 +245,7 @@ object LogBundleExporter {
                 "crash" to getCrashDir(context),
                 "legacy_cache_log" to getLegacyCacheLogDir(context),
                 "private_export" to getPrivateExportDir(context),
-            ),
+            ) + getLegacyPrivateExportDirs(context).map { dir -> "legacy_export:${dir.name}" to dir },
             deletePath = ::deleteRecursivelyWithSuFallback,
             onWarning = { logW(it) },
         )
@@ -266,6 +272,11 @@ object LogBundleExporter {
 
     internal fun getPrivateExportDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_EXPORT_DIR_NAME)
 
+    /** Bundles left behind before the export directory was derived from the product token. */
+    internal fun getLegacyPrivateExportDirs(context: Context): List<File> =
+        LEGACY_PRIVATE_EXPORT_DIR_NAMES.map { name -> File(context.filesDir, name) }
+            .filter { it.exists() }
+
     internal fun getMiPushSdkLogDir(context: Context): File? =
         context.getExternalFilesDir(null)?.let { File(it, MI_PUSH_LOG_DIR_NAME) }
 
@@ -287,6 +298,7 @@ object LogBundleExporter {
             cutoffMs = cutoffMs,
         )
         pruneExportDir(getPrivateExportDir(context), cutoffMs)
+        getLegacyPrivateExportDirs(context).forEach { pruneExportDir(it, cutoffMs) }
         pruneTreeByMtime(getLegacyCacheLogDir(context), cutoffMs)
         getMiPushSdkLogDir(context)?.let { pruneTreeByMtime(it, cutoffMs) }
         // Export products previously written into cache by legacy callers.
@@ -421,6 +433,29 @@ object LogBundleExporter {
         }
     }
 
+    /**
+     * The bundle header is written by the kit, so the process that exports stamps its own
+     * installed package identity rather than a compile-time constant: the same code runs in
+     * the manager and in the xmsf runtime, and those two are versioned independently.
+     *
+     * The channel is the branch this build is distributed from. The shell's own flavor
+     * ("normal" / "vc105") selects the bundled MiPush SDK version, not a distribution path,
+     * so it cannot stand in for the channel the other two products report.
+     */
+    private fun buildBundleIdentity(context: Context): DiagnosticBundleIdentity {
+        val packageInfo = runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }.getOrNull()
+        return DiagnosticBundleIdentity.of(
+            product = PRODUCT,
+            packageName = context.packageName,
+            versionName = packageInfo?.versionName.orEmpty(),
+            versionCode = packageInfo?.longVersionCode?.toString().orEmpty(),
+            distributionChannel = ConfigDefaults.REMOTE_BRANCH,
+            commitSha = BuildConfig.GIT_COMMIT,
+        )
+    }
+
     private data class PackageIdentity(
         val label: String,
         val packageName: String,
@@ -471,19 +506,22 @@ object LogBundleExporter {
     }
 
     /**
-     * Record which build produced this bundle, mirroring the runtime_summary.json that
-     * smscode-core writes for XSC and xinyi-relay, so a report handed over from a
-     * hand-built install can be told apart from a distributed release.
+     * Record which build and which installed packages produced this bundle, mirroring the
+     * runtime_summary.json that smscode-core writes for XSC and xinyi-relay, so a report
+     * handed over from a hand-built install can be told apart from a distributed release.
+     *
+     * The identity fields come from the same [DiagnosticBundleIdentity] the kit stamps into
+     * the bundle header, so the two artifacts cannot drift apart per project.
      */
     private fun writeRuntimeLogSummaryFile(
         context: Context,
         stagingDir: File,
         details: MutableList<String>,
+        identity: DiagnosticBundleIdentity,
         identities: List<PackageIdentity>,
     ) {
         runCatching {
             val summary = LogUtils.summarizeFiles(context)
-            val channel = com.xiaomi.xmsf.BuildConfig.FLAVOR
             val files = JSONArray()
             summary.files.forEach { file ->
                 files.put(
@@ -498,11 +536,8 @@ object LogBundleExporter {
             val packages = JSONArray()
             identities.forEach { packages.put(it.toJson()) }
             val payload = JSONObject()
-                .put("packageName", BuildConfig.APPLICATION_ID)
-                .put("versionName", BuildConfig.VERSION_NAME)
-                .put("versionCode", BuildConfig.VERSION_CODE.toString())
-                .put("distributionChannel", channel)
-                .put("commitSha", BuildConfig.GIT_COMMIT)
+            identity.jsonFields().forEach { (field, value) -> payload.put(field, value) }
+            payload
                 .put("isCiBuild", BuildConfig.IS_CI_BUILD)
                 .put("fileCount", summary.fileCount)
                 .put("totalBytes", summary.totalBytes)
@@ -514,11 +549,8 @@ object LogBundleExporter {
             val target = File(stagingDir, "app/log")
             target.mkdirs()
             File(target, RUNTIME_SUMMARY_FILE_NAME).writeText(payload.toString(2))
-            details += "app package=${BuildConfig.APPLICATION_ID} " +
-                "versionName=${BuildConfig.VERSION_NAME} " +
-                "versionCode=${BuildConfig.VERSION_CODE} " +
-                "distributionChannel=$channel " +
-                "commitSha=${BuildConfig.GIT_COMMIT} " +
+            details += "exporting package=${identity.packageName} version=${identity.versionName} " +
+                "channel=${identity.distributionChannel} commit=${identity.commitSha} " +
                 "apkSha256=${identities.firstOrNull()?.apkSha256 ?: "unavailable"}"
         }.onFailure { error ->
             logW("LogBundleExporter runtime summary unavailable: ${error.javaClass.simpleName}")
@@ -820,12 +852,17 @@ object LogBundleExporter {
         details += "systemui hook log missing"
     }
 
-    private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>) {
+    private fun copyLsposedLogs(
+        stagingDir: File,
+        details: MutableList<String>,
+        mode: DiagnosticExportMode,
+    ) {
+        // The kit owns the directory list (`log` and `log.old`) and the build gate, so a
+        // release bundle cannot claim to carry framework logs while collecting half of them.
         DiagnosticShell.copyLsposedLogs(
-            dirs = LSPOSED_LOG_DIRS,
             stagingDir = stagingDir,
             details = details,
-            includeFile = { file -> !file.name.contains("old", ignoreCase = true) },
+            mode = mode,
             onWarning = { logW(it) },
         )
     }

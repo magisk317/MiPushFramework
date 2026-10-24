@@ -16,6 +16,7 @@ import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -104,14 +105,21 @@ class PreservationPropertyTest {
      * @return true if hook intercepts (sets result), false otherwise
      */
     private fun getSmallIconHookIntercepts(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
+        thirdPartyIconPack: Boolean,
+        systemAppIconPack: Boolean,
         extras: NotificationExtras,
     ): Boolean {
+        // Property harness cannot produce icon-pack hits (cache-only probe), so the pack
+        // miss path is exercised: managed posts intercept, everything else stays native.
         return SystemUiNotificationPolicy.shouldInterceptSmallIcon(
-            colorStatusBarIcon = colorStatusBarIcon,
-            forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
             isMiPushManaged = isMiPushManagedNotification(extras),
+            iconPackHit = SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
+                thirdPartyIconPack = thirdPartyIconPack,
+                systemAppIconPack = systemAppIconPack,
+                isMiPushManaged = isMiPushManagedNotification(extras),
+                uid = 10_384,
+                isSystemApp = false,
+            ),
         )
     }
 
@@ -121,13 +129,12 @@ class PreservationPropertyTest {
      * @return true when the hook should force icon_is_pre_L on the icon view.
      */
     private fun iconManagerSetIconResult(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
+        thirdPartyIconPack: Boolean,
+        systemAppIconPack: Boolean,
         isMiPushManaged: Boolean,
     ): Boolean? {
         return SystemUiNotificationPolicy.statusBarIconPreLTagOverride(
-            colorStatusBarIcon = colorStatusBarIcon,
-            forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+            attemptsIconPack = thirdPartyIconPack || systemAppIconPack,
             isMiPushManaged = isMiPushManaged,
         )
     }
@@ -138,15 +145,14 @@ class PreservationPropertyTest {
     private fun legacySetIconTagResult(
         tagIdMatches: Boolean,
         hasStatusBarNotification: Boolean,
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
+        thirdPartyIconPack: Boolean,
+        systemAppIconPack: Boolean,
         isMiPushManaged: Boolean,
     ): Boolean? {
         if (!tagIdMatches) return null
         if (!hasStatusBarNotification) return null
         return SystemUiNotificationPolicy.statusBarIconPreLTagOverride(
-            colorStatusBarIcon = colorStatusBarIcon,
-            forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+            attemptsIconPack = thirdPartyIconPack || systemAppIconPack,
             isMiPushManaged = isMiPushManaged,
         )
     }
@@ -237,15 +243,15 @@ class PreservationPropertyTest {
      * Generates random IslandOptions with varying colorStatusBarIcon values.
      */
     private val islandOptions: Arb<IslandOptions> = Arb.bind(
-        Arb.boolean(), // colorStatusBarIcon
-        Arb.boolean(), // colorStatusBarIconGlobal
+        Arb.boolean(), // thirdPartyIconPack
+        Arb.boolean(), // systemAppIconPack
         Arb.boolean(), // enabled
         Arb.boolean(), // enableFloat
         Arb.boolean(), // focusNotification
-    ) { color, global, enabled, enableFloat, focus ->
+    ) { thirdParty, systemApp, enabled, enableFloat, focus ->
         IslandOptions(
-            colorStatusBarIcon = color,
-            colorStatusBarIconGlobal = global,
+            thirdPartyIconPack = thirdParty,
+            systemAppIconPack = systemApp,
             enabled = enabled,
             enableFloat = enableFloat,
             focusNotification = focus,
@@ -278,18 +284,22 @@ class PreservationPropertyTest {
                 )
 
                 val intercepted = getSmallIconHookIntercepts(
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    thirdPartyIconPack = options.thirdPartyIconPack,
+                    systemAppIconPack = options.systemAppIconPack,
                     extras = extras,
                 )
-                val expected = !options.colorStatusBarIcon && options.colorStatusBarIconGlobal
+                // This harness models the pack-miss path: managed posts intercept,
+                // unmanaged posts follow the category switch (a hit substitutes, a
+                // miss with the switch off stays native).
+                val expected = isMiPushManagedNotification(extras) ||
+                    options.thirdPartyIconPack
 
                 assertEquals(
                     expected,
                     intercepted,
-                    "getSmallIcon hook should intercept non-MiPush notifications only in strong monochrome mode. " +
-                        "colorStatusBarIcon=${options.colorStatusBarIcon}, " +
-                        "colorStatusBarIconGlobal=${options.colorStatusBarIconGlobal}, " +
+                    "getSmallIcon hook should intercept only MiPush-managed notifications when " +
+                        "the icon pack has no entry. thirdPartyIconPack=${options.thirdPartyIconPack}, " +
+                        "systemAppIconPack=${options.systemAppIconPack}, " +
                         "package=${notification.packageName}, " +
                         "extras keys=${notification.genericExtras.keys}"
                 )
@@ -311,22 +321,21 @@ class PreservationPropertyTest {
                 IslandPreferences.resetForTest(options)
 
                 val result = iconManagerSetIconResult(
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    thirdPartyIconPack = options.thirdPartyIconPack,
+                    systemAppIconPack = options.systemAppIconPack,
                     isMiPushManaged = isMiPushManaged,
                 )
                 val expected = expectedPreLTagOverride(
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    attemptsIconPack = options.thirdPartyIconPack || options.systemAppIconPack,
                     isMiPushManaged = isMiPushManaged,
                 )
 
                 assertEquals(
                     expected,
                     result,
-                    "IconManager.setIcon should override icon_is_pre_L only for scoped icons " +
-                        "when colorStatusBarIcon=true. colorStatusBarIcon=${options.colorStatusBarIcon}, " +
-                        "colorStatusBarIconGlobal=${options.colorStatusBarIconGlobal}, " +
+                    "IconManager.setIcon should mark icon_is_pre_L only for monochrome participants. " +
+                        "thirdPartyIconPack=${options.thirdPartyIconPack}, " +
+                        "systemAppIconPack=${options.systemAppIconPack}, " +
                         "isMiPushManaged=$isMiPushManaged"
                 )
             }
@@ -349,14 +358,13 @@ class PreservationPropertyTest {
                 val result = legacySetIconTagResult(
                     tagIdMatches = tagIdMatches,
                     hasStatusBarNotification = hasStatusBarNotification,
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    thirdPartyIconPack = options.thirdPartyIconPack,
+                    systemAppIconPack = options.systemAppIconPack,
                     isMiPushManaged = isMiPushManaged,
                 )
                 val expected = if (tagIdMatches && hasStatusBarNotification) {
                     expectedPreLTagOverride(
-                        colorStatusBarIcon = options.colorStatusBarIcon,
-                        forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                        attemptsIconPack = options.thirdPartyIconPack || options.systemAppIconPack,
                         isMiPushManaged = isMiPushManaged,
                     )
                 } else {
@@ -366,11 +374,11 @@ class PreservationPropertyTest {
                 assertEquals(
                     expected,
                     result,
-                    "Legacy NotificationEntry.setIconTag should force icon_is_pre_L only for resolved " +
-                        "scoped icons when colorStatusBarIcon=true. tagIdMatches=$tagIdMatches, " +
+                    "Legacy NotificationEntry.setIconTag should force icon_is_pre_L only for " +
+                        "monochrome participants. tagIdMatches=$tagIdMatches, " +
                         "hasStatusBarNotification=$hasStatusBarNotification, " +
-                        "colorStatusBarIcon=${options.colorStatusBarIcon}, " +
-                        "colorStatusBarIconGlobal=${options.colorStatusBarIconGlobal}, " +
+                        "thirdPartyIconPack=${options.thirdPartyIconPack}, " +
+                        "systemAppIconPack=${options.systemAppIconPack}, " +
                         "isMiPushManaged=$isMiPushManaged"
                 )
             }
@@ -389,19 +397,19 @@ class PreservationPropertyTest {
     fun `non-MiPush notifications unaffected when monochrome desired`() {
         runBlocking {
             checkAll(100, nonMiPushNotifications) { notification ->
-                IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = false))
+                IslandPreferences.resetForTest(IslandOptions(thirdPartyIconPack = false))
                 val extras = notification.toExtras()
 
                 val intercepted = getSmallIconHookIntercepts(
-                    colorStatusBarIcon = false,
-                    forceGlobalStatusBarIcons = false,
+                    thirdPartyIconPack = false,
+                    systemAppIconPack = false,
                     extras = extras,
                 )
 
                 assertFalse(
                     intercepted,
-                    "Non-MiPush notifications must never be intercepted even when " +
-                        "colorStatusBarIcon=false (monochrome desired). " +
+                    "Non-MiPush notifications with no pack entry must never be intercepted " +
+                        "even with both category switches off (native rendering). " +
                         "package=${notification.packageName}"
                 )
             }
@@ -416,22 +424,21 @@ class PreservationPropertyTest {
      * When the toggle is ON, only MiPush-managed notifications may be intercepted.
      */
     @Test
-    fun `non-MiPush notifications unaffected when color desired`() {
+    fun `third-party switch on substitutes pack-covered notifications`() {
         runBlocking {
             checkAll(100, nonMiPushNotifications) { notification ->
-                IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = true))
+                IslandPreferences.resetForTest(IslandOptions(thirdPartyIconPack = true))
                 val extras = notification.toExtras()
 
                 val intercepted = getSmallIconHookIntercepts(
-                    colorStatusBarIcon = true,
-                    forceGlobalStatusBarIcons = false,
+                    thirdPartyIconPack = true,
+                    systemAppIconPack = false,
                     extras = extras,
                 )
 
-                assertFalse(
+                assertTrue(
                     intercepted,
-                    "Non-MiPush notifications must never be intercepted even when " +
-                        "colorStatusBarIcon=true (color desired). " +
+                    "With the third-party switch on, a pack hit substitutes the glyph. " +
                         "package=${notification.packageName}"
                 )
             }
@@ -625,15 +632,15 @@ class PreservationPropertyTest {
                 val extras = notification.toExtras()
                 val beforeManaged = isMiPushManagedNotification(extras)
                 val beforeIntercept = getSmallIconHookIntercepts(
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    thirdPartyIconPack = options.thirdPartyIconPack,
+                    systemAppIconPack = options.systemAppIconPack,
                     extras = extras,
                 )
                 val after = before.copy()
                 val afterManaged = isMiPushManagedNotification(extras)
                 val afterIntercept = getSmallIconHookIntercepts(
-                    colorStatusBarIcon = options.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                    thirdPartyIconPack = options.thirdPartyIconPack,
+                    systemAppIconPack = options.systemAppIconPack,
                     extras = extras,
                 )
                 assertEquals(before, after, "icon fallback must not change notification semantics")
@@ -645,11 +652,10 @@ class PreservationPropertyTest {
     }
 
     private fun expectedPreLTagOverride(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
+        attemptsIconPack: Boolean,
         isMiPushManaged: Boolean,
     ): Boolean? {
-        if (!forceGlobalStatusBarIcons && !isMiPushManaged) return null
-        return if (colorStatusBarIcon) true else forceGlobalStatusBarIcons.takeIf { it }?.let { false }
+        if (!attemptsIconPack && !isMiPushManaged) return null
+        return false
     }
 }

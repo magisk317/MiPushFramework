@@ -8,7 +8,8 @@ import android.os.Process
 import com.highcapable.anip.sdk.Anip
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
-import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
+import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY

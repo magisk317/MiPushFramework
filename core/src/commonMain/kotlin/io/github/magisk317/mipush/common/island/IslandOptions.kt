@@ -9,7 +9,8 @@ data class IslandOptions(
     val showOriginalNotification: Boolean = true,
     val focusNotification: Boolean = false,
     val colorStatusBarIcon: Boolean = false,
-    val colorStatusBarIconGlobal: Boolean = true,
+    val thirdPartyIconPack: Boolean = true,
+    val systemAppIconPack: Boolean = true,
     val dualAppEnabled: Boolean = false,
 ) {
     val canInjectFocusPayload: Boolean
@@ -27,7 +28,8 @@ data class IslandOptions(
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to showOriginalNotification.toFlagValue(),
         ISLAND_PREF_FOCUS_NOTIF to focusNotification.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to colorStatusBarIcon.toFlagValue(),
-        COLOR_STATUS_BAR_ICON_GLOBAL_KEY to colorStatusBarIconGlobal.toFlagValue(),
+        THIRD_PARTY_ICON_PACK_KEY to thirdPartyIconPack.toFlagValue(),
+        SYSTEM_APP_ICON_PACK_KEY to systemAppIconPack.toFlagValue(),
         DUAL_APP_ENABLED_KEY to dualAppEnabled.toFlagValue(),
         LOG_SANITIZATION_ENABLED_KEY to logSanitizationEnabled.toFlagValue(),
     )

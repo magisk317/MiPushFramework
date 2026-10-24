@@ -10,6 +10,7 @@ import io.github.magisk317.xposed.logging.JsonLineField
 import io.github.magisk317.mipush.diagnostics.DailyRouteLogNamingPolicy
 import io.github.magisk317.xposed.logging.LogSink
 import io.github.magisk317.xposed.logging.LoggingKit
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -28,8 +29,6 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object ManagerRuntimeFileLog {
     private const val ROUTE = "manager"
-    private const val MIN_RETENTION_DAYS = 1
-    private const val DEFAULT_RETENTION_DAYS = 2
     private const val PRUNE_INTERVAL_MS = 30L * 60L * 1000L
     private val dailyDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
     private val logTimestampFormatter =
@@ -40,7 +39,7 @@ object ManagerRuntimeFileLog {
     private val appContext = AtomicReference<Context?>(null)
 
     @Volatile
-    private var retentionDays: Int = DEFAULT_RETENTION_DAYS
+    private var retentionDays: Int = MagiskLogPolicy.DEFAULT_LOG_RETENTION_DAYS
 
     @Volatile
     private var lastPruneAtMs: Long = 0L
@@ -65,7 +64,7 @@ object ManagerRuntimeFileLog {
     }
 
     fun setRetentionDays(days: Int) {
-        val resolvedDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
+        val resolvedDays = MagiskLogPolicy.retentionDays(days)
         retentionDays = resolvedDays
         appContext.get()?.let { context ->
             val now = Date()
@@ -177,7 +176,7 @@ object ManagerRuntimeFileLog {
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, -(retentionDays.coerceAtLeast(MIN_RETENTION_DAYS) - 1))
+            add(Calendar.DAY_OF_YEAR, -(MagiskLogPolicy.retentionDays(retentionDays) - 1))
         }.timeInMillis
         getLogDir(context).listFiles().orEmpty().forEach { file ->
             if (!file.isFile) return@forEach

@@ -29,6 +29,7 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.TelemetryRemoteGate
 import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
@@ -88,6 +89,13 @@ open class MiPushFrameworkApp : Application() {
     override fun onCreate() {
         applicationScope = MainScope()
         super.onCreate()
+        // Every process of this package evaluates the policy from its own build flags before the
+        // first log line: it decides redaction, verbosity and how much an export collects.
+        MagiskLogPolicy.install(
+            isDebugBuild = BuildConfig.DEBUG,
+            isCiBuild = BuildConfig.IS_CI_BUILD,
+            allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
+        )
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)
         PushShellBridgeHolder.install(DefaultPushShellBridge)
@@ -328,13 +336,15 @@ open class MiPushFrameworkApp : Application() {
         }.getOrDefault(false)
         LogUtils.setMinLogLevel(if (initialDebugMode) Severity.Verbose else Severity.Info)
         HookTrace.enabled = initialDebugMode
-        LogSanitizerConfig.syncFromVerboseMode(initialDebugMode)
+        // The switch asks for verbose logging; the kit keeps redaction on whenever the build
+        // requires it, so turning this on in a released app cannot export plaintext.
+        LogSanitizerConfig.applyUserSwitch(!initialDebugMode)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
                 LogUtils.setMinLogLevel(if (enabled) Severity.Verbose else Severity.Info)
                 HookTrace.enabled = enabled
-                LogSanitizerConfig.syncFromVerboseMode(enabled)
+                LogSanitizerConfig.applyUserSwitch(!enabled)
             }
         }
         logI("App starts: $VERSION_NAME, debugMode=$initialDebugMode")

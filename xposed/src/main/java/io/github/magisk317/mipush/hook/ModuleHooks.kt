@@ -44,6 +44,7 @@ import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
 import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.xposed.logging.AnonymousInstallationId
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.preferences.LibXposedPreferenceSources
 import io.github.magisk317.xposed.preferences.PreferenceRead
@@ -72,6 +73,13 @@ class LibXposedEntry : BaseLibXposedEntry {
     override val hookIdPrefix: String = "mipush"
 
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
+        // A hooked process is its own JVM: nothing installed by an Application reaches it, so the
+        // policy is evaluated here from these build flags before the first hook log line.
+        MagiskLogPolicy.install(
+            isDebugBuild = BuildConfig.DEBUG,
+            isCiBuild = BuildConfig.IS_CI_BUILD,
+            allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
+        )
         XposedRuntime.install(module, hookApi)
         XposedLogClient.configure(
             authority = "com.xiaomi.xmsf.module.log",
@@ -79,7 +87,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         )
         XLog.configure(
             tag = "mipush",
-            logLevel = if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) Log.DEBUG else Log.INFO,
+            logLevel = if (MagiskLogPolicy.current().verboseLogging) Log.DEBUG else Log.INFO,
             logToXposed = false,
             defaultRoute = "hook",
             sink = LogSink { event ->
@@ -224,9 +232,11 @@ class LibXposedEntry : BaseLibXposedEntry {
                     ?.let { mapOf(SECURITY_CORE_PACKAGE_NAME to it) }
                     ?: emptyMap()
             }
-            "com.miui.personalassistant" -> {
-                resolveLoadedPackageClassLoader("com.miui.personalassistant")
-                    ?.let { mapOf("com.miui.personalassistant" to it) }
+            // The widget-center hooks are keyed to MIUI Personal Assistant's package name, so
+            // hot reload has to resolve its classLoader like the other system companions.
+            PERSONAL_ASSISTANT_PACKAGE_NAME -> {
+                resolveLoadedPackageClassLoader(PERSONAL_ASSISTANT_PACKAGE_NAME)
+                    ?.let { mapOf(PERSONAL_ASSISTANT_PACKAGE_NAME to it) }
                     ?: emptyMap()
             }
             else -> emptyMap()
@@ -304,5 +314,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         private const val TAG = "LibXposedEntry"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
+        private const val PERSONAL_ASSISTANT_PACKAGE_NAME =
+            PersonalAssistantPickerHook.PA_PACKAGE_NAME
     }
 }

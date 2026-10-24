@@ -6,7 +6,6 @@ import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
-import io.github.magisk317.xposed.hookMethod
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.Collections
@@ -55,8 +54,6 @@ internal object AgooClickDecryptHook {
         Collections.synchronizedSet(HashSet())
     private val hookedActivities: MutableSet<String> =
         Collections.synchronizedSet(HashSet())
-    private val hookedLoadClassCallbacks: MutableSet<String> =
-        Collections.synchronizedSet(HashSet())
     private val fallbackParserThread = ThreadLocal<Long>()
     private val stateDiagnosticLogged = AtomicBoolean(false)
 
@@ -67,33 +64,6 @@ internal object AgooClickDecryptHook {
         installParserIfAvailable(classLoader)
         installActivityIfAvailable(classLoader, ACTIVITY_CLASS)
         installActivityIfAvailable(classLoader, ACTIVITY_CALLBACK_CLASS)
-        installLoadClassProbe(lpparam)
-    }
-
-    private fun installLoadClassProbe(lpparam: LoadParam) {
-        val key = "${lpparam.packageName}@${lpparam.processName}#${System.identityHashCode(lpparam.classLoader)}"
-        if (!hookedLoadClassCallbacks.add(key)) return
-
-        ClassLoader::class.java.hookMethod("loadClass", String::class.java) {
-            doAfter {
-                val className = args.getOrNull(0) as? String ?: return@doAfter
-                if (className != PARSER_CLASS &&
-                    className != ACTIVITY_CLASS &&
-                    className != ACTIVITY_CALLBACK_CLASS
-                ) {
-                    return@doAfter
-                }
-                val loadedClass = result as? Class<*> ?: return@doAfter
-                val expectedLoader = lpparam.classLoader
-                val loadedByTarget =
-                    loadedClass.classLoader === expectedLoader || thisObject === expectedLoader
-                if (!loadedByTarget) return@doAfter
-                when (className) {
-                    PARSER_CLASS -> installParser(loadedClass)
-                    ACTIVITY_CLASS, ACTIVITY_CALLBACK_CLASS -> installActivity(loadedClass)
-                }
-            }
-        }
     }
 
     private fun installActivityIfAvailable(classLoader: ClassLoader, className: String) {

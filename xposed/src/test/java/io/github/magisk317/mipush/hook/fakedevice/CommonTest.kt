@@ -59,9 +59,9 @@ class CommonTest {
 
         assertFalse(result)
         assertEquals(listOf("properties", "ali_bridge", "class_bridge"), steps)
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("build properties failed:") == true }, *anyVararg()) }
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("Ali MiPush bridge failed:") == true }, *anyVararg()) }
-        verify(exactly = 1) { XLog.w("Common", match { it?.startsWith("MIUI class bridge failed:") == true }, *anyVararg()) }
+        verify(exactly = 1) { XLog.w("Common", match { it.startsWith("build properties failed:") }, *anyVararg()) }
+        verify(exactly = 1) { XLog.w("Common", match { it.startsWith("Ali MiPush bridge failed:") }, *anyVararg()) }
+        verify(exactly = 1) { XLog.w("Common", match { it.startsWith("MIUI class bridge failed:") }, *anyVararg()) }
     }
 
     @Test

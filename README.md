@@ -42,7 +42,7 @@ MiPushFramework 以 `com.xiaomi.xmsf` 的形式提供系统推送服务：接入
 - **通知发布对齐 stock XMSF**：`MIPushNotificationPublishHelper`、`NotificationController`、`NotificationManagerEx` 对齐分组、点击、按钮、VoIP、SweetTag、focus 删除与渠道兼容行为，普通通知、配置显式焦点通知与生成式超级岛代理区分不同路径。
 - **Hook 与超级岛独立运行面**：`xposed/` 维护 libxposed/LSPosed 入口、SystemUI `MiPushIslandHook`、XMSF `UnlockFocusAuthHook` 与 provider 同步的 `IslandPreferences`；HyperIsland 代理通知不与原始通知栏通知混入同一分支，并避让独立 HyperIsland 模块。
 - **面向新平台的通知语义**：进度类推送通过 `ProgressStyleBuilder` 在 Android 16+ 使用 `Notification.ProgressStyle` 与 promoted ongoing，低版本保留常规进度通知；非 MIUI/AOSP 路径避免泄漏 `miui.focus.param`、`miui.focus.pics` 等 MIUI 私有 extras。
-- **诊断与可观测落在代码里**：`LogBundleExporter` 负责 JSONL 日志选择、旧文本日志清理、敏感字段脱敏、可选 LSPosed 日志采集与分享流程；root/shell 行为通过 `AppRootAccessFacade`、`BoundedShellRunner` 等受控入口执行。**导出需要 root 权限**：归档包含 `/data/adb/lspd/log` 等模块日志目录，非 root 设备在选择保存位置前即会被拦截；正式版不打日志，请安装 CI 版本导出。
+- **诊断与可观测落在代码里**：`LogBundleExporter` 负责 JSONL 日志选择与旧文本日志清理；归档、敏感字段脱敏与采集范围由 `magisk-xposed-kit` 的日志策略按构建类型判定，发行构建导出脱敏后的有界内容，debug/CI 构建才采集 LSPosed 日志、全量 logcat 与 root 诊断；设置项只能提高脱敏、不能取消它；root/shell 行为通过 `AppRootAccessFacade`、`BoundedShellRunner` 等受控入口执行。**导出需要 root 权限**：归档包含 `/data/adb/lspd/log` 等模块日志目录，非 root 设备在选择保存位置前即会被拦截；正式版不采集这类 root 诊断，需要完整导出请安装 debug/CI 构建。
 
 ## normal 与 vc105
 

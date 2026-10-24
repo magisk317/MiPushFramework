@@ -93,6 +93,11 @@ selection, and app/runtime logging.
   SystemUI, SecurityCore, DocumentsUI, XMSF and explicitly supported system integrations. Ordinary
   target apps, including cloned or user-999 instances, are selected by the user in LSPosed rather
   than being hard-coded into `scope.list`.
+- MIUI Personal Assistant (`com.miui.personalassistant`) is one of those supported integrations:
+  the widget-center picker and detail hooks are keyed to its package name. It must appear in
+  `scope.list` **and** in `ModuleLogIngressPolicy.trustedHookPackages` together -- the scope
+  decides whether the hooks ever run, the allowlist decides whether that process's `XLog` survives
+  `PackageCallerGuard`. `MipushManifestContractTest` cross-checks the two lists.
 - The SecurityCore package-info fallback only synthesizes the observed module result for the
   SecurityCore caller, required manifest-query flags, and query users `0` or `999`. It rejects all
   other users.
