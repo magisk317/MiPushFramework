@@ -32,6 +32,7 @@ import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.AUTO_UPDATE_ON_START_KEY
 import io.github.magisk317.mipush.common.AUTO_UPDATE_WIFI_ONLY_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
+import io.github.magisk317.mipush.common.KEY_WIZARD_SEEN_VERSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
@@ -75,6 +76,7 @@ data class OwnedPreferenceValue(
 
 private const val DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES = 10
 private const val MAX_FREEZE_REFREEZE_DELAY_MINUTES = 120
+private const val NEVER_SEEN_VERSION_CODE = -1L
 
 class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
@@ -110,7 +112,7 @@ class PreferenceRepository constructor(
     private val ISLAND_SHOW_ORIGINAL_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION)
     private val ISLAND_FOCUS_NOTIF = booleanPreferencesKey(ISLAND_PREF_FOCUS_NOTIF)
 
-    private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
+    private val WIZARD_SEEN_VERSION = longPreferencesKey(KEY_WIZARD_SEEN_VERSION)
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
     private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
@@ -192,7 +194,12 @@ class PreferenceRepository constructor(
         )
     }
 
-    val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
+    /**
+     * Version code whose onboarding report the user has already dismissed. Absence
+     * is [NEVER_SEEN_VERSION_CODE], so an upgrade re-arms the report exactly once.
+     */
+    val wizardSeenVersionCode: Flow<Long> =
+        dataStore.data.map { it[WIZARD_SEEN_VERSION] ?: NEVER_SEEN_VERSION_CODE }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
@@ -380,8 +387,8 @@ class PreferenceRepository constructor(
         dataStore.edit { it[CONFIG_DIRECTORY] = uri }
     }
 
-    suspend fun setShowWizard(show: Boolean) {
-        dataStore.edit { it[SHOW_WIZARD] = show }
+    suspend fun setWizardSeenVersionCode(versionCode: Long) {
+        dataStore.edit { it[WIZARD_SEEN_VERSION] = versionCode }
     }
 
     suspend fun setUsageStatsRequested(requested: Boolean) {

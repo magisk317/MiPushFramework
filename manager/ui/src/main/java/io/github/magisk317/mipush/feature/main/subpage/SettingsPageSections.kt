@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.magisk317.mipush.manager.remote.RUNTIME_UNAVAILABLE_MARKER
 import org.koin.compose.koinInject
 import io.github.magisk317.uikit.update.UpdateCheckResult
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
@@ -381,6 +382,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     var showRuntimeLogRetentionDialog by remember { mutableStateOf(false) }
     val runtimeLogExportFailedTemplate = stringResource(R.string.runtime_log_export_failed)
     val runtimeLogSavedMessage = stringResource(R.string.runtime_log_saved)
+    val runtimeLogSavedLocalOnlyMessage = stringResource(R.string.runtime_log_saved_local_only)
     val runtimeLogClearedMessage = stringResource(R.string.runtime_log_cleared)
     val runtimeLogClearPartialFailedTemplate = stringResource(R.string.runtime_log_clear_partial_failed)
     val runtimeLogRetentionDaysError = stringResource(R.string.settings_runtime_log_retention_days_error)
@@ -395,10 +397,10 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         if (destination == null) return@rememberLauncherForActivityResult
         Toast.makeText(context, R.string.runtime_log_exporting, Toast.LENGTH_SHORT).show()
         viewModel.saveRuntimeLogBundle(context, destination) { result ->
-            val message = if (result.success) {
-                runtimeLogSavedMessage
-            } else {
-                formatMessage(runtimeLogExportFailedTemplate, result.details)
+            val message = when {
+                !result.success -> formatMessage(runtimeLogExportFailedTemplate, result.details)
+                result.details.contains(RUNTIME_UNAVAILABLE_MARKER) -> runtimeLogSavedLocalOnlyMessage
+                else -> runtimeLogSavedMessage
             }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
         }
@@ -408,7 +410,9 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         scope.launch {
             // Fail fast instead of letting the foreground export run to completion:
             // the bundle pulls /data/adb/lspd/log, which a non-root device cannot read.
-            if (!viewModel.hasExportRootAccess()) {
+            // The manager-local fallback bundle reads only app-owned files, so an unreachable
+            // runtime must stay exportable even without root.
+            if (!viewModel.hasExportRootAccess() && !viewModel.exportFallsBackToLocalBundle()) {
                 snackbarHostState.showSnackbar(
                     context.getString(
                         io.github.magisk317.uikit.R.string.uikit_log_export_need_root,

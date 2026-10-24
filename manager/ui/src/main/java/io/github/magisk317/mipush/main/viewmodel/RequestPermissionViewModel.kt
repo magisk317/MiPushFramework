@@ -22,14 +22,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * One line of the on-screen grant log. Rendering maps [granted] to localized
- * text; [isRoot] selects the root-specific phrasing.
+ * One line of the on-screen grant log. [outcome] picks the localized verb; [isRoot]
+ * picks the root-specific phrasing.
  */
 data class GrantLogEntry(
     val title: String,
-    val granted: Boolean,
+    val outcome: GrantOutcome,
     val isRoot: Boolean = false,
 )
+
+/**
+ * UNAVAILABLE is kept apart from DENIED because it means the state could not be
+ * read at all: a runtime subject answers over the Binder, so an unreachable runtime
+ * is a connection problem, not a refused grant.
+ */
+enum class GrantOutcome {
+    GRANTED,
+    DENIED,
+    UNAVAILABLE,
+}
 
 class RequestPermissionViewModel constructor(
     private val permissionGateway: ManagerPermissionGateway,
@@ -53,11 +64,12 @@ class RequestPermissionViewModel constructor(
     val processingKeys: StateFlow<Set<String>> = _processingKeys.asStateFlow()
 
     /**
-     * Hard gate for entering the app: both root subjects (manager and runtime)
-     * must hold root access.
+     * Silent grant-all needs the runtime bridge, which is only reachable while the
+     * runtime subject holds root. It is not an entry condition: the report stays
+     * usable with both subjects ungranted.
      */
-    val allRequiredValidated: StateFlow<Boolean> = _rootAccessSnapshot
-        .map { snapshot -> snapshot.manager.isGranted && snapshot.runtime.isGranted }
+    val canGrantSilently: StateFlow<Boolean> = _rootAccessSnapshot
+        .map { snapshot -> snapshot.runtime.isGranted }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
@@ -112,21 +124,25 @@ class RequestPermissionViewModel constructor(
             _permissionStates.value = withContext(Dispatchers.IO) {
                 evaluatePermissionStates(permissionInfos)
             }
-            appendGrantLog(GrantLogEntry(info.permissionTitle, isGranted))
+            appendGrantLog(
+                GrantLogEntry(
+                    title = info.permissionTitle,
+                    outcome = if (isGranted) GrantOutcome.GRANTED else GrantOutcome.DENIED,
+                ),
+            )
             _processingKeys.value = _processingKeys.value - info.permissionTitle
             onDone(isGranted)
         }
     }
 
     /**
-     * Grant one root subject. When any subject ends up granted, run the silent
-     * grant-all pass so every bridge-grantable permission is granted without
-     * popping further pages.
+     * Grant one root subject. Only the runtime subject can carry a silent grant, so
+     * the grant-all pass follows it; a manager-only grant leaves the rows untouched.
      */
     fun requestRootAccess(
         target: ManagerRootTarget,
         permissionInfos: List<PermissionInfo>,
-        onDone: (Boolean) -> Unit,
+        onDone: (ManagerRootAccessState) -> Unit,
     ) {
         viewModelScope.launch {
             _processingKeys.value = _processingKeys.value + rootKey(target)
@@ -135,10 +151,10 @@ class RequestPermissionViewModel constructor(
             }
             _rootAccessSnapshot.value = snapshot
             _processingKeys.value = _processingKeys.value - rootKey(target)
-            if (snapshot.manager.isGranted || snapshot.runtime.isGranted) {
+            if (snapshot.runtime.isGranted) {
                 grantAll(permissionInfos)
             }
-            onDone(snapshot.status(target).isGranted)
+            onDone(snapshot.status(target).state)
         }
     }
 
@@ -159,7 +175,10 @@ class RequestPermissionViewModel constructor(
                         if (info is AlertWindowPermissionInfo) continue
                         if (isSatisfied(index, permissionInfos, states)) continue
                         val granted = info.permissionOperator.requestPermissionSilently(permissionGateway)
-                        entries += GrantLogEntry(info.permissionTitle, granted)
+                        entries += GrantLogEntry(
+                            title = info.permissionTitle,
+                            outcome = if (granted) GrantOutcome.GRANTED else GrantOutcome.DENIED,
+                        )
                         states = evaluatePermissionStates(permissionInfos)
                     }
                     states

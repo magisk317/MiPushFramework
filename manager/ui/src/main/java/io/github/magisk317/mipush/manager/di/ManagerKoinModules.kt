@@ -178,6 +178,7 @@ val managerKoinModule = module {
         AppUpdateChecker(
             context = androidContext(),
             sources = ManagerUpdateSources.create(),
+            allowForceUpdate = !BuildConfig.SKIP_FORCE_UPDATE,
         )
     }
     single {

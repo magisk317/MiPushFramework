@@ -62,13 +62,9 @@
     <string name="pref_color_status_bar_icon_mipush_title">Monochrome icons</string>
     <string name="pref_color_status_bar_icon_mipush_summary">On by default: MiPush status-bar icons become white monochrome silhouettes. Turn off to keep the app\'s own colors</string>
     <string name="pref_icon_pack_third_party_title">Third-party apps</string>
-    <string name="pref_icon_pack_third_party_summary">Use icon-pack glyphs for third-party app notifications. Only apps configured in the icon pack are affected; all others keep the system\'s native rendering</string>
+    <string name="pref_icon_pack_third_party_summary">Use icon-pack glyphs for third-party app notifications. Under monochrome, an app whose own status-bar glyph is already a standard silhouette keeps it; otherwise only apps configured in the icon pack are affected and the rest keep the system\'s native rendering</string>
     <string name="pref_icon_pack_system_app_title">System apps</string>
     <string name="pref_icon_pack_system_app_summary">Use icon-pack glyphs for system app notifications. Only apps configured in the icon pack are affected; all others keep the system\'s native rendering</string>
-    <string name="pref_color_status_bar_icon_restart_title">Device reboot required</string>
-    <string name="pref_color_status_bar_icon_restart_message">Changing this switch reboots the device so the status-bar monochrome icon policy takes effect system-wide.</string>
-    <string name="pref_color_status_bar_icon_restart_confirm">Apply and reboot</string>
-    <string name="pref_color_status_bar_icon_reboot_failed">The preference was saved, but the device could not reboot. Check Root access.</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_runtime_preference_update_failed">Could not update %1$s. Check that the push service is connected.</string>
@@ -162,7 +158,8 @@
     <!-- About -->
 
     <!-- Wizard -->
-    <string name="wizard_descr"><![CDATA[This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitHub project:<a href="https://github.io/github/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr">This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitLab project: %1$s</string>
+    <string name="wizard_repo_url" translatable="false">https://gitlab.com/magisk3171/MiPushFramework</string>
 
     <string name="wizard_connect">Connecting</string>
 
@@ -187,6 +184,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="wizard_root_permission_denied_toast">Root access not granted</string>
     <string name="wizard_root_permission_target_granted_toast">%1$s root access granted</string>
     <string name="wizard_root_permission_target_denied_toast">%1$s root access not granted</string>
+    <string name="wizard_root_permission_target_unavailable_toast">%1$s is unreachable, so its root state could not be read</string>
     <string name="wizard_root_space_primary">Current space: Primary (User 0)</string>
     <string name="wizard_root_space_dual">Current space: Dual app (User 999)</string>
     <string name="wizard_root_space_other">Current space: User %1$d</string>
@@ -417,6 +415,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
     <string name="runtime_log_exporting">Exporting logs…</string>
     <string name="runtime_log_saved">Logs saved locally</string>
+    <string name="runtime_log_saved_local_only">Runtime logs unavailable, saved a manager-local diagnostics bundle</string>
     <string name="runtime_log_share_failed">Share failed: %1$s</string>
     <string name="runtime_log_cleared">Logs and crash files cleared</string>
     <string name="runtime_log_clear_partial_failed">Partially cleared: %1$s</string>
@@ -786,6 +785,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="runtime_missing_dialog_title">Usable xmsf not detected</string>
     <string name="runtime_missing_dialog_message">The xmsf runtime may be missing or incompatible. Install the matching xmsf runtime, then reopen Manager.</string>
     <string name="dialog_acknowledge">Got it</string>
+    <string name="runtime_warning_check_permissions">Check permissions</string>
     <string name="legacy_module_dialog_title">Incompatible MiPush module detected</string>
     <string name="legacy_module_dialog_message">Incompatible module detected: %1$s. Uninstall it, then reopen Manager.</string>
     <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
@@ -828,12 +828,16 @@ This could be the application doing a reverse registration, or the registration 
     <string name="xmsf_delivery_guidance_action">Open release page to install manually</string>
     <string name="xmsf_delivery_guidance_summary">This distribution never downloads APKs in-process</string>
     <string name="xmsf_delivery_installed_snackbar">XMSF runtime installed and verified</string>
+    <string name="xmsf_delivery_up_to_date_snackbar">XMSF runtime is already up to date</string>
     <string name="xmsf_delivery_guidance_opened_snackbar">Release page opened; refresh after installing</string>
     <string name="xmsf_delivery_failed_snackbar">Runtime delivery failed: %1$s</string>
     <string name="wizard_section_required">Required</string>
     <string name="wizard_section_optional">Optional</string>
     <string name="wizard_action_grant_all">Grant all silently</string>
     <string name="wizard_action_enter_app">Enter app</string>
+    <string name="wizard_report_title">Permission status</string>
+    <string name="wizard_report_granted">%1$d of %2$d requirements ready</string>
+    <string name="wizard_report_missing">%1$d still missing; push delivery can stay broken until they are granted.</string>
     <string name="wizard_status_processing">Working...</string>
     <string name="wizard_log_granted">Granted: %1$s</string>
     <string name="wizard_log_denied">Not granted: %1$s</string>

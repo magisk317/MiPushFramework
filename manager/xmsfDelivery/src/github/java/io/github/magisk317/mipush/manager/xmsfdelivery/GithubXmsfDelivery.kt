@@ -26,30 +26,50 @@ class GithubXmsfDelivery(
     scope: CoroutineScope,
     private val downloader: XmsfDownloader = XmsfDownloader(context),
     private val latestProbe: XmsfRuntimeLatestProbe = XmsfRuntimeLatestProbe(),
+    private val ciProbe: XmsfCiArtifactProbe = XmsfCiArtifactProbe(),
 ) : AbstractXmsfDelivery(context, scope) {
 
     private val installer = XmsfApkInstaller(appContext)
     private val mutex = Mutex()
+
+    /**
+     * CI artifacts track first, registry release track second — the same
+     * precedence the manager's own OTA uses (see ManagerUpdateSources).
+     */
+    private val probeChain = XmsfLatestProbeChain(ciArtifacts = ciProbe, registry = latestProbe)
+
+    /**
+     * Version name of the runtime the last [checkLatestRuntime] resolved from
+     * the CI artifacts track, or null when the registry track answered. A
+     * download of exactly that version must come from the CI artifacts base
+     * URL: the registry URL 404s for CI version names, and the build pin only
+     * ever matches the registry layout.
+     */
+    @Volatile
+    private var ciTrackVersionName: String? = null
 
     override val expectedVersionName: String get() = BuildConfig.XMSF_DELIVERY_VERSION
 
     override val canInstallDirectly: Boolean get() = true
 
     /**
-     * Newest registry runtime this host may install, compared against the
-     * installed one. Read-only: the status flow keeps describing the pin,
+     * Newest runtime this host may install from either track, compared against
+     * the installed one. Read-only: the status flow keeps describing the pin,
      * and a runtime ahead of the pin still counts as READY there.
      */
     override suspend fun checkLatestRuntime(): XmsfLatestCheck = withContext(Dispatchers.IO) {
         val latest = runCatching {
-            latestProbe.fetchLatestCompatible(XmsfDownloader.hostVersionCode(appContext))
+            probeChain.fetchLatestCompatible(XmsfDownloader.hostVersionCode(appContext))
         }.getOrElse { error ->
             return@withContext XmsfLatestCheck.Failed(error.describeFailure())
         }
+        // Remember which track answered so ensureInstalled picks the matching
+        // base URL; a registry answer clears the CI target.
+        ciTrackVersionName = latest.manifest.versionName.takeIf { latest.fromCiArtifacts }
         val installed = statusResolver.queryInstalled()
         val hasNewer = installed == null ||
-            XmsfVersionComparator.isNewer(latest.versionName, installed.versionName.orEmpty())
-        if (hasNewer) XmsfLatestCheck.Available(latest) else XmsfLatestCheck.UpToDate
+            XmsfVersionComparator.isNewer(latest.manifest.versionName, installed.versionName.orEmpty())
+        if (hasNewer) XmsfLatestCheck.Available(latest.manifest) else XmsfLatestCheck.UpToDate
     }
 
     override suspend fun ensureInstalled(
@@ -72,13 +92,19 @@ class GithubXmsfDelivery(
             return XmsfInstallResult.GuidanceOpened
         }
         return mutex.withLock {
-            // A registry-latest target installs a version ahead of the build
-            // pin, so it needs its own downloader: the pin is baked into the
-            // manifest gate and the cache directory.
-            val effectiveDownloader = if (target == expectedVersionName) {
-                downloader
-            } else {
-                XmsfDownloader(appContext, expectedVersionName = target)
+            // A target ahead of the build pin installs a version the pin never
+            // named, so it needs its own downloader: the pin is baked into the
+            // manifest gate and the cache directory. CI-track targets also
+            // need the CI artifacts base URL — the registry URL 404s for them.
+            val effectiveDownloader = when {
+                target == expectedVersionName -> downloader
+                target == ciTrackVersionName -> XmsfDownloader(
+                    appContext,
+                    expectedVersionName = target,
+                    baseUrl = XmsfCiArtifactProbe.MANIFEST_BASE_URL,
+                    requestQuery = XmsfCiArtifactProbe.CI_JOB_QUERY,
+                )
+                else -> XmsfDownloader(appContext, expectedVersionName = target)
             }
             val failure = runCatching {
                 val downloaded = effectiveDownloader.download(onProgress)
@@ -94,8 +120,8 @@ class GithubXmsfDelivery(
             }.exceptionOrNull()
             if (failure == null) {
                 // Verify against the requested target, not the build pin:
-                // updating to the registry latest deliberately installs a
-                // version ahead of what this build was pinned against.
+                // updating to a newer track deliberately installs a version
+                // ahead of what this build was pinned against.
                 val verified = statusResolver.resolveState(target)
                 if (verified == XmsfRuntimeState.READY) {
                     refresh()

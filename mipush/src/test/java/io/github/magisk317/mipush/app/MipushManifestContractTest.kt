@@ -65,7 +65,7 @@ class MipushManifestContractTest {
         val mainActivitySource = resolveProjectFile(
             "manager/ui/src/main/java/io/github/magisk317/mipush/feature/main/MainActivity.kt",
         ).readText()
-        assertTrue("preferenceRepository.showWizard.first()" in mainActivitySource)
+        assertTrue("WizardSPUtils.shouldShowWizard(this@MainActivity, preferenceRepository)" in mainActivitySource)
         assertFalse("LEGACY_TARGET_CLASS" in mainActivitySource)
     }
 

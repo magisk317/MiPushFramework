@@ -40,7 +40,8 @@ class XmsfRuntimeLatestProbe(
             check(versions.isNotEmpty()) { "registry lists no xmsf-runtime packages" }
             val newestFirst = versions.sortedWith(XmsfVersionComparator).asReversed()
             for (version in newestFirst) {
-                val manifest = fetchManifest(version)
+                val manifest = runCatching { fetchManifest(version) }.getOrNull() ?: continue
+                if (manifest.versionName != version) continue
                 if (manifest.validate(hostVersionCode) == null) return@withContext manifest
             }
             error("no published runtime is compatible with manager versionCode $hostVersionCode")

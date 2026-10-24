@@ -120,7 +120,8 @@
     <string name="action_about">About</string>
 
     <!-- Wizard -->
-    <string name="wizard_descr"><![CDATA[This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitHub project:<a href="https://github.io/github/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr">This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitLab project: %1$s</string>
+    <string name="wizard_repo_url" translatable="false">https://gitlab.com/magisk3171/MiPushFramework</string>
 
     <string name="wizard_connect">Connecting</string>
 

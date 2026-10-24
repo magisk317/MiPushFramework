@@ -124,26 +124,43 @@ class RequestPermissionViewModelTest {
     }
 
     @Test
-    fun `entering the app requires both root subjects then grants everything silently`() {
+    fun `silent grant-all follows the runtime subject alone`() {
         val gateway = FakePermissionGateway()
         val battery = FakePermissionInfo("Battery exemption", granted = false, silentResult = true)
         val infos = listOf(battery)
         val viewModel = RequestPermissionViewModel(gateway)
 
-        assertFalse(viewModel.allRequiredValidated.value)
+        assertFalse(viewModel.canGrantSilently.value)
 
         viewModel.requestRootAccess(ManagerRootTarget.MANAGER, infos) {}
         awaitUntil { viewModel.rootAccessSnapshot.value.manager.isGranted }
-        assertFalse(viewModel.allRequiredValidated.value)
+        assertFalse(viewModel.canGrantSilently.value)
+
+        // Manager root cannot carry a bridge grant, so the pass still has not run.
+        assertEquals(0, battery.operator.silentCount)
 
         viewModel.requestRootAccess(ManagerRootTarget.RUNTIME, infos) {}
-        awaitUntil { viewModel.allRequiredValidated.value }
+        awaitUntil { viewModel.canGrantSilently.value }
         awaitUntil { viewModel.permissionStates.value[0] == true }
         awaitUntil { !viewModel.grantingAll.value }
 
-        // The first subject grant already ran the silent pass; the second one
-        // skips the now-satisfied item instead of granting twice.
         assertEquals(1, battery.operator.silentCount)
+    }
+
+    @Test
+    fun `an unreachable runtime subject is reported as unavailable`() {
+        val gateway = FakePermissionGateway()
+        gateway.runtimeStateOverride = ManagerRootAccessState.UNAVAILABLE
+        val viewModel = RequestPermissionViewModel(gateway)
+        var reported: ManagerRootAccessState? = null
+
+        viewModel.requestRootAccess(ManagerRootTarget.RUNTIME, emptyList()) { reported = it }
+        awaitUntil { reported != null }
+
+        // A connection failure must stay distinguishable from a refused grant: the
+        // wizard wording, and the diagnosis the user reads, depend on it.
+        assertEquals(ManagerRootAccessState.UNAVAILABLE, reported)
+        assertFalse(viewModel.canGrantSilently.value)
     }
 
     @Test
@@ -234,6 +251,7 @@ class RequestPermissionViewModelTest {
     private class FakePermissionGateway : ManagerPermissionGateway {
         var rootRefreshCount = 0
         var rootRequestCount = 0
+        var runtimeStateOverride: ManagerRootAccessState? = null
         private var rootGranted = false
         private var managerRootGranted = false
 
@@ -289,7 +307,7 @@ class RequestPermissionViewModelTest {
                 target = ManagerRootTarget.RUNTIME,
                 packageName = "com.xiaomi.xmsf",
                 userId = 999,
-                state = rootGranted.toState(),
+                state = runtimeStateOverride ?: rootGranted.toState(),
             ),
         )
 

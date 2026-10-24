@@ -27,6 +27,12 @@ class XmsfDownloader(
     private val baseUrl: String = BASE_URL,
     private val httpClient: OkHttpClient = defaultHttpClient(),
     private val hostVersionCodeProvider: (() -> Long)? = null,
+    /**
+     * Query appended verbatim to every artifact URL. The CI artifacts raw
+     * endpoint requires `?job=<job>` (see [XmsfCiArtifactProbe.CI_JOB_QUERY]);
+     * the generic registry needs none, so the default is empty.
+     */
+    private val requestQuery: String = "",
 ) {
 
     private val appContext = context.applicationContext ?: context
@@ -58,8 +64,9 @@ class XmsfDownloader(
         }
         apk.delete()
         sidecar.delete()
-        downloadFile("$baseUrl/$expectedVersionName/$APK_NAME", apk, onProgress)
-        val sidecarHash = runCatching { downloadText("$baseUrl/$expectedVersionName/$APK_NAME.sha256") }
+        downloadFile("$baseUrl/$expectedVersionName/$APK_NAME$requestQuery", apk, onProgress)
+        val sidecarHash =
+            runCatching { downloadText("$baseUrl/$expectedVersionName/$APK_NAME.sha256$requestQuery") }
             .getOrNull()
             ?.trim()
             ?.substringBefore(' ')
@@ -79,7 +86,7 @@ class XmsfDownloader(
 
     /** Fetch and parse the manifest for [versionName]. */
     suspend fun fetchManifest(versionName: String): XmsfRuntimeManifest = withContext(Dispatchers.IO) {
-        val text = downloadText("$baseUrl/$versionName/$MANIFEST_NAME")
+        val text = downloadText("$baseUrl/$versionName/$MANIFEST_NAME$requestQuery")
         XmsfRuntimeManifest.parse(text)
     }
 

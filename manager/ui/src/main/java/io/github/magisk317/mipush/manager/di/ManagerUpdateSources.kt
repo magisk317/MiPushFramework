@@ -25,7 +25,22 @@ object ManagerUpdateSources {
     /** CI track: latest successful pipeline on this branch. */
     const val CI_BRANCH = "beta"
     const val CI_JOB_NAME = "android:build"
-    const val CI_ARTIFACT_PATH = "ci-dist/mipush-ci.apk"
+    /**
+     * Version-keyed staging path: the {versionName} segment is resolved from
+     * the sidecar below (see GitLabCiArtifactUpdateSource), keeping the
+     * ci-dist/<package>/<versionName>/ layout symmetric with the XMSF runtime.
+     */
+    const val CI_ARTIFACT_PATH = "ci-dist/io.github.magisk317.mipush/{versionName}/mipush-ci.apk"
+
+    /** Plain-text sidecar naming the staged build's embedded versionName. */
+    const val CI_VERSION_SIDECAR_PATH = "ci-dist/io.github.magisk317.mipush/version.txt"
+
+    /**
+     * Staged manifest sidecar whose sha256 gates the OTA download; same
+     * version-keyed layout and contract fields as the XMSF runtime manifest.
+     */
+    const val CI_MANIFEST_PATH =
+        "ci-dist/io.github.magisk317.mipush/{versionName}/mipush-ci-manifest.json"
 
     /** True for debug builds and CI/test version names (the CI track is live). */
     val isCiOrDebugBuild: Boolean
@@ -44,6 +59,8 @@ object ManagerUpdateSources {
                     branch = CI_BRANCH,
                     jobName = CI_JOB_NAME,
                     artifactPath = CI_ARTIFACT_PATH,
+                    versionFilePath = CI_VERSION_SIDECAR_PATH,
+                    manifestFilePath = CI_MANIFEST_PATH,
                     currentCommitHash = gitCommit,
                 ),
                 GitLabReleaseUpdateSource(GITLAB_PROJECT_PATH),

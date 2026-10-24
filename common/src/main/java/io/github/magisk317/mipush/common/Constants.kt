@@ -12,7 +12,6 @@ object Constants {
     const val TAG = "Xiaomi"
 
     const val WIZARD_SP_NAME = "wizard"
-    const val KEY_SHOW_WIZARD = "show_wizard"
 
     const val ACTION_RECEIVE_MESSAGE = "com.xiaomi.mipush.RECEIVE_MESSAGE"
     const val ACTION_MESSAGE_ARRIVED = "com.xiaomi.mipush.MESSAGE_ARRIVED"

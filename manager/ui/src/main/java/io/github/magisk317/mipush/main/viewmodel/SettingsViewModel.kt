@@ -24,10 +24,9 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
-import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
@@ -352,6 +351,7 @@ class SettingsViewModel constructor(
     fun setIslandFocusNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_FOCUS_NOTIF, value, onResult)
 
+    /** [value] is monochrome polarity; the runtime key stores the historical "color" flag, so it is inverted. */
     fun setMonochromeStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, !value, onResult)
 
@@ -360,41 +360,6 @@ class SettingsViewModel constructor(
 
     fun setSystemAppIconPack(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(SYSTEM_APP_ICON_PACK_KEY, value, onResult)
-
-    /**
-     * Apply the status-bar icon preference, push to runtime (xmsf), then **reboot the device**.
-     * Status-bar / SystemUI icon rendering needs a full reboot; manager-only exit is not enough.
-     *
-     * [managed] arrives in monochrome polarity and is stored inverted, matching the
-     * historical "color" preference key.
-     */
-    fun applyMonochromeStatusBarIconWithRestart(
-        managed: Boolean? = null,
-        thirdParty: Boolean? = null,
-        systemApp: Boolean? = null,
-        onPrepared: ((Boolean) -> Unit)? = null,
-        onRebootFailed: ((String) -> Unit)? = null,
-    ) = viewModelScope.launch {
-        val preferenceUpdated = withContext(Dispatchers.IO) {
-            (managed == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_KEY, !managed)) &&
-                (thirdParty == null || runtimePreferenceGateway.setBoolean(THIRD_PARTY_ICON_PACK_KEY, thirdParty)) &&
-                (systemApp == null || runtimePreferenceGateway.setBoolean(SYSTEM_APP_ICON_PACK_KEY, systemApp))
-        }
-        onPrepared?.invoke(preferenceUpdated)
-        if (!preferenceUpdated) return@launch
-        val rebootResult = withContext(Dispatchers.IO) {
-            RemoteWriteSupport.execute(
-                client = runtimeClient,
-                operation = ManagerProtocol.WRITE_OP_REBOOT_DEVICE,
-            )
-        }
-        val ok = RemoteWriteSupport.isSuccess(rebootResult)
-        if (!ok) {
-            val detail = rebootResult?.details.orEmpty().ifBlank { "reboot_unavailable" }
-            onRebootFailed?.invoke(detail)
-        }
-        // Device should reboot shortly; do not exitOnly — reboot is the intended restart.
-    }
 
     private fun updateRuntimeBoolean(
         key: String,
@@ -582,11 +547,21 @@ class SettingsViewModel constructor(
     /**
      * Whether the device satisfies the log-export root gate.
      *
-     * The bundle pulls module log dirs under /data, so a non-root device would run the
-     * whole foreground export only to fail at the very end. Ask first and explain why,
-     * rather than handing the user a document picker they cannot complete.
+     * Root is what unlocks the module log dirs under /data that a runtime bundle pulls, so a
+     * non-root device would otherwise run the whole foreground export only to fail at the very
+     * end. Ask first and explain why, rather than handing the user a picker they cannot complete.
      */
     suspend fun hasExportRootAccess(): Boolean = permissionGateway.refreshRootAccessIfGranted()
+
+    /**
+     * Whether the export degrades to the manager-local bundle instead of the runtime one.
+     *
+     * The fallback reads only manager-owned files, so it needs neither root nor the Binder.
+     * Without this the two failures compound: a device with no root and an unreachable runtime
+     * could not produce any archive at all, which is precisely the report the user needs.
+     */
+    fun exportFallsBackToLocalBundle(): Boolean =
+        runtimeClient.availability.value !is ManagerRuntimeAvailability.Available
 
     fun saveRuntimeLogBundle(
         context: android.content.Context,

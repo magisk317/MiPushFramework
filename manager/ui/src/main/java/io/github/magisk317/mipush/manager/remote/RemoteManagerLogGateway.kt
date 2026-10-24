@@ -7,9 +7,12 @@ import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.logs.LogExportReadResult
+import io.github.magisk317.mipush.manager.logs.LogExportReadStatus
+import io.github.magisk317.mipush.manager.logs.ManagerLocalDiagnostics
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
 import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
+import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -27,6 +30,7 @@ import java.util.UUID
 class RemoteManagerLogGateway(
     private val client: ManagerRuntimeClient,
     private val appContext: Context? = null,
+    private val rootAccess: ManagerRootAccess? = null,
 ) : ManagerLogGateway, ManagerLogBundleWriter {
     private val exportSource = RemoteLogExportSource(client)
 
@@ -125,17 +129,34 @@ class RemoteManagerLogGateway(
             }
             is LogExportReadResult.Unavailable -> {
                 RemoteRuntimeLog.unavailable("buildLogBundle", result.status)
+                val note = unavailableNote(result.status)
+                val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+                val outFile = File(context.cacheDir, "mipush_logs_$timestamp.zip")
+                val local = runCatching {
+                    FileOutputStream(outFile).use { output -> writeManagerLocalBundle(context, output, note) }
+                }.getOrElse { error ->
+                    ManagerLogBundleWriteResult(
+                        success = false,
+                        details = "manager_local_bundle_failed:${error.message ?: error.javaClass.simpleName}",
+                    )
+                }
+                if (!local.success) runCatching { outFile.delete() }
                 ManagerLogExportResult(
-                    archivePath = null,
-                    details = "runtime_log_export_unavailable:${result.status.name.lowercase()}",
+                    archivePath = outFile.absolutePath.takeIf { local.success },
+                    details = "$note; ${local.details}",
                 )
             }
         }
+        val archived = export.archivePath != null
         emitManager(
             stage = "manager_log_export",
-            result = if (export.archivePath != null) "ok" else "error",
-            reason = if (export.archivePath != null) "exported" else "export_failed",
-            statusOk = export.archivePath != null,
+            result = if (archived) "ok" else "error",
+            reason = when {
+                !archived -> "export_failed"
+                export.details.contains(RUNTIME_UNAVAILABLE_MARKER) -> "exported_manager_local_only"
+                else -> "exported"
+            },
+            statusOk = archived,
         )
         export
     }
@@ -179,19 +200,58 @@ class RemoteManagerLogGateway(
             }
             is LogExportReadResult.Unavailable -> {
                 RemoteRuntimeLog.unavailable("writeLogBundle", export.status)
-                ManagerLogBundleWriteResult(
-                    success = false,
-                    details = "runtime_log_export_unavailable:${export.status.name.lowercase()}",
-                )
+                val note = unavailableNote(export.status)
+                val local = runCatching {
+                    writeManagerLocalBundle(context, destination, note)
+                }.getOrElse { error ->
+                    ManagerLogBundleWriteResult(
+                        success = false,
+                        details = "manager_local_bundle_failed:${error.message ?: error.javaClass.simpleName}",
+                    )
+                }
+                ManagerLogBundleWriteResult(success = local.success, details = "$note; ${local.details}")
             }
         }
         emitManager(
             stage = "manager_log_save",
             result = if (result.success) "ok" else "error",
-            reason = if (result.success) "saved" else "save_failed",
+            reason = when {
+                !result.success -> "save_failed"
+                result.details.contains(RUNTIME_UNAVAILABLE_MARKER) -> "saved_manager_local_only"
+                else -> "saved"
+            },
             statusOk = result.success,
         )
         result
+    }
+
+    private fun unavailableNote(status: LogExportReadStatus): String =
+        "$RUNTIME_UNAVAILABLE_MARKER:${status.name.lowercase()}"
+
+    /**
+     * Binder-free archive: manager-local FileAntilog files plus [ManagerLocalDiagnostics].
+     *
+     * Smaller than a runtime bundle and produced from the manager process alone, so the one
+     * state that used to leave the user with nothing to export - a runtime that never answers -
+     * now still yields a file worth sending.
+     */
+    private fun writeManagerLocalBundle(
+        context: Context,
+        destination: OutputStream,
+        note: String,
+    ): ManagerLogBundleWriteResult {
+        val counting = CountingOutputStream(destination)
+        val summary = ZipOutputStream(counting.buffered()).use { output ->
+            output.setLevel(Deflater.BEST_SPEED)
+            appendManagerEntries(context, output, linkedSetOf(), note)
+        }
+        if (counting.bytesWritten <= 0L) {
+            return ManagerLogBundleWriteResult(success = false, details = "manager_local_bundle_empty")
+        }
+        return ManagerLogBundleWriteResult(
+            success = true,
+            details = managerEntryDetails(summary, counting.bytesWritten),
+        )
     }
 
     /**
@@ -213,15 +273,19 @@ class RemoteManagerLogGateway(
         val bytesWritten: Long,
     )
 
+    private data class ManagerLogEntrySummary(
+        val files: Int,
+        val bytes: Long,
+    )
+
     private fun mergeRuntimeZipWithManagerLogs(
         context: Context,
         remoteInput: InputStream,
         destination: OutputStream,
     ): MergedRuntimeZipResult {
-        val managerLogs = ManagerRuntimeFileLog.listExportableLogFiles(context)
         val seen = linkedSetOf<String>()
         val countedDestination = CountingOutputStream(destination)
-        ZipInputStream(remoteInput.buffered()).use { input ->
+        val summary = ZipInputStream(remoteInput.buffered()).use { input ->
             ZipOutputStream(countedDestination.buffered()).use { output ->
                 output.setLevel(Deflater.BEST_SPEED)
                 while (true) {
@@ -237,25 +301,63 @@ class RemoteManagerLogGateway(
                     output.closeEntry()
                     input.closeEntry()
                 }
-                managerLogs.forEach { file ->
-                    val name = "app/log/${file.name}"
-                    if (name in seen) return@forEach
-                    seen += name
-                    output.putNextEntry(ZipEntry(name))
-                    file.inputStream().use { it.copyTo(output) }
-                    output.closeEntry()
-                }
+                appendManagerEntries(context, output, seen, RUNTIME_AVAILABLE_NOTE)
             }
         }
-        val details = if (managerLogs.isEmpty()) {
-            "manager_logs:0"
-        } else {
-            "manager_logs:${managerLogs.size},bytes=${managerLogs.sumOf { it.length() }}"
-        }
         return MergedRuntimeZipResult(
-            details = "$details,destination_bytes=${countedDestination.bytesWritten}",
+            details = managerEntryDetails(summary, countedDestination.bytesWritten),
             bytesWritten = countedDestination.bytesWritten,
         )
+    }
+
+    /**
+     * Manager-owned archive entries: the host-side FileAntilog jsonl plus [ManagerLocalDiagnostics].
+     *
+     * Names already taken by the runtime archive win, so a bundle never carries two copies of the
+     * same day under different prefixes.
+     */
+    private fun appendManagerEntries(
+        context: Context,
+        output: ZipOutputStream,
+        seen: MutableSet<String>,
+        note: String,
+    ): ManagerLogEntrySummary {
+        val managerLogs = ManagerRuntimeFileLog.listExportableLogFiles(context)
+        managerLogs.forEach { file ->
+            val name = "app/log/${file.name}"
+            if (name in seen) return@forEach
+            seen += name
+            output.putNextEntry(ZipEntry(name))
+            file.inputStream().use { it.copyTo(output) }
+            output.closeEntry()
+        }
+        if (ManagerLocalDiagnostics.ENTRY_NAME !in seen) {
+            seen += ManagerLocalDiagnostics.ENTRY_NAME
+            output.putNextEntry(ZipEntry(ManagerLocalDiagnostics.ENTRY_NAME))
+            output.write(
+                ManagerLocalDiagnostics.build(
+                    context = context,
+                    availability = client.availability.value,
+                    rootGrantCache = rootAccess?.cachedGrantState(),
+                    logFiles = managerLogs,
+                    note = note,
+                ).toByteArray(Charsets.UTF_8),
+            )
+            output.closeEntry()
+        }
+        return ManagerLogEntrySummary(
+            files = managerLogs.size,
+            bytes = managerLogs.sumOf { it.length() },
+        )
+    }
+
+    private fun managerEntryDetails(summary: ManagerLogEntrySummary, destinationBytes: Long): String {
+        val prefix = if (summary.files == 0) {
+            "manager_logs:0"
+        } else {
+            "manager_logs:${summary.files},bytes=${summary.bytes}"
+        }
+        return "$prefix,destination_bytes=$destinationBytes"
     }
 
 
@@ -296,3 +398,6 @@ class RemoteManagerLogGateway(
         return clearResult
     }
 }
+
+internal const val RUNTIME_UNAVAILABLE_MARKER = "runtime_log_export_unavailable"
+private const val RUNTIME_AVAILABLE_NOTE = "runtime_log_export_available"

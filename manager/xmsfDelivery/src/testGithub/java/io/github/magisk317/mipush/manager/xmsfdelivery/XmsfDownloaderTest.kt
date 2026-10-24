@@ -160,11 +160,28 @@ class XmsfDownloaderTest {
     }
 
     @Test
-    fun `malformed manifest fails loudly`() = runBlocking {
+    fun `malformed manifest fails loudly`() {
         server.enqueue(MockResponse.Builder().code(200).body("{not json").build())
 
         assertThrows(Exception::class.java) {
             runBlocking { downloader().download() }
+        }
+    }
+
+    @Test
+    fun `ci artifacts requests carry the job query`() = runBlocking {
+        val apkBytes = "fake-runtime-apk".toByteArray()
+        val hash = sha256Hex(apkBytes)
+        enqueueManifest(hash)
+        enqueueApk(apkBytes)
+        enqueueSidecar(hash)
+
+        ciDownloader().download()
+
+        // The CI artifacts raw endpoint requires ?job=<job> on every file
+        // (XmsfCiArtifactProbe.CI_JOB_QUERY); the registry base needs none.
+        repeat(server.requestCount) {
+            assertEquals("android:build", server.takeRequest().url.queryParameter("job"))
         }
     }
 
@@ -174,6 +191,15 @@ class XmsfDownloaderTest {
         baseUrl = server.url("/").toString().removeSuffix("/"),
         httpClient = OkHttpClient(),
         hostVersionCodeProvider = { HOST_VERSION_CODE },
+    )
+
+    private fun ciDownloader(version: String = VERSION) = XmsfDownloader(
+        context = context,
+        expectedVersionName = version,
+        baseUrl = server.url("/").toString().removeSuffix("/"),
+        httpClient = OkHttpClient(),
+        hostVersionCodeProvider = { HOST_VERSION_CODE },
+        requestQuery = XmsfCiArtifactProbe.CI_JOB_QUERY,
     )
 
     private fun downloadedApkFile(): File =

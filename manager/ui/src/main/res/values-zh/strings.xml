@@ -80,13 +80,9 @@
     <string name="pref_color_status_bar_icon_mipush_title">单色图标</string>
     <string name="pref_color_status_bar_icon_mipush_summary">默认开启：MiPush 通知的状态栏图标统一为白色单色剪影；关闭则保留应用原本的颜色</string>
     <string name="pref_icon_pack_third_party_title">三方应用</string>
-    <string name="pref_icon_pack_third_party_summary">三方应用通知改用图标包图标。仅对图标包内配置的应用生效，其余应用保持系统原生渲染</string>
+    <string name="pref_icon_pack_third_party_summary">三方应用通知改用图标包图标。单色模式下，状态栏图标本身就是标准单色剪影的应用会保留自己的图标；其余仅对图标包内配置的应用生效，其它应用保持系统原生渲染</string>
     <string name="pref_icon_pack_system_app_title">系统应用</string>
     <string name="pref_icon_pack_system_app_summary">系统应用通知改用图标包图标。仅对图标包内配置的应用生效，其余应用保持系统原生渲染</string>
-    <string name="pref_color_status_bar_icon_restart_title">需要重启手机</string>
-    <string name="pref_color_status_bar_icon_restart_message">修改此项会重启手机，否则状态栏图标单色策略不会在系统侧完整生效。</string>
-    <string name="pref_color_status_bar_icon_restart_confirm">应用并重启手机</string>
-    <string name="pref_color_status_bar_icon_reboot_failed">设置已保存，但设备重启失败，请检查 Root 权限</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_runtime_preference_update_failed">无法更新%1$s，请确认推送服务已连接</string>
@@ -179,7 +175,7 @@
 
     <!-- Wizard -->
 
-    <string name="wizard_descr"><![CDATA[这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情访问本项目项目于 GitHub 的页面：<a href="https://github.io/github/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr">这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情见 GitLab 项目页面：%1$s</string>
     <string name="wizard_connect">正在连接</string>
 
     <string name="wizard_title_run_in_background">允许后台活动</string>
@@ -205,6 +201,7 @@
     <string name="wizard_root_permission_denied_toast">Root 权限未授权</string>
     <string name="wizard_root_permission_target_granted_toast">%1$s Root 权限已授权</string>
     <string name="wizard_root_permission_target_denied_toast">%1$s Root 权限未授权</string>
+    <string name="wizard_root_permission_target_unavailable_toast">无法连接 %1$s，暂时读不到它的 Root 状态</string>
     <string name="wizard_root_space_primary">当前空间：主空间（User 0）</string>
     <string name="wizard_root_space_dual">当前空间：应用分身（User 999）</string>
     <string name="wizard_root_space_other">当前空间：User %1$d</string>
@@ -375,6 +372,7 @@
     <string name="runtime_log_export_failed">导出失败：%1$s</string>
     <string name="runtime_log_exporting">日志导出中…</string>
     <string name="runtime_log_saved">日志已保存到本地</string>
+    <string name="runtime_log_saved_local_only">运行环境日志不可用，已导出管理器本地诊断包</string>
     <string name="runtime_log_share_failed">分享失败：%1$s</string>
     <string name="runtime_log_cleared">日志与崩溃文件已清空</string>
     <string name="runtime_log_clear_partial_failed">部分清空失败：%1$s</string>
@@ -776,6 +774,7 @@
     <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
     <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="dialog_acknowledge">我知道了</string>
+    <string name="runtime_warning_check_permissions">查看权限状态</string>
     <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
     <string name="runtime_commit_mismatch_dialog_title">管理器与运行时版本不匹配</string>
@@ -824,6 +823,9 @@
     <string name="wizard_section_optional">可选</string>
     <string name="wizard_action_grant_all">全部静默授权</string>
     <string name="wizard_action_enter_app">进入应用</string>
+    <string name="wizard_report_title">权限状态</string>
+    <string name="wizard_report_granted">已就绪 %1$d / %2$d 项</string>
+    <string name="wizard_report_missing">仍有 %1$d 项缺失，未处理时推送可能不可用。</string>
     <string name="wizard_status_processing">处理中…</string>
     <string name="wizard_log_granted">已授权：%1$s</string>
     <string name="wizard_log_denied">未授权：%1$s</string>

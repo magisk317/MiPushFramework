@@ -121,6 +121,30 @@ class XmsfRuntimeLatestProbeTest {
         assertEquals(2, server.requestCount)
     }
 
+    @Test
+    fun `manifest naming another version is skipped`() = runBlocking {
+        enqueuePackages("1.0.11", "1.0.10")
+        enqueueManifest("1.0.11", versionNameOverride = "1.0.9")
+        enqueueManifest("1.0.10")
+
+        val manifest = probe().fetchLatestCompatible(HOST_VERSION_CODE)
+
+        assertEquals("1.0.10", manifest.versionName)
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun `unavailable manifest for the newest version falls back`() = runBlocking {
+        enqueuePackages("1.0.11", "1.0.10")
+        server.enqueue(MockResponse.Builder().code(404).build())
+        enqueueManifest("1.0.10")
+
+        val manifest = probe().fetchLatestCompatible(HOST_VERSION_CODE)
+
+        assertEquals("1.0.10", manifest.versionName)
+        assertEquals(3, server.requestCount)
+    }
+
     private fun probe() = XmsfRuntimeLatestProbe(
         packagesApiUrl = server.url("/").toString() + "packages?package_name=xmsf-runtime&per_page=20",
         manifestBaseUrl = server.url("/").toString().removeSuffix("/"),
@@ -138,14 +162,16 @@ class XmsfRuntimeLatestProbeTest {
         version: String,
         schema: Int = XmsfRuntimeManifest.SCHEMA,
         minManagerVersionCode: Long = 0L,
+        versionNameOverride: String? = null,
     ) {
+        val name = versionNameOverride ?: version
         server.enqueue(
             MockResponse.Builder().code(200).body(
                 """
                 {
                   "schema": $schema,
                   "variant": "github",
-                  "versionName": "$version",
+                  "versionName": "$name",
                   "versionCode": 1003003000,
                   "minManagerVersionCode": $minManagerVersionCode,
                   "sha256": "${"0".repeat(64)}"

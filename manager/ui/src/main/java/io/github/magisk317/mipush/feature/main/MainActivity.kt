@@ -37,6 +37,7 @@ import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.RuntimeCommitMismatch
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
+import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
 import io.github.magisk317.mipush.main.viewmodel.runtimeCommitMismatch
@@ -109,25 +110,25 @@ open class MainActivity : ComponentActivity() {
 
             else -> AppDestinations.Overview.ROUTE
         }
-        lifecycleScope.launch {
-            if (preferenceRepository.showWizard.first()) {
-                startActivity(
-                    Intent(this@MainActivity, RequestPermissionPage::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
-                )
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    @Suppress("DEPRECATION")
-                    overridePendingTransition(0, 0)
+        // The report overlays the main screen instead of replacing it: everything the
+        // user can grant later is still grantable from inside, and the runtime client
+        // starts connecting behind the report instead of after it.
+        if (savedInstanceState == null) {
+            lifecycleScope.launch {
+                if (WizardSPUtils.shouldShowWizard(this@MainActivity, preferenceRepository)) {
+                    startActivity(
+                        Intent(this@MainActivity, RequestPermissionPage::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
+                    )
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
+                    }
                 }
-                finish()
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    @Suppress("DEPRECATION")
-                    overridePendingTransition(0, 0)
-                }
-                return@launch
             }
+        }
 
-            setContent {
+        setContent {
             val runtimeAvailability by runtimeClient.availability.collectAsStateWithLifecycle()
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
 
@@ -256,7 +257,6 @@ open class MainActivity : ComponentActivity() {
                 }
             }
         }
-        }
     }
 
     override fun onResume() {
@@ -302,6 +302,7 @@ open class MainActivity : ComponentActivity() {
 
 @Composable
 private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
     AppAlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -315,6 +316,18 @@ private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
             AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = appColor(AppColorRole.OnSurface))
         },
         confirmButton = {
+            AppTextButton(
+                text = stringResource(R.string.runtime_warning_check_permissions),
+                onClick = {
+                    context.startActivity(
+                        Intent(context, RequestPermissionPage::class.java)
+                            .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, true),
+                    )
+                    onDismiss()
+                },
+            )
+        },
+        dismissButton = {
             AppTextButton(
                 text = stringResource(R.string.dialog_acknowledge),
                 onClick = onDismiss,
