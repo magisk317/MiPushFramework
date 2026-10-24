@@ -76,8 +76,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         // A hooked process is its own JVM: nothing installed by an Application reaches it, so the
         // policy is evaluated here from these build flags before the first hook log line.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.DEBUG,
-            isCiBuild = BuildConfig.IS_CI_BUILD,
+            isDebugBuild = BuildConfig.BUILD_TYPE == "debug",
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         XposedRuntime.install(module, hookApi)

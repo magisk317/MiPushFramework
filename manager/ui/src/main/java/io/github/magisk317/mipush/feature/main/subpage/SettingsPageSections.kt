@@ -42,6 +42,7 @@ import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItem
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItems
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLabels
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLayout
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsState
@@ -366,8 +367,8 @@ internal fun notifyPrefChanged(context: Context) {
     context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
-internal val isCiOrDebugBuild: Boolean =
-    BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
+internal val allowsLogExport: Boolean
+    get() = MagiskLogPolicy.current().allowsLogExport
 
 @Composable
 internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: AppSnackbarHostState) {
@@ -459,9 +460,21 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             analyticsEnabled = analyticsEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
-            onShareLog = ::saveRuntimeLogBundle,
-            onRetentionClick = { showRuntimeLogRetentionDialog = true },
-            onClearLogClick = { showClearConfirmDialog = true },
+            onShareLog = if (allowsLogExport) {
+                { saveRuntimeLogBundle() }
+            } else {
+                {}
+            },
+            onRetentionClick = if (allowsLogExport) {
+                { showRuntimeLogRetentionDialog = true }
+            } else {
+                {}
+            },
+            onClearLogClick = if (allowsLogExport) {
+                { showClearConfirmDialog = true }
+            } else {
+                {}
+            },
             onAnalyticsEnabledChange = if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
                 { enabled ->
                     viewModel.setAnalyticsEnabled(enabled) { success ->
@@ -473,14 +486,18 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         ),
         layout = RuntimeLogDiagnosticsLayout(
             shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
-            itemOrder = listOf(
-                RuntimeLogDiagnosticsItem.SHARE_LOG,
-                RuntimeLogDiagnosticsItem.RETENTION,
-                RuntimeLogDiagnosticsItem.CLEAR_LOG,
-                RuntimeLogDiagnosticsItem.ANALYTICS,
-            ),
+            itemOrder = if (allowsLogExport) {
+                listOf(
+                    RuntimeLogDiagnosticsItem.SHARE_LOG,
+                    RuntimeLogDiagnosticsItem.RETENTION,
+                    RuntimeLogDiagnosticsItem.CLEAR_LOG,
+                    RuntimeLogDiagnosticsItem.ANALYTICS,
+                )
+            } else {
+                listOf(RuntimeLogDiagnosticsItem.ANALYTICS)
+            },
         ),
-        enabled = isCiOrDebugBuild,
+        enabled = allowsLogExport,
     )
 
     if (ManagerBuildConfig.HAS_BILLING) {
