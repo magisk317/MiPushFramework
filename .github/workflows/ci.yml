@@ -50,22 +50,23 @@ jobs:
   test:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
-    # Guarded rather than gated, and for a narrower reason than when this was written.
-    # The zero-output stall that earned the flag was a product bug, not a CI mystery: the
-    # shared kit's DiagnosticShell.runSuCommand drained `su` stdout before it applied its
-    # own timeout and never closed the child's stdin, so on a host where su falls back to
-    # an interactive password prompt -- GitHub-hosted runners run as uid 1001 and ship
-    # /usr/bin/su, while GitLab's containers and the Debian build host are root --
-    # :magisk-xposed-kit:diagnostics:testDebugUnitTest hung forever and the Gradle client
-    # waited on a build result that could never be sent. Fixed in magisk-xposed-kit
-    # 6233ee8; with that kit commit the identical shard finishes green on ubuntu-26.04 in
-    # 18m49s (run 369).
+    # Non-blocking by standing decision: test results feed code changes afterwards and
+    # must never gate the build or the publish path. The budget also stays in-shell rather
+    # than as timeout-minutes, because a runner-side timeout reports the job as
+    # *cancelled*, and continue-on-error does not absorb cancellation -- the whole run
+    # goes red (verified on run 363). `timeout` exits 124 instead: an ordinary step
+    # failure the flag swallows, with the ::warning:: below left behind as the signal.
     #
-    # The flag stays until the submodule pointer below moves to the fix, because until
-    # then this job reproduces the hang by design. And the budget stays in-shell rather
-    # than as timeout-minutes: a runner-side timeout reports the job as cancelled, which
-    # continue-on-error does not absorb -- the whole run goes red (verified on run 363) --
-    # while `timeout` exits 124, an ordinary step failure the flag can swallow.
+    # Why the flag was introduced is worth keeping straight, because the reason is gone.
+    # It went in while this job stalled with zero log output; that stall was product
+    # code -- the shared kit's DiagnosticShell.runSuCommand drained `su` stdout before
+    # applying its own timeout and never closed the child's stdin, so on a host where su
+    # falls back to an interactive prompt (GitHub-hosted runners are uid 1001 and ship
+    # /usr/bin/su; GitLab's containers and the Debian host are root)
+    # :magisk-xposed-kit:diagnostics:testDebugUnitTest hung forever. Fixed in
+    # magisk-xposed-kit 6233ee8, which is the pointer this branch now carries: the shard
+    # then runs genuinely green in 18m13s with the step timeout never firing (run 370).
+    # So a green run here is no longer a green run *despite* this job.
     continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
@@ -143,7 +144,7 @@ jobs:
           rc=0
           timeout --kill-after=60s 25m bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS" || rc=$?
           if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-            echo "::warning::test shard exceeded its 25m budget (exit $rc). If the kit pointer still predates magisk-xposed-kit 6233ee8, this is the su stdin stall, not a new fault. Failing the step, not the run."
+            echo "::warning::test shard exceeded its 25m budget (exit $rc). The run stays green by policy, but a timeout here is not a passing test: find which invocation stopped producing output."
             exit "$rc"
           fi
           exit "$rc"
