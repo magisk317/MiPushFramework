@@ -103,13 +103,15 @@ jobs:
           # ("a single-use Daemon process will be forked"). Kept purely for parity -- it was
           # tried as the stall fix on 2026-10-24 and changed nothing.
           MAGISK_GRADLE_ARGS: --warning-mode all -Dorg.gradle.daemon=false
-          # magisk.app.signing throws at apply time without signing info
-          # (SigningTaskPolicy.requiresReleaseSigning). Invisible on GitLab, where
-          # RELEASE_KEYSTORE / STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD are group variables
-          # injected into every job; here only the build job had them, so the shard's later
-          # invocations died in ~0.5s with "Failed to apply plugin 'magisk.app.signing'"
-          # (runs 363 and 364, byte-identical stalls). The test job now gets the same
-          # environment GitLab's does.
+          # The same four names GitLab injects into every job as group variables, for
+          # environment parity only. The shard does not need them: magisk.app.signing
+          # throws at apply time solely when the task list contains a packaging task
+          # (SigningTaskPolicy.requiresReleaseSigning), and android-pure-modules requests
+          # test tasks exclusively. The "Failed to apply plugin 'magisk.app.signing'"
+          # lines that read like shard failures in runs 363-365 are :build-logic:test's
+          # own TestKit negative assertions (AndroidApplicationPluginFunctionalTest,
+          # '/tmp/junit-*/build.gradle' line 3) and appear twice per invocation because
+          # run_gradle_with_retry.sh cats its log file after the build returns.
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
