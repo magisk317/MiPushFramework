@@ -266,7 +266,7 @@ allowed = {
     "common/build.gradle.kts": {":core"},
     "configuration/build.gradle.kts": {":core", ":common", ":settings"},
     "settings/build.gradle.kts": {":common", ":core"},
-    "xposed/build.gradle.kts": {":common", ":core", ":magisk-xposed-kit"},
+    "xposed/build.gradle.kts": {":common", ":core", ":magisk-xposed-kit", ":magisk-xposed-kit:keepalive"},
     "vendor/build.gradle.kts": {
         ":common", ":core", ":pinned", ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
     },

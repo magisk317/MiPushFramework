@@ -16,6 +16,11 @@ android {
         applicationId = "com.xiaomi.xmsf"
         versionCode = pushVersionCode
         versionName = versionNameStr
+        // The xmsf app ships through a single channel, so it declares only the
+        // version axis and resolves the distribution axis its dependencies carry
+        // here. Kept explicit on purpose: if a shared library ever adds a
+        // distribution this app does not know about, the mismatch should surface
+        // as a build failure rather than resolve to a channel by default.
         missingDimensionStrategy("distribution", "github")
     }
 

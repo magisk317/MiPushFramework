@@ -11,7 +11,6 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
@@ -68,11 +67,6 @@ object PreferenceOwnership {
         runtimeBoolean(
             KEEPALIVE_PREF_STANDBY_BYPASS,
             "Keepalive standby bypass",
-            false,
-        ),
-        runtimeBoolean(
-            KEEPALIVE_PREF_DOZE_BYPASS,
-            "Keepalive doze bypass",
             false,
         ),
         runtimeBoolean(FREEZE_PREF_ENABLED, "Frozen app push unfreeze", true),

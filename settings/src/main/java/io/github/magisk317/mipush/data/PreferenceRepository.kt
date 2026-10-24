@@ -12,7 +12,6 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
@@ -57,7 +56,6 @@ data class KeepAliveSettingsSnapshot(
     val oomAdj: Boolean,
     val antiKill: Boolean,
     val standbyBypass: Boolean,
-    val dozeBypass: Boolean,
 )
 
 data class FreezeSettingsSnapshot(
@@ -98,7 +96,6 @@ class PreferenceRepository constructor(
     private val KEEPALIVE_OOM_ADJ = booleanPreferencesKey(KEEPALIVE_PREF_OOM_ADJ)
     private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
     private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
-    private val KEEPALIVE_DOZE_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_DOZE_BYPASS)
     private val FREEZE_ENABLED = booleanPreferencesKey(FREEZE_PREF_ENABLED)
     private val FREEZE_REFREEZE_POLICY = intPreferencesKey(FREEZE_PREF_REFREEZE_POLICY)
     private val FREEZE_REFREEZE_DELAY_MINUTES = intPreferencesKey(FREEZE_PREF_REFREEZE_DELAY_MINUTES)
@@ -153,7 +150,6 @@ class PreferenceRepository constructor(
     val keepAliveOomAdj: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_OOM_ADJ] ?: false }
     val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
     val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
-    val keepAliveDozeBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DOZE_BYPASS] ?: false }
     val freezeEnabled: Flow<Boolean> = dataStore.data.map { it[FREEZE_ENABLED] ?: true }
     val freezeRefreezePolicy: Flow<Int> =
         dataStore.data.map { it[FREEZE_REFREEZE_POLICY] ?: FREEZE_REFREEZE_POLICY_SCREEN_OFF }
@@ -178,7 +174,6 @@ class PreferenceRepository constructor(
             oomAdj = preferences[KEEPALIVE_OOM_ADJ] ?: false,
             antiKill = preferences[KEEPALIVE_ANTI_KILL] ?: false,
             standbyBypass = preferences[KEEPALIVE_STANDBY_BYPASS] ?: false,
-            dozeBypass = preferences[KEEPALIVE_DOZE_BYPASS] ?: false,
         )
     }
 
@@ -296,10 +291,6 @@ class PreferenceRepository constructor(
 
     suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_STANDBY_BYPASS] = enable }
-    }
-
-    suspend fun setKeepAliveDozeBypass(enable: Boolean) {
-        dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
     }
 
     suspend fun setFreezeEnabled(enable: Boolean) {

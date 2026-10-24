@@ -1,7 +1,6 @@
 package com.xiaomi.xmsf.provider
 
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -17,7 +16,6 @@ class KeepAlivePreferenceProviderTest {
                 KEEPALIVE_PREF_OOM_ADJ,
                 KEEPALIVE_PREF_ANTI_KILL,
                 KEEPALIVE_PREF_STANDBY_BYPASS,
-                KEEPALIVE_PREF_DOZE_BYPASS,
             ),
             provider.requestedKeys(null),
         )

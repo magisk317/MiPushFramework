@@ -405,9 +405,21 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     fun saveRuntimeLogBundle() {
-        val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-            .format(java.util.Date())
-        saveRuntimeLogLauncher.launch("mipush_logs_$timestamp.zip")
+        scope.launch {
+            // Fail fast instead of letting the foreground export run to completion:
+            // the bundle pulls /data/adb/lspd/log, which a non-root device cannot read.
+            if (!viewModel.hasExportRootAccess()) {
+                snackbarHostState.showSnackbar(
+                    context.getString(
+                        io.github.magisk317.uikit.R.string.uikit_log_export_need_root,
+                    ),
+                )
+                return@launch
+            }
+            val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+                .format(java.util.Date())
+            saveRuntimeLogLauncher.launch("mipush_logs_$timestamp.zip")
+        }
     }
 
     fun clearRuntimeLogFolders() {

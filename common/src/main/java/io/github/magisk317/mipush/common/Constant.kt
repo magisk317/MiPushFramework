@@ -20,7 +20,6 @@ const val KEEPALIVE_PREF_COLUMN_ENABLED = "enabled"
 const val KEEPALIVE_PREF_OOM_ADJ = "pref_keepalive_oom_adj"
 const val KEEPALIVE_PREF_ANTI_KILL = "pref_keepalive_anti_kill"
 const val KEEPALIVE_PREF_STANDBY_BYPASS = "pref_keepalive_standby_bypass"
-const val KEEPALIVE_PREF_DOZE_BYPASS = "pref_keepalive_doze_bypass"
 
 // Frozen-app push: unfreeze on notification click, then refreeze by policy.
 const val FREEZE_PREF_ENABLED = "pref_freeze_enabled"

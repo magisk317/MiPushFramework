@@ -4,12 +4,6 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven {
-            url = uri("https://jitpack.io")
-            content {
-                includeGroupByRegex("com\\.github\\..*")
-            }
-        }
     }
 }
 
@@ -30,6 +24,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
+            name = "JitPack"
             url = uri("https://jitpack.io")
             content {
                 includeGroupByRegex("com\\.github\\..*")
@@ -54,6 +49,7 @@ include(
     ":magisk-xposed-kit:logging-core",
     ":magisk-xposed-kit:diagnostics",
     ":magisk-xposed-kit:permission",
+    ":magisk-xposed-kit:keepalive",
 )
 
 include(
@@ -88,6 +84,7 @@ project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/loggi
 project(":magisk-xposed-kit:logging-core").projectDir = file("magisk-xposed-kit/logging-core")
 project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")
 project(":magisk-xposed-kit:permission").projectDir = file("magisk-xposed-kit/permission")
+project(":magisk-xposed-kit:keepalive").projectDir = file("magisk-xposed-kit/keepalive")
 project(":manager:ui").projectDir = file("manager/ui")
 project(":manager:xmsfDelivery").projectDir = file("manager/xmsfDelivery")
 project(":manager:port").projectDir = file("manager/port")

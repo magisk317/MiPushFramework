@@ -354,8 +354,9 @@ internal object SystemUiNotificationPolicy {
      * and no silhouette can be generated, the descriptor still carries the app's own opaque
      * logo, and tinting that produces the solid white block seen for e.g. com.bytedance.trae.cn.
      * An application uid is therefore only tinted when the descriptor holds a substituted
-     * monochrome glyph (icon-pack bitmap or white silhouette) or a positively detected grayscale
-     * resource; otherwise the tint is dropped and SystemUI renders the icon natively.
+     * monochrome glyph (icon-pack bitmap or white silhouette). A positively detected grayscale
+     * resource is already status-bar ready, so it joins the color-status-bar case: the forced
+     * tint is dropped and SystemUI tints the glyph itself.
      */
     fun shouldTintStatusBarGlyph(
         colorStatusBarIcon: Boolean,
@@ -368,7 +369,7 @@ internal object SystemUiNotificationPolicy {
         hasSubstitutedGlyph: Boolean,
         hasMonochromeResource: Boolean = false,
     ): Boolean {
-        if (colorStatusBarIcon) return false
+        if (colorStatusBarIcon || hasMonochromeResource) return false
         if (isMiPushManaged) return true
         if (!shouldApplyGlobalMonochromeToNotification(
                 colorStatusBarIcon = colorStatusBarIcon,
@@ -383,7 +384,7 @@ internal object SystemUiNotificationPolicy {
         ) {
             return false
         }
-        return hasSubstitutedGlyph || hasMonochromeResource
+        return hasSubstitutedGlyph
     }
 
     fun shouldApplyGlobalMonochromeToNotification(

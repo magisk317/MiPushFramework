@@ -545,12 +545,21 @@ class HookSystemUI : BaseHook() {
                             // icon pack -> white silhouette -> posted glyph. The launcher
                             // icon is never substituted here: it can carry an opaque
                             // adaptive background, and tinting it produces a white block.
-                            // The last step keeps the notification's own glyph, and a
-                            // substituted glyph (pack/silhouette) makes the tint harmless.
+                            // A grayscale posted glyph is already status-bar ready: keep it
+                            // instead of swapping in a white silhouette (legacy getSmallIcon
+                            // path behaves the same), otherwise skipping the tint is invisible.
+                            val postedGlyphIsMonochrome = isPositivelyGrayscaleSmallIcon(
+                                systemUiContext,
+                                notification.smallIcon,
+                            )
                             val useSubstitution = isMiPushManaged || options.colorStatusBarIconGlobal
                             val icon = if (useSubstitution) {
-                                val packIcon = iconPackIcon()
-                                val silhouette = if (packIcon == null) monochromeSilhouette() else null
+                                val packIcon = if (!postedGlyphIsMonochrome) iconPackIcon() else null
+                                val silhouette = if (packIcon == null && !postedGlyphIsMonochrome) {
+                                    monochromeSilhouette()
+                                } else {
+                                    null
+                                }
                                 // Framework ids (0x01......) resolve through SystemUI resources;
                                 // app ids stay opaque hex unless the owning package is loaded.
                                 val smallIconResName = runCatching {
@@ -560,6 +569,7 @@ class HookSystemUI : BaseHook() {
                                     TAG,
                                     "descriptor source pkg=${sbn.packageName} managed=$isMiPushManaged " +
                                         "smallIcon=$smallIconResName " +
+                                        "postedMono=$postedGlyphIsMonochrome " +
                                         "source=${if (packIcon != null) "iconpack" else if (silhouette != null) "silhouette" else "posted"}",
                                 )
                                 packIcon ?: silhouette ?: notification.smallIcon
@@ -817,9 +827,19 @@ class HookSystemUI : BaseHook() {
     private fun detectGrayscaleSmallIcon(context: Context, icon: Icon): Boolean? = runCatching {
         val utilClass = Class.forName("com.android.internal.util.ContrastColorUtil")
         val instance = utilClass.getMethod("getInstance", Context::class.java).invoke(null, context)
-        utilClass
-            .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
-            .invoke(instance, context, icon) as? Boolean
+        if (icon.type == Icon.TYPE_RESOURCE) {
+            // The (Context, Icon) overload resolves the bare resId against SystemUI's
+            // resources, losing the owning package and misreading app icons. Load through
+            // the Icon so the correct package drawable is inspected.
+            val drawable = icon.loadDrawable(context) ?: return@runCatching null
+            utilClass
+                .getMethod("isGrayscaleIcon", Drawable::class.java)
+                .invoke(instance, drawable) as? Boolean
+        } else {
+            utilClass
+                .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
+                .invoke(instance, context, icon) as? Boolean
+        }
     }.getOrNull()
 
     private fun isSystemApplication(context: Context?, packageName: String?): Boolean {

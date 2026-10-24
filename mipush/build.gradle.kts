@@ -2,6 +2,7 @@ import org.gradle.api.provider.Provider
 
 plugins {
     id("magisk.android.application")
+    id("magisk.android.distribution")
     id("magisk.app.signing")
     id("magisk.app.packaging")
     id("magisk.android.compose")
@@ -15,17 +16,6 @@ val managerVersionName = (rootProject.extra["gitVersionName"] as Provider<String
 
 android {
     namespace = "io.github.magisk317.mipush.app"
-
-    flavorDimensions += "distribution"
-
-    productFlavors {
-        create("play") {
-            dimension = "distribution"
-        }
-        create("github") {
-            dimension = "distribution"
-        }
-    }
 
     defaultConfig {
         applicationId = rootProject.extra["APPLICATION_ID"] as String

@@ -37,7 +37,28 @@ plugins {
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.kover) apply false
     id("magisk.maintenance")
+    id("magisk.distribution.policy")
 }
+
+// Which distributions this app ships as and what each one compiles in. This is
+// product data, so it belongs here rather than in the shared convention: the
+// convention owns only the mechanism that turns this table into AGP flavors.
+//
+// Play and GitHub are the active channels. F-Droid is paused - the commented
+// flavor in each channel block is the single resume point, so a paused
+// distribution stays a documented state instead of becoming a flavor that was
+// quietly dropped.
+magiskDistribution {
+    flavor("play") {
+        buildConfigBoolean("HAS_BILLING", true)
+    }
+    flavor("github") {
+        buildConfigBoolean("HAS_BILLING", false)
+    }
+    // F-Droid paused: re-enable the flavor above and add it here to restore it.
+    // flavor("fdroid") { ... }
+}
+
 
 val enableKover = providers.gradleProperty("enableKover")
     .map { it.toBooleanStrictOrNull() ?: false }

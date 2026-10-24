@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
@@ -351,9 +352,11 @@ object IslandPreferences {
         } ?: error("island preference provider returned no cursor")
         check(values.isNotEmpty()) { "island preference provider returned no values" }
 
-        // Reuse the single provider query above instead of a second readFlag round-trip.
-        val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
-        LogSanitizerConfig.syncFromVerboseMode(!logSanitizationEnabled)
+        // Log redaction is build-derived, matching XposedSmsCode and xinyi-relay: CI/debug
+        // builds keep plaintext so diagnostics stay readable, formal releases redact by
+        // default. The legacy LOG_SANITIZATION_ENABLED_KEY preference is no longer consumed,
+        // so a stale false value can no longer silently disable redaction in releases.
+        LogSanitizerConfig.syncFromVerboseMode(BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD)
 
         buildOptionsFromValues(values)
     }.onFailure {

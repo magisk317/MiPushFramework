@@ -1,5 +1,6 @@
 plugins {
     id("magisk.android.library")
+    id("magisk.android.distribution")
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -13,17 +14,6 @@ android {
 
     defaultConfig {
         buildConfigField("String", "XMSF_DELIVERY_VERSION", "\"$xmsfVersionName\"")
-    }
-
-    flavorDimensions += "distribution"
-
-    productFlavors {
-        create("play") {
-            dimension = "distribution"
-        }
-        create("github") {
-            dimension = "distribution"
-        }
     }
 
     buildFeatures {
