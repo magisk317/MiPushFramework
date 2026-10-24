@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -50,7 +50,15 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "94c53f1bbc921cccd4b0d399b5da7c54da4a6ce6"
+  # Pinned past 94c53f1 (feat(version-axis)) on purpose: that commit wired
+  # ci/allocate_version_code.sh into .gitlab/ci/android.yml, and the Android
+  # build image ships curl but not jq, so every android:build job with
+  # MAGISK_VERSION_SCOPE set died on "ERROR: jq is required" before Gradle ran
+  # (pipeline 2981953416, job 17421971941, 35.6s). dff8a0e reads the allocator
+  # response with a bash regex instead; af0295f additionally writes the
+  # allocated code to .magisk-version-code so after_script can stage it
+  # (an export made in script does not survive into after_script).
+  MAGISK_CI_TOOLKIT_REF: "65505809acb199c24ae9e63df1975cdea2ab494b"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -504,6 +512,9 @@ android:test:pure-modules:
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       bash scripts/ci/tests/test_run_test_shards.sh
+      # Guards the after_script staging path: a lost allocated versionCode
+      # used to vanish silently instead of failing the job.
+      bash scripts/ci/tests/test_stage_ci_dist.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"

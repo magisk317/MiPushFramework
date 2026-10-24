@@ -21,8 +21,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * consults for identity; this policy re-targets the notification id onto that order key so
  * SystemUI replaces the existing card and island session instead of stacking a new one.
  *
- * 京东 (com.jingdong.app.mall) keys the same session differently: no root `orderId`/`scene`,
- * the order number rides inside the focus param's `notifyId` as `<targetPackage><orderNo>`
+ * 京东 (com.jingdong.app.mall) keys the same session differently: no `orderId`/`scene`, the order
+ * number rides inside the focus param's `notifyId` as `<targetPackage><orderNo>`
  * (e.g. `com.jingdong.app.mall1007816202`), stable across the messages of one order while the
  * per-message notifyId differs. Observed on pudding 2026-10-17: one JD order's
  * 进行中 → 预计18:42送达 → 预计18:56送达 updates arrived as three messages with per-message
@@ -30,6 +30,14 @@ import kotlinx.serialization.json.jsonPrimitive
  * rendered as three separate island sessions because the root order id was absent. When the
  * root order id is missing, the policy falls back to that package-prefixed numeric suffix; the
  * prefix check keeps hash-shaped notifyIds (Alipay's `title.hashCode()`) on the stock path.
+ *
+ * The JD focus param's shape is versioned and moved between captures, so the fallback must read
+ * the session fields from every scope (root, `param_v2`, `param_v1`) rather than the root alone.
+ * On 2026-10-17 the fields sat flat at the root; by 2026-10-23 the same order arrived as
+ * `{"param_v2":{"baseInfo":…,"param_island":…,"notifyId":"com.jingdong.app.mall2117",…}}`
+ * with the root holding nothing but the container, which silently defeated a root-only lookup
+ * (observed live: two islands for order 2117 coexisting with ids -1597230880 / 1501889864 while
+ * the per-message notifyIds were 327792584 / 1523639136). Alipay's flat root form is unchanged.
  *
  * What to compare when stock XMSF grows its own focus-order handling, before dropping this:
  *  - identity source (order key vs per-message notifyId) and id space (same `base + offset`
@@ -45,7 +53,23 @@ object FocusOrderIdentityPolicy {
     private const val KEY_ORDER_ID = "orderId"
     private const val KEY_SCENE = "scene"
     private const val KEY_NOTIFY_ID = "notifyId"
+    private const val KEY_PARAM_V1 = "param_v1"
+    private const val KEY_PARAM_V2 = "param_v2"
     private val json = Json
+
+    /**
+     * Scopes that may carry the session fields, most authoritative first: the param root, then
+     * the versioned containers. Live-session vendors moved their session fields between the two
+     * forms over time — 支付宝/Alipay keeps them flat at the root, while 京东's current payload
+     * (observed on pudding 2026-10-23) folds baseInfo/param_island/notifyId/sequence under
+     * `param_v2`, leaving the root with nothing but that one container. Reading only the root
+     * silently sends every current 京东 message back to the stock per-message identity.
+     */
+    private fun sessionScopes(root: JsonObject): List<JsonObject> = buildList {
+        add(root)
+        (root[KEY_PARAM_V2] as? JsonObject)?.let(::add)
+        (root[KEY_PARAM_V1] as? JsonObject)?.let(::add)
+    }
 
     /**
      * Stable session token of a focus payload: root `orderId`, scene-scoped when the param
@@ -57,16 +81,22 @@ object FocusOrderIdentityPolicy {
     internal fun orderKey(focusParam: String?, packageName: String? = null): String? {
         if (focusParam.isNullOrBlank()) return null
         val root = runCatching { json.parseToJsonElement(focusParam).jsonObject }.getOrNull() ?: return null
-        val orderId = root[KEY_ORDER_ID]
-            ?.let { value -> runCatching { value.jsonPrimitive.contentOrNull }.getOrNull() }
-            ?.takeIf(String::isNotBlank)
-        if (orderId != null) {
-            val scene = root[KEY_SCENE]
+        val scopes = sessionScopes(root)
+        for (scope in scopes) {
+            val orderId = scope[KEY_ORDER_ID]
                 ?.let { value -> runCatching { value.jsonPrimitive.contentOrNull }.getOrNull() }
-                .orEmpty()
-            return if (scene.isEmpty()) orderId else "$scene|$orderId"
+                ?.takeIf(String::isNotBlank)
+            if (orderId != null) {
+                val scene = scope[KEY_SCENE]
+                    ?.let { value -> runCatching { value.jsonPrimitive.contentOrNull }.getOrNull() }
+                    .orEmpty()
+                return if (scene.isEmpty()) orderId else "$scene|$orderId"
+            }
         }
-        return notifyIdOrderKey(root, packageName)
+        for (scope in scopes) {
+            notifyIdOrderKey(scope, packageName)?.let { return it }
+        }
+        return null
     }
 
     /**
@@ -94,6 +124,17 @@ object FocusOrderIdentityPolicy {
      */
     internal fun notificationIdFor(packageName: String, orderKey: String): Int =
         (packageName.hashCode() / 10) * 10 + orderKey.hashCode()
+
+    /**
+     * True when the payload carries a focus param at all. Lets a caller tell "this is not a
+     * live session" apart from "this is a live session whose shape the policy no longer
+     * recognises": both return a null order key from [resolveNotificationId] and both fall
+     * back to the stock per-message identity, so without this signal a vendor moving its
+     * session fields is indistinguishable from an app that never had an order key. That
+     * silence is what kept the 京东 `param_v2` move unnoticed for six days.
+     */
+    fun hasFocusParam(metaInfo: PushMetaInfo?): Boolean =
+        !metaInfo?.extra?.get(FOCUS_PARAM).isNullOrBlank()
 
     /** Order-derived notification id, or null when the payload is not an order-keyed session. */
     fun resolveNotificationId(packageName: String, metaInfo: PushMetaInfo?): Int? {

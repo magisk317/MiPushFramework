@@ -264,21 +264,29 @@ fun MIPushNotificationPublishHelper.Companion.getNotificationId(container: XmPus
             ?: metaInfo.notifyId.toString()
         return "${packageName}_mock_replay:$sourceId".hashCode()
     }
-// [PRODUCT-OWNED DEVIATION — see FocusOrderIdentityPolicy] A live-session payload keys on
-// its order, not the per-message notifyId; recheck stock getNotificationId on XMSF
-// upgrades before retiring this branch.
-val focusOrderId = FocusOrderIdentityPolicy.resolveNotificationId(packageName, metaInfo)
-if (focusOrderId != null) {
+    // [PRODUCT-OWNED DEVIATION — see FocusOrderIdentityPolicy] A live-session payload keys on
+    // its order, not the per-message notifyId; recheck stock getNotificationId on XMSF
+    // upgrades before retiring this branch.
+    val focusOrderId = FocusOrderIdentityPolicy.resolveNotificationId(packageName, metaInfo)
+    if (focusOrderId != null) {
+        logD(
+            "getNotificationId pkg=$packageName focusOrder=true messageId=$messageId " +
+                "notifyId=${metaInfo?.notifyId} result=$focusOrderId"
+        )
+        return focusOrderId
+    }
+    val notifyId = metaInfo?.notifyId ?: 0
+    val result = (packageName.hashCode() / 10) * 10 + notifyId
+    // A focus payload that produces no order key is the failure mode this policy regresses
+    // into, and from here it is indistinguishable from an ordinary notification: the card
+    // just stops merging. Flag it so the next time a vendor moves its session fields it is
+    // one grep away rather than another six days of stacked islands later.
+    val liveSessionUnresolved = FocusOrderIdentityPolicy.hasFocusParam(metaInfo)
     logD(
-        "getNotificationId pkg=$packageName focusOrder=true messageId=$messageId " +
-            "notifyId=${metaInfo?.notifyId} result=$focusOrderId"
+        "getNotificationId pkg=$packageName notifyId=$notifyId mockReplay=$isMockReplay " +
+            "messageId=$messageId liveSessionUnresolved=$liveSessionUnresolved result=$result"
     )
-    return focusOrderId
-}
-val notifyId = metaInfo?.notifyId ?: 0
-val result = (packageName.hashCode() / 10) * 10 + notifyId
-logD("getNotificationId pkg=$packageName notifyId=$notifyId mockReplay=$isMockReplay messageId=$messageId result=$result")
-return result
+    return result
 }
 
 fun MIPushNotificationPublishHelper.Companion.getNotificationTag(packageName: String): String? = null
