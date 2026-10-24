@@ -57,6 +57,7 @@ tasks.configureEach {
 }
 
 dependencies {
+    implementation(libs.okhttp)
     implementation(project(":common"))
     implementation(project(":configuration"))
     implementation(project(":manager:application"))

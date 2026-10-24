@@ -287,3 +287,19 @@ tasks.register("exportVersion") {
         file("$projectDir/gitTag.txt").writeText(versionNameStr)
     }
 }
+
+
+// Kotlin 2.5 added the RETURN_VALUE_NOT_USED / _COERCION diagnostics. This
+// codebase intentionally ignores many best-effort `runCatching` results
+// (cleanup paths, probe helpers); disable the two diagnostics here until the
+// call sites are converted to an explicit helper. Revisit in the 2.5 cleanup.
+subprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            freeCompilerArgs.addAll(
+                "-Xwarning-level=RETURN_VALUE_NOT_USED:disabled",
+                "-Xwarning-level=RETURN_VALUE_NOT_USED_COERCION:disabled",
+            )
+        }
+    }
+}
