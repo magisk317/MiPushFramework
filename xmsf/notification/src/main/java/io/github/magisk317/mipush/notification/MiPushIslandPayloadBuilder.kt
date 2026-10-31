@@ -22,7 +22,7 @@ import io.github.magisk317.mipush.common.island.DynamicIslandColorResolver
 import io.github.magisk317.mipush.common.island.IslandVisualContract
 import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -247,7 +247,7 @@ object MiPushIslandPayloadBuilder {
                 actionIntentType = 1,
             )
         }
-        Logger.withTag(TAG).i {
+        XLog.tagged(TAG).i {
             "createBuilder options: showNotification=${options.showNotification} enableFloat=${options.enableFloat} enabled=${options.enabled} focusNotification=${options.focusNotification} style=$style title=$title"
         }
         val builder = HyperIslandNotification.Builder(

@@ -16,7 +16,6 @@ dependencies {
     implementation(project(":xmsf:runtime"))
     implementation(project(":xmsf:runtime:store"))
     implementation(project(":magisk-xposed-kit:logging"))
-    implementation(libs.kermit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)

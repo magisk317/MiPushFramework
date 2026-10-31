@@ -97,10 +97,10 @@ class IslandOptionsSnapshotReaderPolicyTest {
         showOriginalNotification = showOriginalNotification,
         focusNotification = focusNotification,
         colorStatusBarIcon = false,
+        monochromeShadeIcon = false,
         thirdPartyIconPack = true,
         systemAppIconPack = true,
         dualAppEnabled = false,
-        logSanitizationEnabled = false,
     )
 
     @Test

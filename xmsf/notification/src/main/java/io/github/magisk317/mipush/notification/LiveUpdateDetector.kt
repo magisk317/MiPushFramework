@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.notification
 
 import android.content.Context
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 
 /**
  * Detects progress-style (Live Update) notifications from push message content.
@@ -61,7 +61,7 @@ object LiveUpdateDetector {
         val result = LiveUpdateDetectorCore.detect(input)
 
         if (result.isProgress) {
-            Logger.withTag(TAG).i {
+            XLog.tagged(TAG).i {
                 "Live Update detected pkg=$packageName category=${result.category} " +
                     "progress=${result.progressPercent} title=${input.title} description=${input.description}"
             }

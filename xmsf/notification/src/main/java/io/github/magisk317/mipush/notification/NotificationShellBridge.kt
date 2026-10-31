@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.notification
 
 import android.app.Notification
 import android.service.notification.StatusBarNotification
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
 data class NotificationPostResult(
     val posted: Boolean,
@@ -60,8 +61,13 @@ object NotificationShellBridge {
         id: Int,
         notification: Notification,
         userId: Int,
-    ): NotificationPostResult = postDetailed?.invoke(packageName, tag, id, notification, userId)
-        ?: NotificationPostResult(false, NotificationPostOwner.NONE, "bridge_uninstalled")
+    ): NotificationPostResult {
+        if (shouldSuppressForInactiveTarget(packageName)) {
+            return NotificationPostResult(false, NotificationPostOwner.NONE, "target_app_inactive")
+        }
+        return postDetailed?.invoke(packageName, tag, id, notification, userId)
+            ?: NotificationPostResult(false, NotificationPostOwner.NONE, "bridge_uninstalled")
+    }
 
     fun notify(
         packageName: String,
@@ -69,7 +75,22 @@ object NotificationShellBridge {
         id: Int,
         notification: Notification,
         userId: Int,
-    ): Boolean = notify?.invoke(packageName, tag, id, notification, userId) ?: false
+    ): Boolean {
+        if (shouldSuppressForInactiveTarget(packageName)) {
+            return false
+        }
+        return notify?.invoke(packageName, tag, id, notification, userId) ?: false
+    }
+
+    /**
+     * Per-app opt-in gate (app detail page): while the target package is disabled or suspended,
+     * no module-initiated post for it goes through — this covers the main publish funnel plus the
+     * coordinator-driven reposts (top-notification jobs, sweet restore) that bypass dispatch
+     * gating. Fails open so a store/PM problem never blocks an allowed notification.
+     */
+    private fun shouldSuppressForInactiveTarget(packageName: String): Boolean =
+        runCatching { RegisteredApplicationDb.shouldSuppressForInactiveApp(packageName) }
+            .getOrDefault(false)
 
 
     @JvmStatic

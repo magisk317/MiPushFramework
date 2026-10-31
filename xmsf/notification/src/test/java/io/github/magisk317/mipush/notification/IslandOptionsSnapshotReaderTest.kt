@@ -45,9 +45,9 @@ class IslandOptionsSnapshotReaderTest {
         showOriginalNotification = true,
         focusNotification = false,
         colorStatusBarIcon = false,
+        monochromeShadeIcon = false,
         thirdPartyIconPack = true,
         systemAppIconPack = true,
         dualAppEnabled = false,
-        logSanitizationEnabled = false,
     )
 }

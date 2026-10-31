@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.magisk317.mipush.common.notification.NotificationAvailabilityReader
 import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRequest
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import java.util.LinkedHashMap
 
 internal class NotificationAvailabilityCache(
@@ -49,6 +50,9 @@ class XmsfNotificationAvailabilityReader(
             extra = request.metaInfoExtra.toMutableMap()
         }
         if (!Utils.isAppInstalled(packageName)) return true
+        // Per-app opt-in: a disabled or suspended target counts as notification-disabled so the
+        // event list attributes the drop instead of recording a plain OK.
+        if (RegisteredApplicationDb.shouldSuppressForInactiveApp(packageName)) return true
         // Event/status reads must not provision notification groups or channels. A missing
         // channel is treated as unknown/available here; the publish path owns provisioning.
         val channelId = NotificationAvailabilityShellBridge.findExistingChannelId(

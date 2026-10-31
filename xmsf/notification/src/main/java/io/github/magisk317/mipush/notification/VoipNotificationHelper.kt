@@ -6,7 +6,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.Utils
@@ -75,7 +75,7 @@ object VoipNotificationHelper {
         synchronized(sequenceCache) {
             val previous = sequenceCache[key] ?: 0L
             if (previous > sequence) {
-                Logger.withTag(TAG).d {
+                XLog.tagged(TAG).d {
                     "drop stale VoIP notification user=${key.userId} pkg=$packageName sequence=$sequence previous=$previous"
                 }
                 MagiskOtel.event(
@@ -136,7 +136,7 @@ object VoipNotificationHelper {
         buildVoipMetadata(extras, targetPackage).forEach(targetBundle::putString)
         builder.addExtras(targetBundle)
 
-        Logger.withTag(TAG).d { "built VoIP notification type=$voipType pkg=$targetPackage id=$notificationId" }
+        XLog.tagged(TAG).d { "built VoIP notification type=$voipType pkg=$targetPackage id=$notificationId" }
         return builder
     }
 

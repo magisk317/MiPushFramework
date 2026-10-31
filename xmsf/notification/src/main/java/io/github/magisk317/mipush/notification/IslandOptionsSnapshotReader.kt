@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 
 data class IslandOptionsSnapshot(
     val options: IslandOptions,
-    val logSanitizationEnabled: Boolean,
 )
 
 /**
@@ -82,6 +81,7 @@ object IslandOptionsSnapshotReader {
                 settings = settings,
                 appEnabled = packageSettings?.enabled,
                 appFocusNotification = packageSettings?.focusNotification,
+                appCountLimitExempt = packageSettings?.countLimitExempt,
                 packageScoped = normalizedPackage != null,
             )
         }.getOrElse { error ->
@@ -100,7 +100,6 @@ object IslandOptionsSnapshotReader {
             showOriginalNotification = true,
             focusNotification = false,
         ),
-        logSanitizationEnabled = false,
     )
 
     internal fun updateCachedSettings(settings: IslandSettingsSnapshot) {
@@ -117,6 +116,7 @@ object IslandOptionsSnapshotReader {
         settings: IslandSettingsSnapshot,
         appEnabled: Boolean?,
         appFocusNotification: Boolean?,
+        appCountLimitExempt: Boolean? = null,
         packageScoped: Boolean = appFocusNotification != null,
     ): IslandOptionsSnapshot {
         // The island is considered available only when the global switch is on AND the package is
@@ -138,11 +138,14 @@ object IslandOptionsSnapshotReader {
                 focusNotification = settings.focusNotification &&
                     (!packageScoped || appFocusNotification == true),
                 colorStatusBarIcon = settings.colorStatusBarIcon,
+                monochromeShadeIcon = settings.monochromeShadeIcon,
                 thirdPartyIconPack = settings.thirdPartyIconPack,
                 systemAppIconPack = settings.systemAppIconPack,
                 dualAppEnabled = settings.dualAppEnabled,
+                // The count-limit exemption is a per-app opt-in; a global snapshot read (the
+                // SystemUI boot-time default) must never unlock it for every package.
+                notificationCountLimitExempt = packageScoped && appCountLimitExempt == true,
             ),
-            logSanitizationEnabled = settings.logSanitizationEnabled,
         )
     }
 }

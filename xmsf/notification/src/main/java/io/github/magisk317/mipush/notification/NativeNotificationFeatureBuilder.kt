@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.xmsf.notification.R
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.notification.policy.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.Utils
@@ -72,7 +72,7 @@ object NativeNotificationFeatureBuilder {
 
         val nativeDetection = focusPlan.nativeDetection
         if (focusPlan.useNativeProgress && nativeDetection != null) {
-            Logger.withTag(TAG).d {
+            XLog.tagged(TAG).d {
                 "Applying native progress feature pkg=$packageName " +
                     "source=${focusPlan.semantic?.source} category=${nativeDetection.category} " +
                     "progress=${nativeDetection.progressPercent} reason=${focusPlan.reason}"
@@ -191,6 +191,8 @@ object NativeNotificationFeatureBuilder {
         session?.runCatching {
             isActive = false
             release()
+        }?.onFailure { error ->
+            XLog.tagged("NativeNotificationFeatureBuilder").w(error) { "releasing the media session for $key failed" }
         }
     }
 
@@ -297,7 +299,7 @@ object NativeNotificationFeatureBuilder {
                 .setAutoCancel(false)
                 .build()
         }.getOrElse { error ->
-            Logger.withTag(TAG).d(error) { "Failed to apply platform media style: ${error.message}" }
+            XLog.tagged(TAG).d(error) { "Failed to apply platform media style: ${error.message}" }
             notification
         }
     }
@@ -363,6 +365,8 @@ object NativeNotificationFeatureBuilder {
             runCatching {
                 session.isActive = false
                 session.release()
+            }.onFailure {
+                XLog.tagged("NativeNotificationFeatureBuilder").w(it) { "releasing an evicted media session failed" }
             }
         }
     }

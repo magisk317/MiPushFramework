@@ -171,7 +171,9 @@ internal class NotificationManagerChannelNameProber(
         logD("channel name probe posted=${posted.size}/${targets.size} pkg=$packageName")
         sleeper(holdMillis)
         posted.forEach { (tag, id) ->
-            runCatching { NotificationShellBridge.cancelNotification(packageName, tag, id, userId) }
+            runCatching { NotificationShellBridge.cancelNotification(packageName, tag, id, userId) }.onFailure {
+                logD("channel name probe cleanup failed: ${it.message}")
+            }
         }
         return true
     }
@@ -198,6 +200,8 @@ internal class NotificationManagerChannelNameProber(
             runCatching {
                 val method = builder.javaClass.getMethod("setSilent", Boolean::class.javaPrimitiveType)
                 method.invoke(builder, true)
+            }.onFailure {
+                logD("channel name probe cleanup failed: ${it.message}")
             }
             val notification = builder.build()
             notification.flags = notification.flags or Notification.FLAG_LOCAL_ONLY

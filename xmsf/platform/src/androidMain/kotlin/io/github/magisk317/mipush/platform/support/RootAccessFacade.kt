@@ -6,7 +6,9 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.utils.PrivilegeElevator
 import java.util.concurrent.atomic.AtomicReference
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 class RootAccessFacade(
     private val runner: BoundedShellRunner,
     private val rootGrantState: () -> Boolean?,
@@ -38,7 +40,17 @@ class RootAccessFacade(
 
     fun requestRootAccess(): Boolean {
         runCatching { requestRootGrant() }
-            .onFailure { this.logW("root_request role=xmsf error=${it.javaClass.simpleName}") }
+            .onFailure {
+                // NoClassDefFoundError alone never names the missing class; that name lives
+                // in Throwable.message, which the log sanitizer masks as payload. The
+                // descriptor re-exposes the root-cause class name only (class names are not
+                // sensitive payload), which is what makes a stripped static init diagnosable.
+                this.logW(
+                    "root_request role=xmsf error=${it.javaClass.simpleName} " +
+                        "${rootCauseDescriptor(it)} " +
+                        "message=${it.message ?: "-"}",
+                )
+            }
         return probeRootAccess(source = "request")
     }
 

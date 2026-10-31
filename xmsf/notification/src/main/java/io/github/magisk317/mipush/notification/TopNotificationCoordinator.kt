@@ -12,7 +12,7 @@ import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicLong
 
@@ -200,7 +200,7 @@ object TopNotificationCoordinator {
         if (shouldCancel) {
             ScheduledJobManager.getInstance(context.applicationContext).cancelJob(jobId)
         }
-        Logger.withTag(TAG).d { "cancel removed top notification job=$jobId accepted=$shouldCancel" }
+        XLog.tagged(TAG).d { "cancel removed top notification job=$jobId accepted=$shouldCancel" }
     }
 
     /** Cancels lifecycle state immediately when MiPush receives an explicit server cancel. */
@@ -384,7 +384,7 @@ object TopNotificationCoordinator {
                     }
                     true -> Unit
                 }
-                Logger.withTag(TAG).d { "repost top notification job=$jobId delay=${plan.nextDelaySeconds}" }
+                XLog.tagged(TAG).d { "repost top notification job=$jobId delay=${plan.nextDelaySeconds}" }
             }
             UpdateAction.DOWNGRADE -> {
                 val updated = rebuildCommonNotification(context, notification, nowMs)
@@ -394,7 +394,7 @@ object TopNotificationCoordinator {
                 }
                 val posted = postIfCurrent(jobId, slot, generation, updated) ?: return
                 deactivate(context, jobId, slot, generation)
-                Logger.withTag(TAG).d { "downgrade top notification job=$jobId posted=$posted" }
+                XLog.tagged(TAG).d { "downgrade top notification job=$jobId posted=$posted" }
                 return
             }
             UpdateAction.STOP -> {
@@ -442,7 +442,7 @@ object TopNotificationCoordinator {
                 )
             }
             if (added == false) {
-                Logger.withTag(TAG).w { "failed to schedule top notification job=$jobId delay=$delaySeconds" }
+                XLog.tagged(TAG).w { "failed to schedule top notification job=$jobId delay=$delaySeconds" }
                 deactivate(context, jobId, slot, generation)
             }
         }
@@ -489,7 +489,7 @@ object TopNotificationCoordinator {
                 }
                 ?.notification
         }.onFailure {
-            Logger.withTag(TAG).w(it) {
+            XLog.tagged(TAG).w(it) {
                 "query active top notification failed pkg=${slot.packageName} id=${slot.notificationId}"
             }
         }.getOrNull()
@@ -527,7 +527,7 @@ object TopNotificationCoordinator {
                 .setExtras(extras)
                 .build()
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "downgrade top notification failed" }
+            XLog.tagged(TAG).w(it) { "downgrade top notification failed" }
         }.getOrNull()
     }
 

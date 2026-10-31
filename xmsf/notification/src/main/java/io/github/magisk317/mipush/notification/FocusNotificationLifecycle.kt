@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 
 /**
  * Single programmatic cancellation path for MIUI focus and native Live Update notifications.
@@ -29,7 +29,7 @@ object FocusNotificationLifecycle {
             runCatching {
                 NotificationShellBridge.cancelNotification(packageName, resolvedTag, notificationId, userId)
             }.onFailure {
-                Logger.withTag(TAG).w(it) { "focus end target cancel failed pkg=$packageName id=$notificationId: ${it.message}" }
+                XLog.tagged(TAG).w(it) { "focus end target cancel failed pkg=$packageName id=$notificationId: ${it.message}" }
             }
         }
     }

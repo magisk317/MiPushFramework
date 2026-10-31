@@ -19,7 +19,7 @@ import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -117,7 +117,7 @@ object SweetNotificationCoordinator {
             )
         }.onFailure {
             initialized.set(false)
-            Logger.withTag(TAG).w(it) { "failed to register sweet-notification screen receiver" }
+            XLog.tagged(TAG).w(it) { "failed to register sweet-notification screen receiver" }
         }
     }
 
@@ -162,7 +162,7 @@ object SweetNotificationCoordinator {
             cancelTimeout(context, packageName, notificationId, userId)
         }
         if (decision.suppress) {
-            Logger.withTag(TAG).d { "suppress repeated sweet notification pkg=$packageName id=$notificationId status=$status" }
+            XLog.tagged(TAG).d { "suppress repeated sweet notification pkg=$packageName id=$notificationId status=$status" }
         }
         return decision.suppress
     }
@@ -523,7 +523,7 @@ object SweetNotificationCoordinator {
             )
             if (!added && activeJobs[id]?.generation == reminder.generation) {
                 activeJobs.remove(id)
-                Logger.withTag(TAG).w { "failed to schedule sweet timeout job=$id" }
+                XLog.tagged(TAG).w { "failed to schedule sweet timeout job=$id" }
             }
         }
     }
@@ -597,7 +597,7 @@ object SweetNotificationCoordinator {
                         }
                     }
             }.onFailure {
-                Logger.withTag(TAG).w(it) { "failed to inspect sweet notifications pkg=$packageName" }
+                XLog.tagged(TAG).w(it) { "failed to inspect sweet notifications pkg=$packageName" }
             }
         }
     }
@@ -625,7 +625,7 @@ object SweetNotificationCoordinator {
                 .setExtras(copiedExtras)
                 .build()
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}" }
+            XLog.tagged(TAG).w(it) { "failed to restore sweet keyguard visibility pkg=$packageName id=${active.id}" }
         }.getOrNull() ?: return
         NotificationShellBridge.notify(packageName, active.tag, active.id, restored, active.userId)
     }
