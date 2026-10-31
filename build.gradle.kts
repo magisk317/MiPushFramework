@@ -26,6 +26,25 @@ buildscript {
     }
 }
 
+
+// Java 27 bytecode target, lint side: AGP 9.5.0-rc01's lint-api (32.5.0-rc01)
+// resolves ASM 9.9 (V26 max) on androidLintTool, so lintAnalyze skips every
+// major-71 class with "broken class file?" warnings while the job stays green.
+// The buildscript force above does not reach project configurations; force the
+// same family here until the lint toolchain ships ASM >= 9.10 itself.
+allprojects {
+    configurations.configureEach {
+        if (name == "androidLintTool") {
+            resolutionStrategy {
+                force("org.ow2.asm:asm:9.11.1")
+                force("org.ow2.asm:asm-analysis:9.11.1")
+                force("org.ow2.asm:asm-commons:9.11.1")
+                force("org.ow2.asm:asm-tree:9.11.1")
+                force("org.ow2.asm:asm-util:9.11.1")
+            }
+        }
+    }
+}
 plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -122,6 +141,12 @@ val detektBlockingProjects = setOf(
     ":xmsf:runtime",
     ":xmsf:shell",
     ":xposed",
+    // Measured clean by a real detekt run on 2026-10-25 (reports/detekt/detekt.xml with zero
+    // <error> entries), so their findings can no longer arrive silently: these three were in the
+    // strict set only by omission.
+    ":manager:application",
+    ":xmsf:notification",
+    ":xmsf:push",
 )
 // :xmsf is a packaging-only application with no independent test surface. Its implementation
 // lives in :xmsf:shell, whose broad stock/Android ABI surface has a separate measured floor.
@@ -193,6 +218,12 @@ subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
         configureDetekt()
     }
+    // Plain JVM libraries (magisk.kotlin.library, e.g. :manager:port) got no detekt task at all, so
+    // their findings were not merely non-blocking -- they were never computed. Wire them up too;
+    // they join the non-blocking set until measured, exactly like the Android modules did.
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+        configureDetekt()
+    }
 }
 
 allprojects {
@@ -255,6 +286,13 @@ tasks.register<Exec>("reportGodFiles") {
     commandLine("bash", "scripts/checks/report_god_files.sh", "--report")
 }
 
+tasks.register<Exec>("verifyNoGlobalWarningMute") {
+    group = "verification"
+    description = "Ensure the Kotlin discarded-result diagnostics stay enabled; tolerated failures must be explicit at the call site."
+    workingDir = rootProject.projectDir
+    commandLine("bash", "${rootProject.projectDir}/scripts/checks/verify_no_global_warning_mute.sh")
+}
+
 tasks.register<Exec>("verifyGodFileLimits") {
     group = "verification"
     description = "Fail when a production Kotlin god file is added, grows, or diverges from its reviewed limit."
@@ -266,7 +304,7 @@ tasks.matching { it.name == "check" }.configureEach {
     if (enableKover) {
         dependsOn("qualityGateKoverVerify")
     }
-    dependsOn("verifyModuleBoundaries")
+    dependsOn("verifyModuleBoundaries", "verifyNoGlobalWarningMute")
     dependsOn("verifyCiToolkitRef")
     dependsOn("reportGodFiles")
     dependsOn("verifyGodFileLimits")
@@ -289,17 +327,3 @@ tasks.register("exportVersion") {
 }
 
 
-// Kotlin 2.5 added the RETURN_VALUE_NOT_USED / _COERCION diagnostics. This
-// codebase intentionally ignores many best-effort `runCatching` results
-// (cleanup paths, probe helpers); disable the two diagnostics here until the
-// call sites are converted to an explicit helper. Revisit in the 2.5 cleanup.
-subprojects {
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        compilerOptions {
-            freeCompilerArgs.addAll(
-                "-Xwarning-level=RETURN_VALUE_NOT_USED:disabled",
-                "-Xwarning-level=RETURN_VALUE_NOT_USED_COERCION:disabled",
-            )
-        }
-    }
-}
