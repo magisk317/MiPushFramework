@@ -29,7 +29,7 @@ class XMPushServiceConnectionDelegate(
             isConnected = currentConnection?.isConnected == true,
             isConnecting = currentConnection?.isConnecting == true,
         )
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "connection_attempt action=${plan.action} event=${plan.eventAction} " +
                 "network=${com.xiaomi.channel.commonutils.network.Network.hasNetwork(service)} " +
                 "activeClients=${PushClientsManager.getInstance().getActiveClientCount()} " +

@@ -2,6 +2,7 @@ package com.xiaomi.channel.commonutils.reflect
 
 import com.xiaomi.channel.commonutils.android.SystemUtils
 import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import com.xiaomi.channel.commonutils.logger.WarnOnce
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
@@ -40,7 +41,9 @@ object JavaCalls {
         return try {
             if (obj != null) callMethodOrThrow(obj, name, *args) else null
         } catch (e: Exception) {
-            KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $obj, $e", tag = LOG_TAG)
+            if (WarnOnce.shouldWarn("callMethod|$name|${obj?.javaClass?.name}|${e.javaClass.name}")) {
+                KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $obj, $e", tag = LOG_TAG)
+            }
             null
         }
     }
@@ -64,7 +67,9 @@ object JavaCalls {
         return try {
             callStaticMethodOrThrow(SystemUtils.loadClass(null, className), name, *args)
         } catch (e: Exception) {
-            KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $className, $e", tag = LOG_TAG)
+            if (WarnOnce.shouldWarn("callStaticMethod|$className|$name|${e.javaClass.name}")) {
+                KermitLoggerCompat.w(message = "Meet exception when call Method '$name' in $className, $e", tag = LOG_TAG)
+            }
             null
         }
     }

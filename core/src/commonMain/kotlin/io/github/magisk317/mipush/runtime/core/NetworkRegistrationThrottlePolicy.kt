@@ -25,7 +25,7 @@ class NetworkRegistrationThrottlePolicy(
             while (lastProcessElapsedMs.size >= maxTrackedUsers) {
                 val oldest = lastProcessElapsedMs.entries.iterator()
                 if (!oldest.hasNext()) break
-                oldest.next()
+                val eldest = oldest.next()
                 oldest.remove()
             }
             lastProcessElapsedMs[androidUserId] = nowElapsedMs

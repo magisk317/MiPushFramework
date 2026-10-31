@@ -14,13 +14,13 @@ import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolicy
 import io.github.magisk317.mipush.hook.systemui.HookFocusAuthorization
+import io.github.magisk317.mipush.hook.systemui.HookNotificationCountLimit
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
-import io.github.magisk317.mipush.hook.freeze.FreezeTaskRemovedHook
 import io.github.magisk317.mipush.hook.xmsf.UnlockFocusAuthHook
 import io.github.magisk317.mipush.hook.widgetcenter.PersonalAssistantPickerHook
 import io.github.magisk317.mipush.hook.widgetcenter.PersonalAssistantDetailHook
@@ -52,6 +52,8 @@ import io.github.magisk317.xposed.preferences.PreferenceRead
 
 class LibXposedEntry : BaseLibXposedEntry {
 
+    // libxposed instantiates this constructor reflectively, so nothing in the module ever
+    // calls it -- "unused"/"UnusedParameter" silence the IDE inspection, not a compiler warning.
     @Suppress("unused", "UnusedParameter")
     constructor(xposed: io.github.libxposed.api.XposedInterface, loadedParam: ModuleLoadedParam) : super(xposed, loadedParam)
     constructor() : super()
@@ -63,7 +65,6 @@ class LibXposedEntry : BaseLibXposedEntry {
         SecurityCoreXSpaceMiPushHook(),
         DocumentsUiXSpaceHook(),
         HookXmsf(),
-        FreezeTaskRemovedHook(),
         FakeDeviceHook(),
         PersonalAssistantPickerHook(),
         PersonalAssistantDetailHook(),
@@ -77,7 +78,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         // A hooked process is its own JVM: nothing installed by an Application reaches it, so the
         // policy is evaluated here from these build flags before the first hook log line.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.BUILD_TYPE == "debug",
+            isDebugBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         XposedRuntime.install(module, hookApi)
@@ -137,7 +138,7 @@ class LibXposedEntry : BaseLibXposedEntry {
      *
      * The analytics switch lives in DataStore, which is unreachable from a hooked process, so the
      * app side mirrors the effective value into a plain SharedPreferences file (see
-     * [MagiskOtel.publishSwitch]) and this reads it back through libxposed remote preferences.
+     * `MagiskOtel.publishSwitch`) and this reads it back through libxposed remote preferences.
      * When the remote source is unavailable the hook process stays silent unless this is a debug
      * build: never start reporting just because a preference read failed.
      */
@@ -308,6 +309,7 @@ class LibXposedEntry : BaseLibXposedEntry {
     private fun hookSystemUiIsland(loadParam: LoadParam) {
         // XMSF sends generated-focus requests to this project-private receiver in SystemUI.
         IslandDispatcherHook().hook()
+        HookNotificationCountLimit().hook(loadParam.classLoader)
         installFocusAuthorizationBypass(loadParam)
         MiPushIslandHook().onLoadPackage(loadParam)
     }

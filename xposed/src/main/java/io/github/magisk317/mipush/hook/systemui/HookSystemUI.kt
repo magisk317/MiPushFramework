@@ -11,7 +11,6 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.notification.StatusBarNotification
-import io.github.magisk317.mipush.common.island.IslandOptions
 import android.view.View
 import android.widget.ImageView
 import java.util.Collections
@@ -71,7 +70,6 @@ class HookSystemUI : BaseHook() {
         MiuiHeaderAppIconHook().hook(classLoader)
         hookNativeCustomAppIcon(classLoader)
         hookAndroid17StatusBarIconDescriptor(classLoader)
-        hookGlobalStatusBarIconTint()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Always install the hook; check colorStatusBarIcon dynamically per-call
@@ -88,6 +86,9 @@ class HookSystemUI : BaseHook() {
                 ) {
                     doBefore {
                         val options = IslandPreferences.current()
+                        if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(options.colorStatusBarIcon)) {
+                            return@doBefore
+                        }
                         val context = args[0] as? Context ?: return@doBefore
                         val sbn = args[1] as? StatusBarNotification ?: return@doBefore
                         val notification = sbn.notification ?: return@doBefore
@@ -118,7 +119,6 @@ class HookSystemUI : BaseHook() {
                             StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                                 context = context,
                                 packageName = owner,
-                                userId = userId,
                             )?.let {
                                 XLog.d(TAG, "status bar icon source=icon-pack owner=$owner")
                                 return it
@@ -127,7 +127,6 @@ class HookSystemUI : BaseHook() {
                                 StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                                     context = context,
                                     packageName = sbn.packageName,
-                                    userId = userId,
                                 )?.let {
                                     XLog.d(TAG, "status bar icon source=icon-pack pkg=${sbn.packageName}")
                                     return it
@@ -183,7 +182,6 @@ class HookSystemUI : BaseHook() {
                             }
                         }
                         if (SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                                colorStatusBarIcon = options.colorStatusBarIcon,
                                 isMiPushManaged = isMiPushManaged,
                                 iconType = iconType,
                             )
@@ -264,6 +262,9 @@ class HookSystemUI : BaseHook() {
                             return@doBefore
                         }
                         val options = IslandPreferences.current()
+                        if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(options.colorStatusBarIcon)) {
+                            return@doBefore
+                        }
                         val sbn = args.firstOrNull() as? StatusBarNotification ?: return@doBefore
                         val context = currentApplication() ?: return@doBefore
                         val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
@@ -283,22 +284,23 @@ class HookSystemUI : BaseHook() {
                             SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
                                 sbn.notification?.flags ?: 0,
                             )
-                        // A third-party app that already posts a standard monochrome glyph gets to
-                        // keep it: SystemUI tints that glyph, while MIUI's substitution would put a
-                        // multi-color launcher logo in the status bar.
+                        // An app that already posts a standard monochrome glyph gets to keep it:
+                        // SystemUI tints that glyph, while MIUI's substitution would put a
+                        // multi-color launcher logo in the status bar. System apps answer to their own
+                        // icon-pack switch, so a store's download notice and Play's look the same.
                         val keepsOwnMonochromeGlyph = !iconPackHit &&
                             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                                colorStatusBarIcon = options.colorStatusBarIcon,
                                 thirdPartyIconPack = options.thirdPartyIconPack,
+                                systemAppIconPack = options.systemAppIconPack,
                                 isMiPushManaged = isMiPushManaged,
                                 uid = sbn.uid,
                                 isSystemApp = isSystemApplication(context, sbn.packageName),
+                                postedPackageName = sbn.packageName,
                             ) && isPositivelyGrayscaleSmallIcon(context, sbn.notification?.smallIcon)
                         if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
                                 isMiPushManaged = isMiPushManaged,
                                 iconPackHit = iconPackHit,
                                 isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
-                                colorStatusBarIcon = options.colorStatusBarIcon,
                                 keepsOwnMonochromeGlyph = keepsOwnMonochromeGlyph,
                             )
                         ) {
@@ -320,6 +322,12 @@ class HookSystemUI : BaseHook() {
                         doAfter {
                             runCatching {
                                 val options = IslandPreferences.current()
+                                if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(
+                                        options.colorStatusBarIcon
+                                    )
+                                ) {
+                                    return@runCatching
+                                }
                                 val sbn = statusBarNotificationFromEntry(args.firstOrNull()) ?: return@runCatching
                                 val notification = sbn.notification
                                 val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
@@ -334,7 +342,6 @@ class HookSystemUI : BaseHook() {
                                 applyFrameworkAutogroupSummaryIcon(
                                     iconView = iconView,
                                     sbn = sbn,
-                                    options = options,
                                 )
                                 val descriptor = args.getOrNull(1)
                                 val hasSubstitutedGlyph = hasSubstitutedStatusBarGlyph(
@@ -356,7 +363,9 @@ class HookSystemUI : BaseHook() {
                                         "sub=$hasSubstitutedGlyph monoRes=$hasMonochromeResource " +
                                         "tint=false",
                                 )
-                                applyNotificationStatusBarIconTint(iconView, false)
+                            }.onFailure {
+                                // setIcon runs once per notification: a failed island override is a visual miss, not a
+// reason to flood the log or let an exception escape into SystemUI's render path.
                             }
                         }
                     }
@@ -370,6 +379,12 @@ class HookSystemUI : BaseHook() {
                         runCatching {
                             if (args[0] != idIconIsPreL) return@runCatching
                             val options = IslandPreferences.current()
+                            if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(
+                                    options.colorStatusBarIcon
+                                )
+                            ) {
+                                return@runCatching
+                            }
                             val sbn = statusBarNotificationFromEntry(thisObject) ?: return@runCatching
                             val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
                                 sbn.notification?.extras
@@ -439,9 +454,9 @@ class HookSystemUI : BaseHook() {
      *
      * Synthetic AUTOGROUP_SUMMARY records are different: HyperOS either ships a generic
      * framework glyph (android:0x010805c7) or copies the representative child's colorful
-     * launcher icon, and never inherits the child's target_package extras. The replacement is
-     * gated by the monochrome switch: monochrome resolves icon pack -> white silhouette; color
-     * mode uses the owning package's colorful icon. The Android logo is the last resort.
+     * launcher icon, and never inherits the child's target_package extras. Monochrome resolves
+     * icon pack -> white silhouette -> Android logo for them. Nothing here runs in color mode --
+     * [SystemUiNotificationPolicy.isMonochromeTakeoverEnabled] returns the descriptor to MIUI.
      * Ordinary application group summaries never enter this branch.
      */
     private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
@@ -453,6 +468,9 @@ class HookSystemUI : BaseHook() {
                 .hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
                     doAfter {
                         val options = IslandPreferences.current()
+                        if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(options.colorStatusBarIcon)) {
+                            return@doAfter
+                        }
                         val entry = args.getOrNull(0) ?: return@doAfter
                         val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
                         val notification = sbn.notification ?: return@doAfter
@@ -474,12 +492,10 @@ class HookSystemUI : BaseHook() {
                                 return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                                     context = systemUiContext,
                                     packageName = owner,
-                                    userId = userId,
                                 ) ?: if (owner != sbn.packageName) {
                                     StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                                         context = systemUiContext,
                                         packageName = sbn.packageName,
-                                        userId = userId,
                                     )
                                 } else {
                                     null
@@ -499,29 +515,13 @@ class HookSystemUI : BaseHook() {
                                     packageName = sbn.packageName,
                                 )
                             }
-                            fun colorfulAppIcon(): Icon? {
-                                StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                                    context = systemUiContext,
-                                    packageName = owner,
-                                )?.let { return it }
-                                if (owner == sbn.packageName) return null
-                                return StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                                    context = systemUiContext,
-                                    packageName = sbn.packageName,
-                                )
-                            }
                             if (isSyntheticAutogroupSummary) {
                                 // Synthetic summaries copy the child's smallIcon but not its
                                 // target_package extras, so they never look MiPush-managed. On
                                 // HyperOS that icon is often the app's colorful launcher resource.
-                                // Monochrome resolves icon pack -> white silhouette -> Android logo;
-                                // only color mode may use the package's colorful icon.
+                                // Monochrome resolves icon pack -> white silhouette -> Android logo.
                                 val summaryIcon = iconPackIcon()
-                                    ?: (if (options.colorStatusBarIcon) {
-                                        colorfulAppIcon()
-                                    } else {
-                                        monochromeSilhouette()
-                                    })
+                                    ?: monochromeSilhouette()
                                     ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
                                 if (summaryIcon != null) {
                                     // The Android logo / package icon replaces the generic
@@ -534,15 +534,11 @@ class HookSystemUI : BaseHook() {
                                     setHookObjectField(descriptor, "icon", summaryIcon)
                                     XLog.d(
                                         TAG,
-                                        "status bar icon source=autogroup owner=$owner " +
-                                            "color=${options.colorStatusBarIcon}",
+                                        "status bar icon source=autogroup owner=$owner",
                                     )
                                     return@runCatching
                                 }
                             }
-                            // Managed posts with color mode enabled carry color assets from XMSF;
-                            // leave them to the native renderer.
-                            if (options.colorStatusBarIcon && isMiPushManaged) return@runCatching
                             // Product rule (2026-10): icon pack hit -> substitute; miss -> keep
                             // the posted glyph under SystemUI's native rendering. The silhouette
                             // exists only for MiPush-managed posts (opaque launcher bitmaps would
@@ -594,11 +590,12 @@ class HookSystemUI : BaseHook() {
                                 val postedGlyph = notification.smallIcon ?: return@runCatching
                                 val keepsPostedGlyph =
                                     SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                                        colorStatusBarIcon = options.colorStatusBarIcon,
                                         thirdPartyIconPack = options.thirdPartyIconPack,
+                                        systemAppIconPack = options.systemAppIconPack,
                                         isMiPushManaged = isMiPushManaged,
                                         uid = sbn.uid,
                                         isSystemApp = isSystemApplication(systemUiContext, sbn.packageName),
+                                        postedPackageName = sbn.packageName,
                                     ) && isPositivelyGrayscaleSmallIcon(systemUiContext, postedGlyph)
                                 if (!keepsPostedGlyph) return@runCatching
                                 val restoredGlyph = StatusBarMonochromeIconPolicy.statusSafeGlyphOrNull(
@@ -639,7 +636,6 @@ class HookSystemUI : BaseHook() {
     private fun applyFrameworkAutogroupSummaryIcon(
         iconView: View,
         sbn: StatusBarNotification,
-        options: IslandOptions,
     ) {
         val notification = sbn.notification ?: return
         if (!SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(notification.flags)) {
@@ -651,21 +647,14 @@ class HookSystemUI : BaseHook() {
             sbn.packageName,
             notification.extras,
         )
-        val userId = notificationUserId(sbn) ?: return
         fun iconPackIcon(packageName: String): Icon? =
             StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
                 context = context,
                 packageName = packageName,
-                userId = userId,
             )
         // Autogroup summaries ship a broken generic glyph or a copied colorful launcher icon;
-        // replace with icon pack (category-gated), then a monochrome silhouette or the package's
-        // colorful icon depending on the mode, then the Android logo.
-        fun colorfulAppIcon(packageName: String): Icon? =
-            StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                context = context,
-                packageName = packageName,
-            )
+        // replace with icon pack (category-gated), then the package's monochrome silhouette,
+        // then the Android logo. Only reached under monochrome.
         fun silhouetteIcon(packageName: String): Icon? =
             StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
                 context = context,
@@ -676,21 +665,12 @@ class HookSystemUI : BaseHook() {
             icon = iconPackIcon(sbn.packageName)
         }
         if (icon == null) {
-            icon = if (options.colorStatusBarIcon) {
-                colorfulAppIcon(owner)
-                    ?: if (owner != sbn.packageName) {
-                        colorfulAppIcon(sbn.packageName)
-                    } else {
-                        null
-                    }
-            } else {
-                silhouetteIcon(owner)
-                    ?: if (owner != sbn.packageName) {
-                        silhouetteIcon(sbn.packageName)
-                    } else {
-                        null
-                    }
-            }
+            icon = silhouetteIcon(owner)
+                ?: if (owner != sbn.packageName) {
+                    silhouetteIcon(sbn.packageName)
+                } else {
+                    null
+                }
         }
         if (icon == null) {
             icon = StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
@@ -699,10 +679,7 @@ class HookSystemUI : BaseHook() {
         val drawable = runCatching { icon.loadDrawable(context) }.getOrNull() ?: return
         imageView.setImageDrawable(drawable)
         imageView.invalidate()
-        XLog.d(
-            TAG,
-            "setIcon applied autogroup summary icon owner=$owner color=${options.colorStatusBarIcon}",
-        )
+        XLog.d(TAG, "setIcon applied autogroup summary icon owner=$owner")
     }
 
     private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {
@@ -726,11 +703,11 @@ class HookSystemUI : BaseHook() {
         userId: Int,
     ): Boolean {
         if (owner.isBlank() || userId < 0) return false
-        if (StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, owner, userId) != null) {
+        if (StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, owner) != null) {
             return true
         }
         return owner != postedPackage &&
-            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, postedPackage, userId) != null
+            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, postedPackage) != null
     }
 
     /**
@@ -740,14 +717,8 @@ class HookSystemUI : BaseHook() {
      * reflectively. A null icon or any extraction failure yields a non-RESOURCE type marker so
      * the guard treats it as loadable and leaves the base intercept decision untouched.
      */
-    private fun readIconResourceFields(icon: Icon?): Triple<Int, Int, String?> {
-        if (icon == null) return Triple(-1, 0, null)
-        val type = runCatching { icon.type }.getOrDefault(-1)
-        if (type != SystemUiNotificationPolicy.ICON_TYPE_RESOURCE) return Triple(type, 0, null)
-        val resId = runCatching { icon.callMethod("getResId") as? Int }.getOrNull() ?: 0
-        val resPackage = runCatching { icon.callMethod("getResPackage") as? String }.getOrNull()
-        return Triple(type, resId, resPackage)
-    }
+    private fun readIconResourceFields(icon: Icon?): Triple<Int, Int, String?> =
+        PostedGlyphMonochromeProbe.resourceFields(icon)
 
     /**
      * Resolves the posted small icon's resource name against the package that owns it.
@@ -776,31 +747,9 @@ class HookSystemUI : BaseHook() {
 
     private fun Notification.canColorize(): Boolean = flags and FLAG_CAN_COLORIZE != 0
 
-    /**
-     * Retired: the module no longer authors status-bar tints.
-     *
-     * Forcing an SRC_IN gray over SystemUI's own tint produced flat, off-color glyphs that did
-     * not follow light/dark inversion. Status-bar icons now take exactly one of two paths:
-     * an icon-pack bitmap substituted into the descriptor, or the app's own glyph left to
-     * SystemUI's native rendering. Both keep the system's own tint.
-     */
-    private fun hookGlobalStatusBarIconTint() {
-        XLog.i(TAG, "module-authored status bar tint retired (icon-pack or native system tint only)")
-    }
-
     private fun notificationUserId(sbn: StatusBarNotification): Int? = runCatching {
         sbn.callMethod("getUserId") as? Int
     }.getOrNull()?.takeIf { it >= 0 }
-
-    /**
-     * Kept as a no-op: the decision is still logged so the icon-pack vs. native split stays
-     * observable, but the module no longer sets or clears any color filter. SystemUI owns the
-     * status-bar tint in every case.
-     */
-    private fun applyNotificationStatusBarIconTint(iconView: View, shouldTint: Boolean) {
-        if (iconView !is ImageView) return
-        XLog.d(TAG, "tint skipped (native) pkgView=${iconView.javaClass.simpleName} wouldTint=$shouldTint")
-    }
 
     /**
      * Records whether the status-bar descriptor for [entry]/[descriptor] carries a glyph this
@@ -834,11 +783,8 @@ class HookSystemUI : BaseHook() {
      * ContrastColorUtil reports false.
      */
     @SuppressLint("PrivateApi")
-    private fun isGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
-        if (icon == null) return true
-        // null/failure => keep original RESOURCE (safer than launcher white-block).
-        return detectGrayscaleSmallIcon(context, icon) ?: true
-    }
+    private fun isGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean =
+        PostedGlyphMonochromeProbe.isGrayscale(context, icon)
 
     /**
      * Strict variant for the tint decision: only a positive grayscale verdict proves the glyph
@@ -846,30 +792,8 @@ class HookSystemUI : BaseHook() {
      * system's native rendering instead of being force-tinted into a white block.
      */
     @SuppressLint("PrivateApi")
-    private fun isPositivelyGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
-        if (icon == null) return false
-        return detectGrayscaleSmallIcon(context, icon) ?: false
-    }
-
-    /** @return the grayscale verdict, or null when detection is impossible. */
-    @SuppressLint("PrivateApi")
-    private fun detectGrayscaleSmallIcon(context: Context, icon: Icon): Boolean? = runCatching {
-        val utilClass = Class.forName("com.android.internal.util.ContrastColorUtil")
-        val instance = utilClass.getMethod("getInstance", Context::class.java).invoke(null, context)
-        if (icon.type == Icon.TYPE_RESOURCE) {
-            // The (Context, Icon) overload resolves the bare resId against SystemUI's
-            // resources, losing the owning package and misreading app icons. Load through
-            // the Icon so the correct package drawable is inspected.
-            val drawable = icon.loadDrawable(context) ?: return@runCatching null
-            utilClass
-                .getMethod("isGrayscaleIcon", Drawable::class.java)
-                .invoke(instance, drawable) as? Boolean
-        } else {
-            utilClass
-                .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
-                .invoke(instance, context, icon) as? Boolean
-        }
-    }.getOrNull()
+    private fun isPositivelyGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean =
+        PostedGlyphMonochromeProbe.isPositivelyGrayscale(context, icon)
 
     private fun isSystemApplication(context: Context?, packageName: String?): Boolean {
         if (context == null || packageName.isNullOrBlank()) return false

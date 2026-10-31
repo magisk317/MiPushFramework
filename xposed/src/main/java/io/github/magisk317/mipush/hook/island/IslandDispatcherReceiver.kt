@@ -109,7 +109,9 @@ internal object IslandDispatcherReceiver {
     fun unregister() {
         val context = registeredContext ?: return
         registeredContext = null
-        runCatching { context.unregisterReceiver(receiver) }
+        runCatching { context.unregisterReceiver(receiver) }.onFailure {
+            XLog.w(TAG, "unregister: unregisterReceiver failed: ${it.message}", it)
+        }
     }
 
     internal const val REQUIRED_SENDER_PERMISSION = ISLAND_PREF_READ_PERMISSION

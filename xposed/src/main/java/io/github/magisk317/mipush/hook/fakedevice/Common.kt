@@ -48,12 +48,20 @@ open class Common : IFakeDevice {
                 .hookMethod("isMiui") {
                     replace { true }
                 }
+        }.onFailure {
+            XLog.w(TAG, "fake-device hook setup skipped: ${it.message}", it)
+        }.onFailure {
+            XLog.w(TAG, "fake-device hook setup skipped: ${it.message}", it)
+        }.onFailure {
+            XLog.w(TAG, "fake-device hook setup skipped: ${it.message}", it)
         }
         runCatching {
             lpparam.classLoader.findClass("com.alipay.pushsdk.thirdparty.xiaomi.XiaoMIPushWorker")
                 .hookMethod("isSupport") {
                     replace { true }
                 }
+        }.onFailure {
+            XLog.w(TAG, "fake-device hook setup skipped: ${it.message}", it)
         }
     }
 

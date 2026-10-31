@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import com.xiaomi.channel.commonutils.android.SharedPrefsCompat
 import com.xiaomi.channel.commonutils.android.SystemUtils
@@ -112,7 +112,7 @@ object AssemblePushHelper {
                     val applicationInfo = context.packageManager.getApplicationInfo(context.packageName, 128)
                     i = applicationInfo.metaData.getInt(Constants.HUAWEI_HMS_CLIENT_APPID)
                 } catch (e: Exception) {
-                    Logger.e(e) { "Failed to get HUAWEI_HMS_CLIENT_APPID" }
+                    XLog.e("Failed to get HUAWEI_HMS_CLIENT_APPID", e)
                 }
                 val brandName = AssemblePushUtils.getPhoneBrand(context).name
                 val token = getAssemblePushToken(context, assemblePush)
@@ -160,7 +160,7 @@ object AssemblePushHelper {
                 null
             }
         } catch (e: Exception) {
-            Logger.e(e) { "Failed to get MiPushReceiver" }
+            XLog.e("Failed to get MiPushReceiver", e)
             null
         }
     }
@@ -251,10 +251,10 @@ object AssemblePushHelper {
                 }
 
                 firstFieldError?.let { error ->
-                    Logger.e(error) { "Failed to parse MiPushMessage" }
+                    XLog.e("Failed to parse MiPushMessage", error)
                 }
             } catch (e: Exception) {
-                Logger.e(e) { "Failed to parse MiPushMessage" }
+                XLog.e("Failed to parse MiPushMessage", e)
             }
         }
         return miPushMessage
@@ -274,11 +274,11 @@ object AssemblePushHelper {
         synchronized(this) {
             val tokenKey = getTokenKey(assemblePush)
             if (tokenKey.isNullOrEmpty()) {
-                Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
+                XLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
                 return
             }
             SharedPrefsCompat.apply(context.getSharedPreferences("mipush_extra", 0).edit().putString(tokenKey, token))
-            Logger.w { "ASSEMBLE_PUSH : update sp file success! token=${DefaultLogSanitizer.redactArg(token)}" }
+            XLog.w("ASSEMBLE_PUSH : update sp file success! token=${DefaultLogSanitizer.redactArg(token)}")
         }
     }
 
@@ -295,10 +295,10 @@ object AssemblePushHelper {
                 }
             }
             if (strSubstring.isEmpty()) {
-                Logger.w { "ASSEMBLE_PUSH : receive incorrect token" }
+                XLog.w("ASSEMBLE_PUSH : receive incorrect token")
                 return@addOneShootJob
             }
-            Logger.w { "ASSEMBLE_PUSH : receive correct token" }
+            XLog.w("ASSEMBLE_PUSH : receive correct token")
             saveAssemblePushToken(context, assemblePush, strSubstring)
             checkAssemblePushStatus(context)
         }
@@ -308,9 +308,9 @@ object AssemblePushHelper {
         synchronized(this) {
             val tokenKey = getTokenKey(assemblePush)
             if (tokenKey.isNullOrEmpty()) {
-                Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
+                XLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
             } else if (token.isEmpty()) {
-                Logger.w { "ASSEMBLE_PUSH : token is null" }
+                XLog.w("ASSEMBLE_PUSH : token is null")
             } else {
                 mTokens[tokenKey] = token
             }
@@ -328,15 +328,15 @@ object AssemblePushHelper {
         val sharedPreferences = context.getSharedPreferences("mipush_extra", 0)
         val tokenKey = getTokenKey(assemblePush)
         if (tokenKey.isNullOrEmpty()) {
-            Logger.w { "ASSEMBLE_PUSH : can not find the key of token used in sp file" }
+            XLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
             return
         }
         val string = sharedPreferences.getString(tokenKey, "")
         if (!string.isNullOrEmpty() && token == string) {
-            Logger.w { "ASSEMBLE_PUSH : do not need to send token" }
+            XLog.w("ASSEMBLE_PUSH : do not need to send token")
             return
         }
-        Logger.w { "ASSEMBLE_PUSH : send token upload" }
+        XLog.w("ASSEMBLE_PUSH : send token upload")
         saveAssembleToken(assemblePush, token)
         val retryType = AssemblePushInfoHelper.getRetryType(assemblePush) ?: return
         PushServiceClient.getInstance(context).sendAssemblePushTokenCommon(null, retryType, assemblePush)

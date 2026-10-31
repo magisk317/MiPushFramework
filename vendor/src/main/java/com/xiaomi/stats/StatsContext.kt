@@ -3,7 +3,7 @@ package com.xiaomi.stats
 import android.net.TrafficStats
 import android.os.Process
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract
 import com.xiaomi.push.service.XMPushServiceCore
@@ -44,7 +44,7 @@ class StatsContext(
             mRxBytes = TrafficStats.getUidRxBytes(myUid)
             mTxBytes = TrafficStats.getUidTxBytes(myUid)
         } catch (e: Exception) {
-            Logger.w(e) { "Failed to obtain traffic data during initialization: $e" }
+            XLog.w("Failed to obtain traffic data during initialization: $e", e)
             mRxBytes = -1
             mTxBytes = -1
         }
@@ -66,7 +66,7 @@ class StatsContext(
 
     private fun statsChannelDuration() {
         synchronized(this) {
-            Logger.v { "stat connpt = $connectionPoint netDuration = $accumulatedNetworkDuration ChannelDuration = $accumulatedChannelDuration channelConnectedTime = $channelConnectedTime" }
+            XLog.v("stat connpt = $connectionPoint netDuration = $accumulatedNetworkDuration ChannelDuration = $accumulatedChannelDuration channelConnectedTime = $channelConnectedTime")
             val statsEvent = StatsEvent().apply {
                 chid = 0
                 setType(ChannelStatsType.CHANNEL_ONLINE_RATE.value)
@@ -102,11 +102,11 @@ class StatsContext(
             uidRxBytes = TrafficStats.getUidRxBytes(myUid)
             uidTxBytes = TrafficStats.getUidTxBytes(myUid)
         } catch (e: Exception) {
-            Logger.w(e) { "Failed to obtain traffic data: $e" }
+            XLog.w("Failed to obtain traffic data: $e", e)
             uidRxBytes = -1
             uidTxBytes = -1
         }
-        Logger.v { "Stats rx=${uidRxBytes - mRxBytes}, tx=${uidTxBytes - mTxBytes}" }
+        XLog.v("Stats rx=${uidRxBytes - mRxBytes}, tx=${uidTxBytes - mTxBytes}")
         mRxBytes = uidRxBytes
         mTxBytes = uidTxBytes
     }

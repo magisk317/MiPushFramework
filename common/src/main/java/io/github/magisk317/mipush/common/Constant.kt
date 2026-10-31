@@ -21,25 +21,13 @@ const val KEEPALIVE_PREF_OOM_ADJ = "pref_keepalive_oom_adj"
 const val KEEPALIVE_PREF_ANTI_KILL = "pref_keepalive_anti_kill"
 const val KEEPALIVE_PREF_STANDBY_BYPASS = "pref_keepalive_standby_bypass"
 
-// Frozen-app push: unfreeze on notification click, then refreeze by policy.
+// Frozen-app push: unfreeze the target when its notification is tapped. Re-freezing is left to
+// the platform and to whichever keep-alive module the user pairs with this one.
 const val FREEZE_PREF_ENABLED = "pref_freeze_enabled"
-const val FREEZE_PREF_REFREEZE_POLICY = "pref_freeze_refreeze_policy"
-const val FREEZE_PREF_REFREEZE_DELAY_MINUTES = "pref_freeze_refreeze_delay_minutes"
-const val FREEZE_REFREEZE_POLICY_NEVER = 0
-const val FREEZE_REFREEZE_POLICY_SCREEN_OFF = 1
-const val FREEZE_REFREEZE_POLICY_TIMED = 2
-const val FREEZE_REFREEZE_POLICY_TASK_REMOVED = 3
-
-const val ACTION_FREEZE_LAUNCH_ACTIVATED = "io.github.magisk317.mipush.action.FREEZE_LAUNCH_ACTIVATED"
-const val EXTRA_FREEZE_PACKAGE = "freeze_package"
-const val EXTRA_FREEZE_USER_ID = "freeze_user_id"
 
 const val ICON_PACK_PREF_AUTHORITY = "com.xiaomi.xmsf.iconpack"
 const val ICON_PACK_PREF_READ_PERMISSION = "com.xiaomi.xmsf.permission.READ_ICON_PACK"
-const val ICON_PACK_PREF_PATH_ICON = "icon"
-const val ICON_PACK_PREF_COLUMN_PACKAGE = "package"
-const val ICON_PACK_PREF_COLUMN_USER = "user"
-const val ICON_PACK_PREF_COLUMN_BITMAP = "bitmap"
+const val ICON_PACK_PREF_PATH_SNAPSHOT = "snapshot"
 
 const val ACTION_PREF_CHANGED = "io.github.magisk317.mipush.action.PREF_CHANGED"
 
@@ -48,6 +36,13 @@ const val ENABLE_ANALYTICS_KEY = "pref_enable_analytics"
 const val AUTO_UPDATE_ON_START_KEY = "pref_auto_update_on_start"
 
 const val AUTO_UPDATE_WIFI_ONLY_KEY = "pref_auto_update_wifi_only"
+
+/**
+ * DataStore key for the update-channel override: whether update checks also
+ * probe the beta-branch CI artifact track. Unset means "follow the build's own
+ * provenance" (CI/debug builds track CI, release builds track releases).
+ */
+const val TRACK_CI_BUILDS_KEY = "pref_track_ci_builds"
 
 /** DataStore key holding the version code whose onboarding report was dismissed. */
 const val KEY_WIZARD_SEEN_VERSION = "wizard_seen_version_code"

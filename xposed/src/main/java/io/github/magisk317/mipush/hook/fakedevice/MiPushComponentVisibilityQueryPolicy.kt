@@ -23,11 +23,20 @@ internal object MiPushComponentVisibilityQueryPolicy {
         PUSH_PROFILE_AUTHORITY,
     )
 
+    /**
+     * Receiver queries that name an explicit component are capability probes about that exact
+     * receiver: Douyin classifies its message route by probing its own PushServiceReceiver, and
+     * answering with a synthesized receiver of a different class flips the probe non-empty and
+     * reroutes the caller onto a delivery path that does not exist. Only implicit queries may
+     * be answered with faked receivers.
+     */
     fun isMiPushReceiverQuery(
         action: String?,
         targetPackage: String?,
         ownPackage: String,
-    ): Boolean = action in receiverActions &&
+        componentClass: String? = null,
+    ): Boolean = componentClass == null &&
+        action in receiverActions &&
         (targetPackage == null || targetPackage == ownPackage)
 
     fun isMiPushServiceQuery(

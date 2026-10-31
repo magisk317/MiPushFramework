@@ -13,7 +13,7 @@ import android.widget.Toast
 import androidx.core.content.edit
 import androidx.annotation.ColorInt
 import androidx.annotation.StringRes
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import java.io.File
@@ -99,6 +99,31 @@ object Utils {
     @JvmStatic
     fun isAppInstalled(applicationInfo: ApplicationInfo): Boolean {
         return (applicationInfo.flags and ApplicationInfo.FLAG_INSTALLED) != 0
+    }
+
+    @JvmStatic
+    fun isAppDisabledOrSuspended(packageName: String): Boolean {
+        val app = context ?: return false
+        return isAppDisabledOrSuspended(app, packageName)
+    }
+
+    /**
+     * True when the package is disabled (any disabled state resolves to enabled == false) or
+     * suspended. Unknown packages and PackageManager failures return false so callers keep the
+     * stock delivery behavior; uninstalled packages are owned by the stale-package guards.
+     */
+    @JvmStatic
+    fun isAppDisabledOrSuspended(context: Context, packageName: String): Boolean {
+        if (packageName.isBlank()) return false
+        val applicationInfo = getPackageInfoCompat(context, packageName, 0)?.applicationInfo ?: return false
+        if (!applicationInfo.enabled) return true
+        return try {
+            context.packageManager.isPackageSuspended(packageName)
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        } catch (_: RuntimeException) {
+            false
+        }
     }
 
     @JvmStatic
@@ -228,7 +253,7 @@ object Utils {
         // Fallback: read regSec from the target app's own mipush SharedPreferences
         if (secrets.isEmpty() && normalizedUserId == myUserId().takeIf { it >= 0 }) {
             try {
-                Logger.withTag("Utils").d { "getRegSecs: trying fallback createPackageContext pkg=$packageName" }
+                XLog.tagged("Utils").d { "getRegSecs: trying fallback createPackageContext pkg=$packageName" }
                 val pkgContext = app.createPackageContext(packageName, 0)
                 val preferencePath = File(
                     pkgContext.applicationInfo.dataDir,
@@ -246,30 +271,32 @@ object Utils {
                     // persist the recovered secret into the service-side store so decryption
                     // and the startup registration restore stop depending on it, then let the
                     // product layer reconcile the registration record.
-                    runCatching { setRegSec(app, packageName, regSec, normalizedUserId) }
+                    runCatching { setRegSec(app, packageName, regSec, normalizedUserId) }.onFailure {
+                        XLog.tagged("Utils").w { "getRegSecs: setRegSec heal failed pkg=$packageName error=${it.message}" }
+                    }
                     runCatching { regSecRecoveryListener?.onRegSecRecovered(packageName, normalizedUserId) }
                         .onFailure {
-                            Logger.withTag("Utils").w {
+                            XLog.tagged("Utils").w {
                                 "getRegSecs: regSec recovery heal failed pkg=$packageName error=${it.message}"
                             }
                         }
-                    Logger.withTag("Utils").d {
+                    XLog.tagged("Utils").d {
                         "getRegSecs: found regSec via fallback pkg=$packageName (persisted + heal scheduled)"
                     }
                 } else {
-                    Logger.withTag("Utils").d { "getRegSecs: fallback found no regSec pkg=$packageName" }
+                    XLog.tagged("Utils").d { "getRegSecs: fallback found no regSec pkg=$packageName" }
                 }
             } catch (_: PackageManager.NameNotFoundException) {
                 targetPackageMissing = true
                 if (missingRegSecPackageWarnings.add(packageName)) {
-                    Logger.withTag("Utils").w { "getRegSecs: target package not installed pkg=$packageName" }
+                    XLog.tagged("Utils").w { "getRegSecs: target package not installed pkg=$packageName" }
                 }
             } catch (e: Exception) {
-                Logger.withTag("Utils").e(e) { "getRegSecs: fallback failed pkg=$packageName" }
+                XLog.tagged("Utils").e(e) { "getRegSecs: fallback failed pkg=$packageName" }
             }
         }
         if (secrets.isEmpty() && !targetPackageMissing) {
-            Logger.withTag("Utils").d { "getRegSecs: no regSec found for pkg=$packageName" }
+            XLog.tagged("Utils").d { "getRegSecs: no regSec found for pkg=$packageName" }
         }
         return secrets.toList()
     }

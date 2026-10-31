@@ -32,7 +32,7 @@ abstract class XMPushServiceJob(type: Int) : JobScheduler.Job(type) {
 
     override fun run() {
         if (type != TYPE_SEND_MSG && type != TYPE_RECEIVE_MSG) {
-            MyLog.w(LogTag.TAG_JOB, getDesc())
+            MyLog.i(LogTag.TAG_JOB, getDesc())
         }
         process()
     }

@@ -8,6 +8,7 @@ import android.content.Context
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.channel.commonutils.logger.WarnOnce
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import java.util.WeakHashMap
 
@@ -156,7 +157,9 @@ class NotificationManagerHelper private constructor(
             }
             NotificationManagerPlatformSupport.filterMipushChannels(targetPackage, format, channels)
         } catch (e: Exception) {
-            outLog("getNotificationChannels error$e")
+            if (WarnOnce.shouldWarn("getNotificationChannels|${e.javaClass.name}")) {
+                outLog("getNotificationChannels error$e")
+            }
             null
         }
     }

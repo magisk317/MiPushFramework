@@ -49,6 +49,8 @@ object LegacyHuaweiSignatureCompat {
                         if (signer != null) {
                             setHookObjectField(signer, "mSignature", fakeSignatureBytes)
                         }
+                    }.onFailure {
+                        XLog.w(TAG, "legacy-huawei: apkContentsSigners patch failed: ${it.message}")
                     }
                 }
             }
@@ -67,11 +69,11 @@ object LegacyHuaweiSignatureCompat {
             verifyApkHashHooked = true
             verifyApkHashUnhook?.unhook()
         } catch (e: HookClassNotFoundError) {
-            XLog.d(TAG, "tryHookVerifyApkHash: ClassNotFoundError")
+            XLog.d(TAG, "tryHookVerifyApkHash: ClassNotFoundError", e)
         } catch (e: NoSuchMethodError) {
-            XLog.d(TAG, "tryHookVerifyApkHash: NoSuchMethodError")
+            XLog.d(TAG, "tryHookVerifyApkHash: NoSuchMethodError", e)
         } catch (e: Throwable) {
-            //ignore
+            XLog.d(TAG, "tryHookVerifyApkHash: unexpected failure", e)
         }
     }
 }

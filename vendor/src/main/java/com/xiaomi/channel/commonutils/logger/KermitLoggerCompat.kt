@@ -1,14 +1,14 @@
 package com.xiaomi.channel.commonutils.logger
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 
 /** Kermit-backed compatibility facade for the legacy vendor logger call shape. */
 object KermitLoggerCompat {
-    fun v(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { Logger.withTag(it).v(throwable) { message } }
-    fun d(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { Logger.withTag(it).d(throwable) { message } }
-    fun i(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { Logger.withTag(it).i(throwable) { message } }
-    fun w(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { Logger.withTag(it).w(throwable) { message } }
-    fun e(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { Logger.withTag(it).e(throwable) { message } }
+    fun v(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { XLog.tagged(it).v(throwable) { message } }
+    fun d(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { XLog.tagged(it).d(throwable) { message } }
+    fun i(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { XLog.tagged(it).i(throwable) { message } }
+    fun w(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { XLog.tagged(it).w(throwable) { message } }
+    fun e(message: String, throwable: Throwable? = null, tag: String? = null) = log(tag, throwable) { XLog.tagged(it).e(throwable) { message } }
 
     private inline fun log(
         tag: String?,

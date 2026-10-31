@@ -227,7 +227,7 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
 
     fun updateAlarmTimer() {
         val shouldReconnect = shouldReconnect()
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "update_alarm_timer shouldReconnect=$shouldReconnect alarmAlive=${Alarm.isAlive()} " +
                 "connected=$isConnected connecting=$isConnecting"
         )
@@ -426,7 +426,9 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     override fun onPong() {
         // Stock connection path eventually hits v.l() / u.d after healthy traffic. Keep only the
         // local consecutive-timeout reset; telemetry upload stays inert.
-        runCatching { HeartbeatStrategyManager.getInstance(this).onPingSuccessOrReport() }
+        runCatching { HeartbeatStrategyManager.getInstance(this).onPingSuccessOrReport() }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
         XMPushServicePingSupport.onPong(pingCallBacks)
     }
 

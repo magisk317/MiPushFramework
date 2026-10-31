@@ -6,7 +6,7 @@ data class PushHealthSnapshot(
     val processName: String,
     val pushEnabled: Boolean,
     val regIdPresent: Boolean,
-    val debugMode: Boolean,
+    val verboseLogging: Boolean,
     val lifecycleReady: Boolean,
     val lifecyclePendingCount: Int,
     val runtimeExecutionReady: Boolean,
@@ -35,7 +35,7 @@ object PushHealthSnapshotFormatter {
             " process=${snapshot.processName}" +
             " pushEnabled=${snapshot.pushEnabled}" +
             " regIdPresent=${snapshot.regIdPresent}" +
-            " debugMode=${snapshot.debugMode}" +
+            " verboseLogging=${snapshot.verboseLogging}" +
             " lifecycleReady=${snapshot.lifecycleReady}" +
             " lifecyclePending=${snapshot.lifecyclePendingCount}" +
             " runtimeExecutionReady=${snapshot.runtimeExecutionReady}" +

@@ -57,7 +57,7 @@ object MIUIUtils {
             }
         }
         if (!TextUtils.isEmpty(country)) {
-            MyLog.w("get region from system, region = $country")
+            MyLog.i("get region from system, region = $country")
         }
         if (TextUtils.isEmpty(country)) {
             country = Locale.getDefault().country

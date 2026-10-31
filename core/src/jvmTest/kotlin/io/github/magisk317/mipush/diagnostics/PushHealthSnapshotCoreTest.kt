@@ -27,7 +27,7 @@ class PushHealthSnapshotCoreTest {
         processName = "proc",
         pushEnabled = true,
         regIdPresent = false,
-        debugMode = true,
+        verboseLogging = true,
         lifecycleReady = false,
         lifecyclePendingCount = 3,
         runtimeExecutionReady = true,

@@ -46,7 +46,7 @@ object MIPushHelper {
                 setPayload(payload, account.security)
                 setPayloadType(1)
             }.also {
-                MyLog.w("try send mi push message. packagename:${container.packageName} action:${container.action}")
+                MyLog.i("try send mi push message. packagename:${container.packageName} action:${container.action}")
             }
         } catch (e: NullPointerException) {
             MyLog.e(e)

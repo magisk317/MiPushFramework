@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 
 class StatusBarMonochromeIconPolicyTest {
     private val capturedTasks = mutableListOf<Runnable>()
+    private val capturedSilhouetteTasks = mutableListOf<Runnable>()
     private val resolver = mockk<ContentResolver>(relaxed = true)
     private val context = mockk<Context>(relaxed = true)
 
@@ -27,6 +28,9 @@ class StatusBarMonochromeIconPolicyTest {
         // Capture prefetch tasks instead of running them so tests can assert that the calling
         // thread never touches the content resolver.
         StatusBarMonochromeIconPolicy.setIconPackPrefetchExecutorForTest { capturedTasks.add(it) }
+        StatusBarMonochromeIconPolicy.setSilhouettePrefetchExecutorForTest {
+            capturedSilhouetteTasks.add(it)
+        }
         every { context.applicationContext } returns context
         every { context.contentResolver } returns resolver
     }
@@ -34,6 +38,7 @@ class StatusBarMonochromeIconPolicyTest {
     @AfterEach
     fun tearDown() {
         StatusBarMonochromeIconPolicy.setIconPackPrefetchExecutorForTest(null)
+        StatusBarMonochromeIconPolicy.setSilhouettePrefetchExecutorForTest(null)
         StatusBarMonochromeIconPolicy.clearCacheForTest()
     }
 
@@ -54,13 +59,13 @@ class StatusBarMonochromeIconPolicyTest {
         )
         // The relaxed PackageManager hands back a non-adaptive drawable, so the worker stores a
         // negative entry exactly like the icon-pack path does for a provider failure.
-        capturedTasks.forEach { it.run() }
-        assertEquals(1, capturedTasks.size)
+        capturedSilhouetteTasks.forEach { it.run() }
+        assertEquals(1, capturedSilhouetteTasks.size)
         assertNull(
             StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
         )
         // A fresh negative entry suppresses immediate retries.
-        assertEquals(1, capturedTasks.size)
+        assertEquals(1, capturedSilhouetteTasks.size)
         verify { resolver wasNot Called }
     }
 
@@ -91,54 +96,51 @@ class StatusBarMonochromeIconPolicyTest {
             cached,
             StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "com.example.app"),
         )
-        assertEquals(1, capturedTasks.size)
+        assertEquals(1, capturedSilhouetteTasks.size)
     }
 
     @Test
     fun `blank package never schedules silhouette generation`() {
         assertNull(StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, "  "))
-        assertEquals(0, capturedTasks.size)
+        assertEquals(0, capturedSilhouetteTasks.size)
     }
 
     @Test
     fun `icon pack lookup never queries the provider on the calling thread`() {
-        val icon = StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0)
-        assertNull(icon)
+        assertNull(StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app"))
         assertEquals(1, capturedTasks.size)
         verify { resolver wasNot Called }
     }
 
     @Test
-    fun `icon pack cache hit returns the cached icon without scheduling work`() {
-        val key = StatusBarMonochromeIconPolicy.iconPackCacheKey(0, "com.example.app")
-        val cached = mockk<Icon>()
-        StatusBarMonochromeIconPolicy.putIconPackEntryForTest(
-            key,
-            cached,
-            System.currentTimeMillis(),
-        )
-        val icon = StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0)
-        assertEquals(cached, icon)
+    fun `a confirmed miss in the index schedules no work`() {
+        StatusBarMonochromeIconPolicy.putSnapshotIndexForTest(mapOf("com.other.app" to byteArrayOf(1, 2, 3)))
+        assertNull(StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app"))
         assertEquals(0, capturedTasks.size)
         verify { resolver wasNot Called }
     }
 
     @Test
-    fun `failed prefetch is negatively cached and suppresses immediate retries`() {
-        val key = StatusBarMonochromeIconPolicy.iconPackCacheKey(0, "com.example.app")
-        // Drain the captured task on the test thread. Uri building on the mockable android.jar
-        // throws "not mocked", which the worker treats as a provider failure.
-        capturedTasks.forEach { it.run() }
-
-        val icon = StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0)
-        assertNull(icon)
-        // The first lookup scheduled one task; running it stored a fresh negative entry, so the
-        // second lookup must not schedule another within the negative TTL.
-        assertEquals(1, capturedTasks.size)
-        StatusBarMonochromeIconPolicy.putIconPackEntryForTest(key, null, System.currentTimeMillis())
-        assertNull(
-            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app", 0),
+    fun `a stale index refreshes in the background instead of blocking the row`() {
+        StatusBarMonochromeIconPolicy.putSnapshotIndexForTest(
+            mapOf("com.example.app" to byteArrayOf(1, 2, 3)),
+            fetchedAtMs = System.currentTimeMillis() - 11 * 60 * 1000,
         )
+        // The mockable android.jar cannot decode a bitmap, so the row keeps its native glyph while
+        // the worker re-reads the index: what matters here is that the refresh is scheduled off-thread.
+        assertNull(StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app"))
+        assertEquals(1, capturedTasks.size)
+        verify { resolver wasNot Called }
+    }
+
+    @Test
+    fun `a failed snapshot load backs off instead of re-reading on every bound row`() {
+        assertNull(StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app"))
+        assertEquals(1, capturedTasks.size)
+        // Uri building on the mockable android.jar throws "not mocked", which the worker treats as a
+        // provider failure. The next lookup must not pile another read onto the same failure.
+        capturedTasks.forEach { it.run() }
+        assertNull(StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, "com.example.app"))
         assertEquals(1, capturedTasks.size)
     }
 

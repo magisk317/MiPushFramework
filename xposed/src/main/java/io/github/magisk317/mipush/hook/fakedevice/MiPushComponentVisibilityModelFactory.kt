@@ -30,7 +30,10 @@ internal object MiPushComponentVisibilityModelFactory {
             versionName = "7.5.29-C"
             @Suppress("DEPRECATION")
             versionCode = XMSF_VERSION_CODE
-            runCatching { setLongVersionCode(XMSF_VERSION_CODE.toLong()) }
+            runCatching { setLongVersionCode(XMSF_VERSION_CODE.toLong()) }.onFailure {
+                // setLongVersionCode is API 28+; the compat PackageInfo keeps the int field above,
+                // so an older platform simply keeps working
+            }
             applicationInfo = fakeApplicationInfo(XMSF_PACKAGE, system = true)
             activities = arrayOf(activityInfo(XMSF_PACKAGE, XMSF_MAIN_ACTIVITY, exported = true))
             services = arrayOf(

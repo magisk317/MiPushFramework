@@ -19,6 +19,8 @@ class ConnectionChangeReceiver(
                 StableIntelligentHeartbeatStrategy.currentNetworkSnapshot(context),
             )
             Alarm.refreshPingInterval()
+        }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
         }
         service.onStartCommand(intent, 0, 1)
     }

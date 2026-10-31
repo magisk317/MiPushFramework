@@ -69,9 +69,12 @@ object BoundedProcessRunner {
             if (!started.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
                 started.destroyForcibly()
                 started.waitFor(TERMINATION_GRACE_MILLIS, TimeUnit.MILLISECONDS)
-                runCatching { started.inputStream.close() }
-                runCatching { started.errorStream.close() }
-                runCatching { started.outputStream.close() }
+                // Streams of a process that is already being destroyed: nothing left to read, no remedy here.
+                runCatching { started.inputStream.close() }.onFailure { }
+                // Streams of a process that is already being destroyed: nothing left to read, no remedy here.
+                runCatching { started.errorStream.close() }.onFailure { }
+                // Streams of a process that is already being destroyed: nothing left to read, no remedy here.
+                runCatching { started.outputStream.close() }.onFailure { }
                 stdout.cancel(true)
                 stderr?.cancel(true)
                 BoundedProcessResult(exitCode = -1, stderr = "timeout", timedOut = true)

@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.common.utils.rom.miui
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 internal object MiuiSdkManagerHelper {
     @JvmStatic
     @Throws(ClassNotFoundException::class)
@@ -10,10 +10,10 @@ internal object MiuiSdkManagerHelper {
         } catch (e: ClassNotFoundException) {
             try {
                 Class.forName("com.miui.internal.core.SdkManager").also {
-                    Logger.withTag("miuisdk").w { "using legacy sdk" }
+                    XLog.tagged("miuisdk").w { "using legacy sdk" }
                 }
             } catch (e2: ClassNotFoundException) {
-                Logger.withTag("miuisdk").e { "no sdk found" }
+                XLog.tagged("miuisdk").e { "no sdk found" }
                 throw e2
             }
         }

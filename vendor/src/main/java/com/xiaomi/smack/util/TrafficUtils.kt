@@ -3,7 +3,7 @@ package com.xiaomi.smack.util
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteException
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.misc.SerializedAsyncTaskProcessor
 import com.xiaomi.channel.commonutils.network.Network
@@ -100,11 +100,11 @@ object TrafficUtils {
             imsi = ""
         }
         synchronized(TrafficDatabaseHelper.DataBaseLock) {
-            runCatching { dbHelper?.close() }.onFailure { Logger.e(it) { "Failed to close dbHelper" } }
+            runCatching { dbHelper?.close() }.onFailure { XLog.e("Failed to close dbHelper", it) }
             dbHelper = null
             if (context != null) {
                 runCatching { context.deleteDatabase(TrafficDatabaseHelper.DATABASE_NAME) }
-                    .onFailure { Logger.e(it) { "Failed to delete database" } }
+                    .onFailure { XLog.e("Failed to delete database", it) }
             }
         }
     }
@@ -183,7 +183,7 @@ object TrafficUtils {
                 }
             }
         } catch (e: SQLiteException) {
-            Logger.e(e) { "Failed to insert traffic" }
+            XLog.e("Failed to insert traffic", e)
         }
     }
 

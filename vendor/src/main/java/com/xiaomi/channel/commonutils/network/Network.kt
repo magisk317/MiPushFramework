@@ -5,7 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.telephony.TelephonyManager
 import android.text.TextUtils
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.TelephonyUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.string.MD5
@@ -159,10 +159,10 @@ object Network {
                 outputStream.write(buffer, 0, read)
             }
         } catch (e: IOException) {
-            Logger.withTag(LogTag).e { "error while download file:" + e.javaClass.simpleName }
+            XLog.tagged(LogTag).e { "error while download file:" + e.javaClass.simpleName }
             return false
         } catch (throwable: Throwable) {
-            Logger.withTag(LogTag).e { "error while download file$throwable" }
+            XLog.tagged(LogTag).e { "error while download file$throwable" }
             return false
         }
     }
@@ -194,12 +194,12 @@ object Network {
             IOUtils.closeQuietly(outputStream)
             return !interruptedByNetwork
         } catch (e: IOException) {
-            Logger.withTag(LogTag).e { "error while download file:" + e.javaClass.simpleName }
+            XLog.tagged(LogTag).e { "error while download file:" + e.javaClass.simpleName }
             IOUtils.closeQuietly(inputStream)
             IOUtils.closeQuietly(outputStream)
             return false
         } catch (throwable: Throwable) {
-            Logger.withTag(LogTag).e { "error while download file$throwable" }
+            XLog.tagged(LogTag).e { "error while download file$throwable" }
             IOUtils.closeQuietly(inputStream)
             IOUtils.closeQuietly(outputStream)
             return false
@@ -389,8 +389,8 @@ object Network {
                 stringBuffer.append(URLEncoder.encode(value, "UTF-8"))
                 stringBuffer.append("&")
             } catch (e: UnsupportedEncodingException) {
-                Logger.withTag(LogTag).d { "Failed to convert from params map to string: $e" }
-                Logger.withTag(LogTag).d { "map: $params" }
+                XLog.tagged(LogTag).d { "Failed to convert from params map to string: $e" }
+                XLog.tagged(LogTag).d { "map: $params" }
                 return null
             }
         }
@@ -525,16 +525,16 @@ object Network {
                 index++
             }
         } catch (e: MalformedURLException) {
-            Logger.withTag(LogTag).e(e) { "Failed to transform URL" }
+            XLog.tagged(LogTag).e(e) { "Failed to transform URL" }
             return null
         } catch (e: IOException) {
-            Logger.withTag(LogTag).e(e) { "Failed to get mime type" }
+            XLog.tagged(LogTag).e(e) { "Failed to get mime type" }
             return null
         } catch (e: URISyntaxException) {
-            Logger.withTag(LogTag).e(e) { "Failed to parse URI" }
+            XLog.tagged(LogTag).e(e) { "Failed to parse URI" }
             return null
         } catch (throwable: Throwable) {
-            Logger.withTag(LogTag).e(throwable) { "Failed to get HttpHeaderInfo" }
+            XLog.tagged(LogTag).e(throwable) { "Failed to get HttpHeaderInfo" }
             return null
         }
     }
@@ -644,7 +644,7 @@ object Network {
                 outputStream.flush()
             }
             httpResponse.responseCode = httpUrlConnection.responseCode
-            Logger.withTag(LogTag).d { "Http POST Response Code: " + httpResponse.responseCode }
+            XLog.tagged(LogTag).d { "Http POST Response Code: " + httpResponse.responseCode }
             var index = 0
             while (true) {
                 val headerFieldKey = httpUrlConnection.getHeaderFieldKey(index)
@@ -903,7 +903,7 @@ object Network {
                     }
                 }
             }
-            Logger.withTag(LogTag).d { "XML charset detected is: $encoding" }
+            XLog.tagged(LogTag).d { "XML charset detected is: $encoding" }
             return encoding
         } finally {
             IOUtils.closeQuietly(inputStream)

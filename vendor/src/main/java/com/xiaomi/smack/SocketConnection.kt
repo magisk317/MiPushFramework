@@ -1,7 +1,7 @@
 package com.xiaomi.smack
 
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.network.Fallback
 import com.xiaomi.network.Host
@@ -40,7 +40,7 @@ abstract class SocketConnection(
     override fun connect() {
         synchronized(this) {
             if (isConnected || isConnecting) {
-                Logger.w { "WARNING: current xmpp has connected" }
+                XLog.w("WARNING: current xmpp has connected")
                 return
             }
             setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_CONNECTING, 0, null)
@@ -84,10 +84,10 @@ abstract class SocketConnection(
             connTimes += 1
             val networkBeforeConnect = Network.getActiveNetworkSnapshot(mContext)
             try {
-                Logger.w {
+                XLog.w(
                     "begin to connect connectionInstanceId=$connectionInstanceId " +
                         "nextSocketGeneration=${socketGeneration + 1} host=$candidateHost network=$networkBeforeConnect"
-                }
+                )
                 socket = createSocket().also { createdSocket ->
                     createdSocket.connect(Host.from(candidateHost, config.port), CONNECTION_TIMEOUT_MS)
                     createdSocket.tcpNoDelay = true
@@ -98,24 +98,24 @@ abstract class SocketConnection(
                 runCatching {
                     MdKaController.get(mContext).onSocketConnected(socket)
                 }
-                Logger.w {
+                XLog.w(
                     "tcp connected connectionInstanceId=$connectionInstanceId " +
                         "socketGeneration=$socketGeneration host=$candidateHost " +
                         "network=${Network.getActiveNetworkSnapshot(mContext)}"
-                }
+                )
                 connectedHost = candidateHost
                 initConnection()
                 connectTime = System.currentTimeMillis() - startedAt
                 fallback?.succeedHost(candidateHost, connectTime, 0L)
                 lastConnectedTime = SystemClock.elapsedRealtime()
                 persistHostState()
-                Logger.w { "connected to $candidateHost in $connectTime" }
+                XLog.i("connected to $candidateHost in $connectTime")
                 return
             } catch (error: Exception) {
                 failedException = error
                 runCatching { MdKaController.get(mContext).onSocketClosed(reason = -1, error = error) }
                 closeSocketQuietly()
-                Logger.e(error) { "SMACK: Could not connect to:$candidateHost" }
+                XLog.e("SMACK: Could not connect to:$candidateHost", error)
                 failures
                     .append("SMACK: Could not connect to ")
                     .append(candidateHost)
@@ -197,10 +197,10 @@ abstract class SocketConnection(
                     // stable strategy can learn a short interval after enough failures.
                     runCatching { HeartbeatStrategyManager.getInstance(mContext).onPingTimeout() }
                     runCatching { mPushAction.runtimeObserver.onPingTimeout(System.currentTimeMillis()) }
-                    Logger.w {
+                    XLog.w(
                         "ping timeout connectionInstanceId=$connectionInstanceId " +
                             "socketGeneration=$socketGeneration network=${Network.getActiveNetworkSnapshot(mContext)}"
-                    }
+                    )
                     mPushAction.disconnect(PING_TIMEOUT_REASON, null)
                 }
             },
@@ -241,7 +241,7 @@ abstract class SocketConnection(
                 }
             }
         }.getOrElse {
-            Logger.w { "get fallback for $host failed: ${it.message}" }
+            XLog.w("get fallback for $host failed: ${it.message}")
             null
         }
     }
@@ -259,13 +259,13 @@ abstract class SocketConnection(
         if (!plan.shouldSinkDown) return
         val failedHost = host ?: return
 
-        Logger.w { "max short conn time reached, sink down current host:$failedHost" }
+        XLog.w("max short conn time reached, sink down current host:$failedHost")
         runCatching {
             HostManager.getInstance()
                 .getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), false)
                 ?.failedHost(failedHost, 0L, 0L, error)
             HostManager.getInstance().persist()
-        }.onFailure { Logger.w { "sink down host failed: ${it.message}" } }
+        }.onFailure { XLog.w("sink down host failed: ${it.message}") }
         currentShortConnectionCount = 0
     }
 

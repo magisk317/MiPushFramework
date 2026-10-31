@@ -1,6 +1,6 @@
 package com.xiaomi.slim
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.string.CloudCoder
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.PushClientsManager
@@ -22,7 +22,7 @@ internal object Binder {
         connection: Connection,
     ) {
         if (challenge.isNullOrEmpty()) {
-             Logger.w { "[Slim] Challenge is empty, skip bind sig" }
+             XLog.w("[Slim] Challenge is empty, skip bind sig")
              return
         }
         var strGenerateSignature: String? = null
@@ -46,7 +46,7 @@ internal object Binder {
             mPackageName = clientLoginInfo.pkgName
             setCmd(Blob.CMD_BIND, null)
             packetID = Blob.nextID()
-            Logger.w { "[Slim]: bind id=$packetID" }
+            XLog.w("[Slim]: bind id=$packetID")
         }
 
         val map: MutableMap<String, String> = mutableMapOf(

@@ -19,6 +19,10 @@ import io.github.magisk317.xposed.hookMethod
 import io.github.magisk317.xposed.logging.MagiskOtel
 import java.util.Collections
 
+/** Credential field truncation budgets for the forced-register diagnostic line. */
+private const val APP_ID_LOG_LIMIT = 12
+private const val REG_ID_LOG_LIMIT = 24
+
 object ForceMiPushRegister {
     private const val TAG = "ForceMiPushRegister"
     private const val RETRY_DELAY_MS = 3000L
@@ -201,7 +205,7 @@ object ForceMiPushRegister {
             val regId = readRegId(classMiPushClient, appContext)
             XLog.i(
                 TAG,
-                "forced registerPush for $packageName in process=$processName, appId=${credential.appId.take(12)}..., regId=${regId.take(24)}"
+                "forced registerPush for $packageName in process=$processName, appId=${credential.appId.take(APP_ID_LOG_LIMIT)}..., regId=${regId.take(REG_ID_LOG_LIMIT)}"
             )
             if (regId.isNotBlank()) {
                 markRegistered(processKey)
@@ -360,6 +364,8 @@ object ForceMiPushRegister {
                             }
                         }
                     }
+                }.onFailure {
+                    XLog.w(TAG, "hook install failed for $className.$methodName: ${it.message}")
                 }
             }
         }
@@ -407,6 +413,8 @@ object ForceMiPushRegister {
                             }
                         }
                     }
+                }.onFailure {
+                    XLog.w(TAG, "hook install failed for $className.$methodName: ${it.message}")
                 }
             }
         }
@@ -480,6 +488,8 @@ object ForceMiPushRegister {
                             }
                         }
                     }
+                }.onFailure {
+                    XLog.w(TAG, "hook install failed for $className.$methodName: ${it.message}")
                 }
             }
         }

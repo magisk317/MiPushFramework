@@ -1,6 +1,6 @@
 package com.xiaomi.stats
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.channel.commonutils.stats.Stats
 import com.xiaomi.push.protobuf.ChannelMessage
@@ -54,7 +54,7 @@ class StatsHandler private constructor() {
             time = (System.currentTimeMillis() / 1000).toInt()
         }
         statsContainer.`stat`(statsEvent)
-        Logger.v { "add stats: chid = $chid, type = $type, value = $value, connpt = $connpt" }
+        XLog.v("add stats: chid = $chid, type = $type, value = $value, connpt = $connpt")
     }
 
     private fun retriveStatsEvents(maxSize: Int): StatsEvents {
@@ -104,7 +104,7 @@ class StatsHandler private constructor() {
     fun add(chid: Int, type: Int, value: Int, host: String) {
         synchronized(this) {
             if (uuid == null) {
-                Logger.v { "StatsHandler.add() Should initialized before add" }
+                XLog.v("StatsHandler.add() Should initialized before add")
                 return
             }
             val pushService = context?.pushService ?: return
@@ -176,7 +176,7 @@ class StatsHandler private constructor() {
             allowStatsUpload = true
             startTime = System.currentTimeMillis()
             duration = clampedDuration
-            Logger.v { "enable dot duration = $clampedDuration start = $startTime" }
+            XLog.v("enable dot duration = $clampedDuration start = $startTime")
         }
     }
 

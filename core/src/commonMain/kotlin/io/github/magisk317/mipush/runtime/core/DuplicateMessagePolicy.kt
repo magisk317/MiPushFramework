@@ -22,11 +22,12 @@ class DuplicateMessagePolicy(
             val previous = seen[scopedId]
             val duplicated = previous != null && (nowMs - previous) <= dedupWindowMs
             if (previous == null && seen.size >= maxTrackedMessages) {
-                seen.entries.iterator().run {
-                    if (hasNext()) {
-                        next()
-                        remove()
-                    }
+                val iterator = seen.entries.iterator()
+                if (iterator.hasNext()) {
+                    // Insertion order is eviction order. The entry is bound because advancing
+                    // the iterator is the point here, not the value it hands back.
+                    val eldest = iterator.next()
+                    iterator.remove()
                 }
             }
             seen[scopedId] = nowMs

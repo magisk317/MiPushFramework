@@ -1,6 +1,6 @@
 package com.xiaomi.channel.commonutils.misc
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -76,7 +76,7 @@ object DateTimeHelper {
             gregorianCalendar.timeZone = sBeijingTimeZone
             gregorianCalendar.timeInMillis
         } catch (e: ParseException) {
-            Logger.withTag(LOG_TAG).e(e) { "Failed to parse date" }
+            XLog.tagged(LOG_TAG).e(e) { "Failed to parse date" }
             -1L
         }
     }

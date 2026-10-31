@@ -114,7 +114,7 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.kermit)
+    implementation(project(":magisk-xposed-kit:logging"))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotest.property)
     testImplementation(libs.mockk)

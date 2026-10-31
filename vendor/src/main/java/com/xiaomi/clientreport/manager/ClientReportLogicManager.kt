@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.manager
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobConstants
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -196,7 +196,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
         try {
             mEventProcessor?.process()
         } catch (e: Exception) {
-            Logger.e(e) { "we: ${e.message}" }
+            XLog.e("we: ${e.message}", e)
         }
     }
 
@@ -204,7 +204,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
         try {
             mPerfProcessor?.process()
         } catch (e: Exception) {
-            Logger.e(e) { "wp: ${e.message}" }
+            XLog.e("wp: ${e.message}", e)
         }
     }
 
@@ -300,7 +300,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
             ScheduledJobManager.getInstance(mContext)
                 .cancelJob(ScheduledJobConstants.EVENT_UPLOAD_JOB_ID)
         } else if (eventUploadFrequency != configBuild.eventUploadFrequency) {
-            Logger.v { "${mContext.packageName} reset event job ${configBuild.eventUploadFrequency}" }
+            XLog.v("${mContext.packageName} reset event job ${configBuild.eventUploadFrequency}")
             startEventUploadJob()
         }
         if (!mConfig!!.isPerfUploadSwitchOpen) {
@@ -309,7 +309,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
             return
         }
         if (perfUploadFrequency != configBuild.perfUploadFrequency) {
-            Logger.v { "${mContext.packageName} reset perf job ${configBuild.perfUploadFrequency}" }
+            XLog.v("${mContext.packageName} reset perf job ${configBuild.perfUploadFrequency}")
             startPerfUploadJob()
         }
     }

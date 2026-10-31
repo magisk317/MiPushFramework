@@ -1,7 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.misc.ByteUtils
@@ -30,7 +30,7 @@ class TinyDataCacheReader private constructor() {
             try {
                 extractTinyData(mContext, mUploader)
             } catch (th: Throwable) {
-                Logger.e(th) { "TinyData read job error" }
+                XLog.e("TinyData read job error", th)
             }
         }
     }
@@ -47,13 +47,13 @@ class TinyDataCacheReader private constructor() {
         @Throws(Throwable::class)
         private fun extractTinyData(context: Context, tinyDataUploader: TinyDataUploader?) {
             if (mTinyDataJobIsRunning) {
-                Logger.w { "TinyData extractTinyData is running" }
+                XLog.w("TinyData extractTinyData is running")
                 return
             }
             mTinyDataJobIsRunning = true
             val file = File(context.filesDir, TinyDataStorage.TINY_DATA_CACHE_FILE_NAME)
             if (!file.exists()) {
-                Logger.w { "TinyData no ready file to get data." }
+                XLog.w("TinyData no ready file to get data.")
                 return
             }
             verifyFileDir(context)
@@ -68,13 +68,13 @@ class TinyDataCacheReader private constructor() {
                 val tempFile = File(context.filesDir.toString() + TINY_DATA_READ_TEMP_FILE_DIR + "/" + TinyDataStorage.TINY_DATA_CACHE_FILE_NAME)
                 file.renameTo(tempFile)
             } catch (e: Exception) {
-                Logger.e(e) { "TinyData lock/rename cache file error" }
+                XLog.e("TinyData lock/rename cache file error", e)
             } finally {
                 if (fileLock != null && fileLock.isValid) {
                     try {
                         fileLock.release()
                     } catch (e: java.io.IOException) {
-                        Logger.e(e) { "TinyData file lock release error" }
+                        XLog.e("TinyData file lock release error", e)
                     }
                 }
                 IOUtils.closeQuietly(randomAccessFile)
@@ -82,7 +82,7 @@ class TinyDataCacheReader private constructor() {
             try {
                 val tempFile = File(context.filesDir.toString() + TINY_DATA_READ_TEMP_FILE_DIR + "/" + TinyDataStorage.TINY_DATA_CACHE_FILE_NAME)
                 if (!tempFile.exists()) {
-                    Logger.w { "TinyData no ready file to get data." }
+                    XLog.w("TinyData no ready file to get data.")
                     return
                 }
                 readTinyDataFromFile(context, tinyDataUploader, tempFile, tinyDataKeyWithDefault)
@@ -112,12 +112,12 @@ class TinyDataCacheReader private constructor() {
                     if (read == -1) break
                     lengthBuffer[0] = read.toByte()
                     if (bufferedInputStream.read(lengthBuffer, 1, 3) != 3) {
-                        Logger.e { "TinyData read from cache file failed cause lengthBuffer error." }
+                        XLog.e("TinyData read from cache file failed cause lengthBuffer error.")
                         break
                     }
                     val length = ByteUtils.toInt(lengthBuffer)
                     if (length < 1 || length > 10240) {
-                        Logger.e { "TinyData read from cache file failed cause lengthBuffer < 1 || too big. length:$length" }
+                        XLog.e("TinyData read from cache file failed cause lengthBuffer < 1 || too big. length:$length")
                         break
                     }
                     val buffer = ByteArray(length)
@@ -128,7 +128,7 @@ class TinyDataCacheReader private constructor() {
                         bytesRead += read2
                     }
                     if (bytesRead != length) {
-                        Logger.e { "TinyData read from cache file failed cause buffer size not equal length. size:${bytesRead}__length:$length" }
+                        XLog.e("TinyData read from cache file failed cause buffer size not equal length. size:${bytesRead}__length:$length")
                         break
                     }
                     try {
@@ -141,7 +141,7 @@ class TinyDataCacheReader private constructor() {
                             arrayList.clear()
                         }
                     } catch (e: Exception) {
-                        Logger.e(e) { "TinyData item decrypt/deserialize error" }
+                        XLog.e("TinyData item decrypt/deserialize error", e)
                     }
                 }
                 if (arrayList.isNotEmpty()) {
@@ -150,7 +150,7 @@ class TinyDataCacheReader private constructor() {
             } finally {
                 IOUtils.closeQuietly(bufferedInputStream)
                 if (file.exists() && !file.delete()) {
-                    Logger.w { "TinyData delete reading temp file failed" }
+                    XLog.w("TinyData delete reading temp file failed")
                 }
             }
         }

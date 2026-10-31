@@ -1,7 +1,7 @@
 package com.xiaomi.channel.commonutils.logger
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.concurrent.ConcurrentHashMap
@@ -31,7 +31,7 @@ object MyLog {
     private const val NEGATIVE_CODE = -1
     private val mCodeGenerator = AtomicInteger(1)
 
-    private val logger = Logger.withTag(DEFAULT_TAG)
+    private val logger = XLog.tagged(DEFAULT_TAG)
 
     @JvmStatic
     fun e(str: String) {
@@ -59,6 +59,12 @@ object MyLog {
     @JvmStatic
     fun i(str: String) {
         if (shouldLog(INFO)) logger.i { str }
+    }
+
+    /** Mirrors the `[tag] message` shape of [w]/[v] so call sites can move between levels. */
+    @JvmStatic
+    fun i(str: String, str2: String) {
+        if (shouldLog(INFO)) logger.i { "[$str] $str2" }
     }
 
     @JvmStatic

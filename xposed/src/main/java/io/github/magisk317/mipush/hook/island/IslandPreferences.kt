@@ -23,12 +23,12 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
+import io.github.magisk317.mipush.common.NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY
 import io.github.magisk317.xposed.logging.XLog
-import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -49,10 +49,11 @@ object IslandPreferences {
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
+        MONOCHROME_SHADE_ICON_KEY,
         THIRD_PARTY_ICON_PACK_KEY,
         SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
-        LOG_SANITIZATION_ENABLED_KEY,
+        NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY,
     )
 
     @Volatile
@@ -137,6 +138,8 @@ object IslandPreferences {
                     }
                 }
             }
+        }.onFailure {
+            XLog.w(TAG, "scheduling a package-options refresh failed: ${it.message}", it)
         }
     }
 
@@ -242,7 +245,9 @@ object IslandPreferences {
         pollThread?.interrupt()
         executor?.shutdownNow()
         if (receiverContext != null && receiver != null) {
-            runCatching { receiverContext.unregisterReceiver(receiver) }
+            runCatching { receiverContext.unregisterReceiver(receiver) }.onFailure {
+                XLog.w(TAG, "stopRefreshLoop: unregisterReceiver failed: ${it.message}", it)
+            }
         }
     }
 
@@ -287,7 +292,9 @@ object IslandPreferences {
                         refreshNow()
                         return
                     }
-                    runCatching { app.unregisterReceiver(receiver) }
+                    runCatching { app.unregisterReceiver(receiver) }.onFailure {
+                        XLog.w(TAG, "onReceive: unregisterReceiver failed: ${it.message}", it)
+                    }
                     return
                 }
             }
@@ -353,14 +360,9 @@ object IslandPreferences {
         } ?: error("island preference provider returned no cursor")
         check(values.isNotEmpty()) { "island preference provider returned no values" }
 
-        // Reuse the single provider query above instead of a second readFlag round-trip.
-        val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
-        LogSanitizerConfig.applyUserSwitch(logSanitizationEnabled)
-
+        // Redaction is owned by the build channel: MagiskLogPolicy.install() already ran in this
+        // process before any hook fired, so there is no user switch to re-apply here.
         buildOptionsFromValues(values)
-    }.onFailure {
-        // A failed read cannot turn redaction off: fall back to what the build itself requires.
-        LogSanitizerConfig.applyUserSwitch(false)
     }
 
     /**
@@ -383,9 +385,12 @@ object IslandPreferences {
                 values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
+            monochromeShadeIcon = values.booleanValue(MONOCHROME_SHADE_ICON_KEY, false),
             thirdPartyIconPack = values.booleanValue(THIRD_PARTY_ICON_PACK_KEY, true),
             systemAppIconPack = values.booleanValue(SYSTEM_APP_ICON_PACK_KEY, true),
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
+            notificationCountLimitExempt =
+                values.booleanValue(NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY, false),
         )
     }
 

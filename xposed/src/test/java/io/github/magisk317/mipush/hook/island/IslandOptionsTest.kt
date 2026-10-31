@@ -13,6 +13,7 @@ class IslandOptionsTest {
         assertTrue(options.showNotification)
         assertTrue(options.showOriginalNotification)
         assertFalse(options.focusNotification)
+        assertFalse(options.monochromeShadeIcon)
     }
 
     @Test

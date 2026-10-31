@@ -129,7 +129,7 @@ class PacketSync(
             MyLog.w("SMACK: channel bind failed, chid=$channelId reason=${response.errorReason}")
             return
         }
-        MyLog.w("SMACK: channel bind succeeded, chid=$channelId")
+        MyLog.i("SMACK: channel bind succeeded, chid=$channelId")
     }
 
     private fun handleKick(channelId: String, userId: String?, kickType: String?, kickReason: String?) {

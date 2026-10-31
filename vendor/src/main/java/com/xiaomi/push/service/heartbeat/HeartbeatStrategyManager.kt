@@ -83,7 +83,9 @@ class HeartbeatStrategyManager private constructor(
     fun onNetworkChanged(snapshot: HeartbeatNetworkSnapshot?) {
         // The MdKa gate inputs (data card, mobile connectivity) ride on network changes even
         // while the stable strategy is selected, so availability can flip without a strategy.
-        runCatching { MdKaController.get(appContext).onNetworkChanged(snapshot) }
+        runCatching { MdKaController.get(appContext).onNetworkChanged(snapshot) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
         selectStrategy().onNetworkChanged(snapshot)
     }
 

@@ -233,15 +233,7 @@
     },
     {
       "packageName": "com.taobao.idlefish",
-      "hookPipelines": [
-        "ALIPAY",
-        "ALI_AGOO_ACCS",
-        "MIPUSH_COMPONENT_VISIBILITY",
-        "HUAWEI_HMS",
-        "VIVO_PUSH",
-        "OPPO_HEYTAP",
-        "MEIZU_PUSH"
-      ],
+      "hookPipelines": [],
       "credentialOverride": {
         "appId": "2882303761517245189",
         "appKey": "5461724563189"

@@ -26,6 +26,10 @@ import kotlinx.serialization.json.jsonObject
  * which always clears the flyme keys and fakes display.id/user on exactly the non-Xiaomi
  * devices where that block could fire).
  */
+/** Log-field truncation budgets for hook diagnostics; named so the budget is a decision. */
+private const val URL_LOG_LIMIT = 160
+private const val VALUE_LOG_LIMIT = 180
+
 class DouYin : Common() {
     companion object {
         private const val TAG = "DouYin"
@@ -36,7 +40,8 @@ class DouYin : Common() {
 
     override fun fake(lpparam: LoadParam): Boolean {
         super.fake(lpparam)
-        //public java.lang.String com.bytedance.common.network.DefaultNetWorkClient.post(java.lang.String,java.util.List,java.util.Map,com.bytedance.common.utility.NetworkClient$ReqContext)
+        //public java.lang.String com.bytedance.common.network.DefaultNetWorkClient.post(
+        //    java.lang.String,java.util.List,java.util.Map,com.bytedance.common.utility.NetworkClient$ReqContext)
         XLog.d(TAG, "Searching for AppLogNetworkClient class...")
         val classAppLogNetworkClient = try {
             val clazz = lpparam.classLoader.findClass("com.ss.android.ugc.aweme.statistic.AppLogNetworkClient")
@@ -148,7 +153,7 @@ class DouYin : Common() {
     }
 
     private fun summarizeUrl(url: String): String {
-        return url.substringBefore('?').take(160)
+        return url.substringBefore('?').take(URL_LOG_LIMIT)
     }
 
     private fun extractCloudPushUrl(args: Array<Any?>): String? {
@@ -182,7 +187,7 @@ class DouYin : Common() {
     private fun summarizeValue(value: Any?): String {
         return when (value) {
             null -> "null"
-            is String -> value.take(180)
+            is String -> value.take(VALUE_LOG_LIMIT)
             is Map<*, *> -> value.entries.take(8).joinToString(
                 prefix = "map(",
                 postfix = if (value.size > 8) ",...)" else ")"
@@ -191,7 +196,7 @@ class DouYin : Common() {
                 prefix = "list(",
                 postfix = if (value.count() > 8) ",...)" else ")"
             ) { summarizeValue(it) }
-            else -> value.toString().take(180)
+            else -> value.toString().take(VALUE_LOG_LIMIT)
         }
     }
 

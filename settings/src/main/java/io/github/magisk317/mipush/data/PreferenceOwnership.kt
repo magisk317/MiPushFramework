@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.data
 
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
@@ -15,10 +16,6 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
-import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.KEY_WIZARD_SEEN_VERSION
 
 /**
@@ -50,12 +47,6 @@ object PreferenceOwnership {
     val entries: List<PreferenceOwnershipEntry> = listOf(
         runtimeString("xmpp_server", "XMPP host override", ""),
         runtimeString("access_mode", "Push access mode", "0"),
-        runtimeBoolean("debug_mode", "Runtime debug mode", false),
-        runtimeBoolean(
-            LOG_SANITIZATION_ENABLED_KEY,
-            "Runtime log sanitization",
-            false,
-        ),
         runtimeBoolean(ENABLE_ANALYTICS_KEY, "Analytics", true),
         runtimeBoolean("show_all_events", "Event type filter policy", false),
         runtimeBoolean("start_foreground", "Foreground service start", true),
@@ -72,16 +63,6 @@ object PreferenceOwnership {
             false,
         ),
         runtimeBoolean(FREEZE_PREF_ENABLED, "Frozen app push unfreeze", true),
-        runtimeInt(
-            FREEZE_PREF_REFREEZE_POLICY,
-            "Frozen app refreeze policy",
-            FREEZE_REFREEZE_POLICY_SCREEN_OFF,
-        ),
-        runtimeInt(
-            FREEZE_PREF_REFREEZE_DELAY_MINUTES,
-            "Frozen app refreeze delay minutes",
-            10,
-        ),
         runtimeBoolean(ISLAND_PREF_ENABLED, "Island master switch", true),
         runtimeInt(ISLAND_PREF_TIMEOUT, "Island timeout", 5),
         runtimeBoolean(ISLAND_PREF_FIRST_FLOAT, "Island first float", true),
@@ -104,6 +85,11 @@ object PreferenceOwnership {
         runtimeBoolean(
             COLOR_STATUS_BAR_ICON_KEY,
             "Status bar icon color",
+            false,
+        ),
+        runtimeBoolean(
+            MONOCHROME_SHADE_ICON_KEY,
+            "Notification-center monochrome icons",
             false,
         ),
         runtimeBoolean(

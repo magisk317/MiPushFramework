@@ -1,6 +1,6 @@
 package com.xiaomi.slim
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
 import com.xiaomi.smack.Connection
@@ -85,13 +85,13 @@ class SlimConnection(
     override fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo) {
         synchronized(this) {
             if (challenge.isNullOrEmpty()) {
-                Logger.w { "[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing" }
+                XLog.w("[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing")
                 return
             }
-            Logger.w {
+            XLog.i(
                 "[Slim] bind request instance=${hashCode()} chid=${clientLoginInfo.chid} " +
                     "status=${clientLoginInfo.status} shuttingDown=$isShuttingDown host=$host"
-            }
+            )
             Binder.bind(clientLoginInfo, challenge, this)
         }
     }
@@ -125,12 +125,12 @@ class SlimConnection(
             // Reconnection reuses the service-owned SlimConnection instance. Reset the shutdown
             // guard here so a previously closed connection can send bind/register blobs again.
             isShuttingDown = false
-            Logger.w {
+            XLog.w(
                 "[Slim] initConnection connectionInstanceId=$connectionInstanceId " +
                     "socketGeneration=$socketGeneration instance=${hashCode()} " +
                     "reusedAfterShutdown=$wasShuttingDown socket=${socket?.hashCode()} host=$host " +
                     "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
-            }
+            )
             initReaderAndWriter()
             mWriter?.openStream()
         }
@@ -142,11 +142,11 @@ class SlimConnection(
     internal fun notifyDataArrived(blob: Blob?) {
         if (blob == null) return
         if (blob.hasErr) {
-            Logger.w { "[Slim] RCV blob chid=${blob.channelId}; id=${blob.packetID}; errCode=${blob.errCode}; err=${blob.errStr}" }
+            XLog.d("[Slim] RCV blob chid=${blob.channelId}; id=${blob.packetID}; errCode=${blob.errCode}; err=${blob.errStr}")
         }
         val inboundPlan = mPushAction.runtimeObserver.resolveSlimInboundPlan(blob.channelId, blob.cmd)
         if (inboundPlan.action == PushSlimInboundAction.PingReceived) {
-            Logger.w { "[Slim] RCV ping id=${blob.packetID}" }
+            XLog.d("[Slim] RCV ping id=${blob.packetID}")
         }
         
         inboundPlan.eventAction?.let { eventAction ->
@@ -174,7 +174,7 @@ class SlimConnection(
     internal fun onChallengeReceived(receivedChallenge: String?, source: String) {
         synchronized(this) {
             if (receivedChallenge.isNullOrEmpty()) {
-                Logger.w { "[Slim] RCV challenge missing in CONN response from $source" }
+                XLog.w("[Slim] RCV challenge missing in CONN response from $source")
                 return
             }
             if (isConnecting) {
@@ -182,33 +182,33 @@ class SlimConnection(
             }
             setChallenge(receivedChallenge)
             if (challenge == receivedChallenge) {
-                Logger.w { "[Slim] RCV challenge accepted from $source" }
+                XLog.i("[Slim] RCV challenge accepted from $source")
             }
         }
     }
 
     override fun send(blob: Blob) {
         if (isShuttingDown) {
-            Logger.w {
+            XLog.w(
                 "[Slim] skip sending blob as connection is shutting down " +
                     "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
-            }
+            )
             return
         }
         val writer = mWriter
         if (writer == null) {
-            Logger.w {
+            XLog.w(
                 "[Slim] skip sending blob because writer is null " +
                     "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
-            }
+            )
             notifyConnectionError(10, IOException("the writer is null."))
             return
         }
         try {
-            Logger.w {
+            XLog.d(
                 "[Slim] send blob instance=${hashCode()} cmd=${blob.cmd} " +
                     "chid=${blob.channelId} packetId=${blob.packetID} host=$host"
-            }
+            )
             val bytesWritten = writer.write(blob)
             setWriteAlive()
             val packageName = blob.packageName
@@ -223,12 +223,12 @@ class SlimConnection(
                         System.currentTimeMillis(),
                     )
                 } catch (th: Throwable) {
-                    Logger.e(th) { "Traffic distribution failed" }
+                    XLog.e("Traffic distribution failed", th)
                 }
             }
             notifyPacketSent(blob)
         } catch (e: Exception) {
-            Logger.w(e) { "[Slim] send blob failed: $e" }
+            XLog.w("[Slim] send blob failed: $e", e)
             notifyConnectionError(10, e)
         }
     }
@@ -242,11 +242,11 @@ class SlimConnection(
     override fun sendPingInternal(isServerPing: Boolean) {
         val ping = getPing(isServerPing)
         val pingPlan = mPushAction.runtimeObserver.resolveSlimSendPingPlan()
-        Logger.w {
+        XLog.d(
             "[Slim] SND ping id=${ping.packetID} connectionInstanceId=$connectionInstanceId " +
                 "socketGeneration=$socketGeneration " +
                 "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
-        }
+        )
         mPushAction.runtimeObserver.onChannelEvent(null, pingPlan.eventAction, "SlimConnection.sendPing")
         send(ping)
     }
@@ -257,12 +257,12 @@ class SlimConnection(
     ) {
         synchronized(this) {
             if (isShuttingDown) return
-            Logger.w {
+            XLog.w(
                 "[Slim] shutdown connectionInstanceId=$connectionInstanceId " +
                     "socketGeneration=$socketGeneration instance=${hashCode()} reason=$reason " +
                     "error=${error?.javaClass?.simpleName}:${error?.message} " +
                     "network=${com.xiaomi.channel.commonutils.network.Network.getActiveNetworkSnapshot(mContext)}"
-            }
+            )
             isShuttingDown = true
             mReader?.let {
                 it.shutdown()
@@ -272,7 +272,7 @@ class SlimConnection(
                 try {
                     it.shutdown()
                 } catch (e: Exception) {
-                    Logger.e(e) { "Writer shutdown failed" }
+                    XLog.e("Writer shutdown failed", e)
                 }
                 mWriter = null
                 mDerivedKey = null

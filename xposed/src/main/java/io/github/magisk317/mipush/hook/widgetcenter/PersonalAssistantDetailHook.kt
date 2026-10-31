@@ -231,6 +231,8 @@ class PersonalAssistantDetailHook : BaseHook() {
             runCatching {
                 imageView.javaClass.getMethod("setGlideResourceLoadSuccess", java.lang.Boolean.TYPE)
                     .invoke(imageView, true)
+            }.onFailure {
+                XLog.w(TAG, "mock-preview: setGlideResourceLoadSuccess failed: ${it.message}", it)
             }
             // Glide 空 URL 会立即失败把占位 drawable 盖回来；且首次渲染时容器可能
             // 还没 layout（默认尺寸），延迟用实际尺寸重渲染并重设两次保证终态
@@ -268,6 +270,8 @@ class PersonalAssistantDetailHook : BaseHook() {
             view.javaClass.getMethod("setGlideResourceLoadSuccess", java.lang.Boolean.TYPE)
                 .invoke(view, true)
             XLog.i(TAG, "mock preview restored over placeholder")
+        }.onFailure {
+            XLog.w(TAG, "mock-preview: restoring the bitmap failed: ${it.message}", it)
         }
     }
 

@@ -236,6 +236,17 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
+    fun `idlefish profile stays registration-only`() {
+        val profile = ModuleCompatRegistry.getProfile("com.taobao.idlefish")
+        assertNotNull(profile)
+        assertEquals(emptyList<HookPipelineId>(), profile!!.hookPipelines)
+        assertEquals(
+            ModuleCredential(appId = "2882303761517245189", appKey = "5461724563189"),
+            profile.credentialOverride,
+        )
+    }
+
+    @Test
     fun `registry returns null for unknown package`() {
         assertNull(ModuleCompatRegistry.getProfile("com.example.unknown"))
     }

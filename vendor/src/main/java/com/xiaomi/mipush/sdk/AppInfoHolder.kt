@@ -2,7 +2,7 @@ package com.xiaomi.mipush.sdk
 
 import android.content.Context
 import android.content.SharedPreferences
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.push.service.PushConstants
@@ -150,7 +150,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
                         regResource = jsonObject[PREF_KEY_REG_RESOURCE]?.jsonPrimitive?.content
                     }
                 } catch (throwable: Throwable) {
-                    Logger.e(throwable) { "Failed to parse ClientInfoData" }
+                    XLog.e("Failed to parse ClientInfoData", throwable)
                     null
                 }
             }
@@ -171,7 +171,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
                         clientInfoData.regResource?.let { put(PREF_KEY_REG_RESOURCE, it) }
                     }.toString()
                 } catch (throwable: Throwable) {
-                    Logger.e(throwable) { "Failed to serialize ClientInfoData" }
+                    XLog.e("Failed to serialize ClientInfoData", throwable)
                     null
                 }
             }
@@ -257,7 +257,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         if (mInfoData.isVaild()) {
             return true
         }
-        Logger.w { "Don't send message before initialization succeeded!" }
+        XLog.w("Don't send message before initialization succeeded!")
         return false
     }
 

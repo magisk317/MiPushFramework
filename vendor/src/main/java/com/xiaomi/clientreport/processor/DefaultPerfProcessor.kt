@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.processor
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.clientreport.data.BaseClientReport
 import com.xiaomi.clientreport.data.PerfClientReport
 import com.xiaomi.clientreport.util.ClientReportUtil
@@ -33,7 +33,7 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
         }
         val externalFilesDir = mContext.getExternalFilesDir(FOLDER)
         if (externalFilesDir == null) {
-            Logger.e { "cannot get folder when to write perf" }
+            XLog.e("cannot get folder when to write perf")
             return null
         }
         if (!externalFilesDir.exists()) {

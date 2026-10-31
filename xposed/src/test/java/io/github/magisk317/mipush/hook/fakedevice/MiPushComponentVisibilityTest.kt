@@ -31,6 +31,26 @@ class MiPushComponentVisibilityTest {
     }
 
     @Test
+    fun `explicit component receiver queries are never faked`() {
+        assertFalse(
+            MiPushComponentVisibility.isMiPushReceiverQuery(
+                action = "com.xiaomi.mipush.RECEIVE_MESSAGE",
+                targetPackage = "com.example.app",
+                ownPackage = "com.example.app",
+                componentClass = "com.xiaomi.mipush.sdk.PushServiceReceiver",
+            ),
+        )
+        assertTrue(
+            MiPushComponentVisibility.isMiPushReceiverQuery(
+                action = "com.xiaomi.mipush.RECEIVE_MESSAGE",
+                targetPackage = "com.example.app",
+                ownPackage = "com.example.app",
+                componentClass = null,
+            ),
+        )
+    }
+
+    @Test
     fun `service query allows xmsf and own click routing only`() {
         assertTrue(
             MiPushComponentVisibility.isMiPushServiceQuery(

@@ -62,8 +62,6 @@ class CoreModuleImportConstraintPropertyTest {
             // Core's own platform clock package: commonMain cannot name java.lang.System
             // under KMP separate compilation, so the wall clock is an expect/actual.
             "io.github.magisk317.mipush.time",
-            // Libraries declared in core/build.gradle.kts
-            "co.touchlab.kermit",
         )
 
         private val IMPORT_REGEX = Regex("""^\s*import\s+(.+)\s*$""")

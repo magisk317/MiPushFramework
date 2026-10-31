@@ -249,7 +249,7 @@ internal class XMPushServiceIntentDelegate(
     }
 
     private fun handleTimer() {
-        ReconnectDebugLog.w("timer_received")
+        ReconnectDebugLog.i("timer_received")
         val nowElapsedRealtime = android.os.SystemClock.elapsedRealtime()
         val nowWallClockMs = System.currentTimeMillis()
         Alarm.markTimerCallback(
@@ -269,7 +269,7 @@ internal class XMPushServiceIntentDelegate(
             isConnecting = isConnecting,
             shouldCheckAlive = shouldCheckAlive
         )
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "timer_plan event=${plan.eventAction} falldown=$falldown " +
                 "alarmAlive=$alarmAlive connected=$isConnected " +
                 "connecting=$isConnecting shouldCheckAlive=$shouldCheckAlive " +

@@ -268,7 +268,6 @@ class ResourceSmallIconGuardTest {
     fun `managed BITMAP is replaced in monochrome mode`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = false,
                 isMiPushManaged = true,
                 iconType = ICON_TYPE_BITMAP,
             ),
@@ -276,15 +275,6 @@ class ResourceSmallIconGuardTest {
         )
         assertFalse(
             SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = true,
-                isMiPushManaged = true,
-                iconType = ICON_TYPE_BITMAP,
-            ),
-            "Managed color mode ships color assets from XMSF and stays native.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
-                colorStatusBarIcon = false,
                 isMiPushManaged = false,
                 iconType = ICON_TYPE_BITMAP,
             ),

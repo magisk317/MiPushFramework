@@ -1,6 +1,6 @@
 package com.xiaomi.smack.util
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.service.CommonPacketExtensionProvider
 import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.push.service.PushServiceConstants
@@ -158,7 +158,7 @@ object PacketParserUtils {
                 response.channelId = chid
                 response.error = XMPPError(XMPPError.Condition.feature_not_implemented)
                 connection.sendPacket(response)
-                Logger.e { "iq usage error. send packet in packet parser." }
+                XLog.e("iq usage error. send packet in packet parser.")
                 return null
             }
             object : IQ() {

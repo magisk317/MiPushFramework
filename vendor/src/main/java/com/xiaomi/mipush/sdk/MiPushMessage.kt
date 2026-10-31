@@ -47,7 +47,11 @@ class MiPushMessage : PushMessageInterface, Serializable {
         private const val KEY_USER_ACCOUNT = "user_account"
         private const val LEGACY_KEY_USER_ACCOUNT = "userAccount"
         private const val KEY_EXTRA = "extra"
-        private const val serialVersionUID: Long = 1
+        // Must survive R8: the client SDK in each app declares serialVersionUID 1L, and a
+        // private const (inlined away) makes Java serialization compute a structural id, which
+        // then fails with InvalidClassException when the app reads a click intent we wrote.
+        @JvmField
+        val serialVersionUID: Long = 1
 
         const val MESSAGE_TYPE_REG = 0
         const val MESSAGE_TYPE_ALIAS = 1

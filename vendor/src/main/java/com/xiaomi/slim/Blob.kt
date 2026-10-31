@@ -1,6 +1,6 @@
 package com.xiaomi.slim
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.mipush.sdk.Constants
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.RC4Cryption
@@ -165,7 +165,7 @@ open class Blob {
             if (id == null) {
                 mHeader.cipher = CIPHER_NONE
                 mPayload = payload
-                Logger.w { "setPayload: null packetID, falling back to CIPHER_NONE" }
+                XLog.w("setPayload: null packetID, falling back to CIPHER_NONE")
             } else {
                 mHeader.cipher = CIPHER_RC4
                 mPayload = RC4Cryption.encrypt(
@@ -287,7 +287,7 @@ open class Blob {
             val chId = try {
                 packet.channelId?.toInt() ?: 1
             } catch (e: Exception) {
-                Logger.w { "Blob parse chid err ${e.message}" }
+                XLog.w("Blob parse chid err ${e.message}")
                 1
             }
             blob.setChannelId(chId)
@@ -304,7 +304,7 @@ open class Blob {
                     PAYLOAD_BINARY
                 }
             } catch (e: UnsupportedEncodingException) {
-                Logger.w { "Blob setPayload err: ${e.message}" }
+                XLog.w("Blob setPayload err: ${e.message}")
             }
             return blob
         }
@@ -328,7 +328,7 @@ open class Blob {
                 byteBufferSlice.get(bArr, 0, i)
                 Blob(clientHeader, s, bArr)
             } catch (e: Exception) {
-                Logger.w { "read Blob err :${e.message}" }
+                XLog.w("read Blob err :${e.message}")
                 throw IOException("Malformed Input")
             }
         }

@@ -25,7 +25,7 @@ class ResetConnectJob(
         val refreshedFallback = HostManager.getInstance()
             .getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), true)
         val refreshedHostCount = refreshedFallback?.getHosts()?.size ?: 0
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "reset_connect_hosts fallbackPresent=${fallback != null} " +
                 "fallbackHosts=$fallbackHostCount refreshedPresent=${refreshedFallback != null} " +
                 "refreshedHosts=$refreshedHostCount"

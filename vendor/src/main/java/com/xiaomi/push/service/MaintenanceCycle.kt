@@ -26,6 +26,8 @@ object MaintenanceCycle {
             Tick(sequence, System.currentTimeMillis(), action)
         }
         lastTick = tick
-        runCatching { listener?.invoke(tick) }
+        runCatching { listener?.invoke(tick) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
     }
 }

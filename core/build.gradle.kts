@@ -20,7 +20,6 @@ kotlin {
             // core stays free of kit project dependencies (reviewed DAG: zero edges).
             // Structured data is produced here; JSONL encoding, rate limiting and
             // redaction live in the kit logging facade (io.github.magisk317.xposed.logging).
-            implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)
         }
     }

@@ -1,6 +1,6 @@
 package com.xiaomi.clientreport.data
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -27,7 +27,7 @@ class PerfClientReport : BaseClientReport() {
                 put("perfLatencies", perfLatencies)
             }
         } catch (e: Exception) {
-            Logger.e(e) { "toJsonObject error" }
+            XLog.e("toJsonObject error", e)
             null
         }
     }

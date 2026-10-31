@@ -94,14 +94,14 @@ class SystemUiNotificationPolicyTest {
                 iconPackHit = true,
             )
         )
-        // A pack miss leaves the native MIUI substitution in place: it is the system's own
-        // colored-logo behavior and never paints a white block.
-        assertFalse(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                isMiPushManaged = false,
-                iconPackHit = false,
-            )
-        )
+        // A pack miss leaves the native MIUI substitution in place; that is the system's own
+        // colored-logo behavior, which the module does not override on someone else's glyph.
+    }
+
+    @Test
+    fun `color mode owns nothing on the status bar`() {
+        assertFalse(SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(colorStatusBarIcon = true))
+        assertTrue(SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(colorStatusBarIcon = false))
     }
 
     @Test
@@ -132,56 +132,57 @@ class SystemUiNotificationPolicyTest {
                 isMiPushManaged = false,
                 iconPackHit = false,
                 isSyntheticAutogroupSummary = true,
-                colorStatusBarIcon = false,
             ),
             "The summary copies a colorful launcher icon but loses target_package.",
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                isMiPushManaged = false,
-                iconPackHit = false,
-                isSyntheticAutogroupSummary = true,
-                colorStatusBarIcon = true,
-            ),
-            "Color mode keeps the native colorful summary icon.",
         )
     }
 
     @Test
-    fun `only third-party posts are inspected for a self-supplied monochrome glyph`() {
+    fun `both app classes are inspected for a self-supplied monochrome glyph`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = false,
                 thirdPartyIconPack = true,
-                isMiPushManaged = false,
-                uid = 10287,
-                isSystemApp = false,
-            )
-        )
-        assertFalse(
-            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = true,
-                thirdPartyIconPack = true,
+                systemAppIconPack = false,
                 isMiPushManaged = false,
                 uid = 10287,
                 isSystemApp = false,
             ),
-            "Color mode keeps the native colorful launcher logo.",
+            "A third-party post follows the third-party switch.",
         )
-        assertFalse(
+        assertTrue(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = false,
                 thirdPartyIconPack = false,
+                systemAppIconPack = true,
+                isMiPushManaged = false,
+                uid = 10123,
+                isSystemApp = true,
+            ),
+            "A system app that ships the standard download glyph keeps it, like a configured store.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                thirdPartyIconPack = false,
+                systemAppIconPack = true,
                 isMiPushManaged = false,
                 uid = 10287,
                 isSystemApp = false,
             ),
-            "The third-party switch owns this behavior.",
+            "The third-party switch owns third-party posts.",
         )
         assertFalse(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = false,
                 thirdPartyIconPack = true,
+                systemAppIconPack = false,
+                isMiPushManaged = false,
+                uid = 10123,
+                isSystemApp = true,
+            ),
+            "System apps answer to their own switch, never the third-party one.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                thirdPartyIconPack = true,
+                systemAppIconPack = true,
                 isMiPushManaged = true,
                 uid = 10287,
                 isSystemApp = false,
@@ -190,22 +191,59 @@ class SystemUiNotificationPolicyTest {
         )
         assertFalse(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = false,
                 thirdPartyIconPack = true,
+                systemAppIconPack = true,
                 isMiPushManaged = false,
-                uid = 10123,
+                uid = 1000,
                 isSystemApp = true,
             ),
-            "System apps participate only through the system-app icon-pack switch.",
+            "Shared-system uids belong to the platform and are never inspected.",
+        )
+    }
+
+    @Test
+    fun `allowlisted telephony shared UIDs can keep their posted monochrome glyph`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                thirdPartyIconPack = false,
+                systemAppIconPack = true,
+                isMiPushManaged = false,
+                uid = 1001,
+                isSystemApp = true,
+                postedPackageName = "com.android.phone",
+            )
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                thirdPartyIconPack = false,
+                systemAppIconPack = true,
+                isMiPushManaged = false,
+                uid = 1000,
+                isSystemApp = true,
+                postedPackageName = "com.android.server.telecom",
+            )
         )
         assertFalse(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                colorStatusBarIcon = false,
                 thirdPartyIconPack = true,
+                systemAppIconPack = true,
                 isMiPushManaged = false,
                 uid = 1000,
-                isSystemApp = false,
+                isSystemApp = true,
+                postedPackageName = "android",
             ),
+            "Unrelated shared-system packages remain outside the posted-glyph fallback.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                thirdPartyIconPack = false,
+                systemAppIconPack = false,
+                isMiPushManaged = false,
+                uid = 1001,
+                isSystemApp = true,
+                postedPackageName = "com.android.phone",
+            ),
+            "The system-app switch still gates the shared-UID exception.",
         )
     }
 

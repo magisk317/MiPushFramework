@@ -124,6 +124,8 @@ internal fun Any?.setFieldOf(name: String, value: Any?) {
     if (this == null) return
     runCatching {
         javaClass.getDeclaredField(name).apply { isAccessible = true }.set(this, value)
+    }.onFailure { error ->
+        XLog.w("widget field/access skipped: ${error.message}", error)
     }
 }
 
@@ -138,5 +140,7 @@ internal fun Any?.setIntFieldOf(name: String, value: Int) {
     if (this == null) return
     runCatching {
         javaClass.getDeclaredField(name).apply { isAccessible = true }.setInt(this, value)
+    }.onFailure { error ->
+        XLog.w("widget field/access skipped: ${error.message}", error)
     }
 }

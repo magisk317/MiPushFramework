@@ -1,7 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.service.DefaultConfig
@@ -67,13 +67,13 @@ class TinyDataCacheProcessor(private val mContext: Context) : PingCallBack {
     override fun pingFollowUpAction() {
         readOnlineConfig(mContext)
         if (mUploadSwitch && verifyUploadPeriod()) {
-            Logger.w { "TinyData TinyDataCacheProcessor.pingFollowUpAction ts:${System.currentTimeMillis()}" }
+            XLog.w("TinyData TinyDataCacheProcessor.pingFollowUpAction ts:${System.currentTimeMillis()}")
             val uploader = TinyDataManager.getInstance(mContext)?.uploader
             if (canUpload(uploader)) {
                 mIsTinyDataExtracting = true
                 TinyDataCacheReader.addTinyDataCacheReadJob(mContext, uploader)
             } else {
-                Logger.w { "TinyData TinyDataCacheProcessor.pingFollowUpAction !canUpload(uploader) ts:${System.currentTimeMillis()}" }
+                XLog.w("TinyData TinyDataCacheProcessor.pingFollowUpAction !canUpload(uploader) ts:${System.currentTimeMillis()}")
             }
         }
     }

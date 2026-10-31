@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.processor
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.clientreport.data.BaseClientReport
 import com.xiaomi.clientreport.data.ClientReportConstants
@@ -66,19 +66,19 @@ object PerfKVFileHelper {
                 try {
                     fileLockLock.release()
                 } catch (e: IOException) {
-                    Logger.e(e) { "Failed to release lock" }
+                    XLog.e("Failed to release lock", e)
                 }
             }
             IOUtils.closeQuietly(randomAccessFile3)
             IOUtils.closeQuietly(bufferedReader3)
             file2.delete()
         } catch (e: Exception) {
-            Logger.e(e) { "extractToDatas error" }
+            XLog.e("extractToDatas error", e)
             if (fileLock != null && fileLock.isValid) {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    Logger.e(e) { "Failed to release lock" }
+                    XLog.e("Failed to release lock", e)
                 }
             }
             IOUtils.closeQuietly(randomAccessFile)
@@ -88,7 +88,7 @@ object PerfKVFileHelper {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    Logger.e(e) { "Failed to release lock" }
+                    XLog.e("Failed to release lock", e)
                 }
             }
             IOUtils.closeQuietly(randomAccessFile)
@@ -115,7 +115,7 @@ object PerfKVFileHelper {
                 null
             }
         } catch (e: Exception) {
-            Logger.e(e) { "parseValueStr error" }
+            XLog.e("parseValueStr error", e)
             null
         }
     }
@@ -147,16 +147,16 @@ object PerfKVFileHelper {
                 try {
                     fileLockLock.release()
                 } catch (e: IOException) {
-                    Logger.e(e) { "Failed to release lock" }
+                    XLog.e("Failed to release lock", e)
                 }
             }
         } catch (th: Throwable) {
-            Logger.v(th) { "failed to write perf to file " }
+            XLog.v("failed to write perf to file ", th)
             if (fileLock != null && fileLock.isValid) {
                 try {
                     fileLock.release()
                 } catch (e: IOException) {
-                    Logger.e(e) { "Failed to release lock" }
+                    XLog.e("Failed to release lock", e)
                 }
             }
             IOUtils.closeQuietly(randomAccessFile2)
@@ -207,7 +207,7 @@ object PerfKVFileHelper {
                 }
             }
         } catch (e: Exception) {
-            Logger.e(e) { "readFromFile error" }
+            XLog.e("readFromFile error", e)
         } finally {
             IOUtils.closeQuietly(bufferedReader2)
         }
@@ -239,7 +239,7 @@ object PerfKVFileHelper {
                 null
             }
         } catch (e: Exception) {
-            Logger.v(e) { "parse per key error" }
+            XLog.v("parse per key error", e)
             null
         }
     }
@@ -260,7 +260,7 @@ object PerfKVFileHelper {
             }
             bufferedWriter2 = bufferedWriter3
         } catch (e: Exception) {
-            Logger.e(e) { "writeToFile error" }
+            XLog.e("writeToFile error", e)
         }
         IOUtils.closeQuietly(bufferedWriter2)
     }

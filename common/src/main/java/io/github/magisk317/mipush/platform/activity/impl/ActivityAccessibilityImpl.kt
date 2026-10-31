@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.platform.activity.impl
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.platform.activity.DetectionService
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 
@@ -20,7 +20,7 @@ class ActivityAccessibilityImpl : ITopActivity {
                 Settings.Secure.ACCESSIBILITY_ENABLED
             )
         } catch (e: Settings.SettingNotFoundException) {
-            Logger.withTag(TAG).e(e) { e.message ?: "" }
+            XLog.tagged(TAG).e(e) { e.message ?: "" }
         }
 
         if (accessibilityEnabled == 1) {

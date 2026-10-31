@@ -1,6 +1,6 @@
 package com.xiaomi.smack
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.measite.smack.AndroidDebugger
@@ -209,21 +209,21 @@ abstract class Connection(
     fun setChallenge(value: String) {
         if (connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
             val digest = MD5.MD5_32(value)?.take(8).orEmpty()
-            Logger.w { "setChallenge hash = $digest" }
+            XLog.i("setChallenge hash = $digest")
             challenge = value
             setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_CONNECTED, 0, null)
         } else {
-            Logger.w { "ignore setChallenge because connection was disconnected" }
+            XLog.w("ignore setChallenge because connection was disconnected")
         }
     }
 
     fun setConnectionStatus(status: Int, reason: Int, error: Exception?) {
         val previousStatus = connectStatus
         if (status != previousStatus) {
-            Logger.w {
+            XLog.i(
                 "update the connection status connectionInstanceId=$connectionInstanceId " +
                     "${statusDescription(previousStatus)} -> ${statusDescription(status)} : $reason"
-            }
+            )
         }
 
         if (Network.hasNetwork(mContext)) {
@@ -243,7 +243,7 @@ abstract class Connection(
             currentStatus = previousStatus,
             newStatus = status,
         )
-        statusPlan.warningMessage?.let { message -> Logger.w { message } }
+        statusPlan.warningMessage?.let { message -> XLog.w(message) }
         if (statusPlan.shouldRemoveConnectingTimeout) {
             mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
         }

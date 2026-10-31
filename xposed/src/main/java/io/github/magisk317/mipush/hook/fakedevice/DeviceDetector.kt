@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.hook.fakedevice
 
 import android.annotation.SuppressLint
 import android.os.Build
+import io.github.magisk317.xposed.logging.XLog
 
 /**
  * 设备类型检测工具
@@ -32,6 +33,7 @@ object DeviceDetector {
             val versionCode = getSystemProperty("ro.miui.ui.version.code")
             !versionName.isNullOrEmpty() || !versionCode.isNullOrEmpty()
         } catch (e: Exception) {
+            XLog.d("DeviceDetector", "MIUI version probe failed", e)
             false
         }
     }
@@ -43,6 +45,7 @@ object DeviceDetector {
             val method = clazz.getMethod("get", String::class.java)
             method.invoke(null, key) as? String
         } catch (e: Exception) {
+            XLog.d("DeviceDetector", "SystemProperties read failed for key=$key", e)
             null
         }
     }

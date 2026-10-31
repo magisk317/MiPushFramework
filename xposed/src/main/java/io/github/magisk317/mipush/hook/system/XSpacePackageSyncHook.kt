@@ -90,7 +90,9 @@ object XSpacePackageSyncHook {
             if (!accepted) {
                 // stop() may have completed while registerReceiverAsUser was in flight.
                 // The old receiver was never published to stop(), so release it here.
-                runCatching { context.unregisterReceiver(receiver) }
+                runCatching { context.unregisterReceiver(receiver) }.onFailure {
+                    XLog.w(TAG, "onReceive: unregisterReceiver failed: ${it.message}", it)
+                }
                 return@runCatching
             }
             XLog.i(TAG, "installed XSpace package sync receiver")
@@ -119,7 +121,9 @@ object XSpacePackageSyncHook {
             }
             // A reflective register call can fail after the framework has accepted the
             // receiver. The unregister is harmless when registration never completed.
-            runCatching { context.unregisterReceiver(receiver) }
+            runCatching { context.unregisterReceiver(receiver) }.onFailure {
+                XLog.w(TAG, "onReceive: unregisterReceiver failed: ${it.message}", it)
+            }
             if (!currentGeneration) return@onFailure
             val isEarlyBootNpe = throwable is java.lang.reflect.InvocationTargetException &&
                 throwable.cause is NullPointerException
@@ -139,6 +143,8 @@ object XSpacePackageSyncHook {
                             install(context, expectedGeneration = generation)
                         }
                     }
+                }.onFailure {
+                    XLog.e(TAG, "failed to schedule the early-boot receiver retry", it)
                 }
             } else {
                 XLog.e(TAG, "install XSpace package sync receiver failed", throwable)
@@ -162,7 +168,9 @@ object XSpacePackageSyncHook {
             executor = null
         }
         if (receiverContext != null && receiver != null) {
-            runCatching { receiverContext.unregisterReceiver(receiver) }
+            runCatching { receiverContext.unregisterReceiver(receiver) }.onFailure {
+                XLog.w(TAG, "stop: unregisterReceiver failed: ${it.message}", it)
+            }
         }
         shutdownExecutor?.shutdownNow()
     }
@@ -362,6 +370,8 @@ object XSpacePackageSyncHook {
             return UserHandle::class.java
                 .getMethod("of", Int::class.javaPrimitiveType)
                 .invoke(null, userId) as UserHandle
+        }.onFailure {
+            XLog.w(TAG, "UserHandle.of reflection failed; using the constructor fallback: ${it.message}", it)
         }
         val constructor = UserHandle::class.java.getDeclaredConstructor(Int::class.javaPrimitiveType).apply {
             isAccessible = true

@@ -15,9 +15,6 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
-import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
@@ -25,12 +22,13 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.AUTO_UPDATE_ON_START_KEY
 import io.github.magisk317.mipush.common.AUTO_UPDATE_WIFI_ONLY_KEY
+import io.github.magisk317.mipush.common.TRACK_CI_BUILDS_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.KEY_WIZARD_SEEN_VERSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
@@ -39,6 +37,7 @@ import io.github.magisk317.mipush.utils.ConfigDefaults
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 
 data class IslandSettingsSnapshot(
     val enabled: Boolean,
@@ -49,22 +48,16 @@ data class IslandSettingsSnapshot(
     val showOriginalNotification: Boolean,
     val focusNotification: Boolean,
     val colorStatusBarIcon: Boolean,
+    val monochromeShadeIcon: Boolean,
     val thirdPartyIconPack: Boolean,
     val systemAppIconPack: Boolean,
     val dualAppEnabled: Boolean,
-    val logSanitizationEnabled: Boolean,
 )
 
 data class KeepAliveSettingsSnapshot(
     val oomAdj: Boolean,
     val antiKill: Boolean,
     val standbyBypass: Boolean,
-)
-
-data class FreezeSettingsSnapshot(
-    val enabled: Boolean,
-    val refreezePolicy: Int,
-    val refreezeDelayMinutes: Int,
 )
 
 data class OwnedPreferenceValue(
@@ -74,8 +67,6 @@ data class OwnedPreferenceValue(
     val owner: PreferenceOwner,
 )
 
-private const val DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES = 10
-private const val MAX_FREEZE_REFREEZE_DELAY_MINUTES = 120
 private const val NEVER_SEEN_VERSION_CODE = -1L
 
 class PreferenceRepository constructor(
@@ -89,11 +80,10 @@ class PreferenceRepository constructor(
     private val ACCESS_MODE = stringPreferencesKey("access_mode")
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
-    private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
-    private val LOG_SANITIZATION_ENABLED = booleanPreferencesKey(LOG_SANITIZATION_ENABLED_KEY)
     private val ENABLE_ANALYTICS = booleanPreferencesKey(ENABLE_ANALYTICS_KEY)
     private val AUTO_UPDATE_ON_START = booleanPreferencesKey(AUTO_UPDATE_ON_START_KEY)
     private val AUTO_UPDATE_WIFI_ONLY = booleanPreferencesKey(AUTO_UPDATE_WIFI_ONLY_KEY)
+    private val TRACK_CI_BUILDS = booleanPreferencesKey(TRACK_CI_BUILDS_KEY)
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
     private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
@@ -101,9 +91,10 @@ class PreferenceRepository constructor(
     private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
     private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
     private val FREEZE_ENABLED = booleanPreferencesKey(FREEZE_PREF_ENABLED)
-    private val FREEZE_REFREEZE_POLICY = intPreferencesKey(FREEZE_PREF_REFREEZE_POLICY)
-    private val FREEZE_REFREEZE_DELAY_MINUTES = intPreferencesKey(FREEZE_PREF_REFREEZE_DELAY_MINUTES)
-    private val FREEZE_PENDING_REFREEZE_PACKAGES = stringSetPreferencesKey("freeze_pending_refreeze_packages")
+    private val RETIRED_FREEZE_REFREEZE_POLICY = intPreferencesKey("pref_freeze_refreeze_policy")
+    private val RETIRED_FREEZE_REFREEZE_DELAY_MINUTES = intPreferencesKey("pref_freeze_refreeze_delay_minutes")
+    private val RETIRED_FREEZE_PENDING_PACKAGES = stringSetPreferencesKey("freeze_pending_refreeze_packages")
+    private val RETIRED_FREEZE_KEYS_PURGED = booleanPreferencesKey("retired_freeze_keys_purged")
     private val ISLAND_ENABLED = booleanPreferencesKey(ISLAND_PREF_ENABLED)
     private val ISLAND_TIMEOUT = intPreferencesKey(ISLAND_PREF_TIMEOUT)
     private val ISLAND_FIRST_FLOAT = booleanPreferencesKey(ISLAND_PREF_FIRST_FLOAT)
@@ -137,6 +128,7 @@ class PreferenceRepository constructor(
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
     private val CONFIG_REMOTE_ACCELERATOR = stringPreferencesKey("config_remote_accelerator")
     private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
+    private val MONOCHROME_SHADE_ICON = booleanPreferencesKey(MONOCHROME_SHADE_ICON_KEY)
     private val THIRD_PARTY_ICON_PACK = booleanPreferencesKey(THIRD_PARTY_ICON_PACK_KEY)
     private val SYSTEM_APP_ICON_PACK = booleanPreferencesKey(SYSTEM_APP_ICON_PACK_KEY)
     private val DUAL_APP_ENABLED = booleanPreferencesKey(DUAL_APP_ENABLED_KEY)
@@ -146,8 +138,6 @@ class PreferenceRepository constructor(
     val accessMode: Flow<String> = dataStore.data.map { it[ACCESS_MODE] ?: "0" }
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
-    val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
-    val isLogSanitizationEnabled: Flow<Boolean> = dataStore.data.map { it[LOG_SANITIZATION_ENABLED] ?: false }
     val isAnalyticsEnabled: Flow<Boolean> = dataStore.data.map { it[ENABLE_ANALYTICS] ?: true }
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
@@ -156,12 +146,6 @@ class PreferenceRepository constructor(
     val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
     val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
     val freezeEnabled: Flow<Boolean> = dataStore.data.map { it[FREEZE_ENABLED] ?: true }
-    val freezeRefreezePolicy: Flow<Int> =
-        dataStore.data.map { it[FREEZE_REFREEZE_POLICY] ?: FREEZE_REFREEZE_POLICY_SCREEN_OFF }
-    val freezeRefreezeDelayMinutes: Flow<Int> = dataStore.data.map {
-        (it[FREEZE_REFREEZE_DELAY_MINUTES] ?: DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES)
-            .coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES)
-    }
     val islandEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_ENABLED] ?: true }
     val islandTimeout: Flow<Int> = dataStore.data.map { (it[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1) }
     val islandFirstFloat: Flow<Boolean> = dataStore.data.map { it[ISLAND_FIRST_FLOAT] ?: true }
@@ -170,6 +154,7 @@ class PreferenceRepository constructor(
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
     val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: false }
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
+    val monochromeShadeIcon: Flow<Boolean> = dataStore.data.map { it[MONOCHROME_SHADE_ICON] ?: false }
     val thirdPartyIconPack: Flow<Boolean> = dataStore.data.map { it[THIRD_PARTY_ICON_PACK] ?: true }
     val systemAppIconPack: Flow<Boolean> = dataStore.data.map { it[SYSTEM_APP_ICON_PACK] ?: true }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
@@ -183,15 +168,22 @@ class PreferenceRepository constructor(
         )
     }
 
-    suspend fun freezeSettingsSnapshot(): FreezeSettingsSnapshot {
+    /** One-shot read for the XMSF click route, which must not hold a collector. */
+    suspend fun freezeEnabledOnce(): Boolean = dataStore.data.first()[FREEZE_ENABLED] ?: true
+
+    /**
+     * Drops the keys the retired re-freeze feature used to write. The marker makes this a single
+     * rewrite per install instead of a read on every launch.
+     */
+    suspend fun purgeRetiredFreezeKeys() {
         val preferences = dataStore.data.first()
-        return FreezeSettingsSnapshot(
-            enabled = preferences[FREEZE_ENABLED] ?: true,
-            refreezePolicy = preferences[FREEZE_REFREEZE_POLICY] ?: FREEZE_REFREEZE_POLICY_SCREEN_OFF,
-            refreezeDelayMinutes = (preferences[FREEZE_REFREEZE_DELAY_MINUTES]
-                ?: DEFAULT_FREEZE_REFREEZE_DELAY_MINUTES)
-                .coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES),
-        )
+        if (preferences[RETIRED_FREEZE_KEYS_PURGED] == true) return
+        dataStore.edit { editor ->
+            editor.remove(RETIRED_FREEZE_REFREEZE_POLICY)
+            editor.remove(RETIRED_FREEZE_REFREEZE_DELAY_MINUTES)
+            editor.remove(RETIRED_FREEZE_PENDING_PACKAGES)
+            editor[RETIRED_FREEZE_KEYS_PURGED] = true
+        }
     }
 
     /**
@@ -224,7 +216,8 @@ class PreferenceRepository constructor(
     val navigationBottomBarBackdrop: Flow<Boolean> = dataStore.data.map { it[NAV_BOTTOM_BAR_BACKDROP] ?: false }
     val navigationBadges: Flow<Boolean> = dataStore.data.map { it[NAVIGATION_BADGES] ?: true }
     val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
-        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 2).coerceAtLeast(1)
+        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 2)
+            .coerceIn(MIN_RUNTIME_LOG_RETENTION_DAYS, MAX_RUNTIME_LOG_RETENTION_DAYS)
     }
     val eventRetentionDays: Flow<Int> = dataStore.data.map {
         (it[EVENT_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
@@ -243,11 +236,17 @@ class PreferenceRepository constructor(
         it[LAST_WELCOME_NOTIFIED_UPDATE_TIME] ?: 0L
     }
 
-    val debugMode: Flow<Boolean> = isDebugMode
-    val logSanitizationEnabled: Flow<Boolean> = isLogSanitizationEnabled
     val analyticsEnabled: Flow<Boolean> = isAnalyticsEnabled
     val autoUpdateOnStart: Flow<Boolean> = dataStore.data.map { it[AUTO_UPDATE_ON_START] ?: true }
     val autoUpdateWifiOnly: Flow<Boolean> = dataStore.data.map { it[AUTO_UPDATE_WIFI_ONLY] ?: false }
+
+    /**
+     * Update-channel override for update checks: `true` also probes the beta
+     * CI artifact track, `false` sticks to official releases only. `null`
+     * (unset) means "follow the build's own provenance" — CI/debug builds
+     * track CI, release builds track releases.
+     */
+    val trackCiBuildsOverride: Flow<Boolean?> = dataStore.data.map { it[TRACK_CI_BUILDS] }
     val showAllEvents: Flow<Boolean> = isShowAllEvents
 
     suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot =
@@ -260,14 +259,6 @@ class PreferenceRepository constructor(
         dataStore.edit { it[ACCESS_MODE] = mode }
     }
 
-    suspend fun setDebugMode(debug: Boolean) {
-        dataStore.edit { it[DEBUG_MODE] = debug }
-    }
-
-    suspend fun setLogSanitizationEnabled(enabled: Boolean) {
-        dataStore.edit { it[LOG_SANITIZATION_ENABLED] = enabled }
-    }
-
     suspend fun setAnalyticsEnabled(enabled: Boolean) {
         dataStore.edit { it[ENABLE_ANALYTICS] = enabled }
     }
@@ -275,6 +266,16 @@ class PreferenceRepository constructor(
     suspend fun setAutoUpdateOnStart(enabled: Boolean) {
         dataStore.edit { it[AUTO_UPDATE_ON_START] = enabled }
     }
+
+    suspend fun setTrackCiBuildsOverride(enabled: Boolean) {
+        dataStore.edit { it[TRACK_CI_BUILDS] = enabled }
+    }
+
+    /**
+     * Blocking read of [trackCiBuildsOverride] for gates that cannot suspend —
+     * update probes call it from background dispatchers only.
+     */
+    fun trackCiBuildsOverrideBlocking(): Boolean? = runBlocking { trackCiBuildsOverride.first() }
 
     suspend fun setAutoUpdateWifiOnly(enabled: Boolean) {
         dataStore.edit { it[AUTO_UPDATE_WIFI_ONLY] = enabled }
@@ -308,33 +309,6 @@ class PreferenceRepository constructor(
         dataStore.edit { it[FREEZE_ENABLED] = enable }
     }
 
-    suspend fun setFreezeRefreezePolicy(policy: Int) {
-        dataStore.edit { it[FREEZE_REFREEZE_POLICY] = policy }
-    }
-
-    suspend fun setFreezeRefreezeDelayMinutes(minutes: Int) {
-        dataStore.edit {
-            it[FREEZE_REFREEZE_DELAY_MINUTES] = minutes.coerceIn(1, MAX_FREEZE_REFREEZE_DELAY_MINUTES)
-        }
-    }
-
-    // Pending refreeze set is runtime-internal bookkeeping (like the welcome-update marker, it is
-    // intentionally not a PreferenceOwnership entry) and is only read or written by the XMSF
-    // process FreezeCoordinator.
-    suspend fun pendingRefreezePackages(): Set<String> =
-        dataStore.data.first()[FREEZE_PENDING_REFREEZE_PACKAGES] ?: emptySet()
-
-    suspend fun addPendingRefreezePackage(packageName: String) {
-        dataStore.edit { preferences ->
-            preferences[FREEZE_PENDING_REFREEZE_PACKAGES] =
-                (preferences[FREEZE_PENDING_REFREEZE_PACKAGES] ?: emptySet()) + packageName
-        }
-    }
-
-    suspend fun clearPendingRefreezePackages() {
-        dataStore.edit { it.remove(FREEZE_PENDING_REFREEZE_PACKAGES) }
-    }
-
     suspend fun setIslandEnabled(enable: Boolean) {
         dataStore.edit { it[ISLAND_ENABLED] = enable }
     }
@@ -365,6 +339,10 @@ class PreferenceRepository constructor(
 
     suspend fun setColorStatusBarIcon(enable: Boolean) {
         dataStore.edit { it[COLOR_STATUS_BAR_ICON] = enable }
+    }
+
+    suspend fun setMonochromeShadeIcon(enable: Boolean) {
+        dataStore.edit { it[MONOCHROME_SHADE_ICON] = enable }
     }
 
     suspend fun setThirdPartyIconPack(enable: Boolean) {
@@ -460,7 +438,8 @@ class PreferenceRepository constructor(
     }
 
     suspend fun setRuntimeLogRetentionDays(days: Int) {
-        dataStore.edit { it[RUNTIME_LOG_RETENTION_DAYS] = days.coerceAtLeast(1) }
+        dataStore.edit { it[RUNTIME_LOG_RETENTION_DAYS] =
+                days.coerceIn(MIN_RUNTIME_LOG_RETENTION_DAYS, MAX_RUNTIME_LOG_RETENTION_DAYS) }
     }
 
     suspend fun setEventRetentionDays(days: Int) {
@@ -589,6 +568,14 @@ class PreferenceRepository constructor(
 
     companion object {
         const val DEFAULT_UI_KIT_STYLE = 0
+
+        /**
+         * Runtime-log retention is the only disk-safety knob the user can raise; segment rotation
+         * multiplies the daily budget by the retention window, so the cap keeps the worst case
+         * bounded.
+         */
+        const val MIN_RUNTIME_LOG_RETENTION_DAYS = 1
+        const val MAX_RUNTIME_LOG_RETENTION_DAYS = 5
     }
 
     /**
@@ -605,9 +592,9 @@ class PreferenceRepository constructor(
         showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
         focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
         colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
+        monochromeShadeIcon = preferences[MONOCHROME_SHADE_ICON] ?: false,
         thirdPartyIconPack = preferences[THIRD_PARTY_ICON_PACK] ?: true,
         systemAppIconPack = preferences[SYSTEM_APP_ICON_PACK] ?: true,
         dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
-        logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
     )
 }

@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.data
 
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -28,7 +29,18 @@ class PreferenceOwnershipTest {
 
     @Test
     fun ownerOfReturnsRuntimeForKnownRuntimeKey() {
-        assertEquals(PreferenceOwner.RUNTIME, PreferenceOwnership.ownerOf("debug_mode"))
+        assertEquals(PreferenceOwner.RUNTIME, PreferenceOwnership.ownerOf("show_all_events"))
+        assertEquals(
+            PreferenceOwner.RUNTIME,
+            PreferenceOwnership.ownerOf(MONOCHROME_SHADE_ICON_KEY),
+        )
+    }
+
+    @Test
+    fun ownerOfReturnsNullForRetiredLoggingKeys() {
+        // The two retired logging keys must not come back through the import path either.
+        assertNull(PreferenceOwnership.ownerOf("debug_mode"))
+        assertNull(PreferenceOwnership.ownerOf("pref_log_sanitization_enabled"))
     }
 
     @Test
@@ -72,8 +84,10 @@ class PreferenceOwnershipTest {
         PreferenceOwnership.entries
             .filter { it.defaultValue?.type == "int" }
             .forEach { entry ->
-                entry.defaultValue?.value?.toIntOrNull()
-                    ?: throw AssertionError("Invalid int default for '${entry.key}'")
+                val parsed = entry.defaultValue?.value?.toIntOrNull()
+                if (parsed == null) {
+                    throw AssertionError("Invalid int default for '${entry.key}'")
+                }
             }
     }
 }

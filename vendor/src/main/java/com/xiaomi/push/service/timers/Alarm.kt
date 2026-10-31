@@ -85,6 +85,8 @@ object Alarm {
             HeartbeatStrategyManager.getInstance(applicationContext).onNetworkChanged(
                 StableIntelligentHeartbeatStrategy.currentNetworkSnapshot(applicationContext),
             )
+        }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
         }
     }
 

@@ -84,9 +84,16 @@ class ZygiskConfigTest {
         )
 
         assertEquals(
-            "profile=miui14\nobserve=false\ncom.example.one\ncom.example.two\n",
+            "profile=os4\nobserve=false\ncom.example.one\ncom.example.two\n",
             config.toFileContent(),
         )
+    }
+
+    @Test
+    fun `default profile is os4`() {
+        assertEquals("os4", ZygiskConfig.DEFAULT_PROFILE)
+        assertEquals("os4", ZygiskConfig.parse("").profile)
+        assertEquals("profile=os4\nobserve=false\n", ZygiskConfig.parse("").toFileContent())
     }
 
     @Test

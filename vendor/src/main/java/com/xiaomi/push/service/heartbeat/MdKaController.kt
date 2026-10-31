@@ -70,7 +70,7 @@ class MdKaController private constructor(
     fun initializeIfNeeded() {
         if (initialized.get()) return
         if (clock() < BOOT_DELAY_MS) {
-            MyLog.w("[MdKa] Device elapsed time ${clock()} defer telephony probe")
+            MyLog.i("[MdKa] Device elapsed time ${clock()} defer telephony probe")
             handler.postDelayed({ initializeIfNeeded() }, BOOT_DELAY_MS - clock())
             return
         }
@@ -81,7 +81,7 @@ class MdKaController private constructor(
                 proxy.addIndicationListener { result -> onModemIndication(result) }
                 onNetworkChanged(currentNetworkSnapshot())
             }
-            MyLog.w("[MdKa] HwKa init success supported=${proxy.isSupported()}")
+            MyLog.i("[MdKa] HwKa init success supported=${proxy.isSupported()}")
         }.onFailure {
             MyLog.e("[MdKa] exception occurred when HwKa init", it)
         }
@@ -136,7 +136,7 @@ class MdKaController private constructor(
         localPort.set(local.port)
         remoteAddress.set(remoteIp)
         remotePort.set(remote.port)
-        MyLog.w(
+        MyLog.i(
             "[MdKa] update address info, source=$localIp:${local.port}, target=$remoteIp:${remote.port}",
         )
         handler.post {
@@ -224,7 +224,7 @@ class MdKaController private constructor(
 
     private fun startSessionIfAvailable() {
         if (!isAvailable()) {
-            MyLog.w("[MdKa] session not started, unavailable: ${availabilityReason()}")
+            MyLog.i("[MdKa] session not started, unavailable: ${availabilityReason()}")
             return
         }
         val result = proxy.startTcpKeepAlive(

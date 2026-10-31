@@ -81,6 +81,7 @@ class HookSystemService : BaseHook() {
                     }
                     ready
                 } catch (t: Throwable) {
+                    XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "readiness probe threw, trying property fallback", t)
                     // Samsung Android 16 blocks isSystemConditionProviderEnabled as hidden API.
                     // Fall back to the system property signal set by system_server.
                     val propReady = getNmsReadyProperty()
@@ -192,6 +193,8 @@ class HookSystemService : BaseHook() {
                             if (serviceRecord != null) {
                                 runCatching {
                                     serviceRecord.javaClass.getField("mAllowWhileInUsePermissionInFgs").setBoolean(serviceRecord, true)
+                                }.onFailure {
+                                    XLog.w(TAG, "mAllowWhileInUsePermissionInFgs patch failed: ${it.message}")
                                 }
                             }
                         }

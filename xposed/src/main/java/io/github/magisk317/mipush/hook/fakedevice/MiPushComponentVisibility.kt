@@ -64,10 +64,12 @@ class MiPushComponentVisibility : IFakeDevice {
             action: String?,
             targetPackage: String?,
             ownPackage: String,
+            componentClass: String? = null,
         ): Boolean = MiPushComponentVisibilityQueryPolicy.isMiPushReceiverQuery(
             action = action,
             targetPackage = targetPackage,
             ownPackage = ownPackage,
+            componentClass = componentClass,
         )
 
         internal fun isMiPushServiceQuery(
@@ -231,8 +233,12 @@ class MiPushComponentVisibility : IFakeDevice {
                 val intent = firstIntentArg() ?: return@doAfter
                 val original = result as? List<*>
                 val count = original?.size ?: 0
-                if (!isMiPushReceiverQuery(intent, context)) return@doAfter
-                if (throwable == null && count > 0) {
+                if (!isMiPushReceiverQuery(intent, context, componentClass = null)) return@doAfter
+                // The second gate honors the explicit component (see the query policy): probes
+                // about one exact receiver keep the real result and only log.
+                if ((throwable == null && count > 0) ||
+                    !isMiPushReceiverQuery(intent, context, intent.component?.className)
+                ) {
                     logComponentQuery(context, method.name, intent, count, patched = false)
                     return@doAfter
                 }
@@ -677,11 +683,16 @@ class MiPushComponentVisibility : IFakeDevice {
         return listOf(ResolveInfo().apply { this.activityInfo = activityInfo })
     }
 
-    private fun isMiPushReceiverQuery(intent: Intent, context: VisibilityContext): Boolean {
+    private fun isMiPushReceiverQuery(
+        intent: Intent,
+        context: VisibilityContext,
+        componentClass: String?,
+    ): Boolean {
         return isMiPushReceiverQuery(
             action = intent.action,
             targetPackage = intent.targetPackage(),
             ownPackage = context.packageName,
+            componentClass = componentClass,
         )
     }
 
@@ -723,10 +734,11 @@ class MiPushComponentVisibility : IFakeDevice {
             val args = constructor.parameterTypes.map { type ->
                 installSourceConstructorArg(type, installerPackage)
             }.toTypedArray()
-            runCatching {
+            val faked = runCatching {
                 constructor.isAccessible = true
-                return constructor.newInstance(*args) as? InstallSourceInfo
-            }
+                constructor.newInstance(*args) as? InstallSourceInfo
+            }.getOrNull()
+            if (faked != null) return faked
         }
         return null
     }
@@ -767,11 +779,12 @@ class MiPushComponentVisibility : IFakeDevice {
     ) {
         val action = intent.action.orEmpty()
         val target = intent.targetPackage().orEmpty()
+        val component = intent.component?.className.orEmpty()
         rateLimitedLog(
             context,
             "$methodName:$action:$target:$patched",
             "component query method=$methodName pkg=${context.packageName} proc=${context.processName} " +
-                "action=$action target=$target count=$count patched=$patched"
+                "action=$action target=$target component=$component count=$count patched=$patched"
         )
     }
 

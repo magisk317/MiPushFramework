@@ -2,7 +2,7 @@ package com.xiaomi.channel.commonutils.file
 
 import android.os.Environment
 import android.os.StatFs
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.logger.MyLog
 import java.io.File
 
@@ -33,7 +33,7 @@ object SDCardUtils {
         return try {
             Environment.getExternalStorageState() != "mounted"
         } catch (e: Exception) {
-            Logger.withTag(TAG).e { "check SDCard is busy: $e" }
+            XLog.tagged(TAG).e { "check SDCard is busy: $e" }
             true
         }
     }

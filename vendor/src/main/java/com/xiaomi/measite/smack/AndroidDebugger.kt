@@ -1,6 +1,6 @@
 package com.xiaomi.measite.smack
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.mpcd.Constants
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
@@ -28,24 +28,24 @@ class AndroidDebugger(private val connection: Connection) : SmackDebugger {
 
         override fun process(blob: Blob) {
             if (printInterpreted) {
-                Logger.v { tag + dateFormatter.format(Date()) + rcvOrSent + blob.toString() }
+                XLog.v(tag + dateFormatter.format(Date()) + rcvOrSent + blob.toString())
                 return
             }
-            Logger.v {
+            XLog.v(
                 tag + dateFormatter.format(Date()) + rcvOrSent +
                     " Blob [" + blob.cmd + "," + blob.channelId + "," + blob.packetID + "]"
-            }
+            )
         }
 
         override fun processPacket(packet: Packet) {
             if (printInterpreted) {
-                Logger.v { tag + dateFormatter.format(Date()) + rcvOrSent + " PKT " + packet.toXML() }
+                XLog.v(tag + dateFormatter.format(Date()) + rcvOrSent + " PKT " + packet.toXML())
                 return
             }
-            Logger.v {
+            XLog.v(
                 tag + dateFormatter.format(Date()) + rcvOrSent +
                     " PKT [" + packet.channelId + "," + packet.packetID + "]"
-            }
+            )
         }
     }
 
@@ -66,19 +66,19 @@ class AndroidDebugger(private val connection: Connection) : SmackDebugger {
         }
         connListener = object : ConnectionListener {
             override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
-                Logger.v { tag + dateFormatter.format(Date()) + " Connection closed (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
+                XLog.v(tag + dateFormatter.format(Date()) + " Connection closed (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
             }
 
             override fun connectionStarted(connection: Connection) {
-                Logger.v { tag + dateFormatter.format(Date()) + " Connection started (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
+                XLog.v(tag + dateFormatter.format(Date()) + " Connection started (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
             }
 
             override fun reconnectionFailed(connection: Connection, error: Exception) {
-                Logger.v(error) { tag + dateFormatter.format(Date()) + " Reconnection failed due to an exception (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
+                XLog.v(tag + dateFormatter.format(Date()) + " Reconnection failed due to an exception (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS, error)
             }
 
             override fun reconnectionSuccessful(connection: Connection) {
-                Logger.v { tag + dateFormatter.format(Date()) + " Connection reconnected (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS }
+                XLog.v(tag + dateFormatter.format(Date()) + " Connection reconnected (" + this@AndroidDebugger.connection.hashCode() + Constants.SEPARATOR_RIGHT_PARENTESIS)
             }
         }
     }

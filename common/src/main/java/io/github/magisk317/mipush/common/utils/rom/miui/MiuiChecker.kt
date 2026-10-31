@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.common.utils.rom.miui
 
 import android.app.Application
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.rom.RomChecker
 
@@ -28,7 +28,7 @@ class MiuiChecker : RomChecker {
                 false
             }
         } catch (th: Throwable) {
-            Logger.withTag(TAG).e(th) { th.message ?: "Unknown error in checkSdkBasic" }
+            XLog.tagged(TAG).e(th) { th.message ?: "Unknown error in checkSdkBasic" }
             false
         }
     }
@@ -43,11 +43,11 @@ class MiuiChecker : RomChecker {
             if (intValue == 0) {
                 true
             } else {
-                Logger.withTag(TAG).d { "initialize: $intValue" }
+                XLog.tagged(TAG).d { "initialize: $intValue" }
                 false
             }
         } catch (th: Throwable) {
-            Logger.withTag(TAG).e(th) { "initializeSdk: ${th.message}" }
+            XLog.tagged(TAG).e(th) { "initializeSdk: ${th.message}" }
             false
         }
     }
@@ -62,12 +62,12 @@ class MiuiChecker : RomChecker {
                 1 -> false // Low sdk version
                 0 -> true
                 else -> {
-                    Logger.withTag(TAG).e { "start: $intValue" }
+                    XLog.tagged(TAG).e { "start: $intValue" }
                     false
                 }
             }
         } catch (th: Throwable) {
-            Logger.withTag(TAG).e(th) { "startSdk: ${th.message}" }
+            XLog.tagged(TAG).e(th) { "startSdk: ${th.message}" }
             false
         }
     }

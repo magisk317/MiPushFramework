@@ -1,7 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.service.TinyDataHelper
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 
@@ -32,7 +32,7 @@ object TinyDataCacheUploader {
                     tinyDataUploader.upload(value, value[0].pkgName, entry.key)
                 }
             } catch (e: Exception) {
-                Logger.w(e) { "TinyData upload error" }
+                XLog.w("TinyData upload error", e)
             }
         }
     }
@@ -43,7 +43,7 @@ object TinyDataCacheUploader {
             tinyDataUploader?.let { upload(context, it, map) }
             return
         }
-        Logger.w { "TinyData TinyDataCacheUploader.uploadTinyData itemsUploading == null || itemsUploading.size() == 0  ts:${System.currentTimeMillis()}" }
+        XLog.w("TinyData TinyDataCacheUploader.uploadTinyData itemsUploading == null || itemsUploading.size() == 0  ts:${System.currentTimeMillis()}")
     }
 
     private fun verifyTinyDataUploadItemValue(context: Context, item: ClientUploadDataItem) {

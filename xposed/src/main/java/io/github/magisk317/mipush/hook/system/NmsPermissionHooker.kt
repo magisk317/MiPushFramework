@@ -39,6 +39,8 @@ object NmsPermissionHooker {
         if (xmsfUid == -1) {
             runCatching {
                 xmsfUid = getContext().packageManager.getPackageUid(XMSF_PACKAGE_NAME, 0)
+            }.onFailure {
+                XLog.w(TAG, "resolving the xmsf package uid failed: ${it.message}", it)
             }
         }
         return xmsfUid
@@ -69,6 +71,7 @@ object NmsPermissionHooker {
             callingPackages = getCallingPackages(callingUid),
         )
     } catch (e: Throwable) {
+        XLog.d(TAG, "notification permission reflection probe failed", e)
         false
     }
 
@@ -232,11 +235,19 @@ object NmsPermissionHooker {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             //NotificationChannel getNotificationChannelForPackage(String pkg, int uid, String channelId, String conversationId, boolean includeDeleted);
-            findMethodExact(classINotificationManager, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
+            findMethodExact(
+                classINotificationManager,
+                "getNotificationChannelForPackage",
+                String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java,
+            )
                 .hook(hookPermission(0))
         } else {
             //NotificationChannel getNotificationChannelForPackage(String pkg, int uid, String channelId, boolean includeDeleted);
-            findMethodExact(classINotificationManager, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
+            findMethodExact(
+                classINotificationManager,
+                "getNotificationChannelForPackage",
+                String::class.java, Int::class.java, String::class.java, Boolean::class.java,
+            )
                 .hook(hookPermission(0))
         }
 
@@ -245,11 +256,21 @@ object NmsPermissionHooker {
             .hook(hookPermission(0))
 
         //void enqueueNotificationWithTag(String pkg, String opPkg, String tag, int id, Notification notification, int userId)
-        findMethodExact(classINotificationManager, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
+        findMethodExact(
+            classINotificationManager,
+            "enqueueNotificationWithTag",
+            String::class.java, String::class.java, String::class.java, Int::class.java,
+            Notification::class.java, Int::class.java,
+        )
             .hook(hookNotificationEnqueue(preserveNotificationDelegateIdentity))
 
         //void createNotificationChannelsForPackage(String pkg, int uid, in ParceledListSlice channelsList);
-        findMethodExact(classINotificationManager, "createNotificationChannelsForPackage", String::class.java, Int::class.java, findClass("android.content.pm.ParceledListSlice", null))
+        findMethodExact(
+            classINotificationManager,
+            "createNotificationChannelsForPackage",
+            String::class.java, Int::class.java,
+            findClass("android.content.pm.ParceledListSlice", null),
+        )
             .hook(hookPermission(0))
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -300,7 +321,7 @@ object NmsPermissionHooker {
                     )
             } catch (e: NoSuchMethodError) {
                 //Samsung One UI 7 delete this method
-                XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "hook deleteNotificationChannel error, NoSuchMethodError")
+                XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "hook deleteNotificationChannel error, NoSuchMethodError", e)
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)

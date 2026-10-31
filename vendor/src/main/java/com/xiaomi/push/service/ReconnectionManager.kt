@@ -13,7 +13,7 @@ class ReconnectionManager(
         state = PushReconnectState(0, 0, 500, System.currentTimeMillis())
         pushAction.removeJobs(1)
         pushAction.runtimeObserver.onChannelEvent(null, "reconnect_succeeded", "ReconnectionManager.onConnectSucceeded")
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "reconnect_state_reset previousAttempts=${previousState.attempts} " +
                 "previousShortLive=${previousState.shortLiveConnCount} " +
                 "previousCurDelay=${previousState.curDelay}"
@@ -30,7 +30,7 @@ class ReconnectionManager(
         )
         state = reconnectPlan.nextState
         pushAction.runtimeObserver.onChannelEvent(null, reconnectPlan.eventAction, "ReconnectionManager.tryReconnect")
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "reconnect_plan action=${reconnectPlan.action} event=${reconnectPlan.eventAction} " +
                 "delayMs=${reconnectPlan.delayMs} force=$forceReconnect " +
                 "connected=${pushAction.isConnected} pendingJob=${pushAction.hasJob(1)} " +

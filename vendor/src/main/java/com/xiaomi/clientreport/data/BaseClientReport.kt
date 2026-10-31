@@ -1,6 +1,6 @@
 package com.xiaomi.clientreport.data
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.clientreport.util.ClientReportUtil
 import kotlinx.serialization.json.JsonObject
@@ -39,7 +39,7 @@ open class BaseClientReport {
                 sdkVersion?.let { put("sdkVersion", it) }
             }
         } catch (e: Exception) {
-            Logger.e(e) { "toJsonObject error" }
+            XLog.e("toJsonObject error", e)
             null
         }
     }

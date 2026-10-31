@@ -140,7 +140,7 @@ class StableIntelligentHeartbeatStrategy(
         }
 
         lastIntervalMs = interval
-        MyLog.w("[HB] ping interval:" + interval)
+        MyLog.i("[HB] ping interval:" + interval)
         return interval
     }
 
@@ -339,7 +339,7 @@ class StableIntelligentHeartbeatStrategy(
         consecutiveTimeouts.set(0)
         learningEnabled =
             !(TextUtils.isEmpty(networkId) || learnedIntervalMs(networkId) != -1)
-        MyLog.w("[HB] network changed, netid:" + networkId + ", " + learningEnabled)
+        MyLog.i("[HB] network changed, netid:" + networkId + ", " + learningEnabled)
     }
 
     private fun learnedIntervalMs(netId: String?): Int {

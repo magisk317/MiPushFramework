@@ -96,7 +96,7 @@ data class ZygiskConfig(
             return ZygiskConfigEntry(normalizedPackage, processName, enabled)
         }
 
-        const val DEFAULT_PROFILE = "miui14"
+        const val DEFAULT_PROFILE = "os4"
         val SUPPORTED_PROFILES = setOf("miui14", "os4")
     }
 }

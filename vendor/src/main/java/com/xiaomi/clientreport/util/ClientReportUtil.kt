@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.file.IOUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.channel.commonutils.string.XMStringUtils
@@ -54,7 +54,7 @@ object ClientReportUtil {
             try {
                 file.length() <= maxFileLength
             } catch (e: Exception) {
-                Logger.e(e) { "isFileCanBeUse error" }
+                XLog.e("isFileCanBeUse error", e)
                 false
             }
         } else {
@@ -69,7 +69,7 @@ object ClientReportUtil {
                 .getPackageInfo("com.xiaomi.xmsf", 0)
             getVersionCode(packageInfo) >= 108
         } catch (e: PackageManager.NameNotFoundException) {
-            Logger.w { "xmsf not found: ${e.message}" }
+            XLog.w("xmsf not found: ${e.message}")
             false
         }
     }
@@ -107,13 +107,13 @@ object ClientReportUtil {
                         file.delete()
                     }
                 } catch (e: Exception) {
-                    Logger.e(e) { "moveFiles error" }
+                    XLog.e("moveFiles error", e)
                 } finally {
                     if (fileLock != null && fileLock.isValid) {
                         try {
                             fileLock.release()
                         } catch (e: IOException) {
-                            Logger.e(e) { "release lock error" }
+                            XLog.e("release lock error", e)
                         }
                     }
                     IOUtils.closeQuietly(randomAccessFile)
@@ -141,7 +141,7 @@ object ClientReportUtil {
                 (PackageInfo::class.java.getField("versionCode")
                     .get(packageInfo) as Number).toLong()
             } catch (e: ReflectiveOperationException) {
-                Logger.e(e) { "getVersionCode error" }
+                XLog.e("getVersionCode error", e)
                 0L
             }
         }

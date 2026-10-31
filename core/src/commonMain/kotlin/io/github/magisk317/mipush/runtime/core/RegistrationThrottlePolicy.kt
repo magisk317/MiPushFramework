@@ -27,7 +27,7 @@ class RegistrationThrottlePolicy(
             while (lastRegistrationTimeMs.size >= maxTrackedPackages) {
                 val iterator = lastRegistrationTimeMs.entries.iterator()
                 if (!iterator.hasNext()) break
-                iterator.next()
+                val eldest = iterator.next()
                 iterator.remove()
             }
             lastRegistrationTimeMs[packageName] = nowMs

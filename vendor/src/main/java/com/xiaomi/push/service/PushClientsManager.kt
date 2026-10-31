@@ -93,7 +93,7 @@ class PushClientsManager private constructor() {
             }
             val previousStatus = status
             if (previousStatus != clientStatus) {
-                MyLog.w(
+                MyLog.i(
                     String.format(
                         "update the client %7\$s status. %1\$s->%2\$s %3\$s %4\$s %5\$s %6\$s",
                         previousStatus,

@@ -23,7 +23,9 @@ open class BuilderCompat(private val mContext: Context) {
     private val builder: Notification.Builder = createBuilder(mContext)
 
     private fun callOptionalBuilderMethod(name: String, vararg args: Any?) {
-        runCatching { JavaCalls.callMethodOrThrow(builder, name, *args) }
+        runCatching { JavaCalls.callMethodOrThrow(builder, name, *args) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
     }
 
     fun addExtras(bundle: Bundle): BuilderCompat {

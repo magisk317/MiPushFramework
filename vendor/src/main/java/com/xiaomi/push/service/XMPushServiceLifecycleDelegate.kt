@@ -108,7 +108,7 @@ class XMPushServiceLifecycleDelegate(
         if (intent == null) {
             MyLog.e("onStart() with intent NULL")
         } else {
-            MyLog.w(
+            MyLog.i(
                 String.format(
                     "onStart() with intent.Action = %s, chid = %s, pkg = %s|%s",
                     intent.action,
@@ -132,7 +132,7 @@ class XMPushServiceLifecycleDelegate(
                     PushClientsManager.getInstance().resetAllClients(service, 14)
                     service.stopSelf()
                 } else {
-                    ReconnectDebugLog.w("job_queue_state depth=$queueDepth blockedForMs=$blockedForMs")
+                    ReconnectDebugLog.i("job_queue_state depth=$queueDepth blockedForMs=$blockedForMs")
                     service.executeJob(IntentJob(service, intent))
                 }
             } else if (!PushServiceConstants.ACTION_NETWORK_STATUS_CHANGED.equals(action, ignoreCase = true)) {

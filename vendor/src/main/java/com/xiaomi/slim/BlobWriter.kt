@@ -1,7 +1,7 @@
 package com.xiaomi.slim
 
 import android.os.Build
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.android.SystemUtils
 import com.xiaomi.channel.commonutils.misc.DateTimeHelper
 import com.xiaomi.push.protobuf.ChannelMessage
@@ -66,10 +66,10 @@ internal class BlobWriter(
             setPayload(connReq.toByteArray(), null)
         }
         write(blob)
-        Logger.w {
+        XLog.i(
             "[slim] open conn: andver=${Build.VERSION.SDK_INT} sdk=41 hash=$deviceUuid " +
                 "tz=$mTimeZone:$mDSTSavings Model=${Build.MODEL} os=${Build.VERSION.INCREMENTAL}"
-        }
+        )
     }
 
     @Throws(IOException::class)
@@ -80,10 +80,10 @@ internal class BlobWriter(
         val writePlan = observer?.planSlimWrite(serializedSize, blob.cmd, mBuffer.capacity())
             ?: fallbackWritePlan(serializedSize, blob.cmd, mBuffer.capacity())
         
-        writePlan.eventAction?.let { Logger.w { "[slim] $it" } }
+        writePlan.eventAction?.let { XLog.d("[slim] $it") }
         
         if (writePlan.shouldDrop) {
-            Logger.w { "Blob size=$serializedSize should be less than ${Blob.MAX_BLOB_SIZE} Drop blob chid=${blob.channelId} id=${blob.packetID}" }
+            XLog.w("Blob size=$serializedSize should be less than ${Blob.MAX_BLOB_SIZE} Drop blob chid=${blob.channelId} id=${blob.packetID}")
             return 0
         }
         
@@ -120,7 +120,7 @@ internal class BlobWriter(
         mOutputStream.flush()
         
         val bytes = mBuffer.position() + 4
-        Logger.v { "[Slim] Send {cmd=${blob.cmd};chid=${blob.channelId};len=$bytes}" }
+        XLog.v("[Slim] Send {cmd=${blob.cmd};chid=${blob.channelId};len=$bytes}")
         return bytes
     }
 
@@ -145,7 +145,7 @@ internal class BlobWriter(
             setPayload(bytes, null)
         }
         write(blob)
-        Logger.w { "[Slim] write CONN Resp: host = ${connResp.host}" }
+        XLog.i("[Slim] write CONN Resp: host = ${connResp.host}")
     }
 
     @Throws(IOException::class)

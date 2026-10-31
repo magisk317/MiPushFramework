@@ -1,6 +1,6 @@
 package com.xiaomi.slim
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.misc.DebugUtils
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
@@ -58,9 +58,9 @@ internal class BlobReader(
             }
             mConnection.notifyDataArrived(blob2)
         }
-        connectionResponse?.let { response -> Logger.w { "[Slim] CONN: host = ${response.host}" } }
+        connectionResponse?.let { response -> XLog.w("[Slim] CONN: host = ${response.host}") }
         if (!handshakePlan.valid) {
-            Logger.w { "[Slim] Invalid CONN" }
+            XLog.w("[Slim] Invalid CONN")
             throw IOException(handshakePlan.failureReason ?: "Invalid Connection")
         }
         mKey = mConnection.key
@@ -79,7 +79,7 @@ internal class BlobReader(
                 hasSubcommand = blob3.subcmd.isNotEmpty(),
             )
 
-            payloadPlan.eventAction?.let { Logger.w { "[slim] $it" } }
+            payloadPlan.eventAction?.let { XLog.w("[slim] $it") }
 
             when (payloadPlan.action) {
                 PushSlimPayloadAction.DeliverBlob -> {
@@ -96,19 +96,19 @@ internal class BlobReader(
                             mPacketParser.parse(blob3.getDecryptedPayload(clientLoginInfo.security), mConnection)
                         )
                     } catch (e: Exception) {
-                        Logger.w(e) { "[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}" }
+                        XLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}", e)
                     }
                 }
                 PushSlimPayloadAction.ParsePacket -> {
                     try {
                         mConnection.notifyDataArrived(mPacketParser.parse(blob3.payload, mConnection))
                     } catch (e: Exception) {
-                        Logger.w(e) { "[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}" }
+                        XLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}", e)
                     }
                 }
                 else -> {
                     if (payloadPlan.shouldLogUnknownType) {
-                        Logger.w { "unknown blob type chid=${blob3.channelId}" }
+                        XLog.w("unknown blob type chid=${blob3.channelId}")
                     }
                 }
             }
@@ -170,7 +170,7 @@ internal class BlobReader(
             }
             return mBuffer
         }
-        Logger.w { "CRC = ${mChecksumTool.value.toInt()} and $crcValue" }
+        XLog.w("CRC = ${mChecksumTool.value.toInt()} and $crcValue")
         throw IOException("Corrupted Blob bad CRC")
     }
 
@@ -183,12 +183,12 @@ internal class BlobReader(
             buffer.flip()
             buffer.position(8)
             val blob = if (readLen == 8) Ping() else Blob.from(buffer.slice())
-            Logger.v { "[Slim] Read {cmd=${blob.cmd};chid=${blob.channelId};len=$readLen}" }
+            XLog.v("[Slim] Read {cmd=${blob.cmd};chid=${blob.channelId};len=$readLen}")
             blob
         } catch (e: IOException) {
             var len = if (readLen == 0) mBuffer.position() else readLen
             if (len > 128) len = 128
-            Logger.w(e) { "[Slim] read Blob [${DebugUtils.bytes2Hex(mBuffer.array(), 0, len)}] Err:${e.message}" }
+            XLog.w("[Slim] read Blob [${DebugUtils.bytes2Hex(mBuffer.array(), 0, len)}] Err:${e.message}", e)
             throw e
         }
     }

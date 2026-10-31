@@ -107,7 +107,9 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
         pollThreadToStop?.interrupt()
         executorToStop?.shutdownNow()
         if (receiverToUnregister != null && receiverToDrop != null) {
-            runCatching { receiverToUnregister.unregisterReceiver(receiverToDrop) }
+            runCatching { receiverToUnregister.unregisterReceiver(receiverToDrop) }.onFailure {
+                XLog.w(TAG, "stop: unregisterReceiver failed: ${it.message}", it)
+            }
         }
     }
 
@@ -184,7 +186,9 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
                         refreshAsync()
                         return
                     }
-                    runCatching { app.unregisterReceiver(registered) }
+                    runCatching { app.unregisterReceiver(registered) }.onFailure {
+                        XLog.w(TAG, "onReceive: unregisterReceiver failed: ${it.message}", it)
+                    }
                     return
                 }
             }
@@ -199,7 +203,9 @@ internal object XmsfKeepAliveFlags : KeepAliveFlagsProvider {
     private fun refreshAsync() {
         val current = executor ?: return
         if (current.isShutdown) return
-        runCatching { current.execute(::refresh) }
+        runCatching { current.execute(::refresh) }.onFailure {
+            XLog.w(TAG, "refreshAsync: execute failed: ${it.message}", it)
+        }
     }
 
     private fun refresh() {

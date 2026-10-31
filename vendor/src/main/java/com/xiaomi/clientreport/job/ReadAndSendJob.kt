@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.job
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.clientreport.processor.IDataSend
 import com.xiaomi.clientreport.processor.IEventProcessor
 import com.xiaomi.clientreport.processor.IPerfProcessor
@@ -15,7 +15,7 @@ class ReadAndSendJob : Runnable {
     override fun run() {
         try {
             mReadAndSender?.readAndSend()
-            Logger.v { "begin read and send perf / event" }
+            XLog.v("begin read and send perf / event")
             val context = mContext ?: return
             if (mReadAndSender is IEventProcessor) {
                 SPManager.getInstance(context).setLongValue(
@@ -31,7 +31,7 @@ class ReadAndSendJob : Runnable {
                 )
             }
         } catch (e: Exception) {
-            Logger.e(e) { "ReadAndSendJob error" }
+            XLog.e("ReadAndSendJob error", e)
         }
     }
 

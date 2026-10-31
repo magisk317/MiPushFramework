@@ -9,6 +9,12 @@ internal object SystemUiNotificationPolicy {
     private const val PER_USER_RANGE = 100_000
     private const val FIRST_APPLICATION_UID = 10_000
 
+    /** Shared-system packages whose status-bar resources are product-owned monochrome glyphs. */
+    private val SHARED_SYSTEM_MONOCHROME_PACKAGES = setOf(
+        "com.android.phone",
+        "com.android.server.telecom",
+    )
+
     /** Mirrors [android.graphics.drawable.Icon.TYPE_RESOURCE]. */
     const val ICON_TYPE_RESOURCE = 2
 
@@ -64,6 +70,15 @@ internal object SystemUiNotificationPolicy {
             getString(IslandDispatchContract.SOURCE_PACKAGE)?.isNotBlank() == true ||
             getString(IslandVisualContract.OWNER_KEY) == IslandVisualContract.MIPUSH_OWNER
     }
+
+    /**
+     * Product rule (2026-10-27): the status-bar monochrome switch is the master gate for every
+     * status-bar icon takeover -- icon pack, silhouette, auto-group replacement and substitution
+     * blocking alike. With it off the module owns nothing on the status bar and MIUI's own
+     * rendering (which colorizes the app icon) is the result, so no opaque module-authored asset
+     * can be flattened into a white block.
+     */
+    fun isMonochromeTakeoverEnabled(colorStatusBarIcon: Boolean): Boolean = !colorStatusBarIcon
 
     /**
      * Whether the legacy getSmallIcon hook should intercept at all. Product rule (2026-10):
@@ -186,14 +201,9 @@ internal object SystemUiNotificationPolicy {
      * native colored rendering.
      */
     fun shouldReplaceBitmapWithPackageMonochrome(
-        colorStatusBarIcon: Boolean,
         isMiPushManaged: Boolean,
         iconType: Int,
-    ): Boolean {
-        if (iconType != ICON_TYPE_BITMAP) return false
-        if (colorStatusBarIcon) return false
-        return isMiPushManaged
-    }
+    ): Boolean = isMiPushManaged && iconType == ICON_TYPE_BITMAP
 
     /**
      * Intercept decision for the legacy getSmallIcon hook with the broken-RESOURCE guard.
@@ -292,17 +302,26 @@ internal object SystemUiNotificationPolicy {
 
     /**
      * Whether a posted glyph is worth inspecting for "this app already ships a standard monochrome
-     * small icon". Only third-party posts qualify: MiPush-managed and icon-pack categories already
-     * own their status-bar asset, and system apps are covered by the icon-pack switch alone.
+     * small icon". Same class split as [shouldAttemptIconPackSubstitution]: a system app answers to
+     * the system-app switch and everything else to the third-party switch. Shared-system UIDs are
+     * normally excluded because their glyphs belong to the platform; the two telephony packages
+     * below are explicit exceptions because their own notification resources are product-owned
+     * status-bar glyphs and are the fallback when no icon-pack entry exists.
      */
     fun shouldInspectPostedGlyphForMonochrome(
-        colorStatusBarIcon: Boolean,
         thirdPartyIconPack: Boolean,
+        systemAppIconPack: Boolean,
         isMiPushManaged: Boolean,
         uid: Int,
         isSystemApp: Boolean,
-    ): Boolean = !colorStatusBarIcon && thirdPartyIconPack && !isMiPushManaged &&
-        isApplicationUid(uid) && !isSystemApp
+        postedPackageName: String? = null,
+    ): Boolean {
+        if (isMiPushManaged) return false
+        val isAllowlistedSharedSystemPackage = isSystemApp &&
+            postedPackageName?.let { SHARED_SYSTEM_MONOCHROME_PACKAGES.contains(it) } == true
+        if (!isApplicationUid(uid) && !isAllowlistedSharedSystemPackage) return false
+        return if (isSystemApp) systemAppIconPack else thirdPartyIconPack
+    }
 
     /**
      * Whether MIUI must NOT substitute the multi-color launcher icon for status-bar rendering.
@@ -311,17 +330,17 @@ internal object SystemUiNotificationPolicy {
      * third-party apps whose own small icon is already a standard monochrome glyph (SystemUI tints
      * those, so the colorful launcher logo would be a downgrade). A synthetic summary loses the
      * child's target_package marker but keeps its colorful launcher icon, so the native
-     * substitution would colorize the group glyph. Everywhere else, and in color mode, the native
-     * substitution IS the product behavior.
+     * substitution would colorize the group glyph. Everywhere else the native substitution IS the
+     * product behavior, and in color mode the caller never reaches this decision at all -- see
+     * [isMonochromeTakeoverEnabled].
      */
     fun shouldBlockSmallIconSubstitution(
         isMiPushManaged: Boolean,
         iconPackHit: Boolean,
         isSyntheticAutogroupSummary: Boolean = false,
-        colorStatusBarIcon: Boolean = false,
         keepsOwnMonochromeGlyph: Boolean = false,
     ): Boolean = isMiPushManaged || iconPackHit ||
-        (isSyntheticAutogroupSummary && !colorStatusBarIcon) ||
+        isSyntheticAutogroupSummary ||
         keepsOwnMonochromeGlyph
 
     /** Status-bar icon view class whose [updateIconColor] is the only status-bar caller of

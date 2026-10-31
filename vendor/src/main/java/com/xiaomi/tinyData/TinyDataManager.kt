@@ -1,7 +1,7 @@
 package com.xiaomi.tinyData
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.service.TinyDataHelper
 import com.xiaomi.push.service.TinyDataStorage
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
@@ -37,7 +37,7 @@ class TinyDataManager private constructor(private val mContext: Context) {
 
     fun addUploader(tinyDataUploader: TinyDataUploader, str: String?) {
         if (str.isNullOrEmpty()) {
-            Logger.e { "[TinyDataManager]: can not add a provider from unkown resource." }
+            XLog.e("[TinyDataManager]: can not add a provider from unkown resource.")
             return
         }
         uploaders[str] = tinyDataUploader
@@ -57,7 +57,7 @@ class TinyDataManager private constructor(private val mContext: Context) {
 
     fun upload(item: ClientUploadDataItem, pkgName: String?): Boolean {
         if (pkgName.isNullOrEmpty()) {
-            Logger.w { "pkgName is null or empty, upload ClientUploadDataItem failed." }
+            XLog.w("pkgName is null or empty, upload ClientUploadDataItem failed.")
             return false
         }
         if (TinyDataHelper.verify(item, false)) {

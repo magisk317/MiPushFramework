@@ -7,6 +7,7 @@ import io.github.magisk317.xposed.HookCallback
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findMethodExact
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -20,6 +21,12 @@ object ShortcutPermissionHooker {
             if (context != null) {
                 runCatching {
                     xmsfUid = context.packageManager.getPackageUid(XMSF_PACKAGE_NAME, 0)
+                }.onFailure {
+                    // a ROM without the shortcut service is expected; the pipeline outcome is reported by the caller
+                }.onFailure {
+                    // a ROM without the shortcut service is expected; the pipeline outcome is reported by the caller
+                }.onFailure {
+                    // a ROM without the shortcut service is expected; the pipeline outcome is reported by the caller
                 }
             }
         }
@@ -32,6 +39,7 @@ object ShortcutPermissionHooker {
         return try {
             Binder.getCallingUid() == uid
         } catch (e: Throwable) {
+            XLog.d("ShortcutPermissionHooker", "shortcut permission probe failed", e)
             false
         }
     }

@@ -48,9 +48,22 @@ dependencies {
     implementation(project(":magisk-xposed-kit:logging"))
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.kermit)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+// This module mirrors stock Xiaomi push/SDK sources: Kotlin 2.5 flags the discarded
+// `runCatching` results in it, and some of that frozen code returns through a non-local
+// return inside runCatching. Rewriting either would change derived behaviour, so the
+// exemption is scoped to this module only -- the same arrangement as the vendor lint
+// block below -- and every first-party module stays under the diagnostic.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-Xwarning-level=RETURN_VALUE_NOT_USED:disabled",
+            "-Xwarning-level=RETURN_VALUE_NOT_USED_COERCION:disabled",
+        )
+    }
 }
