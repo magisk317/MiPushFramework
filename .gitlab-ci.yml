@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -58,7 +58,7 @@ variables:
   # response with a bash regex instead; af0295f additionally writes the
   # allocated code to .magisk-version-code so after_script can stage it
   # (an export made in script does not survive into after_script).
-  MAGISK_CI_TOOLKIT_REF: "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"
+  MAGISK_CI_TOOLKIT_REF: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -107,9 +107,10 @@ variables:
   # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
   # here fails the fetch outright. Bump it together with the MiPushZygisk release
   # (module.prop version/versionCode must stay in sync with libs.versions.toml).
-  MIPUSH_ZYGISK_REF: "e7fb5768b925b1eaea3f11f979cce37e1bb4fa7e"
-  MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
-  MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
+  MIPUSH_ZYGISK_REF: "ef5e1c7105da70d32a098b304cfe5bf77ac4a576"
+  MIPUSH_ZYGISK_NDK_VERSION: "r30"
+  MIPUSH_ZYGISK_NDK_REVISION: "30.0.16248370"
+  MIPUSH_ZYGISK_NDK_HOME: "/opt/android-sdk/ndk/30.0.16248370"
   # Public SHA-256 fingerprint of the production APK signing certificate.
   MAGISK_ANDROID_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
   MAGISK_ANDROID_RELEASE_APK_ROOTS: "xmsf/build/outputs/apk mipush/build/outputs/apk"
@@ -190,19 +191,11 @@ android:build:
   extends:
     - .magisk_android_build
     - .mipush_signed_android_rules
+    # Last so its job-level rules win over the anchors above; the shared
+    # anchor skips MR/renovate/schedule pipelines and gates on signing creds.
+    - .magisk_android_build_rules
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: never
-    # Job-level rules replace the ones inherited via extends, so the renovate
-    # exclusion from .mipush_android_rules must be restated here. Without it
-    # every renovate branch push burned a full android:build on the shared
-    # arm64 runner, duplicating what the MR pipeline already verifies.
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^renovate\//'
-      when: never
-    - if: '$CI_COMMIT_BRANCH && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-    - when: never
   # The packaging contract is dex-presence only, so it applies verbatim to the
   # R8-minified debug APKs this job ships (-PminifyDebug): a keep-rule regression
   # fails the build before the after_script stages the APK into the update
@@ -335,6 +328,20 @@ android:check:
       fi
 
       export DEBIAN_FRONTEND=noninteractive
+      # The runner injects an overseas proxy into every job, and apt ignores
+      # the no_proxy environment, so the domestic Debian mirrors must opt out
+      # at the apt layer: through the proxy their downloads cross the Pacific
+      # and stall (observed 60 kB/s then frozen on 2026-11-07).
+      printf '%s\n' \
+        'Acquire::http::Proxy::mirrors.tuna.tsinghua.edu.cn "DIRECT";' \
+        'Acquire::https::Proxy::mirrors.tuna.tsinghua.edu.cn "DIRECT";' \
+        'Acquire::http::Proxy::mirrors.ustc.edu.cn "DIRECT";' \
+        'Acquire::https::Proxy::mirrors.ustc.edu.cn "DIRECT";' \
+        > /etc/apt/apt.conf.d/95-domestic-mirrors-direct
+      # rustup's downloader is not apt: it honors the proxy environment and
+      # NO_PROXY directly, so point it at the domestic mirrors explicitly.
+      export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.tuna.tsinghua.edu.cn,.ustc.edu.cn"
+      export no_proxy="$NO_PROXY"
       use_mirror="${MAGISK_LINUX_USE_MIRROR:-true}"
       if [[ "$use_mirror" == "true" ]]; then
         sed -i \
@@ -391,15 +398,7 @@ android:check:
         export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
         rustup target add $MIPUSH_ZYGISK_RUST_TARGETS
       fi
-    - mkdir -p .android
-    - |
-      set -euo pipefail
-      if [ ! -d "$ANDROID_NDK_HOME" ]; then
-        curl --retry 5 --retry-all-errors --continue-at - --fail --location --silent --show-error \
-          "https://dl.google.com/android/repository/android-ndk-${MIPUSH_ZYGISK_NDK_VERSION}-linux.zip" \
-          --output /tmp/android-ndk.zip
-        unzip -q /tmp/android-ndk.zip -d .android
-      fi
+    - scripts/ci/ensure_android_ndk.sh
   script:
     - |
       set -euo pipefail
@@ -460,15 +459,9 @@ telegram:ci:
   extends:
     - .magisk_telegram_ci
     - .mipush_signed_android_rules
+    - .magisk_telegram_ci_delivery_rules
   stage: release
   allow_failure: true
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-      when: on_success
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-      when: manual
-      allow_failure: true
-    - when: never
   tags:
     - $MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG
   variables:
@@ -506,6 +499,7 @@ android:detekt:
     MAGISK_ANDROID_DETEKT_TASKS: >-
       detekt
       qualityGateDetekt
+      verifyGodFileLimits
       -PminifyDebug
       -Pkotlin.incremental=false
   artifacts:
@@ -562,7 +556,8 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Coverage gate runs on ARM after Beta publishing.
+  # Wait for automatic Renovate delivery when present; the optional manual
+  # Play action on human beta pipelines does not block this quality gate.
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
@@ -654,8 +649,11 @@ android:release:apk:
   # validation are the template's job now.
   extends: .magisk_android_release_apk
   variables:
-    MAGISK_ANDROID_RELEASE_APK_TASKS: ":xmsf:assembleRelease :mipush:assembleGithubRelease"
-    MAGISK_ANDROID_RELEASE_GRADLE_EXTRA_ARGS: "-PbuildSplits=true -Pkotlin.incremental=false"
+    MAGISK_ANDROID_RELEASE_APK_TASKS: ":xmsf:assembleRelease :xmsf:assembleDebug :mipush:assembleGithubRelease :mipush:assembleGithubDebug"
+    MAGISK_ANDROID_RELEASE_APK_BUILD_TYPES: "release debug"
+    MAGISK_ANDROID_RELEASE_MAX_APK_BYTES: "52428800"
+    MAGISK_ANDROID_RELEASE_ALLOW_NON_DEBUGGABLE_DEBUG: "true"
+    MAGISK_ANDROID_RELEASE_GRADLE_EXTRA_ARGS: "-PbuildSplits=true -Pkotlin.incremental=false -PminifyDebug"
   resource_group: mipush-android-release-apk
   stage: build
   tags:
@@ -676,8 +674,10 @@ android:release:apk:
     expire_in: 30 days
     paths:
       - xmsf/build/outputs/apk/**/release/*.apk
+      - xmsf/build/outputs/apk/**/debug/*.apk
       - xmsf/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
+      - mipush/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/mapping/**/mapping.txt
       # android:release:modules-repo reads versionCode/versionName from here to
       # build its "<versionCode>-<versionName>" release tag.
@@ -799,21 +799,18 @@ android:release:publish-play:
     expire_in: 1 day
 
 android:ci:aab:
-  extends: .magisk_android_base
+  extends:
+    - .magisk_android_base
+    - .magisk_android_ci_aab_rules
   resource_group: mipush-android-release-play
   stage: build
   tags:
     - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
-  # come from CI variables, assets from the repository), so the publish chain
-  # must not wait for the build/package stages: Play publishing keeps
-  # priority over the quality stage.
+  # come from CI variables, assets from the repository), so beta bundle
+  # production must not wait for other build/package jobs. Packaging, followed
+  # by Renovate's automatic delivery when applicable, keeps priority over quality.
   needs: []
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != "" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-      when: on_success
-    - when: never
   variables:
     MAGISK_IS_CI_BUILD: "true"
   script:
@@ -841,20 +838,13 @@ android:ci:aab:
       - play-release.env
 
 android:ci:publish-play:
-  extends: .magisk_android_base
+  extends:
+    - .magisk_android_base
+    - .magisk_android_ci_publish_play_rules
   resource_group: mipush-android-release-play
   stage: release
   tags:
     - $MIPUSH_BUILD_RUNNER_TAG
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_AUTHOR =~ /Renovate317@users.noreply/ && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-      when: on_success
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-      when: on_success
-      allow_failure: true
-    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "schedule" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-      when: on_success
-    - when: never
   needs:
     - job: android:ci:aab
       artifacts: true
@@ -884,19 +874,24 @@ telegram:release:
   extends: .magisk_telegram_release
   resource_group: mipush-android-release-publish
   stage: release
-  allow_failure: true
+  allow_failure: false
   tags:
     - $MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-      allow_failure: true
     - when: never
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
+    MAGISK_TELEGRAM_RELEASE_EXPECTED_ARTIFACT_COUNT: "7"
+    MAGISK_TELEGRAM_RELEASE_ARTIFACT_CAPTION: "📦 MiPushFramework $CI_COMMIT_TAG · arm64-v8a · release + debug + Zygisk"
     MAGISK_TELEGRAM_RELEASE_ARTIFACT_PATTERNS: |-
       *arm64-v8a*.apk
       arm64-v8a_*.zip
+    # Play publishing is suspended pending store review; the announcement must
+    # not advertise a store page that cannot serve this version. Drop the
+    # override when the Play jobs come back.
+    MAGISK_ANDROID_RELEASE_SHOW_PLAY_LINK: "false"
     # Use TG_RELEASE_CHAT_ID instead of TG_CHAT_ID so that the project-level
     # TG_CHAT_ID (which retargets CI to the new room) does NOT override this.
     TG_RELEASE_CHAT_ID: "-1003532345372"
@@ -949,9 +944,9 @@ android:release:github:
     - $MIPUSH_BUILD_RUNNER_TAG
   variables:
     # Must stay job-level: the toolkit template pins the same key at job level
-    # to "*arm64-v8a*.apk", and job variables outrank the global variables
+    # to "*_release.apk", and job variables outrank the global variables
     # block, so a global override here would be silently ignored.
-    MAGISK_ANDROID_RELEASE_GITHUB_ASSET_PATTERN: "*.apk"
+    MAGISK_ANDROID_RELEASE_GITHUB_ASSET_PATTERN: "*_release.apk"
   needs:
     - job: android:release:apk
       artifacts: true

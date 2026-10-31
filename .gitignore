@@ -31,7 +31,7 @@ agents.override.md
 /captures
 gen/
 debug/
-release/
+/release/
 .classpath
 .project
 org.eclipse.buildship.core.prefs
