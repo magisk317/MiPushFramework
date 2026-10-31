@@ -3,6 +3,13 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.1.3] - 2026-11-01
+- 版本：`versionCode 22` / `versionName 1.1.3`。
+- 下一轮开发占位，发布前补充具体变更。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.2...v1.1.3
+
+---
 ## [v1.1.2] - 2026-10-31
 - 版本：`versionCode 21` / `versionName 1.1.2`。
 - `[fix]` 修复部分机型注册失败：强制注册按结果确认，支持 root 拉起
