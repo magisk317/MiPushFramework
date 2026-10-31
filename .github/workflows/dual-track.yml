@@ -34,10 +34,10 @@ jobs:
           git config --global http.https://gitlab.com/.extraheader "AUTHORIZATION: basic $(printf 'oauth2:%s' "$GITLAB_TOKEN" | base64 -w0)"
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: 53268e1ba18fe05dd0f2824502241d83c32523bd
+          ref: ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d
       - name: Check dual-track contract
         run: python3 "${MAGISK_CI_TOOLKIT_DIR:-.magisk-ci-toolkit}/checks/dual_track_check.py" --root . --config scripts/config/dual-track.json
       - name: Check CI bootstrap freshness
         run: |
           TOOLKIT_DIR="$(bash scripts/resolve_ci_toolkit.sh)"
-          bash "$TOOLKIT_DIR/codegen/sync_consumer_bootstrap.sh" --check "$PWD" "53268e1ba18fe05dd0f2824502241d83c32523bd"
+          bash "$TOOLKIT_DIR/codegen/sync_consumer_bootstrap.sh" --check "$PWD" "ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d"

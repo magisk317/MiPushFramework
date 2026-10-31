@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLKIT_DIR="${MAGISK_CI_TOOLKIT_DIR:-${ROOT_DIR}/.magisk-ci-toolkit}"
 TOOLKIT_REPOSITORY="${MAGISK_CI_TOOLKIT_REPOSITORY:-https://gitlab.com/magisk3171/shared/magisk-ci-toolkit.git}"
-TOOLKIT_REF="${MAGISK_CI_TOOLKIT_REF:-53268e1ba18fe05dd0f2824502241d83c32523bd}"
+TOOLKIT_REF="${MAGISK_CI_TOOLKIT_REF:-ec2530a5864fa5c86d89b260a04e1bb7cd36ea0d}"
 # The toolkit lives in a private repository, so an anonymous fetch gets HTTP 401
 # ("could not read Username for 'https://gitlab.com'"). Inject the job token when
 # GitLab CI provides one. Skip injection when the URL already carries credentials
@@ -25,8 +25,34 @@ else
   git -C "$TOOLKIT_DIR" remote add origin "$TOOLKIT_REPOSITORY_AUTH" >&2
 fi
 
-git -C "$TOOLKIT_DIR" fetch --depth 1 origin "$TOOLKIT_REF" >&2
-git -C "$TOOLKIT_DIR" checkout --detach --force FETCH_HEAD >&2
+# The snapshot store can be poisoned by interleaved shallow pins (each
+# resolver run fetches one depth-1 fragment; the shallow boundaries end up
+# incoherent and later fetches record refs without delivering objects), and
+# some GitLab hosts refuse wants for non-advertised SHAs outright. On any
+# failure, rebuild the store from scratch and fetch main in full; the pin is
+# always a main-ancestral commit, so containment is verified before checkout.
+refresh_toolkit_snapshot() {
+  if git -C "$TOOLKIT_DIR" fetch --depth 1 origin "$TOOLKIT_REF" >&2; then
+    git -C "$TOOLKIT_DIR" checkout --detach --force "$TOOLKIT_REF" >&2
+    return 0
+  fi
+  if git -C "$TOOLKIT_DIR" fetch origin main >&2 \
+    && git -C "$TOOLKIT_DIR" merge-base --is-ancestor "$TOOLKIT_REF" FETCH_HEAD 2>/dev/null; then
+    git -C "$TOOLKIT_DIR" checkout --detach --force "$TOOLKIT_REF" >&2
+    return 0
+  fi
+  echo "WARN: toolkit snapshot incoherent, rebuilding from scratch" >&2
+  rm -rf -- "$TOOLKIT_DIR"
+  git init --quiet "$TOOLKIT_DIR" >&2
+  git -C "$TOOLKIT_DIR" remote add origin "$TOOLKIT_REPOSITORY_AUTH" >&2
+  git -C "$TOOLKIT_DIR" fetch origin main >&2
+  git -C "$TOOLKIT_DIR" merge-base --is-ancestor "$TOOLKIT_REF" FETCH_HEAD || {
+    echo "ERROR: pinned toolkit ref $TOOLKIT_REF is not on main" >&2
+    exit 1
+  }
+  git -C "$TOOLKIT_DIR" checkout --detach --force "$TOOLKIT_REF" >&2
+}
+refresh_toolkit_snapshot
 
 if [[ "$TOOLKIT_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
   resolved_ref="$(git -C "$TOOLKIT_DIR" rev-parse HEAD)"
