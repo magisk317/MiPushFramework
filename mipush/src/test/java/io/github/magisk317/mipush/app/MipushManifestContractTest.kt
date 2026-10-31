@@ -65,7 +65,14 @@ class MipushManifestContractTest {
         val mainActivitySource = resolveProjectFile(
             "manager/ui/src/main/java/io/github/magisk317/mipush/feature/main/MainActivity.kt",
         ).readText()
-        assertTrue("WizardSPUtils.shouldShowWizard(this@MainActivity, preferenceRepository)" in mainActivitySource)
+        // 54dfec63 replaced the raw shouldShowWizard launch gate with the
+        // grouped requirement probe and the once-per-version launch report;
+        // the contract is that MainActivity still consults WizardSPUtils.
+        assertTrue(
+            "WizardSPUtils.consumeLaunchReport(" in mainActivitySource &&
+                "WizardRequirementProbe.hasOutstandingRequirement(" in mainActivitySource &&
+                "preferenceRepository," in mainActivitySource,
+        )
         assertFalse("LEGACY_TARGET_CLASS" in mainActivitySource)
     }
 

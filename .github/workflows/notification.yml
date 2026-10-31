@@ -33,7 +33,7 @@ jobs:
 
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: 65505809acb199c24ae9e63df1975cdea2ab494b
+          ref: 53268e1ba18fe05dd0f2824502241d83c32523bd
 
       - name: Prepare GitHub release notes
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.name == 'Release' && startsWith(github.event.workflow_run.head_branch, 'v')

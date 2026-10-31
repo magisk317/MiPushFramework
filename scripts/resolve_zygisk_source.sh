@@ -9,7 +9,7 @@ default_zygisk_ref=""
 if [[ -f "${ROOT_DIR}/.gitlab-ci.yml" ]]; then
   default_zygisk_ref="$(sed -nE 's/^[[:space:]]*MIPUSH_ZYGISK_REF:[[:space:]]*"([0-9a-fA-F]{40})".*/\1/p' "${ROOT_DIR}/.gitlab-ci.yml" | head -n1)"
 fi
-ZYGISK_REF="${MIPUSH_ZYGISK_REF:-${default_zygisk_ref:-29dfb4432ab5a95392781f11d5d044cb76c87f82}}"
+ZYGISK_REF="${MIPUSH_ZYGISK_REF:-${default_zygisk_ref:-d4f2903fda4fcc9ccdd078599c94138e23774a2f}}"
 ZYGISK_REPOSITORY_AUTH="$ZYGISK_REPOSITORY"
 if [[ -n "${CI_JOB_TOKEN:-}" && "$ZYGISK_REPOSITORY" == https://gitlab.com/* ]]; then
   ZYGISK_REPOSITORY_AUTH="${ZYGISK_REPOSITORY/https:\/\//https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@}"

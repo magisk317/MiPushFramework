@@ -4,44 +4,22 @@
 # reference; scanner trims leading whitespace and keeps comment/string lines in scope)
 # Every entry MUST have: stock source, impact, verification status.
 # See docs/vendor_boundary_audit.md for full details.
-
 # === Category 1: MagiskOtel Structured Telemetry (10 entries) ===
 # Source: stock com.xiaomi.channel.commonutils.logger.MyLog
 # Impact: Structured JSONL events, no behavior change
 # Verified: PushPacketRuntimeTest + runtime JSONL output
-vendor/src/main/java/com/xiaomi/mipush/sdk/MiPushClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/mipush/sdk/MiTinyDataClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/mipush/sdk/PushMessageHandler.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/mipush/sdk/PushServiceClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/ClientEventDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/MIPushAckDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/MIPushEventProcessor.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/PacketSync.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-vendor/src/main/java/com/xiaomi/push/service/XMPushServicePacketDelegate.kt|import io.github.magisk317.xposed.logging.MagiskOtel
-
 # === Category 2: LoggerExtensions Structured Logging (5 entries) ===
 # Source: stock MyLog
 # Impact: Kermit structured facade, sanitization support
 # Verified: LogSanitizerTest + XposedLogClientSanitizationTest
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logD
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logE
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logI
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logV
-vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logW
-
 # === Category 3: DefaultLogSanitizer (1 entry) ===
 # Source: stock logging (no sanitization)
 # Impact: Token/secret redaction, prevents logcat leakage
 # Verified: LogSanitizerTest + XposedLogClientSanitizationTest
-vendor/src/main/java/com/xiaomi/mipush/sdk/AssemblePushHelper.kt|import io.github.magisk317.xposed.logging.DefaultLogSanitizer
-
 # === Category 4: PushServiceBroadcastActions Contract (1 entry) ===
 # Source: stock PushConstants hardcoded strings
 # Impact: Shared contract constants, no behavior change
 # Verified: XMPushServiceAppIntentDelegateContractTest
-vendor/src/main/java/com/xiaomi/push/service/XMPushServiceMessenger.kt|import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
-
 # === Category 5: Inline FQCN plan delegation to runtime-core (22 entries) ===
 # Source: stock inline policy logic in slim/smack/connection code paths
 # Impact: Plan-delegation/adapter idiom sanctioned by
@@ -50,86 +28,15 @@ vendor/src/main/java/com/xiaomi/push/service/XMPushServiceMessenger.kt|import io
 # Verified: PushSlimPlanFactoryTest, PushConnectionPolicyPlanFactoryTest,
 #           BlobStreamPolicyWiringContractTest, PushConnectionStatusRuntimeTest,
 #           NetworkCheckupRuntimeTest
-
-vendor/src/main/java/com/xiaomi/push/service/NetworkCheckup.kt|io.github.magisk317.mipush.runtime.core.PushNetworkCheckPlanFactory.extractGateway(line)
-vendor/src/main/java/com/xiaomi/push/service/XMPushServiceIntentDelegate.kt|val plan = io.github.magisk317.mipush.runtime.core.PushChannelOpenPlanFactory.planRebind(
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planHandshake(
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|) ?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planPayloadDispatch(
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|private fun mapSlimCommand(cmd: String?): io.github.magisk317.mipush.runtime.core.PushSlimCommand = when (cmd) {
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
-vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planWrite(
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
-vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|val statusPlan = io.github.magisk317.mipush.runtime.core.PushConnectionStatusPlanFactory.planStatusChange(
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionSuccessful -> {
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionStarted -> {
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionFailed -> {
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionClosed -> {
-vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.None -> {
-
 # === Category 6: PushVersionInfo inline FQCN delegation (10 entries) ===
 # Source: stock version-reporting constants and helpers in com.xiaomi.push.service.PushVersionInfo
 # Impact: Thin delegates to runtime-core PushVersionInfo so version semantics live in one place
 # Verified: PushVersionInfoTest
-
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val STOCK_XMSF_APP_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val STOCK_XMSF_APP_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val PUSH_SDK_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_NAME
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val PUSH_SDK_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_CODE
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionName(packageName, actualVersionName)
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionCode(packageName, actualVersionCode)
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendPushSdkExtras(target)
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.pushSdkExtras()
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendAccountRegistrationParams(target, packageName, actualVersionCode)
-vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.buildClientExtraAttributes(runningPackages, countryCode, region)
-
 # === Category 7: PushRuntimeModels typealias bridge table (33 entries) ===
 # Source: stock model types referenced under com.xiaomi.push.service for stock compatibility
 # Impact: Typealiases re-export runtime-core models/plan factories (same plan-delegation idiom);
 #         includes one comment line documenting the canonical definition location
 # Verified: compile-time alias bridge exercised by vendor/xmsf unit tests consuming the aliases
-
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|// Canonical definitions are in runtime-core (io.github.magisk317.mipush.runtime.core).
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushChannelState = io.github.magisk317.mipush.runtime.core.PushChannelState
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionState = io.github.magisk317.mipush.runtime.core.PushConnectionState
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushRegistrationState = io.github.magisk317.mipush.runtime.core.PushRegistrationState
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias ConnectionStatus = io.github.magisk317.mipush.runtime.core.ConnectionStatus
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimInboundAction = io.github.magisk317.mipush.runtime.core.PushSlimInboundAction
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimInboundPlan = io.github.magisk317.mipush.runtime.core.PushSlimInboundPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPingPlan = io.github.magisk317.mipush.runtime.core.PushSlimPingPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSocketHostSelectionPlan = io.github.magisk317.mipush.runtime.core.PushSocketHostSelectionPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSocketFailurePlan = io.github.magisk317.mipush.runtime.core.PushSocketFailurePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushShortConnectionPlan = io.github.magisk317.mipush.runtime.core.PushShortConnectionPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionAttemptAction = io.github.magisk317.mipush.runtime.core.PushConnectionAttemptAction
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionAttemptPlan = io.github.magisk317.mipush.runtime.core.PushConnectionAttemptPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectState = io.github.magisk317.mipush.runtime.core.PushReconnectState
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectDelayPlan = io.github.magisk317.mipush.runtime.core.PushReconnectDelayPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectAction = io.github.magisk317.mipush.runtime.core.PushReconnectAction
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectAttemptPlan = io.github.magisk317.mipush.runtime.core.PushReconnectAttemptPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushCheckAliveAction = io.github.magisk317.mipush.runtime.core.PushCheckAliveAction
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushCheckAlivePlan = io.github.magisk317.mipush.runtime.core.PushCheckAlivePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimHandshakePlan = io.github.magisk317.mipush.runtime.core.PushSlimHandshakePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPayloadPlan = io.github.magisk317.mipush.runtime.core.PushSlimPayloadPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPayloadAction = io.github.magisk317.mipush.runtime.core.PushSlimPayloadAction
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimWritePlan = io.github.magisk317.mipush.runtime.core.PushSlimWritePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushNetworkChangedPlan = io.github.magisk317.mipush.runtime.core.PushNetworkChangedPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushScreenStatePlan = io.github.magisk317.mipush.runtime.core.PushScreenStatePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushTimerPlan = io.github.magisk317.mipush.runtime.core.PushTimerPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushClientChangePlan = io.github.magisk317.mipush.runtime.core.PushClientChangePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushPowerModePlan = io.github.magisk317.mipush.runtime.core.PushPowerModePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushShouldReconnectPlan = io.github.magisk317.mipush.runtime.core.PushShouldReconnectPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectionFailurePlan = io.github.magisk317.mipush.runtime.core.PushReconnectionFailurePlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectionSuccessPlan = io.github.magisk317.mipush.runtime.core.PushReconnectionSuccessPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionClosedPlan = io.github.magisk317.mipush.runtime.core.PushConnectionClosedPlan
-vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionPlanFactory = io.github.magisk317.mipush.runtime.core.PushConnectionPlanFactory
-
 # === Documented seam outside this scanner's pattern (0 entries) ===
 # timers/Alarm.kt createProductAlarm() resolves the product-owned timer via
 # Class.forName("com.xiaomi.push.service.timers.AlarmManagerTimer") (owned by
@@ -137,3 +44,121 @@ vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias Push
 # vendor StockAlarmManagerTimer fallback. The target is a com.xiaomi.* class-name string, so
 # it is invisible to the io.github.magisk317. scan by design; it is a sanctioned,
 # reflection-free-of-import compatibility seam documented in docs/vendor_boundary_audit.md.
+vendor/src/main/java/com/xiaomi/channel/commonutils/file/SDCardUtils.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/channel/commonutils/logger/KermitLoggerCompat.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/channel/commonutils/logger/MyLog.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/channel/commonutils/misc/DateTimeHelper.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/channel/commonutils/network/Network.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/data/BaseClientReport.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/data/EventClientReport.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/data/PerfClientReport.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/job/EventUploadJob.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/job/PerfUploadJob.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/job/ReadAndSendJob.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/job/WriteJob.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/manager/ClientReportLogicManager.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/processor/DefaultEventProcessor.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/processor/DefaultPerfProcessor.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/processor/PerfKVFileHelper.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/clientreport/util/ClientReportUtil.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/measite/smack/AndroidDebugger.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/mipush/sdk/AppInfoHolder.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/mipush/sdk/AssemblePushHelper.kt|import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+vendor/src/main/java/com/xiaomi/mipush/sdk/AssemblePushHelper.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/mipush/sdk/MiPushClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/MiTinyDataClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/PushMessageHandler.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/PushServiceClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/ClientEventDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/MIPushAckDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/MIPushEventProcessor.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/NetworkCheckup.kt|io.github.magisk317.mipush.runtime.core.PushNetworkCheckPlanFactory.extractGateway(line)
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logD
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logE
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logI
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logV
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logW
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/PacketSync.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|// Canonical definitions are in runtime-core (io.github.magisk317.mipush.runtime.core).
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias ConnectionStatus = io.github.magisk317.mipush.runtime.core.ConnectionStatus
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushChannelState = io.github.magisk317.mipush.runtime.core.PushChannelState
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushCheckAliveAction = io.github.magisk317.mipush.runtime.core.PushCheckAliveAction
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushCheckAlivePlan = io.github.magisk317.mipush.runtime.core.PushCheckAlivePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushClientChangePlan = io.github.magisk317.mipush.runtime.core.PushClientChangePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionAttemptAction = io.github.magisk317.mipush.runtime.core.PushConnectionAttemptAction
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionAttemptPlan = io.github.magisk317.mipush.runtime.core.PushConnectionAttemptPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionClosedPlan = io.github.magisk317.mipush.runtime.core.PushConnectionClosedPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionPlanFactory = io.github.magisk317.mipush.runtime.core.PushConnectionPlanFactory
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushConnectionState = io.github.magisk317.mipush.runtime.core.PushConnectionState
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushNetworkChangedPlan = io.github.magisk317.mipush.runtime.core.PushNetworkChangedPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushPowerModePlan = io.github.magisk317.mipush.runtime.core.PushPowerModePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectAction = io.github.magisk317.mipush.runtime.core.PushReconnectAction
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectAttemptPlan = io.github.magisk317.mipush.runtime.core.PushReconnectAttemptPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectDelayPlan = io.github.magisk317.mipush.runtime.core.PushReconnectDelayPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectState = io.github.magisk317.mipush.runtime.core.PushReconnectState
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectionFailurePlan = io.github.magisk317.mipush.runtime.core.PushReconnectionFailurePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushReconnectionSuccessPlan = io.github.magisk317.mipush.runtime.core.PushReconnectionSuccessPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushRegistrationState = io.github.magisk317.mipush.runtime.core.PushRegistrationState
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushScreenStatePlan = io.github.magisk317.mipush.runtime.core.PushScreenStatePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushShortConnectionPlan = io.github.magisk317.mipush.runtime.core.PushShortConnectionPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushShouldReconnectPlan = io.github.magisk317.mipush.runtime.core.PushShouldReconnectPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimHandshakePlan = io.github.magisk317.mipush.runtime.core.PushSlimHandshakePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimInboundAction = io.github.magisk317.mipush.runtime.core.PushSlimInboundAction
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimInboundPlan = io.github.magisk317.mipush.runtime.core.PushSlimInboundPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPayloadAction = io.github.magisk317.mipush.runtime.core.PushSlimPayloadAction
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPayloadPlan = io.github.magisk317.mipush.runtime.core.PushSlimPayloadPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimPingPlan = io.github.magisk317.mipush.runtime.core.PushSlimPingPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSlimWritePlan = io.github.magisk317.mipush.runtime.core.PushSlimWritePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSocketFailurePlan = io.github.magisk317.mipush.runtime.core.PushSocketFailurePlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushSocketHostSelectionPlan = io.github.magisk317.mipush.runtime.core.PushSocketHostSelectionPlan
+vendor/src/main/java/com/xiaomi/push/service/PushRuntimeModels.kt|typealias PushTimerPlan = io.github.magisk317.mipush.runtime.core.PushTimerPlan
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val PUSH_SDK_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_CODE
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val PUSH_SDK_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_NAME
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val STOCK_XMSF_APP_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|const val STOCK_XMSF_APP_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendAccountRegistrationParams(target, packageName, actualVersionCode)
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendPushSdkExtras(target)
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.buildClientExtraAttributes(runningPackages, countryCode, region)
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.pushSdkExtras()
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionCode(packageName, actualVersionCode)
+vendor/src/main/java/com/xiaomi/push/service/PushVersionInfo.kt|return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionName(packageName, actualVersionName)
+vendor/src/main/java/com/xiaomi/push/service/XMPushServiceIntentDelegate.kt|val plan = io.github.magisk317.mipush.runtime.core.PushChannelOpenPlanFactory.planRebind(
+vendor/src/main/java/com/xiaomi/push/service/XMPushServiceMessenger.kt|import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
+vendor/src/main/java/com/xiaomi/push/service/XMPushServicePacketDelegate.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/slim/Binder.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/slim/Blob.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|) ?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planPayloadDispatch(
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|?: io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planHandshake(
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/slim/BlobReader.kt|private fun mapSlimCommand(cmd: String?): io.github.magisk317.mipush.runtime.core.PushSlimCommand = when (cmd) {
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_CLOSE -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Close
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_CONN -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Connection
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_PING -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Ping
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|Blob.CMD_SECMSG -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.SecureMessage
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|else -> io.github.magisk317.mipush.runtime.core.PushSlimCommand.Other
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/slim/BlobWriter.kt|io.github.magisk317.mipush.runtime.core.PushSlimStreamPlanFactory.planWrite(
+vendor/src/main/java/com/xiaomi/slim/SlimConnection.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionClosed -> {
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ConnectionStarted -> {
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.None -> {
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionFailed -> {
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|io.github.magisk317.mipush.runtime.core.PushConnectionListenerEvent.ReconnectionSuccessful -> {
+vendor/src/main/java/com/xiaomi/smack/Connection.kt|val statusPlan = io.github.magisk317.mipush.runtime.core.PushConnectionStatusPlanFactory.planStatusChange(
+vendor/src/main/java/com/xiaomi/smack/SocketConnection.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/smack/util/PacketParserUtils.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/smack/util/TrafficUtils.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/stats/StatsContext.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/stats/StatsHandler.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/stats/StatsHelper.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/tinyData/TinyDataCacheProcessor.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/tinyData/TinyDataCacheReader.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/tinyData/TinyDataCacheUploader.kt|import io.github.magisk317.xposed.logging.XLog
+vendor/src/main/java/com/xiaomi/tinyData/TinyDataManager.kt|import io.github.magisk317.xposed.logging.XLog

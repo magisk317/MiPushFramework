@@ -35,7 +35,7 @@
 
 修复（`67e691ab6`）：新增 `DouyinMiuiGateHook`，精确签名匹配（static/0 参/primitive boolean
 `isMiui`）、`doAfter` 只改结果（原方法照跑、缓存行为不受干扰）、类/方法缺失或签名歧义时
-**fail-closed 留诊断不盲挂**；安装点放在 guard **之前**（复用 `AgooClickDecryptHook` 的先例模式），
+**fail-closed 留诊断不盲挂**；安装点放在 guard **之前**（复用 `DouyinMiuiGateHook` 的先例模式），
 `DOUYIN` pipeline 在 profile 里即生效。
 
 ## 3. 「还有哪些已有、已知的面没被覆盖」——三套清单 diff 实录
@@ -76,7 +76,7 @@
 ## 4. 防复发机制
 
 - **P1（已生效）**：能力兼容一律走「app 进程内精确谓词 hook + fail-closed + 诊断」模板
-  （`DouyinMiuiGateHook`/`AgooClickDecryptHook` 两个先例），属性/类 shim 只作辅助；
+  （`DouyinMiuiGateHook` 先例），属性/类 shim 只作辅助；
   `xposed/AGENTS.md` 已加规则：*谓词/类存在性检查不允许假定为属性问题*。
 - **P2（原则）**：属性清单**不新建共享模块**（`MiPushConfigurations` 仓库是狭义的 resetprop 模板仓，
   不承担清单收敛）；Zygisk 与 FakeProperty 各自就近维护，但漂移必须在设备回归时按 §3 清单核对，

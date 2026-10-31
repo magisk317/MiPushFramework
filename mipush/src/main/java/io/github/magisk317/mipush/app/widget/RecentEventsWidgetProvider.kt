@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import io.github.magisk317.mipush.common.utils.logW
 import android.os.Bundle
 
 class RecentEventsWidgetProvider : AppWidgetProvider() {
@@ -15,6 +16,11 @@ class RecentEventsWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             MiPushWidgetRunner.launch {
                 runCatching { RecentEventsWidgetRenderer.updateAll(context) }
+                    .onFailure { error ->
+                        // The widget keeps its previous render; the broadcast receiver still has to
+                        // finish, so this reports rather than retries.
+                        this@RecentEventsWidgetProvider.logW("recent events widget refresh failed: ${error.message}", error)
+                    }
                 pendingResult.finish()
             }
             return

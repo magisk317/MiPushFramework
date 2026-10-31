@@ -40,10 +40,11 @@ run_shard() {
         :magisk-ui-kit:testAndroidHostTest \
         :magisk-ui-kit:jvmTest \
         :magisk-ui-kit:billing:testDebugUnitTest \
+        :magisk-ui-kit:update:testGithubDebugUnitTest \
         :magisk-xposed-kit:testDebugUnitTest \
         :magisk-xposed-kit:keepalive:jvmTest \
         :magisk-xposed-kit:diagnostics:testDebugUnitTest \
-        :magisk-xposed-kit:logging:testDebugUnitTest \
+        :magisk-xposed-kit:logging:jvmTest \
         :mipush:testGithubDebugUnitTest \
         :core:jvmTest \
         :xmsf:runtime:store:testAndroidHostTest \

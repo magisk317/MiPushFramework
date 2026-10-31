@@ -10,7 +10,15 @@ RESOLVED_ZYGISK_DIR=""
 
 cleanup() {
   if [[ -n "$TEMP_DIR" ]]; then
-    rm -rf "$TEMP_DIR"
+    # rm -rf can hit "Directory not empty" on the runner overlayfs even when every
+    # entry is already gone; cleanup must never fail the release, so retry briefly
+    # and drop the residue (the ephemeral CI workspace discards /tmp anyway).
+    local attempt
+    for attempt in 1 2 3; do
+      rm -rf "$TEMP_DIR" 2>/dev/null && return 0
+      sleep 1
+    done
+    return 0
   fi
 }
 trap cleanup EXIT
@@ -30,6 +38,20 @@ resolve_zygisk_dir() {
     if [[ ! -d "$MIPUSH_ZYGISK_SOURCE_DIR" ]]; then
       echo "ERROR: MIPUSH_ZYGISK_SOURCE_DIR does not exist: $MIPUSH_ZYGISK_SOURCE_DIR" >&2
       return 1
+    fi
+    # A local source directory must be the commit the pin names, otherwise the gate would
+    # validate whatever happens to be checked out while CI builds a different revision.
+    if [[ -n "$ZYGISK_REF" ]]; then
+      local head_sha
+      head_sha="$(git -C "$MIPUSH_ZYGISK_SOURCE_DIR" rev-parse HEAD 2>/dev/null || true)"
+      if [[ -z "$head_sha" ]]; then
+        echo "ERROR: $MIPUSH_ZYGISK_SOURCE_DIR is not a git checkout; cannot verify it matches $ZYGISK_REF" >&2
+        return 1
+      fi
+      if [[ "$head_sha" != "$ZYGISK_REF" ]]; then
+        echo "FAIL: source dir HEAD $head_sha does not match the pinned Zygisk ref $ZYGISK_REF" >&2
+        return 1
+      fi
     fi
     RESOLVED_ZYGISK_DIR="$MIPUSH_ZYGISK_SOURCE_DIR"
     return 0
@@ -97,29 +119,33 @@ module_version="$(read_prop_value "version" "$module_prop")"
 module_code="$(read_prop_value "versionCode" "$module_prop")"
 expected_module_version="v$expected_version_name"
 
-if [[ "$supports_version_injection" == true ]]; then
-  echo "INFO: source defaults to Cargo $cargo_version/module.prop $module_version ($module_code); release builds inject $expected_version_name/$expected_version_code"
+# Release builds inject the framework version, so the source defaults are easy to treat as
+# cosmetic. They are not: local builds, module.prop readers and this check all see them, and
+# skipping the comparison here is how the defaults once stayed on v1.0.8/19 while the framework
+# had moved to 1.1.2/21. Compare them unconditionally; injection only overrides the artifact.
+if [[ "$cargo_version" == "$expected_version_name" ]]; then
+  echo "PASS: Zygisk Cargo version matches $expected_version_name"
 else
-  if [[ "$cargo_version" == "$expected_version_name" ]]; then
-    echo "PASS: Zygisk Cargo version matches $expected_version_name"
-  else
-    echo "FAIL: Zygisk Cargo version mismatch. got '$cargo_version', expected '$expected_version_name'" >&2
-    fail=1
-  fi
+  echo "FAIL: Zygisk Cargo version mismatch. got '$cargo_version', expected '$expected_version_name'" >&2
+  fail=1
+fi
 
-  if [[ "$module_version" == "$expected_module_version" ]]; then
-    echo "PASS: Zygisk module.prop version matches $expected_module_version"
-  else
-    echo "FAIL: Zygisk module.prop version mismatch. got '$module_version', expected '$expected_module_version'" >&2
-    fail=1
-  fi
+if [[ "$module_version" == "$expected_module_version" ]]; then
+  echo "PASS: Zygisk module.prop version matches $expected_module_version"
+else
+  echo "FAIL: Zygisk module.prop version mismatch. got '$module_version', expected '$expected_module_version'" >&2
+  fail=1
+fi
 
-  if [[ "$module_code" == "$expected_version_code" ]]; then
-    echo "PASS: Zygisk module.prop versionCode matches $expected_version_code"
-  else
-    echo "FAIL: Zygisk module.prop versionCode mismatch. got '$module_code', expected '$expected_version_code'" >&2
-    fail=1
-  fi
+if [[ "$module_code" == "$expected_version_code" ]]; then
+  echo "PASS: Zygisk module.prop versionCode matches $expected_version_code"
+else
+  echo "FAIL: Zygisk module.prop versionCode mismatch. got '$module_code', expected '$expected_version_code'" >&2
+  fail=1
+fi
+
+if [[ "$supports_version_injection" == true ]]; then
+  echo "INFO: release builds inject $expected_version_name/$expected_version_code over the source defaults"
 fi
 
 if (( fail != 0 )); then

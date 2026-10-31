@@ -30,9 +30,12 @@ android {
         create("normal") {
             dimension = "version"
         }
+        // The tier is a published versionCode, so it lives in the catalog: the
+        // manager resolves which runtime variant a device runs by matching this
+        // number, and the CI scripts read the same key to stage and gate it.
         create("vc105") {
             dimension = "version"
-            versionCode = 105
+            versionCode = libs.versions.vc105VersionCode.get().toInt()
         }
     }
 
@@ -61,5 +64,4 @@ dependencies {
     implementation(project(":manager:ui"))
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kermit)
 }

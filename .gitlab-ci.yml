@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "65505809acb199c24ae9e63df1975cdea2ab494b"
+    ref: "53268e1ba18fe05dd0f2824502241d83c32523bd"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -58,7 +58,7 @@ variables:
   # response with a bash regex instead; af0295f additionally writes the
   # allocated code to .magisk-version-code so after_script can stage it
   # (an export made in script does not survive into after_script).
-  MAGISK_CI_TOOLKIT_REF: "65505809acb199c24ae9e63df1975cdea2ab494b"
+  MAGISK_CI_TOOLKIT_REF: "53268e1ba18fe05dd0f2824502241d83c32523bd"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -68,6 +68,10 @@ variables:
   # single point of failure for producing a build.
   MIPUSH_QUALITY_RUNNER_TAG: "ci-android"
   MIPUSH_BUILD_RUNNER_TAG: "ci-android"
+  # Telegram jobs run on the arm64 host (oracle): it has direct egress, while the
+  # amd64 host reaches Telegram through the gost/SOCKS5 hop that produced an empty
+  # 200 response on 2026-10-30. Keep this aligned with XposedSmsCode/xinyi-relay.
+  MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG: "magisk-arm64-linux"
   MIPUSH_BUNDLE_RUNNER_TAG: "ci-android"
   # Zygisk ARM builds cross-compile against the pinned NDK and must stay on the
   # ARM host. `ci-android` is shared with the amd64 ct101 runner, so using it
@@ -103,7 +107,7 @@ variables:
   # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
   # here fails the fetch outright. Bump it together with the MiPushZygisk release
   # (module.prop version/versionCode must stay in sync with libs.versions.toml).
-  MIPUSH_ZYGISK_REF: "29dfb4432ab5a95392781f11d5d044cb76c87f82"
+  MIPUSH_ZYGISK_REF: "d4f2903fda4fcc9ccdd078599c94138e23774a2f"
   MIPUSH_ZYGISK_NDK_VERSION: "r30-beta3"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r30-beta3"
   # Public SHA-256 fingerprint of the production APK signing certificate.
@@ -199,6 +203,31 @@ android:build:
       when: never
     - if: '$CI_COMMIT_BRANCH && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
+  # The packaging contract is dex-presence only, so it applies verbatim to the
+  # R8-minified debug APKs this job ships (-PminifyDebug): a keep-rule regression
+  # fails the build before the after_script stages the APK into the update
+  # channel. mipush outputs are out of scope -- that APK bundles neither libsu nor
+  # the xmsf @StableLogTag classes the contract pins.
+  script:
+    - !reference [.magisk_android_build, script]
+    - |
+      set -euo pipefail
+      shopt -s globstar nullglob
+      if ! command -v unzip >/dev/null 2>&1; then
+        apt-get -o APT::Update::Error-Mode=any update
+        apt-get install -y --no-install-recommends unzip
+      fi
+      apks=( xmsf/build/outputs/apk/**/debug/*.apk )
+      if ((${#apks[@]} == 0)); then
+        echo "FAIL: no xmsf debug APK under xmsf/build/outputs/apk" >&2
+        exit 1
+      fi
+      status=0
+      for apk in "${apks[@]}"; do
+        echo "verify_release_artifact: $apk"
+        bash scripts/checks/verify_release_artifact.sh "$apk" || status=1
+      done
+      exit "$status"
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_ANDROID_BUILD_TASKS: >-
@@ -229,8 +258,13 @@ android:build:
     paths:
       - xmsf/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
+      # One entry per staged channel root; the globs are directory-literal, so a
+      # new runtime variant root in scripts/ci/stage_ci_dist.sh (and
+      # XmsfRuntimeFlavor) has to be added here too or it is staged, echoed as
+      # success, and then silently dropped from the uploaded artifacts.
       - ci-dist/io.github.magisk317.mipush/**
       - ci-dist/com.xiaomi.xmsf/**
+      - ci-dist/com.xiaomi.xmsf-vc105/**
   # A job-level after_script replaces the one inherited from
   # .magisk_android_base, so the otel export is restated here before staging.
   after_script:
@@ -436,7 +470,7 @@ telegram:ci:
       allow_failure: true
     - when: never
   tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
+    - $MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
@@ -445,9 +479,9 @@ telegram:ci:
       *arm64-v8a*.apk
       arm64-v8a_*.zip
     # CI drops go to the dedicated project chat (project-level TG_CHAT_ID)
-    # without the rolling pin; scripts/telegram_ci_hook.sh relays a pointer
-    # into the legacy room via the toolkit after_script hook.
-    MAGISK_TELEGRAM_PIN: "off"
+    # without the rolling pin; the toolkit after_script hook relays a pointer
+    # into the legacy room (MAGISK_TELEGRAM_LEGACY_NOTICE_* project variables).
+    MAGISK_TELEGRAM_PIN: "false"
   needs:
     - job: android:build
       artifacts: true
@@ -696,9 +730,10 @@ android:release:gitlab:
       scripts/release/publish_mipush_release.sh gitlab-release
 
 xmsf:runtime:publish:
-  # Publishes the github-flavor runtime APK built by android:release:apk to the
-  # GitLab generic package registry, next to the sha256 sidecar and manifest the
-  # manager's in-process downloader expects (XmsfDownloader.BASE_URL layout).
+  # Publishes the github-flavor runtime APKs built by android:release:apk to the
+  # GitLab generic package registry, one package per runtime variant, next to the
+  # sha256 sidecar and manifest the manager's in-process downloader expects
+  # (XmsfDownloader.registryBaseUrl layout).
   # Tag-driven like every release job; the version is resolved once in
   # android:release:apk and carried in play-release.env, and the publish script
   # cross-checks the APK against it before uploading. Runs on the utility image
@@ -722,15 +757,23 @@ xmsf:runtime:publish:
       . "$CI_PROJECT_DIR/play-release.env"
       set +a
       : "${MAGISK_PLAY_VERSION_NAME:?play-release.env did not carry a version name}"
-      # The runtime APK carries the catalog pushVersionCode, NOT the Play
-      # store versionCode from play-release.env (different scales: 1003003000
-      # vs 1621). Read it straight from the version catalog.
-      XMSF_RUNTIME_VERSION_CODE="$(sed -nE 's/^pushVersionCode = "([0-9]+)"$/\1/p' gradle/libs.versions.toml)"
-      : "${XMSF_RUNTIME_VERSION_CODE:?unable to read pushVersionCode from gradle/libs.versions.toml}"
+      # Each runtime variant is published to its own generic package: normal and
+      # vc105 share one versionName, and the in-app updater keys its channel on
+      # the variant's versionCode (XmsfRuntimeFlavor), so a device can only ever
+      # be offered its own variant. The runtime versionCodes come from the
+      # version catalog, NOT the Play store versionCode from play-release.env
+      # (different scales: 1003003000 / 105 vs 1621). An unreadable readout
+      # would publish a manifest no host accepts, so fail loudly naming the key.
       chmod +x scripts/ci/xmsf_runtime_publish.sh
-      scripts/ci/xmsf_runtime_publish.sh publish \
-        --version "$MAGISK_PLAY_VERSION_NAME" \
-        --version-code "$XMSF_RUNTIME_VERSION_CODE"
+      for variant_pair in "normal pushVersionCode" "vc105 vc105VersionCode"; do
+        read -r XMSF_RUNTIME_FLAVOR XMSF_VERSION_CODE_KEY <<< "$variant_pair"
+        XMSF_RUNTIME_VERSION_CODE="$(sed -nE "s/^${XMSF_VERSION_CODE_KEY} = \"([0-9]+)\"\$/\1/p" gradle/libs.versions.toml)"
+        : "${XMSF_RUNTIME_VERSION_CODE:?unable to read ${XMSF_VERSION_CODE_KEY} from gradle/libs.versions.toml}"
+        scripts/ci/xmsf_runtime_publish.sh publish \
+          --flavor "$XMSF_RUNTIME_FLAVOR" \
+          --version "$MAGISK_PLAY_VERSION_NAME" \
+          --version-code "$XMSF_RUNTIME_VERSION_CODE"
+      done
 
 android:release:publish-play:
   extends: .magisk_android_publish_play
@@ -843,7 +886,7 @@ telegram:release:
   stage: release
   allow_failure: true
   tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
+    - $MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       allow_failure: true

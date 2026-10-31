@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import io.github.magisk317.mipush.common.utils.logW
 
 class ConnectionStatusWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -14,6 +15,11 @@ class ConnectionStatusWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             MiPushWidgetRunner.launch {
                 runCatching { ConnectionStatusWidgetRenderer.updateAll(context) }
+                    .onFailure { error ->
+                        // The widget keeps its previous render; the broadcast receiver still has to
+                        // finish, so this reports rather than retries.
+                        this@ConnectionStatusWidgetProvider.logW("connection widget refresh failed: ${error.message}", error)
+                    }
                 pendingResult.finish()
             }
             return

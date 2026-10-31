@@ -2,10 +2,16 @@
 # Publish the XMSF runtime APK to the GitLab generic package registry so the
 # github flavor of the manager can download, verify and install it in-process.
 #
-# Published layout (mirrors XmsfDownloader.BASE_URL and its tests):
-#   xmsf-runtime/<versionName>/xmsf-runtime.apk
-#   xmsf-runtime/<versionName>/xmsf-runtime.apk.sha256   ("<hash>  xmsf-runtime.apk")
-#   xmsf-runtime/<versionName>/xmsf-runtime-manifest.json (XmsfRuntimeManifest)
+# Published layout (mirrors XmsfDownloader.registryBaseUrl and its tests):
+#   <registryPackage>/<versionName>/xmsf-runtime.apk
+#   <registryPackage>/<versionName>/xmsf-runtime.apk.sha256   ("<hash>  xmsf-runtime.apk")
+#   <registryPackage>/<versionName>/xmsf-runtime-manifest.json (XmsfRuntimeManifest)
+#
+# <registryPackage> is one generic package per runtime variant -- xmsf-runtime
+# for normal, xmsf-runtime-vc105 for vc105 -- because both variants of a release
+# share one versionName and only the versionCode tells them apart. Publishing
+# them side by side under one package would let an in-app update swap a device
+# between variants, which moves the version code apps compare against.
 #
 # The runtime must be signed by the same release key as the manager: the
 # downloader enforces same-signature against the host app, so publishing an
@@ -59,14 +65,21 @@ Modes:
   validate  Only build and locally verify the sidecar and manifest; no upload.
 
 Options:
-  --apk PATH                  Runtime APK (default: newest universal normal
-                              release APK under xmsf/build/outputs/apk).
+  --apk PATH                  Runtime APK (default: newest universal release
+                              APK of --flavor under xmsf/build/outputs/apk).
+  --flavor NAME               Runtime variant: normal (default) or vc105.
+                              Selects the generic package the payload is
+                              published into (XmsfRuntimeFlavor).
   --version NAME              Runtime versionName (default: from the tag or
                               the APK file name).
   --version-code N            Runtime versionCode (default: aapt2 badging).
   --min-manager-version-code N  Minimum manager versionCode able to use this
                               runtime (default: 0, no floor).
   --variant NAME              Manifest variant, must be "github" (default).
+  --commit SHA                Git commit the runtime was built from (default:
+                              $CI_COMMIT_SHORT_SHA, else this checkout's HEAD).
+                              Diagnostic only; an empty value is published as an
+                              empty string.
 
 Environment:
   GITLAB_API_URL     Default https://gitlab.com/api/v4
@@ -119,26 +132,30 @@ release_tag() {
 
 default_apk() {
   # Flavoured AGP layout: apk/<flavor>/<buildType>/<split>_<flavor>_xmsf_v<version>_<buildType>.apk
-  local dir="$ROOT_DIR/xmsf/build/outputs/apk/normal/release"
+  local dir="$ROOT_DIR/xmsf/build/outputs/apk/$FLAVOR/release"
   [[ -d "$dir" ]] || return 1
   find "$dir" -type f -name 'universal_*_xmsf_v*_release.apk' | sort | tail -n 1
 }
 
 MODE="publish"
+FLAVOR="normal"
 APK_PATH=""
 VERSION_NAME=""
 VERSION_CODE=""
 MIN_MANAGER_VERSION_CODE="0"
 VARIANT="github"
+COMMIT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     publish|validate) MODE="$1"; shift ;;
     --apk) APK_PATH="$2"; shift 2 ;;
+    --flavor) FLAVOR="$2"; shift 2 ;;
     --version) VERSION_NAME="$2"; shift 2 ;;
     --version-code) VERSION_CODE="$2"; shift 2 ;;
     --min-manager-version-code) MIN_MANAGER_VERSION_CODE="$2"; shift 2 ;;
     --variant) VARIANT="$2"; shift 2 ;;
+    --commit) COMMIT="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "ERROR: unknown argument: $1" >&2
@@ -150,9 +167,18 @@ done
 
 cd "$ROOT_DIR"
 
+case "$FLAVOR" in
+  normal) REGISTRY_PACKAGE="xmsf-runtime" ;;
+  vc105) REGISTRY_PACKAGE="xmsf-runtime-vc105" ;;
+  *)
+    echo "ERROR: unknown runtime flavor '$FLAVOR' (expected normal or vc105)" >&2
+    exit 2
+    ;;
+esac
+
 if [[ -z "$APK_PATH" ]]; then
   if ! APK_PATH="$(default_apk)"; then
-    echo "ERROR: no runtime APK given and none found under xmsf/build/outputs/apk/normal/release" >&2
+    echo "ERROR: no runtime APK given and none found under xmsf/build/outputs/apk/$FLAVOR/release" >&2
     exit 2
   fi
 fi
@@ -179,7 +205,13 @@ fi
 # aapt2 is unavailable -- the release stage runs on the utility image, which
 # ships no Android SDK. This mirrors publish_mipush_release.sh, which verifies
 # release assets by "<abi>_<flavor>_xmsf_v<version>_release.apk" basenames.
+# The flavor tag is gated the same way: a payload must never reach the other
+# variant's package, where a host would accept it under its own pin.
 apk_base="$(basename "$APK_PATH")"
+[[ "$apk_base" == *_"${FLAVOR}"_xmsf_v* ]] || {
+  echo "ERROR: APK file name '$apk_base' is not a $FLAVOR runtime build" >&2
+  exit 2
+}
 [[ "$apk_base" == *_xmsf_v"${VERSION_NAME}"_release.apk ]] || {
   echo "ERROR: APK file name '$apk_base' does not encode version '$VERSION_NAME' (expected *_xmsf_v${VERSION_NAME}_release.apk)" >&2
   exit 2
@@ -215,6 +247,10 @@ fi
   exit 2
 }
 
+if [[ -z "$COMMIT" ]]; then
+  COMMIT="${CI_COMMIT_SHORT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
+fi
+
 STAGE_DIR=""
 make_tmp_dir STAGE_DIR
 cp "$APK_PATH" "$STAGE_DIR/xmsf-runtime.apk"
@@ -223,11 +259,11 @@ APK_SHA256="$(sha256sum "$STAGE_DIR/xmsf-runtime.apk" | cut -d' ' -f1)"
 printf '%s  xmsf-runtime.apk\n' "$APK_SHA256" > "$STAGE_DIR/xmsf-runtime.apk.sha256"
 
 python3 - "$STAGE_DIR/xmsf-runtime-manifest.json" \
-  "$VERSION_NAME" "$VERSION_CODE" "$MIN_MANAGER_VERSION_CODE" "$APK_SHA256" "$VARIANT" <<'PY'
+  "$VERSION_NAME" "$VERSION_CODE" "$MIN_MANAGER_VERSION_CODE" "$APK_SHA256" "$VARIANT" "$COMMIT" <<'PY'
 import json
 import sys
 
-output_file, version_name, version_code, min_manager, sha256, variant = sys.argv[1:7]
+output_file, version_name, version_code, min_manager, sha256, variant, commit = sys.argv[1:8]
 manifest = {
     "schema": 1,
     "variant": variant,
@@ -235,16 +271,19 @@ manifest = {
     "versionCode": int(version_code),
     "minManagerVersionCode": int(min_manager),
     "sha256": sha256,
+    "commit": commit,
 }
 with open(output_file, "w", encoding="utf-8") as handle:
     handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 PY
 
+echo "flavor:             $FLAVOR ($REGISTRY_PACKAGE)"
 echo "Runtime APK:        $APK_PATH"
 echo "versionName:        $VERSION_NAME"
 echo "versionCode:        $VERSION_CODE"
 echo "minManagerVersion:  $MIN_MANAGER_VERSION_CODE"
 echo "sha256:             $APK_SHA256"
+echo "commit:             ${COMMIT:-<none>}"
 
 if [[ "$MODE" == "validate" ]]; then
   echo "Validated runtime payload (no upload): $STAGE_DIR"
@@ -253,7 +292,7 @@ fi
 
 GITLAB_API_URL="${GITLAB_API_URL:-https://gitlab.com/api/v4}"
 GITLAB_PROJECT_ID="${GITLAB_PROJECT_ID:-83955143}"
-PACKAGE_PATH="xmsf-runtime/$VERSION_NAME"
+PACKAGE_PATH="$REGISTRY_PACKAGE/$VERSION_NAME"
 
 publish_payload_file() {
   local local_file="$1"

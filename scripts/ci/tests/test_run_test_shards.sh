@@ -21,6 +21,7 @@ grep -F ':mipush:compilePlayDebugKotlin' "$SHARD_LOG" >/dev/null
 grep -F ':core:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':magisk-xposed-kit:keepalive:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':configuration:jvmTest' "$SHARD_LOG" >/dev/null
+grep -F ':magisk-ui-kit:update:testGithubDebugUnitTest' "$SHARD_LOG" >/dev/null
 grep -F ':manager:port:test' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:platform:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:runtime:store:testAndroidHostTest' "$SHARD_LOG" >/dev/null

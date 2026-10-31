@@ -3,6 +3,17 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.1.2] - 2026-10-31
+- 版本：`versionName 1.1.2`。
+- 强制注册按结果确认，支持 root 拉起应用（修复部分机型注册失败）。
+- 日志包捕获 Zygisk 层与目标应用退出。
+- 通知支持按应用豁免数量上限，目标应用禁用时抑制通知。
+- 日志详略、脱敏与导出按构建通道区分。
+- `[xposed]` `com.taobao.idlefish` 改为仅保留 MiPush 凭据、不再挂任何 Hook；移除 Agoo 点击解密逻辑（7.27.96.8 起 App 自行解析点击载荷）。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.1...v1.1.2
+
+---
 ## [v1.1.1] - 2026-10-24
 - 版本：`versionCode 20` / `versionName 1.1.1`。
 - `[log]` 日志策略随构建类型调整

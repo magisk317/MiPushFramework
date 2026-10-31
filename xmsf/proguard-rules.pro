@@ -8,6 +8,13 @@
 
 # MiPush
 -keepclasseswithmembernames class com.xiaomi.**{*;}
+# MiPushMessage is a Java-serialization surface: every app's own client SDK declares
+# serialVersionUID 1L, so the field must survive R8. Without it the object we write into a
+# proxied notification's click intent fails InvalidClassException inside the app, which shows up
+# as "tapping the notification does not open the app".
+-keepclassmembers class com.xiaomi.mipush.sdk.MiPushMessage {
+    static final long serialVersionUID;
+}
 -keep public class * extends com.xiaomi.mipush.sdk.PushMessageReceiver
 -dontwarn android.app.Notification
 
@@ -47,3 +54,18 @@
 
 # Keep kotlinx-collections-immutable used by Compose runtime internally
 -keep class androidx.compose.runtime.external.kotlinx.collections.immutable.** { *; }
+
+# libsu reaches its su shell through classes the app never references directly at the bytecode
+# level (Shell.Builder.create(), Shell$Result, internal.JobTask, internal.ShellInputSource).
+# Without this rule R8 shrinks them away — vc105Release mapping.txt recorded all four as
+# R8$$REMOVED$$CLASS — so PrivilegeElevator.tryToElevate() threw NoClassDefFoundError in every
+# release build: the root grant prompt never appeared even though `id -u` probing still worked.
+# NOTE: keep in sync between the application and library rule files.
+-keep class com.topjohnwu.superuser.** { *; }
+
+# Release log tags are javaClass.simpleName (common/.../utils/LoggerExtensions.kt). Minifying
+# them makes the daily runtime jsonl unreadable and flavor-specific, so the classes annotated
+# with StableLogTag keep their names — and nothing else does.
+# NOTE: keep in sync between the application and library rule files.
+-keep interface io.github.magisk317.mipush.common.logging.StableLogTag
+-keepnames @io.github.magisk317.mipush.common.logging.StableLogTag class *

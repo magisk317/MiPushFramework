@@ -263,7 +263,7 @@ import sys
 output = Path(sys.argv[1])
 allowed = {
     "core/build.gradle.kts": set(),
-    "common/build.gradle.kts": {":core"},
+    "common/build.gradle.kts": {":core", ":magisk-xposed-kit:logging"},
     "configuration/build.gradle.kts": {":core", ":common", ":settings"},
     "settings/build.gradle.kts": {":common", ":core"},
     "xposed/build.gradle.kts": {":common", ":core", ":magisk-xposed-kit", ":magisk-xposed-kit:keepalive"},
@@ -324,7 +324,6 @@ import re
 expected = {
     "core/build.gradle.kts": {
         "commonMain": {
-            "implementation(libs.kermit)",
             "implementation(libs.kotlinx.serialization.json)",
         },
     },
@@ -349,7 +348,6 @@ expected = {
             'implementation(project(":core"))',
             "implementation(libs.androidx.room.runtime)",
             "implementation(libs.androidx.sqlite.bundled)",
-            "implementation(libs.kermit)",
         },
     },
 }
