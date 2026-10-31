@@ -4,12 +4,13 @@
 
 ---
 ## [v1.1.2] - 2026-10-31
-- 版本：`versionName 1.1.2`。
-- 强制注册按结果确认，支持 root 拉起应用（修复部分机型注册失败）。
-- 日志包捕获 Zygisk 层与目标应用退出。
-- 通知支持按应用豁免数量上限，目标应用禁用时抑制通知。
-- 日志详略、脱敏与导出按构建通道区分。
-- `[xposed]` `com.taobao.idlefish` 改为仅保留 MiPush 凭据、不再挂任何 Hook；移除 Agoo 点击解密逻辑（7.27.96.8 起 App 自行解析点击载荷）。
+- 版本：`versionCode 21` / `versionName 1.1.2`。
+- `[fix]` 修复部分机型注册失败：强制注册按结果确认，支持 root 拉起
+- `[log]` 日志包捕获 Zygisk 层与目标应用退出
+- `[feat]` 通知按应用豁免数量上限，目标应用禁用时抑制通知
+- `[log]` 日志详略、脱敏与导出按构建通道区分
+- `[deps]` 升级 Gradle 9.9.0-rc-1、AGP 9.5.0，共享库 pin 对齐
+- `[xposed]` 闲鱼仅保留 MiPush 凭据，不再挂 Hook
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.1...v1.1.2
 
