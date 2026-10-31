@@ -4,6 +4,7 @@ import io.github.magisk317.mipush.data.OwnedPreferenceValue
 import io.github.magisk317.mipush.data.PreferenceOwner
 import io.github.magisk317.mipush.data.PreferenceOwnership
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.api.ManagerPreferenceEntryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
@@ -36,6 +37,22 @@ internal data class RuntimePreferenceWrite(
     val booleanArgument: Boolean = false,
     val argument: String = key,
 )
+
+/**
+ * Why a runtime preference write did or did not take effect.
+ *
+ * Rejected and Unavailable must stay distinct: an older runtime package refuses an unknown key
+ * while its binder is perfectly connected, and reporting that as a lost connection sends the user
+ * off to restart a service that is already serving them.
+ */
+enum class RuntimePreferenceWriteOutcome {
+    Applied,
+    Rejected,
+    Unavailable,
+    ;
+
+    val isApplied: Boolean get() = this == Applied
+}
 
 class RuntimePreferenceGateway internal constructor(
     private val runtimeAvailable: Flow<Boolean>,
@@ -72,7 +89,11 @@ class RuntimePreferenceGateway internal constructor(
 
     private val operationMutex = Mutex()
 
-    suspend fun setBoolean(key: String, value: Boolean): Boolean = write(
+    suspend fun setBoolean(key: String, value: Boolean): Boolean =
+        setBooleanWithOutcome(key, value).isApplied
+
+    /** Same path as [setBoolean] but keeps the reason so the UI can tell a rejection from a lost runtime. */
+    suspend fun setBooleanWithOutcome(key: String, value: Boolean): RuntimePreferenceWriteOutcome = write(
         RuntimePreferenceWrite(
             operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN,
             key = key,
@@ -90,7 +111,7 @@ class RuntimePreferenceGateway internal constructor(
             value = value.toString(),
             intArgument = value,
         ),
-    )
+        ).isApplied
 
     suspend fun setXmppServer(host: String): Boolean {
         val normalizedHost = host.trim()
@@ -102,7 +123,7 @@ class RuntimePreferenceGateway internal constructor(
                 value = normalizedHost,
                 argument = normalizedHost,
             ),
-        )
+        ).isApplied
     }
 
     suspend fun setRuntimeLogRetentionDays(days: Int): Boolean {
@@ -116,7 +137,7 @@ class RuntimePreferenceGateway internal constructor(
                 intArgument = normalizedDays,
                 argument = "",
             ),
-        )
+        ).isApplied
     }
 
     suspend fun setEventRetentionDays(days: Int): Boolean {
@@ -130,7 +151,7 @@ class RuntimePreferenceGateway internal constructor(
                 intArgument = normalizedDays,
                 argument = "",
             ),
-        )
+        ).isApplied
     }
 
     suspend fun getXmppServer(): String? = operationMutex.withLock {
@@ -169,23 +190,42 @@ class RuntimePreferenceGateway internal constructor(
         }.isSuccess
     }
 
-    private suspend fun write(write: RuntimePreferenceWrite): Boolean = operationMutex.withLock {
-        if (PreferenceOwnership.ownerOf(write.key) != PreferenceOwner.RUNTIME) return@withLock false
-        val result = scheduledWrite(write)
-        if (!RemoteWriteSupport.isSuccess(result)) return@withLock false
-        runCatching {
-            importLocal(
-                listOf(
-                    OwnedPreferenceValue(
-                        key = write.key,
-                        type = write.type,
-                        value = write.value,
-                        owner = PreferenceOwner.RUNTIME,
+    private suspend fun write(write: RuntimePreferenceWrite): RuntimePreferenceWriteOutcome =
+        operationMutex.withLock {
+            if (PreferenceOwnership.ownerOf(write.key) != PreferenceOwner.RUNTIME) {
+                logW("preference write refused, key is not runtime-owned key=${write.key}")
+                return@withLock RuntimePreferenceWriteOutcome.Rejected
+            }
+            val result = scheduledWrite(write)
+            if (result == null) {
+                logW("preference write has no runtime answer operation=${write.operation} key=${write.key}")
+                return@withLock RuntimePreferenceWriteOutcome.Unavailable
+            }
+            if (!RemoteWriteSupport.isSuccess(result)) {
+                logW(
+                    "runtime rejected preference write key=${write.key} " +
+                        "status=${result.status} details=${result.details}",
+                )
+                return@withLock RuntimePreferenceWriteOutcome.Rejected
+            }
+            val mirrored = runCatching {
+                importLocal(
+                    listOf(
+                        OwnedPreferenceValue(
+                            key = write.key,
+                            type = write.type,
+                            value = write.value,
+                            owner = PreferenceOwner.RUNTIME,
+                        ),
                     ),
-                ),
-            )
-        }.isSuccess
-    }
+                )
+            }
+            if (mirrored.isFailure) {
+                logW("preference local mirror failed key=${write.key}: ${mirrored.exceptionOrNull()?.message}")
+                return@withLock RuntimePreferenceWriteOutcome.Rejected
+            }
+            RuntimePreferenceWriteOutcome.Applied
+        }
 
     private suspend fun scheduledRead(): ManagerRuntimeResult<ManagerRuntimePreferencesDto> {
         val scheduler = callScheduler ?: return readRemote()

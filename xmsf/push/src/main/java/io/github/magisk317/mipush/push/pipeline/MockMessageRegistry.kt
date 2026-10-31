@@ -35,11 +35,12 @@ object MockMessageRegistry {
         synchronized(lock) {
             pruneExpiredLocked(now)
             if (!markedMessageIds.containsKey(key) && markedMessageIds.size >= MAX_MARKED_MESSAGES) {
-                markedMessageIds.entries.iterator().run {
-                    if (hasNext()) {
-                        next()
-                        remove()
-                    }
+                val iterator = markedMessageIds.entries.iterator()
+                if (iterator.hasNext()) {
+                    // Insertion order is eviction order; the entry is bound because advancing
+                    // the iterator is the point, not the value it hands back.
+                    val eldest = iterator.next()
+                    iterator.remove()
                 }
             }
             markedMessageIds[key] = now

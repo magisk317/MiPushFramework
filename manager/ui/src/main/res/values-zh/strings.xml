@@ -69,16 +69,14 @@
 
 
     <string name="debug_test_content">这是%1$s测试内容</string>
-    <string name="settings_debug_mode">启用调试模式</string>
-    <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
-    <string name="settings_log_sanitization">日志脱敏</string>
-    <string name="settings_log_sanitization_summary">开启后隐藏 token、regId、设备标识等敏感内容。默认关闭。</string>
     <string name="settings_show_all_events">展示所有事件</string>
     <string name="settings_show_all_events_summary">包含默认规则隐藏的事件记录。</string>
-    <string name="pref_color_status_bar_icon_title">状态栏通知图标</string>
-    <string name="pref_color_status_bar_icon_summary">配置 MiPush 相关通知和全局状态栏图标颜色策略</string>
-    <string name="pref_color_status_bar_icon_mipush_title">单色图标</string>
+    <string name="pref_color_status_bar_icon_title">通知图标</string>
+    <string name="pref_color_status_bar_icon_summary">配置 MiPush 与全局通知图标颜色策略（状态栏、通知中心）</string>
+    <string name="pref_color_status_bar_icon_mipush_title">状态栏单色图标</string>
     <string name="pref_color_status_bar_icon_mipush_summary">默认开启：MiPush 通知的状态栏图标统一为白色单色剪影；关闭则保留应用原本的颜色</string>
+    <string name="pref_monochrome_shade_icon_title">通知中心单色图标</string>
+    <string name="pref_monochrome_shade_icon_summary">通知中心的应用图标渲染为单色剪影，并按卡片明暗主题着色。仅对 MiPush 通知和图标包覆盖的应用生效。</string>
     <string name="pref_icon_pack_third_party_title">三方应用</string>
     <string name="pref_icon_pack_third_party_summary">三方应用通知改用图标包图标。单色模式下，状态栏图标本身就是标准单色剪影的应用会保留自己的图标；其余仅对图标包内配置的应用生效，其它应用保持系统原生渲染</string>
     <string name="pref_icon_pack_system_app_title">系统应用</string>
@@ -86,6 +84,7 @@
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_runtime_preference_update_failed">无法更新%1$s，请确认推送服务已连接</string>
+    <string name="settings_runtime_preference_rejected">%1$s被运行时拒绝，请把运行时包升级到与管理器一致的版本</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
     <string name="settings_start_foreground_service_summary">控制是否持续显示保活前台通知；服务启动阶段仍会先完成前台化以保证系统兼容性</string>
 
@@ -269,7 +268,7 @@
     <string name="settings_XMPP_server_save_failed">XMPP 服务器更新失败</string>
     <string name="settings_permission_check">权限检查</string>
     <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
-    <string name="settings_connection_status">诊断</string>
+    <string name="settings_connection_status">连接诊断</string>
     <string name="settings_connection_status_summary">查看实时 XMPP 连接详情与统计数据。</string>
 
     <string name="connection_status_title">诊断</string>
@@ -387,6 +386,7 @@
 
     <string name="recent_activity_view">查看近期活动</string>
     <string name="recent_activity_title">近期活动</string>
+    <string name="recent_activity_time_yesterday">昨天</string>
     <string name="recent_activity_grouped_summary">按应用查看近期事件历史。</string>
     <string name="recent_activity_stream_summary">按时间顺序查看完整事件流。</string>
     <string name="recent_activity_mode_grouped">按应用</string>
@@ -498,9 +498,7 @@
     <string name="zygisk_config_read_error">无法读取 Zygisk 配置：%1$s</string>
     <string name="zygisk_module_status">模块状态：%1$s</string>
     <string name="zygisk_unavailable_detail">暂时无法读取：%1$s</string>
-    <string name="zygisk_scan_title">扫描已安装应用</string>
-    <string name="zygisk_scan">扫描已安装应用</string>
-    <string name="zygisk_scan_error">无法扫描已安装应用：%1$s</string>
+    <string name="zygisk_options_title">设备伪装</string>
     <string name="zygisk_profile_title">设备伪装配置</string>
     <string name="zygisk_profile_miui14">MIUI 14</string>
     <string name="zygisk_profile_os4">OS 4</string>
@@ -532,17 +530,15 @@
     <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
     <string name="mock_notification_no_receiver">重放失败：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">服务权限</string>
-    <string name="settings_home_service_summary">服务器、前台服务与权限检查</string>
-    <string name="settings_home_keepalive_title">系统保活</string>
-    <string name="settings_home_keepalive_summary">进程优先级与系统限制绕过</string>
+    <string name="settings_home_service_summary">权限检查与服务器连接诊断</string>
     <string name="settings_home_notifications_title">通知呈现</string>
     <string name="settings_home_notifications_summary">灵动岛与焦点通知显示</string>
     <string name="settings_home_appearance_title">外观显示</string>
-    <string name="settings_home_appearance_summary">主题与状态栏图标。</string>
+    <string name="settings_home_appearance_summary">主题与通知图标</string>
     <string name="settings_configurations_entry_summary">打开并编辑 MiPush 配置文件。</string>
     <string name="settings_configurations_management_title">配置管理</string>
     <string name="settings_home_integrations_title">系统集成</string>
-    <string name="settings_home_integrations_summary">应用双开、Zygisk 集成与配置文件管理。</string>
+    <string name="settings_home_integrations_summary">保活、冻结、双开与 Zygisk 等系统能力对接</string>
     <string name="settings_home_services_title">服务与诊断</string>
     <string name="settings_home_services_summary">运行时交付、更新检查与诊断日志</string>
     <string name="settings_dual_app_title">启用双开</string>
@@ -603,8 +599,6 @@
     <string name="settings_version_label">版本</string>
     <string name="relay_mode_foreground">前台</string>
     <string name="relay_mode_background">后台</string>
-    <string name="settings_debug_mode_enabled">详细</string>
-    <string name="settings_debug_mode_disabled">标准</string>
     <string name="settings_group_display_and_list">显示与列表</string>
     <string name="settings_group_data_and_debug">数据与调试</string>
     <string name="settings_blur_radius">背景模糊强度</string>
@@ -655,6 +649,10 @@
     <string name="app_detail_block_summary">拉黑后，该应用的所有推送消息、注册请求和事件记录都将被忽略。</string>
     <string name="app_detail_click_fallback">点击兜底（打开应用主页）</string>
     <string name="app_detail_click_fallback_summary">点击该应用的通知时打开应用主页，而不是跟随推送的深度链接。默认关闭；仅当正常跳转异常时开启。</string>
+    <string name="app_detail_suppress_when_disabled">应用禁用时暂停通知</string>
+    <string name="app_detail_suppress_when_disabled_summary">目标应用被禁用或挂起期间，不再显示它的推送通知。默认关闭。</string>
+    <string name="app_detail_count_limit_exempt">解除同应用通知数量上限</string>
+    <string name="app_detail_count_limit_exempt_summary">HyperOS 会在同应用通知超过 10 条时自动移除最旧的一条。开启后保留该应用超出上限的通知。需在 LSPosed 中勾选系统界面作用域。</string>
     <string name="app_detail_redirect_click">点击打开其他应用</string>
     <string name="app_detail_redirect_click_summary">通知仍显示为当前应用；点击后打开你指定的应用。功能开发中。</string>
     <string name="app_detail_redirect_click_in_development">「点击打开其他应用」功能开发中</string>
@@ -712,15 +710,6 @@
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
     <string name="pref_freeze_enabled_title">解冻冻结的应用</string>
     <string name="pref_freeze_enabled_summary">冻结的应用仍可接收通知，点击通知将自动解冻并打开应用。</string>
-    <string name="pref_freeze_refreeze_policy_title">重新冻结策略</string>
-    <string name="pref_freeze_refreeze_delay_title">重新冻结延迟</string>
-    <string name="pref_freeze_refreeze_delay_summary">启动 %1$d 分钟后重新冻结</string>
-    <string name="pref_freeze_refreeze_delay_hint">1 到 120 分钟之间</string>
-    <string name="pref_freeze_refreeze_delay_error">请输入 1 到 120 之间的分钟数</string>
-    <string name="pref_freeze_policy_never">不自动重新冻结</string>
-    <string name="pref_freeze_policy_screen_off">熄屏时重新冻结</string>
-    <string name="pref_freeze_policy_timed">延迟后重新冻结</string>
-    <string name="pref_freeze_policy_task_removed">从最近任务中移除后重新冻结</string>
     <string name="pref_island_enabled_title">MiPush 超级岛焦点展示</string>
     <string name="pref_island_enabled_summary">为通知生成并注入 MiPush 内置焦点通知参数。</string>
     <string name="pref_island_timeout_title">超级岛超时</string>
@@ -777,8 +766,6 @@
     <string name="runtime_warning_check_permissions">查看权限状态</string>
     <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
-    <string name="runtime_commit_mismatch_dialog_title">管理器与运行时版本不匹配</string>
-    <string name="runtime_commit_mismatch_dialog_message">检测到MiPush管理器模块与 xmsf 运行时的构建提交不一致（管理器： %1$s，运行时： %2$s）。版本错配可能导致包括但不限于通知重复、点击无响应等问题，请尽可能安装配套版本的两个 APK。</string>
     <string name="runtime_commit_mismatch_toast">模块与 xmsf 版本不匹配，通知功能可能异常</string>
 
     <string name="pref_theme_group_color">色彩</string>
@@ -790,6 +777,8 @@
     <string name="open_browser_failed">没有可用的浏览器打开链接</string>
     <string name="check_update_title">检查更新</string>
     <string name="check_update_summary">点击检查更新</string>
+    <string name="settings_track_ci_builds_title">检测CI构建</string>
+    <string name="settings_track_ci_builds_summary">开启后同时检测 beta 分支的 CI 构建（管理器与运行时，可能弹出强制更新）；关闭后只跟随正式版，CI 构建会等到下一个正式版发布后接上。</string>
     <string name="settings_check_report_checking">正在检查更新…</string>
     <string name="settings_check_report_manager_up_to_date">管理器：已是最新</string>
     <string name="settings_check_report_manager_available">管理器：有新版本 %1$s</string>

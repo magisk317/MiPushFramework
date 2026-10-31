@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
@@ -33,7 +33,7 @@ class ModernHookHandler : HookedMethodHandler {
     ) {
         HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
         PushShellBridgeHolder.lifecycle().ensurePushServiceCreated(pushService)
-        Logger.withTag("ModernHookHandler").d { "postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}" }
+        XLog.tagged("ModernHookHandler").d { "postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}" }
         newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
             ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
         MiPushRuntimeBridge.onTransferToApplication(payload)
@@ -111,7 +111,7 @@ class ModernHookHandler : HookedMethodHandler {
         packetBytesLen: Long
     ) {
         HookTraceCompat.processMIPushMessage(packetBytesLen, "ModernHookHandler.processMIPushMessage")
-        Logger.withTag("ModernHookHandler").d { "processMIPushMessage: calling onPayloadFromServer payload.size=${decryptedContent.size}" }
+        XLog.tagged("ModernHookHandler").d { "processMIPushMessage: calling onPayloadFromServer payload.size=${decryptedContent.size}" }
         MiPushRuntimeBridge.onPayloadFromServer(
             pushService,
             decryptedContent,

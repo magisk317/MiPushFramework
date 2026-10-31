@@ -22,12 +22,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceWriteOutcome
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.uikit.surface.SectionColumn
+import kotlinx.coroutines.Job
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import java.util.Locale
@@ -40,11 +42,13 @@ fun StatusBarIconSettingsPage(
 ) {
     val context = LocalContext.current
     val monochromeStatusBarIcon by viewModel.monochromeStatusBarIcon.collectAsStateWithLifecycle()
+    val monochromeShadeIcon by viewModel.monochromeShadeIcon.collectAsStateWithLifecycle()
     val thirdPartyIconPack by viewModel.thirdPartyIconPack.collectAsStateWithLifecycle()
     val systemAppIconPack by viewModel.systemAppIconPack.collectAsStateWithLifecycle()
     val snackbarHostState = remember { AppSnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
     val managedTitle = stringResource(R.string.pref_color_status_bar_icon_mipush_title)
+    val shadeTitle = stringResource(R.string.pref_monochrome_shade_icon_title)
     val thirdPartyTitle = stringResource(R.string.pref_icon_pack_third_party_title)
     val systemAppTitle = stringResource(R.string.pref_icon_pack_system_app_title)
 
@@ -53,9 +57,11 @@ fun StatusBarIconSettingsPage(
             listPadding = listPadding,
             scrollModifier = scrollModifier,
             monochromeStatusBarIcon = monochromeStatusBarIcon,
+            monochromeShadeIcon = monochromeShadeIcon,
             thirdPartyIconPack = thirdPartyIconPack,
             systemAppIconPack = systemAppIconPack,
             managedTitle = managedTitle,
+            shadeTitle = shadeTitle,
             thirdPartyTitle = thirdPartyTitle,
             systemAppTitle = systemAppTitle,
             onManagedToggle = { enabled ->
@@ -63,6 +69,15 @@ fun StatusBarIconSettingsPage(
                     setter = viewModel::setMonochromeStatusBarIcon,
                     context = context,
                     title = managedTitle,
+                    enabled = enabled,
+                    notify = showSwitchFeedback,
+                )
+            },
+            onShadeToggle = { enabled ->
+                applyStatusBarIconSwitch(
+                    setter = viewModel::setMonochromeShadeIcon,
+                    context = context,
+                    title = shadeTitle,
                     enabled = enabled,
                     notify = showSwitchFeedback,
                 )
@@ -108,12 +123,15 @@ private fun StatusBarIconSettingsBody(
     listPadding: PaddingValues,
     scrollModifier: Modifier,
     monochromeStatusBarIcon: Boolean,
+    monochromeShadeIcon: Boolean,
     thirdPartyIconPack: Boolean,
     systemAppIconPack: Boolean,
     managedTitle: String,
+    shadeTitle: String,
     thirdPartyTitle: String,
     systemAppTitle: String,
     onManagedToggle: (Boolean) -> Unit,
+    onShadeToggle: (Boolean) -> Unit,
     onThirdPartyToggle: (Boolean) -> Unit,
     onSystemAppToggle: (Boolean) -> Unit,
 ) {
@@ -149,40 +167,52 @@ private fun StatusBarIconSettingsBody(
                     onCheckedChange = onManagedToggle,
                 )
 
-                // Category scopes: the switches widen monochrome rendering only to apps whose
-                // glyph the module can supply (an icon-pack entry) or whose own posted glyph
-                // is already a standard grayscale silhouette. A pack miss on a colorful glyph
-                // falls back to the system's own rendering, which never paints a white block.
-                SettingsSwitchItem(
-                    title = thirdPartyTitle,
-                    summary = stringResource(R.string.pref_icon_pack_third_party_summary),
-                    checked = thirdPartyIconPack,
-                    onCheckedChange = onThirdPartyToggle,
-                )
+                // The monochrome master switch owns everything below it: with it off the module
+                // leaves both surfaces to MIUI's native rendering, so the sub-options have no
+                // effect and are not offered. Stored values are kept for when it returns.
+                if (monochromeStatusBarIcon) {
+                    SettingsSwitchItem(
+                        title = shadeTitle,
+                        summary = stringResource(R.string.pref_monochrome_shade_icon_summary),
+                        checked = monochromeShadeIcon,
+                        onCheckedChange = onShadeToggle,
+                    )
 
-                SettingsSwitchItem(
-                    title = systemAppTitle,
-                    summary = stringResource(R.string.pref_icon_pack_system_app_summary),
-                    checked = systemAppIconPack,
-                    onCheckedChange = onSystemAppToggle,
-                )
+                    // Category scopes: an icon-pack substitution only happens inside the
+                    // monochrome takeover, and only for apps the pack actually covers.
+                    SettingsSwitchItem(
+                        title = thirdPartyTitle,
+                        summary = stringResource(R.string.pref_icon_pack_third_party_summary),
+                        checked = thirdPartyIconPack,
+                        onCheckedChange = onThirdPartyToggle,
+                    )
+
+                    SettingsSwitchItem(
+                        title = systemAppTitle,
+                        summary = stringResource(R.string.pref_icon_pack_system_app_summary),
+                        checked = systemAppIconPack,
+                        onCheckedChange = onSystemAppToggle,
+                    )
+                }
             }
         }
     }
 }
 
 private fun applyStatusBarIconSwitch(
-    setter: (Boolean, ((Boolean) -> Unit)?) -> Any?,
+    setter: (Boolean, ((RuntimePreferenceWriteOutcome) -> Unit)?) -> Job,
     context: Context,
     title: String,
     enabled: Boolean,
-    notify: (String, Boolean, Boolean) -> Unit,
+    notify: (String, Boolean, RuntimePreferenceWriteOutcome) -> Unit,
 ) {
-    setter(enabled) { success ->
+    // The setter launches on the view-model scope and reports through the callback below, so the
+    // Job is bound here to say that it is deliberately neither awaited nor cancelled.
+    val updateJob = setter(enabled) { outcome ->
         // SystemUI's hook process caches the global options; the broadcast makes it re-read
         // immediately instead of waiting for the module's periodic refresh.
-        if (success) notifyStatusBarIconPreferenceChanged(context)
-        notify(title, enabled, success)
+        if (outcome.isApplied) notifyStatusBarIconPreferenceChanged(context)
+        notify(title, enabled, outcome)
     }
 }
 
@@ -193,17 +223,25 @@ private fun notifyStatusBarIconPreferenceChanged(context: Context) {
 @Composable
 private fun rememberStatusBarIconSwitchFeedback(
     snackbarHostState: AppSnackbarHostState,
-): (String, Boolean, Boolean) -> Unit {
+): (String, Boolean, RuntimePreferenceWriteOutcome) -> Unit {
     val scope = rememberCoroutineScope()
     val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
     val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
+    val rejectedTemplate = stringResource(R.string.settings_runtime_preference_rejected)
     val failedTemplate = stringResource(R.string.settings_runtime_preference_update_failed)
-    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate, failedTemplate) {
-        { title, enabled, success ->
-            val template = when {
-                !success -> failedTemplate
-                enabled -> enabledTemplate
-                else -> disabledTemplate
+    return remember(
+        snackbarHostState,
+        scope,
+        enabledTemplate,
+        disabledTemplate,
+        rejectedTemplate,
+        failedTemplate,
+    ) {
+        { title, enabled, outcome ->
+            val template = when (outcome) {
+                RuntimePreferenceWriteOutcome.Rejected -> rejectedTemplate
+                RuntimePreferenceWriteOutcome.Unavailable -> failedTemplate
+                RuntimePreferenceWriteOutcome.Applied -> if (enabled) enabledTemplate else disabledTemplate
             }
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()

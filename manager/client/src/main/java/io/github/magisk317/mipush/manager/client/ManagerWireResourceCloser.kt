@@ -6,7 +6,8 @@ import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 internal object ManagerWireResourceCloser {
     fun discardOwned(value: Any?) {
         when (value) {
-            is ManagerLogExportResultDto -> runCatching { value.parcelFileDescriptor?.close() }
+            // Descriptor closing during a discard: leaked at worst, with no caller left to report to.
+            is ManagerLogExportResultDto -> runCatching { value.parcelFileDescriptor?.close() }.onFailure { }
         }
     }
 }

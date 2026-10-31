@@ -52,6 +52,14 @@ abstract class AbstractXmsfDelivery(
     protected fun resolveState(): XmsfRuntimeState =
         statusResolver.resolveState(expectedVersionName)
 
+    /**
+     * Variant of the installed runtime, or null while none is installed. The
+     * two variants share a versionName, so only the version code says which one
+     * a device runs -- and that is what decides which channel may update it.
+     */
+    protected fun runtimeFlavor(installed: XmsfStatusResolver.Installed?): XmsfRuntimeFlavor? =
+        installed?.let { XmsfRuntimeFlavor.forVersionCode(it.versionCode) }
+
     /** The runtime version this host build was pinned against. */
     protected abstract val expectedVersionName: String
 
@@ -65,6 +73,7 @@ abstract class AbstractXmsfDelivery(
             state = state,
             installedVersionName = installed?.versionName,
             installedVersionCode = installed?.versionCode,
+            runtimeFlavor = runtimeFlavor(installed),
             expectedVersionName = expectedVersionName,
             connectivity = connectivity,
             detail = detail,
@@ -77,10 +86,11 @@ abstract class AbstractXmsfDelivery(
         state: XmsfRuntimeState,
         installed: XmsfStatusResolver.Installed?,
         connectivity: XmsfConnectivity = XmsfConnectivity.UNKNOWN,
-    ): XmsfStatus = XmsfStatus(
+    ) = XmsfStatus(
         state = state,
         installedVersionName = installed?.versionName,
         installedVersionCode = installed?.versionCode,
+        runtimeFlavor = runtimeFlavor(installed),
         expectedVersionName = expectedVersionName,
         connectivity = connectivity,
     )

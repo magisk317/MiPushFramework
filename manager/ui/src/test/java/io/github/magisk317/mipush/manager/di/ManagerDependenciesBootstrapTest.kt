@@ -98,7 +98,6 @@ class ManagerDependenciesBootstrapTest {
         listOf(
             "hostModulesLoaded",
             "appInitializersStarted",
-            "logSanitizationSyncStarted",
             "runtimePreferenceSyncStarted",
             "analyticsSyncStarted",
             "maintenanceSyncStarted",

@@ -30,7 +30,7 @@ class VersionUpdateCoordinatorTest {
                 latest = XmsfLatestCheck.Available(runtimeManifest("1.0.10")),
                 onEnsureInstalled = { target, _ ->
                     order += "runtime:$target"
-                    XmsfInstallResult.Installed
+                    XmsfInstallResult.Installed()
                 },
             )
             val controller = mockk<AppUpdateController>(relaxed = true)
@@ -177,7 +177,7 @@ class VersionUpdateCoordinatorTest {
             onEnsureInstalled = { _, onProgress ->
                 onProgress(42)
                 hintsDuringInstall += coordinatorRef.get().runtimeHint.value
-                XmsfInstallResult.Installed
+                XmsfInstallResult.Installed()
             },
         )
         val coordinator = coordinator(
@@ -226,7 +226,7 @@ class VersionUpdateCoordinatorTest {
     private class FakeXmsfDelivery(
         private val latest: XmsfLatestCheck,
         private val installsDirectly: Boolean = true,
-        private val result: XmsfInstallResult = XmsfInstallResult.Installed,
+        private val result: XmsfInstallResult = XmsfInstallResult.Installed(),
         private val onEnsureInstalled: suspend (String?, (Int) -> Unit) -> XmsfInstallResult = { _, _ -> result },
     ) : XmsfDelivery {
         val installCalls = mutableListOf<String>()

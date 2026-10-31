@@ -51,16 +51,14 @@
     <string name="debug_test_title">%1$s Test</string>
     <string name="debug_test_content">%1$s test content</string>
     <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
-    <string name="settings_debug_mode">Enable debug mode</string>
-    <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
-    <string name="settings_log_sanitization">Sanitize logs</string>
-    <string name="settings_log_sanitization_summary">Redact tokens, regIds, device identifiers and other sensitive content. Default is off.</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="settings_show_all_events_summary">Include events hidden by the default list rules.</string>
-    <string name="pref_color_status_bar_icon_title">Status bar notification icons</string>
-    <string name="pref_color_status_bar_icon_summary">Configure MiPush and global status bar icon color policy</string>
-    <string name="pref_color_status_bar_icon_mipush_title">Monochrome icons</string>
+    <string name="pref_color_status_bar_icon_title">Notification icons</string>
+    <string name="pref_color_status_bar_icon_summary">Configure MiPush and global notification icon color policy for the status bar and notification center</string>
+    <string name="pref_color_status_bar_icon_mipush_title">Monochrome status bar icons</string>
     <string name="pref_color_status_bar_icon_mipush_summary">On by default: MiPush status-bar icons become white monochrome silhouettes. Turn off to keep the app\'s own colors</string>
+    <string name="pref_monochrome_shade_icon_title">Monochrome notification center icons</string>
+    <string name="pref_monochrome_shade_icon_summary">Render notification-center app icons as single-color silhouettes tinted to the card theme. Applies to MiPush notifications and icon-pack-covered apps.</string>
     <string name="pref_icon_pack_third_party_title">Third-party apps</string>
     <string name="pref_icon_pack_third_party_summary">Use icon-pack glyphs for third-party app notifications. Under monochrome, an app whose own status-bar glyph is already a standard silhouette keeps it; otherwise only apps configured in the icon pack are affected and the rest keep the system\'s native rendering</string>
     <string name="pref_icon_pack_system_app_title">System apps</string>
@@ -68,6 +66,7 @@
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_runtime_preference_update_failed">Could not update %1$s. Check that the push service is connected.</string>
+    <string name="settings_runtime_preference_rejected">%1$s was refused by the runtime. Update the runtime package to the same version as the manager.</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
     <string name="settings_start_foreground_service_summary">Controls whether to keep showing the keep-alive foreground notification; startup still performs foreground promotion for system compatibility.</string>
 
@@ -289,9 +288,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="zygisk_config_read_error">Could not read Zygisk configuration: %1$s</string>
     <string name="zygisk_module_status">Module status: %1$s</string>
     <string name="zygisk_unavailable_detail">Unavailable: %1$s</string>
-    <string name="zygisk_scan_title">Installed package scan</string>
-    <string name="zygisk_scan">Scan installed packages</string>
-    <string name="zygisk_scan_error">Could not scan installed packages: %1$s</string>
+    <string name="zygisk_options_title">Device spoofing</string>
     <string name="zygisk_profile_title">Device profile</string>
     <string name="zygisk_profile_miui14">MIUI 14</string>
     <string name="zygisk_profile_os4">OS 4</string>
@@ -311,7 +308,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_XMPP_server_save_failed">Could not update XMPP server</string>
     <string name="settings_permission_check">Permission check</string>
     <string name="settings_permission_check_summary">Re-open the permission guide and grant missing permissions.</string>
-    <string name="settings_connection_status">Diagnostics</string>
+    <string name="settings_connection_status">Connection diagnostics</string>
     <string name="settings_connection_status_summary">View real-time XMPP connection details and statistics.</string>
 
     <string name="connection_status_title">Diagnostics</string>
@@ -431,6 +428,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <!-- Recent Activity -->
     <string name="recent_activity_view">View recent events</string>
     <string name="recent_activity_title">Recent events</string>
+    <string name="recent_activity_time_yesterday">Yesterday</string>
     <string name="recent_activity_grouped_summary">Browse event history grouped by application.</string>
     <string name="recent_activity_stream_summary">Browse the full event stream in chronological order.</string>
     <string name="recent_activity_mode_grouped">Grouped</string>
@@ -549,17 +547,15 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_failed">Failed to replay this push message. Check logs for details.</string>
     <string name="mock_notification_no_receiver">Replay failed: target app receiver not found for this push intent.</string>
     <string name="settings_home_service_title">Services</string>
-    <string name="settings_home_service_summary">Server, foreground service, and permissions</string>
-    <string name="settings_home_keepalive_title">Keep alive</string>
-    <string name="settings_home_keepalive_summary">Process priority and system-limit bypasses</string>
+    <string name="settings_home_service_summary">Permissions and server connection diagnostics</string>
     <string name="settings_home_notifications_title">Notifications</string>
     <string name="settings_home_notifications_summary">Dynamic Island and Focus presentation</string>
     <string name="settings_home_appearance_title">Appearance</string>
-    <string name="settings_home_appearance_summary">Theme and status-bar icons.</string>
+    <string name="settings_home_appearance_summary">Theme and notification icons</string>
     <string name="settings_configurations_entry_summary">Open and edit MiPush configuration files.</string>
     <string name="settings_configurations_management_title">Configuration management</string>
     <string name="settings_home_integrations_title">Integrations</string>
-    <string name="settings_home_integrations_summary">Dual-app space, Zygisk integration, and configuration files.</string>
+    <string name="settings_home_integrations_summary">Keep-alive, app freeze, dual-app space and Zygisk integration</string>
     <string name="settings_home_services_title">Services &amp; diagnostics</string>
     <string name="settings_home_services_summary">Runtime delivery, update checks, and diagnostic logs</string>
     <string name="settings_dual_app_title">Enable dual app</string>
@@ -620,8 +616,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_version_label">Version</string>
     <string name="relay_mode_foreground">Foreground</string>
     <string name="relay_mode_background">Background</string>
-    <string name="settings_debug_mode_enabled">Verbose</string>
-    <string name="settings_debug_mode_disabled">Standard</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>
@@ -672,6 +666,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_block_summary">Block all push messages, registrations, and event records for this app.</string>
     <string name="app_detail_click_fallback">Launcher fallback on click</string>
     <string name="app_detail_click_fallback_summary">When this app\'s notification is tapped, open its home screen instead of following the pushed deep link. Off by default; enable it only if the normal route misbehaves.</string>
+    <string name="app_detail_suppress_when_disabled">Pause while app is disabled</string>
+    <string name="app_detail_suppress_when_disabled_summary">Stop showing this app\'s notifications while the app is disabled or suspended. Off by default.</string>
+    <string name="app_detail_count_limit_exempt">Bypass per-app notification cap</string>
+    <string name="app_detail_count_limit_exempt_summary">HyperOS dismisses an app\'s oldest notification once more than 10 are in the shade. Keep this app\'s notifications beyond that limit instead of trimming them. Requires the SystemUI scope.</string>
     <string name="app_detail_redirect_click">Open another app on click</string>
     <string name="app_detail_redirect_click_summary">Keep this app notification appearance; open a chosen app when tapped. Coming soon.</string>
     <string name="app_detail_redirect_click_in_development">Open another app on click is under development</string>
@@ -724,15 +722,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>
     <string name="pref_freeze_enabled_title">Unfreeze frozen apps</string>
     <string name="pref_freeze_enabled_summary">Frozen apps still receive notifications. Tapping a notification unfreezes and launches the app.</string>
-    <string name="pref_freeze_refreeze_policy_title">Refreeze policy</string>
-    <string name="pref_freeze_refreeze_delay_title">Refreeze delay</string>
-    <string name="pref_freeze_refreeze_delay_summary">Refreeze %1$d minutes after launch</string>
-    <string name="pref_freeze_refreeze_delay_hint">Between 1 and 120 minutes</string>
-    <string name="pref_freeze_refreeze_delay_error">Enter a delay between 1 and 120 minutes</string>
-    <string name="pref_freeze_policy_never">Never refreeze</string>
-    <string name="pref_freeze_policy_screen_off">Refreeze when the screen turns off</string>
-    <string name="pref_freeze_policy_timed">Refreeze after the delay</string>
-    <string name="pref_freeze_policy_task_removed">Refreeze when the task is removed from Recents</string>
     <string name="pref_island_enabled_title">MiPush island focus display</string>
     <string name="pref_island_enabled_summary">Generate and inject MiPush-owned focus payloads for notifications.</string>
     <string name="pref_island_timeout_title">Island timeout</string>
@@ -788,8 +777,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="runtime_warning_check_permissions">Check permissions</string>
     <string name="legacy_module_dialog_title">Incompatible MiPush module detected</string>
     <string name="legacy_module_dialog_message">Incompatible module detected: %1$s. Uninstall it, then reopen Manager.</string>
-    <string name="runtime_commit_mismatch_dialog_title">Module/xmsf version mismatch</string>
-    <string name="runtime_commit_mismatch_dialog_message">The manager module and the xmsf runtime were built from different commits (module %1$s, runtime %2$s). A mismatch can cause duplicate notifications or dead notification clicks. Install matching builds of both APKs.</string>
     <string name="runtime_commit_mismatch_toast">Module and xmsf versions mismatch; notifications may misbehave</string>
     <string name="pref_auto_update_on_start_title">Auto check updates on start</string>
     <string name="pref_auto_update_on_start_summary">Check for updates in background on cold start</string>
@@ -798,6 +785,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="open_browser_failed">No browser available to open the link</string>
     <string name="check_update_title">Check for updates</string>
     <string name="check_update_summary">Tap to check updates</string>
+    <string name="settings_track_ci_builds_title">Detect CI builds</string>
+    <string name="settings_track_ci_builds_summary">Also probe beta-branch CI builds for both the manager and the runtime (mandatory-update prompts possible). Off = official releases only; a CI build then waits for the next release to catch up.</string>
     <string name="settings_check_report_checking">Checking for updates…</string>
     <string name="settings_check_report_manager_up_to_date">Manager: up to date</string>
     <string name="settings_check_report_manager_available">Manager: %1$s available</string>

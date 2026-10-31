@@ -35,7 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -53,7 +53,6 @@ import io.github.magisk317.uikit.surface.DialogActionStyle
 import java.time.Instant
 import java.time.ZoneId
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
-import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
@@ -119,7 +118,7 @@ internal fun EventDetailsDialog(
                                 onClick = {
                                     replayScope.launch {
                                         val outcome = viewModel.mockMessage(clickedEvent.event)
-                                        Logger.withTag("EventListPage").d {
+                                        XLog.tagged("EventListPage").d {
                                             "Replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName} outcome=$outcome"
                                         }
                                         val isSuccess = outcome == MockReplayOutcome.Posted || outcome == MockReplayOutcome.Dispatched

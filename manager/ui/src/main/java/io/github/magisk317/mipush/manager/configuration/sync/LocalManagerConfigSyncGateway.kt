@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import io.github.magisk317.mipush.common.utils.logW
 
 /**
  * Manager-process config sync: SAF tree + GitHub/GitLab catalog stay local;
@@ -104,6 +105,9 @@ class LocalManagerConfigSyncGateway(
             .putExtra(ConfigurationsPage.EXTRA_INITIAL_PATH, matchedPath)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
+            .onFailure { error ->
+                logW("opening the configurations page failed: ${error.message}", error)
+            }
     }
 
     suspend fun activateAllLocalConfigs(treeUri: Uri?): Int = withContext(Dispatchers.IO) {
@@ -149,8 +153,13 @@ class LocalManagerConfigSyncGateway(
         } finally {
             // Binder duplicates the descriptor for the runtime process; this original manager-side
             // read end remains caller-owned and must be closed after every synchronous call result.
-            runCatching { readSide.close() }
-            runCatching { writeSide.close() }
+            runCatching { readSide.close() }.onFailure {
+                // Closing the manager-side half of the pipe is best-effort: the runtime process
+                // already consumed its end once the synchronous call returned.
+            }
+            runCatching { writeSide.close() }.onFailure {
+                // Same as above; an already-closed descriptor is not worth reporting.
+            }
         }
     }
 

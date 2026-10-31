@@ -6,8 +6,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Probes the GitLab CI artifacts staging area (ci-dist) for the XMSF runtime
- * published by the latest successful android:build pipeline on the CI track.
+ * Probes the GitLab CI artifacts staging area (ci-dist) for the runtime of one
+ * XMSF variant published by the latest successful android:build pipeline.
  *
  * The artifacts raw endpoint exposes no per-file listing, so the version is
  * resolved from a plain-text sidecar (ci-dist/com.xiaomi.xmsf/version.txt)
@@ -25,8 +25,9 @@ import okhttp3.Request
  * mirroring [XmsfRuntimeLatestProbe].
  */
 class XmsfCiArtifactProbe(
-    private val versionSidecarUrl: String = VERSION_SIDECAR_URL,
-    private val manifestBaseUrl: String = MANIFEST_BASE_URL,
+    private val flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal,
+    private val versionSidecarUrl: String = sidecarUrlFor(flavor),
+    private val manifestBaseUrl: String = payloadBaseUrlFor(flavor),
     private val httpClient: OkHttpClient = XmsfDownloader.defaultHttpClient(),
 ) {
 
@@ -49,7 +50,7 @@ class XmsfCiArtifactProbe(
             check(manifest.versionName == versionName) {
                 "ci manifest version ${manifest.versionName} does not match sidecar $versionName"
             }
-            manifest.validate(hostVersionCode)?.let { reason ->
+            manifest.validate(hostVersionCode, flavor)?.let { reason ->
                 error("ci runtime manifest rejected: $reason")
             }
             manifest
@@ -69,31 +70,33 @@ class XmsfCiArtifactProbe(
         /**
          * The branch-form artifacts raw endpoint resolves the ref to a
          * pipeline, so it refuses to answer without the job name: every URL
-         * built under [MANIFEST_BASE_URL] must carry this query or GitLab
+         * built under [payloadBaseUrlFor] must carry this query or GitLab
          * 404s. The generic registry needs none, which is why the downloader
          * takes the suffix as a parameter instead of baking it into the base
          * URL.
          */
         const val CI_JOB_QUERY = "?job=android:build"
 
-        /**
-         * Plain-text sidecar staged by the android:build job carrying the
-         * xmsf runtime APK's embedded versionName.
-         */
-        const val VERSION_SIDECAR_URL =
-            "https://gitlab.com/magisk3171/MiPushFramework/-/jobs/artifacts/beta/raw" +
-                "/ci-dist/com.xiaomi.xmsf/version.txt$CI_JOB_QUERY"
+        private const val CI_DIST_PREFIX =
+            "https://gitlab.com/magisk3171/MiPushFramework/-/jobs/artifacts/beta/raw/ci-dist"
 
         /**
-         * Base URL of the staged runtime payload, keyed by the runtime's own
-         * package name and versionName (com.xiaomi.xmsf/<versionName>/...),
-         * the same two-level shape the generic package registry uses, so the
-         * downloader only swaps this URL and keeps its whole verification
-         * chain: manifest gate -> sha256 sidecar -> same-signature check.
-         * Every request built from it must append [CI_JOB_QUERY].
+         * Plain-text sidecar staged by the android:build job, holding the
+         * versionName of one variant's runtime APK.
          */
-        const val MANIFEST_BASE_URL =
-            "https://gitlab.com/magisk3171/MiPushFramework/-/jobs/artifacts/beta/raw" +
-                "/ci-dist/com.xiaomi.xmsf"
+        fun sidecarUrlFor(flavor: XmsfRuntimeFlavor): String =
+            "$CI_DIST_PREFIX/${flavor.ciDistRoot}/version.txt$CI_JOB_QUERY"
+
+        /**
+         * Base URL of one variant's staged runtime payload, keyed by the runtime
+         * package name plus the variant
+         * (com.xiaomi.xmsf[-<variant>]/<versionName>/...), the same two-level
+         * shape the generic package registry uses, so the downloader only swaps
+         * this URL and keeps its whole verification chain: manifest gate ->
+         * sha256 sidecar -> same-signature check. Every request built from it
+         * must append [CI_JOB_QUERY].
+         */
+        fun payloadBaseUrlFor(flavor: XmsfRuntimeFlavor): String =
+            "$CI_DIST_PREFIX/${flavor.ciDistRoot}"
     }
 }

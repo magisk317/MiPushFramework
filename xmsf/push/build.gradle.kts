@@ -14,7 +14,6 @@ dependencies {
     implementation(project(":xmsf:runtime"))
     implementation(project(":xmsf:runtime:store"))
     implementation(project(":magisk-xposed-kit:logging"))
-    implementation(libs.kermit)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

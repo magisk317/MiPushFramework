@@ -76,7 +76,6 @@ dependencies {
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    implementation(libs.kermit)
     implementation(libs.libsu.core)
     implementation(project(":magisk-xposed-kit:logging"))
     implementation(project(":magisk-xposed-kit:permission"))

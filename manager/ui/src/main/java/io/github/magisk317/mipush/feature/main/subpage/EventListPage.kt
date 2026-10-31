@@ -49,7 +49,11 @@ import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
 import io.github.magisk317.uikit.preference.AppArrowItem as SettingsItem
 import io.github.magisk317.uikit.preference.TextInputDialog
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.ZonedDateTime
+import java.util.Locale
 import java.util.Calendar
 import java.util.Date
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
@@ -64,6 +68,39 @@ import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
 internal val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+
+private val activityClockFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+private val activityMonthDayFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
+private val activityFullYearFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+/**
+ * Row-level timestamp, deliberately shorter than [receiveDateTimeFormatter]: nineteen characters in
+ * the trailing slot squeeze the title, which is what the row is actually for. Nothing is lost - the
+ * detail view still prints the full timestamp.
+ *
+ * A rolling day window rather than a calendar week, so the label never turns into the "上周三"
+ * ambiguity a Monday would produce.
+ */
+internal fun formatActivityTime(
+    epochMillis: Long,
+    yesterdayLabel: String,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val time = Instant.ofEpochMilli(epochMillis).atZone(zone)
+    val now = ZonedDateTime.now(zone)
+    val days = java.time.temporal.ChronoUnit.DAYS.between(time.toLocalDate(), now.toLocalDate())
+    val clock = time.format(activityClockFormatter)
+    return when {
+        days == 0L -> clock
+        days == 1L -> "$yesterdayLabel $clock"
+        days in 2L..6L -> time.dayOfWeek.getDisplayName(
+            java.time.format.TextStyle.SHORT,
+            Locale.getDefault(),
+        ) + " $clock"
+        time.year == now.year -> time.format(activityMonthDayFormatter)
+        else -> time.format(activityFullYearFormatter)
+    }
+}
 
 @Composable
 fun EventList(

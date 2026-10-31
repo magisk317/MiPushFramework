@@ -98,7 +98,7 @@ class XmsfDownloaderTest {
     @Test
     fun `sidecar checksum mismatch deletes the download and fails`() = runBlocking {
         val apkBytes = "fake-runtime-apk".toByteArray()
-        enqueueManifest(sha256Hex(apkBytes))
+        enqueueManifest(sha256Hex(apkBytes), commit = "7865a560")
         enqueueApk(apkBytes)
         server.enqueue(MockResponse.Builder().code(200).body("f".repeat(64)).build())
 
@@ -106,7 +106,17 @@ class XmsfDownloaderTest {
             runBlocking { downloader().download() }
         }
 
-        assertEquals("runtime checksum mismatch", error.message)
+        assertTrue(
+            error.message!!.startsWith("runtime checksum mismatch for $VERSION"),
+            error.message!!,
+        )
+        // The commit names the source tree the payload claims, so a wrong build
+        // is distinguishable from a corrupt one without unpacking anything.
+        assertTrue(error.message!!.contains("(commit 7865a560)"), error.message!!)
+        // Both digests are named so a user can tell a wrong artifact from a
+        // corrupt download.
+        assertTrue(error.message!!.contains("expected ${"f".repeat(12)}"), error.message!!)
+        assertTrue(error.message!!.contains("got ${sha256Hex(apkBytes).take(12)}"), error.message!!)
         assertFalse(downloadedApkFile().isFile)
     }
 
@@ -185,9 +195,13 @@ class XmsfDownloaderTest {
         }
     }
 
-    private fun downloader(version: String = VERSION) = XmsfDownloader(
+    private fun downloader(
+        version: String = VERSION,
+        flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal,
+    ) = XmsfDownloader(
         context = context,
         expectedVersionName = version,
+        flavor = flavor,
         baseUrl = server.url("/").toString().removeSuffix("/"),
         httpClient = OkHttpClient(),
         hostVersionCodeProvider = { HOST_VERSION_CODE },
@@ -213,6 +227,8 @@ class XmsfDownloaderTest {
         sha256: String,
         version: String = VERSION,
         minManagerVersionCode: Long = 0L,
+        versionCode: Long = RUNTIME_VERSION_CODE,
+        commit: String = "",
     ) {
         server.enqueue(
             MockResponse.Builder().code(200).body(
@@ -221,9 +237,10 @@ class XmsfDownloaderTest {
                   "schema": 1,
                   "variant": "github",
                   "versionName": "$version",
-                  "versionCode": 1003003000,
+                  "versionCode": $versionCode,
                   "minManagerVersionCode": $minManagerVersionCode,
-                  "sha256": "$sha256"
+                  "sha256": "$sha256",
+                  "commit": "$commit"
                 }
                 """.trimIndent(),
             ).build(),
@@ -234,6 +251,50 @@ class XmsfDownloaderTest {
         server.enqueue(MockResponse.Builder().code(200).body("$hash  xmsf-runtime.apk").build())
     }
 
+    @Test
+    fun `payload staged for the other variant is refused`() = runBlocking {
+        val apkBytes = "fake-runtime-apk".toByteArray()
+        val hash = sha256Hex(apkBytes)
+        // A vc105 manifest is identical but for the version code, and both
+        // variants share the version name the pin compares: without this gate the
+        // normal channel could hand a device the other variant.
+        enqueueManifest(hash, versionCode = XmsfRuntimeFlavor.Vc105.versionCode)
+        enqueueApk(apkBytes)
+        enqueueSidecar(hash)
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            runBlocking { downloader().download() }
+        }
+
+        assertTrue(error.message!!.contains("manifest rejected"), error.message!!)
+        assertTrue(error.message!!.contains("not the normal variant"), error.message!!)
+        assertFalse(downloadedApkFile().isFile)
+    }
+
+    @Test
+    fun `each variant reads its own registry package and ci-dist root`() {
+        // URLs the CI scripts have to match: stage_ci_dist.sh writes these roots
+        // and xmsf_runtime_publish.sh publishes these packages.
+        assertTrue(
+            XmsfDownloader.registryBaseUrl(XmsfRuntimeFlavor.Normal).endsWith("/xmsf-runtime"),
+            XmsfDownloader.registryBaseUrl(XmsfRuntimeFlavor.Normal),
+        )
+        assertTrue(
+            XmsfDownloader.registryBaseUrl(XmsfRuntimeFlavor.Vc105).endsWith("/xmsf-runtime-vc105"),
+            XmsfDownloader.registryBaseUrl(XmsfRuntimeFlavor.Vc105),
+        )
+        assertTrue(
+            XmsfCiArtifactProbe.sidecarUrlFor(XmsfRuntimeFlavor.Vc105)
+                .contains("/ci-dist/com.xiaomi.xmsf-vc105/version.txt"),
+            XmsfCiArtifactProbe.sidecarUrlFor(XmsfRuntimeFlavor.Vc105),
+        )
+        assertTrue(
+            XmsfCiArtifactProbe.payloadBaseUrlFor(XmsfRuntimeFlavor.Vc105)
+                .endsWith("/ci-dist/com.xiaomi.xmsf-vc105"),
+            XmsfCiArtifactProbe.payloadBaseUrlFor(XmsfRuntimeFlavor.Vc105),
+        )
+    }
+
     private fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
@@ -242,5 +303,6 @@ class XmsfDownloaderTest {
     private companion object {
         const val VERSION = "1.0.9"
         const val HOST_VERSION_CODE = 1003003000L
+        const val RUNTIME_VERSION_CODE = 1003003000L
     }
 }

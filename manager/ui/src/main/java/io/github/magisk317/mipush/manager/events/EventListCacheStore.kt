@@ -18,6 +18,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import android.annotation.SuppressLint
 import android.content.Context
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logW
 
 /**
  * Persistent (on-disk) cache for event-list pages, complementing the existing
@@ -70,6 +71,8 @@ class EventListCacheStore(
                     values.remove(currentKey)
                     legacyKey?.let(values::remove)
                 }
+            }.onFailure { error ->
+                logW("dropping the corrupt event cache bucket failed: ${error.message}", error)
             }
             return@withContext null
         }
@@ -80,6 +83,8 @@ class EventListCacheStore(
                     values[currentKey] = raw
                     values.remove(legacyKey)
                 }
+            }.onFailure { error ->
+                logW("migrating the legacy event cache bucket failed: ${error.message}", error)
             }
         }
         cached

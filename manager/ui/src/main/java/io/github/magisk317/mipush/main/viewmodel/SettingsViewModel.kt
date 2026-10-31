@@ -7,11 +7,10 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceWriteOutcome
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
-import io.github.magisk317.mipush.common.FREEZE_REFREEZE_POLICY_SCREEN_OFF
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
@@ -22,7 +21,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
+import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
@@ -82,13 +81,7 @@ class SettingsViewModel constructor(
     val configDirectory: StateFlow<String?> = preferenceRepository.configDirectory
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val debugMode: StateFlow<Boolean> = preferenceRepository.debugMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val showAllEvents: StateFlow<Boolean> = preferenceRepository.showAllEvents
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val logSanitizationEnabled: StateFlow<Boolean> = preferenceRepository.logSanitizationEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val analyticsEnabled: StateFlow<Boolean> = preferenceRepository.analyticsEnabled
@@ -99,6 +92,19 @@ class SettingsViewModel constructor(
 
     val autoUpdateWifiOnly: StateFlow<Boolean> = preferenceRepository.autoUpdateWifiOnly
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    /**
+     * Effective update channel: the settings override when set, otherwise the
+     * build's own provenance (CI/debug builds track CI, releases track
+     * releases). Mirrors the gate the DI wiring applies to both probe chains.
+     */
+    val trackCiBuilds: StateFlow<Boolean> = preferenceRepository.trackCiBuildsOverride
+        .map { it ?: (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
+        )
 
     val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
@@ -117,12 +123,6 @@ class SettingsViewModel constructor(
 
     val freezeEnabled: StateFlow<Boolean> = preferenceRepository.freezeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val freezeRefreezePolicy: StateFlow<Int> = preferenceRepository.freezeRefreezePolicy
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FREEZE_REFREEZE_POLICY_SCREEN_OFF)
-
-    val freezeRefreezeDelayMinutes: StateFlow<Int> = preferenceRepository.freezeRefreezeDelayMinutes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
 
     val islandEnabled: StateFlow<Boolean> = preferenceRepository.islandEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -153,6 +153,9 @@ class SettingsViewModel constructor(
     val monochromeStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
         .map { !it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val monochromeShadeIcon: StateFlow<Boolean> = preferenceRepository.monochromeShadeIcon
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val thirdPartyIconPack: StateFlow<Boolean> = preferenceRepository.thirdPartyIconPack
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -277,12 +280,6 @@ class SettingsViewModel constructor(
         }
     }
 
-    fun setDebugMode(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean("debug_mode", enabled, onResult)
-
-    fun setLogSanitizationEnabled(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(LOG_SANITIZATION_ENABLED_KEY, enabled, onResult)
-
     fun setAnalyticsEnabled(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ENABLE_ANALYTICS_KEY, enabled, onResult)
 
@@ -290,6 +287,16 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             val success = runCatching {
                 withContext(Dispatchers.IO) { preferenceRepository.setAutoUpdateOnStart(enabled) }
+                true
+            }.getOrDefault(false)
+            onResult?.invoke(success)
+        }
+    }
+
+    fun setTrackCiBuilds(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val success = runCatching {
+                withContext(Dispatchers.IO) { preferenceRepository.setTrackCiBuildsOverride(enabled) }
                 true
             }.getOrDefault(false)
             onResult?.invoke(success)
@@ -324,12 +331,6 @@ class SettingsViewModel constructor(
     fun setFreezeEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(FREEZE_PREF_ENABLED, value, onResult)
 
-    fun setFreezeRefreezePolicy(value: Int, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeInt(FREEZE_PREF_REFREEZE_POLICY, value, onResult)
-
-    fun setFreezeRefreezeDelayMinutes(value: Int, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeInt(FREEZE_PREF_REFREEZE_DELAY_MINUTES, value.coerceAtLeast(1), onResult)
-
     fun setIslandEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_ENABLED, value, onResult)
 
@@ -351,15 +352,34 @@ class SettingsViewModel constructor(
     fun setIslandFocusNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
         updateRuntimeBoolean(ISLAND_PREF_FOCUS_NOTIF, value, onResult)
 
+    /**
+     * Icon-policy setters report the [RuntimePreferenceWriteOutcome] instead of a bare success flag:
+     * a runtime that refuses an unknown key is connected, and saying otherwise sends the user to
+     * restart a service that is answering.
+     */
     /** [value] is monochrome polarity; the runtime key stores the historical "color" flag, so it is inverted. */
-    fun setMonochromeStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, !value, onResult)
+    fun setMonochromeStatusBarIcon(value: Boolean, onOutcome: ((RuntimePreferenceWriteOutcome) -> Unit)? = null) =
+        updateIconPreference(COLOR_STATUS_BAR_ICON_KEY, !value, onOutcome)
 
-    fun setThirdPartyIconPack(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(THIRD_PARTY_ICON_PACK_KEY, value, onResult)
+    fun setMonochromeShadeIcon(value: Boolean, onOutcome: ((RuntimePreferenceWriteOutcome) -> Unit)? = null) =
+        updateIconPreference(MONOCHROME_SHADE_ICON_KEY, value, onOutcome)
 
-    fun setSystemAppIconPack(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
-        updateRuntimeBoolean(SYSTEM_APP_ICON_PACK_KEY, value, onResult)
+    fun setThirdPartyIconPack(value: Boolean, onOutcome: ((RuntimePreferenceWriteOutcome) -> Unit)? = null) =
+        updateIconPreference(THIRD_PARTY_ICON_PACK_KEY, value, onOutcome)
+
+    fun setSystemAppIconPack(value: Boolean, onOutcome: ((RuntimePreferenceWriteOutcome) -> Unit)? = null) =
+        updateIconPreference(SYSTEM_APP_ICON_PACK_KEY, value, onOutcome)
+
+    private fun updateIconPreference(
+        key: String,
+        value: Boolean,
+        onOutcome: ((RuntimePreferenceWriteOutcome) -> Unit)?,
+    ) = viewModelScope.launch {
+        val outcome = withContext(Dispatchers.IO) {
+            runtimePreferenceGateway.setBooleanWithOutcome(key, value)
+        }
+        onOutcome?.invoke(outcome)
+    }
 
     private fun updateRuntimeBoolean(
         key: String,
@@ -646,7 +666,6 @@ class SettingsViewModel constructor(
 
     data class SectionExpandState(
         val service: Boolean = false,
-        val keepAlive: Boolean = false,
         val notifications: Boolean = false,
         val appearance: Boolean = false,
         val integrations: Boolean = false,
@@ -654,7 +673,6 @@ class SettingsViewModel constructor(
     ) {
         fun toggle(id: SectionId): SectionExpandState = when (id) {
             SectionId.SERVICE -> copy(service = !service)
-            SectionId.KEEP_ALIVE -> copy(keepAlive = !keepAlive)
             SectionId.NOTIFICATIONS -> copy(notifications = !notifications)
             SectionId.APPEARANCE -> copy(appearance = !appearance)
             SectionId.INTEGRATIONS -> copy(integrations = !integrations)
@@ -663,7 +681,6 @@ class SettingsViewModel constructor(
 
         operator fun get(id: SectionId): Boolean = when (id) {
             SectionId.SERVICE -> service
-            SectionId.KEEP_ALIVE -> keepAlive
             SectionId.NOTIFICATIONS -> notifications
             SectionId.APPEARANCE -> appearance
             SectionId.INTEGRATIONS -> integrations
@@ -672,6 +689,6 @@ class SettingsViewModel constructor(
     }
 
     enum class SectionId {
-        SERVICE, KEEP_ALIVE, NOTIFICATIONS, APPEARANCE, INTEGRATIONS, DIAGNOSTICS,
+        SERVICE, NOTIFICATIONS, APPEARANCE, INTEGRATIONS, DIAGNOSTICS,
     }
 }

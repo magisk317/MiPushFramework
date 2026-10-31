@@ -22,6 +22,7 @@ class ApplicationInfoStatePolicyTest {
         assertTrue(controls.islandEnabled)
         assertTrue(controls.islandFocusEnabled)
         assertTrue(controls.clickFallbackEnabled)
+        assertTrue(controls.suppressWhenDisabled)
     }
 
     @Test
@@ -39,9 +40,11 @@ class ApplicationInfoStatePolicyTest {
         assertFalse(controls.islandEnabled)
         assertFalse(controls.islandFocusEnabled)
         assertFalse(controls.clickFallbackEnabled)
+        assertFalse(controls.suppressWhenDisabled)
         assertNull(ApplicationInfoStatePolicy.withIslandEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withIslandFocusEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withClickFallbackEnabled(info, enabled = true))
+        assertNull(ApplicationInfoStatePolicy.withSuppressWhenDisabled(info, enabled = true))
     }
 
     @Test
@@ -58,6 +61,7 @@ class ApplicationInfoStatePolicyTest {
         assertFalse(blocked.islandEnabled)
         assertFalse(blocked.islandFocusNotification)
         assertFalse(blocked.clickFallbackEnabled)
+        assertFalse(blocked.suppressWhenDisabled)
         assertFalse(unblocked.blocked)
         assertFalse(unblocked.islandEnabled)
         assertFalse(unblocked.islandFocusNotification)
@@ -106,6 +110,21 @@ class ApplicationInfoStatePolicyTest {
     }
 
     @Test
+    fun `suppress when disabled toggle follows the block gate`() {
+        val info = app(suppressWhenDisabled = true)
+
+        assertNull(ApplicationInfoStatePolicy.withSuppressWhenDisabled(app(blocked = true), enabled = true))
+
+        val disabled = ApplicationInfoStatePolicy.withSuppressWhenDisabled(info, enabled = false)
+        requireNotNull(disabled)
+        assertFalse(disabled.suppressWhenDisabled)
+
+        val enabled = ApplicationInfoStatePolicy.withSuppressWhenDisabled(disabled, enabled = true)
+        requireNotNull(enabled)
+        assertTrue(enabled.suppressWhenDisabled)
+    }
+
+    @Test
     fun `invalid package is never Zygisk configurable`() {
         val controls = ApplicationInfoStatePolicy.controls(app(packageName = "not-a-package"))
         assertFalse(controls.zygiskConfigurable)
@@ -117,11 +136,13 @@ class ApplicationInfoStatePolicyTest {
         islandEnabled: Boolean = false,
         islandFocusNotification: Boolean = false,
         clickFallbackEnabled: Boolean = false,
+        suppressWhenDisabled: Boolean = false,
     ) = ManagerApplication(
         packageName = packageName,
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
     )
 }

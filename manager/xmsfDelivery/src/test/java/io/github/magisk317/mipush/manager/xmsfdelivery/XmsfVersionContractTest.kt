@@ -58,6 +58,48 @@ class XmsfVersionContractTest {
     }
 
     @Test
+    fun `payload of another variant is rejected`() {
+        // Both variants of a release share one versionName, so the version code
+        // is the only field that can tell them apart -- and swapping them moves
+        // the version code apps compare against.
+        val vc105Payload = manifest().copy(versionCode = XmsfRuntimeFlavor.Vc105.versionCode)
+
+        assertEquals(
+            "manifest versionCode ${XmsfRuntimeFlavor.Vc105.versionCode} is not the normal variant " +
+                "(${XmsfRuntimeFlavor.Normal.versionCode})",
+            vc105Payload.validate(HOST_VERSION_CODE, XmsfRuntimeFlavor.Normal),
+        )
+        assertNull(vc105Payload.validate(HOST_VERSION_CODE, XmsfRuntimeFlavor.Vc105))
+        assertNull(manifest().validate(HOST_VERSION_CODE, XmsfRuntimeFlavor.Normal))
+    }
+
+    @Test
+    fun `declared commit is carried and gated nowhere`() {
+        // Diagnostic only: an empty commit stays valid (older publishers) and a
+        // foreign one is still installable -- it only shows up in the UI note.
+        val declared = manifest().copy(commit = "7865a560")
+
+        assertNull(declared.validate(HOST_VERSION_CODE))
+        assertNull(manifest().copy(commit = "").validate(HOST_VERSION_CODE))
+        assertEquals(
+            "7865a560",
+            XmsfRuntimeManifest.parse(
+                """
+                {
+                  "schema": ${XmsfRuntimeManifest.SCHEMA},
+                  "variant": "${XmsfRuntimeManifest.VARIANT}",
+                  "versionName": "$PINNED_VERSION",
+                  "versionCode": 1003003000,
+                  "minManagerVersionCode": 0,
+                  "sha256": "abc",
+                  "commit": "7865a560"
+                }
+                """.trimIndent(),
+            ).commit,
+        )
+    }
+
+    @Test
     fun `pin mismatch is detected independently of gates`() {
         val manifest = manifest()
 

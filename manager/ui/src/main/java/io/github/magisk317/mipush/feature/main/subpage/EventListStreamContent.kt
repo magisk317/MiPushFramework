@@ -36,7 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -138,7 +138,7 @@ internal fun EventList(
                     onRefreshed()
                 }
             } catch (error: RuntimeReadUnavailableException) {
-                Logger.withTag("ManagerRuntime").w { "EventList doLoadMore unavailable status=${error.status}" }
+                XLog.tagged("ManagerRuntime").w { "EventList doLoadMore unavailable status=${error.status}" }
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     onRefreshed()
@@ -166,7 +166,7 @@ internal fun EventList(
                     onRefreshed()
                 }
             } catch (error: RuntimeReadUnavailableException) {
-                Logger.withTag("ManagerRuntime").w { "EventList doRefresh unavailable status=${error.status}" }
+                XLog.tagged("ManagerRuntime").w { "EventList doRefresh unavailable status=${error.status}" }
                 withContext(Dispatchers.Main) {
                     if (items.isEmpty()) {
                         viewModel.invalidateEventListSnapshot()
@@ -415,9 +415,13 @@ private fun EventItem(
             )
             Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
             AppText(
-                text = Instant.ofEpochMilli(item.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter),
+                text = formatActivityTime(
+                    epochMillis = item.receiveDate.time,
+                    yesterdayLabel = stringResource(R.string.recent_activity_time_yesterday),
+                ),
                 role = AppTextRole.BodySmall,
                 color = appColor(AppColorRole.OnSurfaceVariant),
+                maxLines = 1,
             )
         }
         Row(

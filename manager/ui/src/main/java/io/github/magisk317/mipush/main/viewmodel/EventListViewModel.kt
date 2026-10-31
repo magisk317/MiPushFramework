@@ -34,6 +34,7 @@ import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.events.EventListCacheStore
 import kotlinx.coroutines.CancellationException
+import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
 internal fun EventReadResult<List<ManagerEvent>>.requireAvailableEvents(operation: String): List<ManagerEvent> =
     when (this) {
@@ -54,7 +55,8 @@ class EventListViewModel constructor(
     private val runtimePreferenceGateway: RuntimePreferenceGateway,
     private val cacheStore: EventListCacheStore,
 ) : ViewModel() {
-    companion object {
+    companion object : CompanionLogSupport {
+        override val logTag = "EventListViewModel"
         internal const val MAX_EVENT_LIST_SNAPSHOT_EVENTS = 200
 
         internal fun shouldUseEventCache(refreshSignal: Int): Boolean = refreshSignal == 0

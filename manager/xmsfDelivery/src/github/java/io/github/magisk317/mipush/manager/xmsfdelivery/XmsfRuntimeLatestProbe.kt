@@ -7,8 +7,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Probes the GitLab generic package registry for the newest published XMSF
- * runtime this manager host can actually install.
+ * Probes the GitLab generic package registry for the newest published runtime
+ * of one XMSF variant this manager host can actually install.
  *
  * The registry is anonymous-readable, so the probe is a plain GET: list the
  * `xmsf-runtime` package versions, re-order them with
@@ -23,8 +23,9 @@ import okhttp3.Request
  * mirroring [XmsfDownloader].
  */
 class XmsfRuntimeLatestProbe(
-    private val packagesApiUrl: String = PACKAGES_API_URL,
-    private val manifestBaseUrl: String = XmsfDownloader.BASE_URL,
+    private val flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal,
+    private val packagesApiUrl: String = listingUrlFor(flavor),
+    private val manifestBaseUrl: String = XmsfDownloader.registryBaseUrl(flavor),
     private val httpClient: OkHttpClient = XmsfDownloader.defaultHttpClient(),
 ) {
 
@@ -42,7 +43,7 @@ class XmsfRuntimeLatestProbe(
             for (version in newestFirst) {
                 val manifest = runCatching { fetchManifest(version) }.getOrNull() ?: continue
                 if (manifest.versionName != version) continue
-                if (manifest.validate(hostVersionCode) == null) return@withContext manifest
+                if (manifest.validate(hostVersionCode, flavor) == null) return@withContext manifest
             }
             error("no published runtime is compatible with manager versionCode $hostVersionCode")
         }
@@ -73,11 +74,12 @@ class XmsfRuntimeLatestProbe(
 
     companion object {
         /**
-         * Anonymous package listing for the public MiPushFramework project.
-         * `per_page` bounds the walk; the newest-first sort is advisory only.
+         * Anonymous package listing of one runtime variant on the public
+         * MiPushFramework project. `per_page` bounds the walk; the newest-first
+         * sort is advisory only.
          */
-        const val PACKAGES_API_URL =
+        fun listingUrlFor(flavor: XmsfRuntimeFlavor): String =
             "https://gitlab.com/api/v4/projects/${XmsfDownloader.PROJECT_ID}/packages" +
-                "?package_name=xmsf-runtime&per_page=20&order_by=created_at&sort=desc"
+                "?package_name=${flavor.registryPackage}&per_page=20&order_by=created_at&sort=desc"
     }
 }

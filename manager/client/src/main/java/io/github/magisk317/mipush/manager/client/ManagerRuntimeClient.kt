@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.manager.client
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import android.content.ComponentName
 import android.content.Context
@@ -76,7 +76,7 @@ class ManagerRuntimeClient(
     private val clientJob = SupervisorJob(scope.coroutineContext[Job])
     private val clientScope = CoroutineScope(scope.coroutineContext + clientJob)
     private val remoteCallPermits = Semaphore(MAX_IN_FLIGHT_REMOTE_CALLS)
-    private val logger = Logger.withTag(TAG)
+    private val logger = XLog.tagged(TAG)
     private val operationFacade = ManagerRuntimeOperationFacade(
         caller = object : ManagerRuntimeCapabilityCaller {
             override suspend fun <T> callCapability(
@@ -494,11 +494,13 @@ class ManagerRuntimeClient(
             }
         }
         if (stale) {
-            runCatching { binder.unlinkToDeath(recipient, 0) }
+            // Binder teardown: unlinking or unbinding a connection that goes away anyway cannot be retried usefully.
+            runCatching { binder.unlinkToDeath(recipient, 0) }.onFailure { }
             return
         }
         if (duplicate) {
-            runCatching { binder.unlinkToDeath(recipient, 0) }
+            // Binder teardown: unlinking or unbinding a connection that goes away anyway cannot be retried usefully.
+            runCatching { binder.unlinkToDeath(recipient, 0) }.onFailure { }
             handleTemporaryDisconnect(session, DisconnectReason.REMOTE_ERROR)
             return
         }
@@ -785,7 +787,8 @@ class ManagerRuntimeClient(
         cleanup.bindTimeoutJob?.cancel()
         cleanup.remoteCalls.forEach { it.cancel() }
         if (cleanup.binder != null && cleanup.deathRecipient != null) {
-            runCatching { cleanup.binder.unlinkToDeath(cleanup.deathRecipient, 0) }
+            // Binder teardown: unlinking or unbinding a connection that goes away anyway cannot be retried usefully.
+            runCatching { cleanup.binder.unlinkToDeath(cleanup.deathRecipient, 0) }.onFailure { }
         }
         if (cleanup.shouldUnbind) unbind(session)
         return current
@@ -798,7 +801,8 @@ class ManagerRuntimeClient(
     }
 
     private fun unbind(session: BindSession) {
-        runCatching { appContext.unbindService(session.connection) }
+        // Binder teardown: unlinking or unbinding a connection that goes away anyway cannot be retried usefully.
+        runCatching { appContext.unbindService(session.connection) }.onFailure { }
     }
 
     private fun isCurrentLocked(session: BindSession): Boolean =

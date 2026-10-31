@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import io.github.magisk317.mipush.common.utils.logW
 
 /** Terminal outcome of a [XmsfApkInstaller.install] attempt. */
 sealed interface XmsfInstallEvent {
@@ -138,17 +139,26 @@ class XmsfApkInstaller(private val context: Context) {
             session.commit(sender)
             // close() releases the local client object only; the system-side
             // session survives until it reaches a terminal status.
-            runCatching { session.close() }
+            runCatching { session.close() }.onFailure {
+                // This close releases the local client handle only; the system-side session is
+                // already committed and reaches its terminal status through the receiver.
+            }
         } catch (error: Throwable) {
-            runCatching { session?.close() }
-            runCatching { installer.abandonSession(sessionId) }
+            runCatching { session?.close() }.onFailure {
+                // Teardown after a failed commit: the session is abandoned on the next line.
+            }
+            runCatching { installer.abandonSession(sessionId) }.onFailure { error ->
+                logW("abandoning install session $sessionId failed: ${error.message}", error)
+            }
             finish(
                 continuation = continuation,
                 event = XmsfInstallEvent.Failed(error.describeFailure()),
             )
         }
         continuation.invokeOnCancellation {
-            runCatching { session?.abandon() }
+            runCatching { session?.abandon() }.onFailure { error ->
+                logW("abandoning the cancelled install session failed: ${error.message}", error)
+            }
             activeSessionId = null
             activeContinuation.compareAndSet(continuation, null)
             unregisterReceiver()
@@ -167,6 +177,9 @@ class XmsfApkInstaller(private val context: Context) {
         }
         activeSessionId?.let { sessionId ->
             runCatching { appContext.packageManager.packageInstaller.abandonSession(sessionId) }
+                .onFailure { error ->
+                    logW("cancel left install session $sessionId behind: ${error.message}", error)
+                }
             activeSessionId = null
         }
         unregisterReceiver()
@@ -199,14 +212,19 @@ class XmsfApkInstaller(private val context: Context) {
                 session.fsync(output)
             }
         } finally {
-            runCatching { output?.close() }
+            runCatching { output?.close() }.onFailure {
+                // The stream is written by now; a failed close cannot be acted on in this finally.
+            }
         }
     }
 
     private fun unregisterReceiver() {
         receiver?.let { current ->
             receiver = null
-            runCatching { appContext.unregisterReceiver(current) }
+            runCatching { appContext.unregisterReceiver(current) }.onFailure { error ->
+                // A receiver the system already dropped is not fatal, but leaking it would be invisible.
+                logW("unregistering the install status receiver failed: ${error.message}", error)
+            }
         }
     }
 

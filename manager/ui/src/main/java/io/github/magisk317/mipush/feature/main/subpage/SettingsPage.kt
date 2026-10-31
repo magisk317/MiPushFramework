@@ -37,14 +37,14 @@ import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.xposed.permission.PermissionBridge
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 
-private val settingsPageLogger = Logger.withTag("SettingsPage")
+private val settingsPageLogger = XLog.tagged("SettingsPage")
 
 @Composable
 fun Settings(
@@ -117,7 +117,7 @@ private fun SettingsBody(
 ) {
     val title = stringResource(R.string.main_settings)
     val sectionExpanded by viewModel.sectionExpanded.collectAsStateWithLifecycle()
-    settingsPageLogger.d { "compose: service=${sectionExpanded.service} isActive=$isActive" }
+    settingsPageLogger.d("compose: service=${sectionExpanded.service} isActive=$isActive")
     val toggleSection = remember(viewModel) { { id: SettingsViewModel.SectionId -> viewModel.toggleSection(id) } }
     var hasLoadedRuntimeState by rememberSaveable { mutableStateOf(false) }
 
@@ -164,16 +164,6 @@ private fun SettingsBody(
         }
 
         SettingsSectionCard(
-            title = stringResource(R.string.settings_home_keepalive_title),
-            summary = stringResource(R.string.settings_home_keepalive_summary),
-            expanded = sectionExpanded[SettingsViewModel.SectionId.KEEP_ALIVE],
-            onExpandedChange = { toggleSection(SettingsViewModel.SectionId.KEEP_ALIVE) },
-        ) {
-            KeepAliveBlock(viewModel, snackbarHostState)
-            FreezeBlock(viewModel, snackbarHostState)
-        }
-
-        SettingsSectionCard(
             title = stringResource(R.string.settings_home_notifications_title),
             summary = stringResource(R.string.settings_home_notifications_summary),
             expanded = sectionExpanded[SettingsViewModel.SectionId.NOTIFICATIONS],
@@ -188,6 +178,8 @@ private fun SettingsBody(
             expanded = sectionExpanded[SettingsViewModel.SectionId.INTEGRATIONS],
             onExpandedChange = { toggleSection(SettingsViewModel.SectionId.INTEGRATIONS) },
         ) {
+            KeepAliveBlock(viewModel, snackbarHostState)
+            FreezeBlock(viewModel, snackbarHostState)
             IntegrationsBlock(
                 viewModel = viewModel,
                 snackbarHostState = snackbarHostState,
@@ -229,7 +221,7 @@ internal suspend fun toggleAccessibilityServiceViaRoot(context: android.content.
         // An empty list means the service is already in the requested state, so no su round trip.
         val commands = PermissionBridge.accessibilityCommands(currentServices, component, enable)
         commands.isEmpty() || PermissionBridge.runRoot(commands, timeoutMillis = ROOT_TOGGLE_TIMEOUT_MILLIS) { message ->
-            settingsPageLogger.w { "keepalive accessibility toggle: $message" }
+            settingsPageLogger.w("keepalive accessibility toggle: $message")
         }
     }
 }

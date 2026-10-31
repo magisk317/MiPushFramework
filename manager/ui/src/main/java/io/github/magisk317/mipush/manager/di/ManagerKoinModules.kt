@@ -1,11 +1,11 @@
 package io.github.magisk317.mipush.manager.di
 
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
-import io.github.magisk317.xposed.logging.LogSanitizerConfig
 
 import android.app.Application
 import android.content.Context
 import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
 import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
 import io.github.magisk317.mipush.manager.application.ManagerConfigSyncGateway
@@ -56,10 +56,12 @@ import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
 import io.github.magisk317.uikit.update.AppUpdateChecker
+import io.github.magisk317.uikit.update.AppUpdateSources
 import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.uikit.update.AppUpdateDownloader
+import io.github.magisk317.uikit.update.startupFacts
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfDeliveryProvider
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
@@ -78,6 +80,8 @@ import org.koin.dsl.module
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
+import io.github.magisk317.xposed.logging.publishSwitch
+import io.github.magisk317.xposed.logging.configureForInstallation
 
 val managerKoinModule = module {
     single {
@@ -175,28 +179,52 @@ val managerKoinModule = module {
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>()) }
 
     single {
+        val preferences = get<PreferenceRepository>()
         AppUpdateChecker(
             context = androidContext(),
-            sources = ManagerUpdateSources.create(),
+            // The channel is resolved per check so the settings switch applies
+            // without rebuilding the graph; unset follows the build provenance.
+            // Routing and chain shape live in ui-kit's AppUpdateSources, which
+            // every consumer app now shares.
+            sources = AppUpdateSources.routed(ManagerUpdateSources.spec(preferences)),
             allowForceUpdate = !BuildConfig.SKIP_FORCE_UPDATE,
         )
     }
     single {
         val context = androidContext()
+        val preferences = get<PreferenceRepository>()
         AppUpdateController(
             context = context,
             checker = get(),
             downloader = AppUpdateDownloader(context),
             fileProviderAuthority = "${context.packageName}.fileprovider",
+            // 规则在 kit，值在本仓：未设置即 kit 默认（开/不限 Wi-Fi），商店包整条通道交给商店。
+            startupCheckFacts = {
+                startupFacts(
+                    context = context,
+                    trackCi = ManagerUpdateSources.isCiOrDebugBuild,
+                    autoUpdateOnStart = preferences.autoUpdateOnStart.first(),
+                    wifiOnly = preferences.autoUpdateWifiOnly.first(),
+                    playOwnsChannel = ManagerBuildConfig.HAS_BILLING,
+                )
+            },
         )
     }
     single {
+        val preferences = get<PreferenceRepository>()
         VersionUpdateCoordinator(
             checker = get(),
             controller = get(),
             // The flavor-specific delivery is resolved reflectively; the lambda
-            // defers construction until the first check actually needs it.
-            deliveryProvider = { XmsfDeliveryProvider.get(androidContext()) },
+            // defers construction until the first check actually needs it. The
+            // runtime probe chain shares the same channel gate as the manager
+            // sources so both targets always follow one track.
+            deliveryProvider = {
+                XmsfDeliveryProvider.get(
+                    androidContext(),
+                    trackCi = ManagerUpdateSources.trackCiGate(preferences),
+                )
+            },
         )
     }
 }
@@ -215,9 +243,6 @@ object ManagerDependencies {
 
     @Volatile
     private var appInitializersStarted = false
-
-    @Volatile
-    private var logSanitizationSyncStarted = false
 
     @Volatile
     private var runtimePreferenceSyncStarted = false
@@ -300,16 +325,9 @@ object ManagerDependencies {
             }
         }
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        if (!logSanitizationSyncStarted) {
-            logSanitizationSyncStarted = true
-            appScope.launch {
-                // The debug switch only ever asks for less redaction; the build policy keeps the
-                // floor, so a released manager cannot be talked into plaintext logs.
-                koin.get<PreferenceRepository>().isDebugMode
-                    .catch { LogSanitizerConfig.applyUserSwitch(false) }
-                    .collect { LogSanitizerConfig.applyUserSwitch(!it) }
-            }
-        }
+        // Redaction and verbosity are both owned by the build channel via MagiskLogPolicy.install().
+        // There is no user switch to mirror here, and nothing to collect: re-applying a derived
+        // value would only create the second authority this design removed.
         if (!runtimePreferenceSyncStarted) {
             runtimePreferenceSyncStarted = true
             koin.get<RuntimePreferenceGateway>().startReconnectSync(appScope)

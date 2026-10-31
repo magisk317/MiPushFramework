@@ -28,8 +28,14 @@ enum class XmsfConnectivity {
 
 /** Outcome of an [XmsfDelivery.ensureInstalled] attempt. */
 sealed interface XmsfInstallResult {
-    /** The runtime is installed at the pinned version and verified. */
-    data object Installed : XmsfInstallResult
+    /**
+     * The runtime is installed at the pinned version and verified.
+     *
+     * [note] carries a diagnostic the caller should surface -- today a runtime
+     * built from a different commit than the manager, which the version gate
+     * cannot see and which only matters when someone reports a problem later.
+     */
+    data class Installed(val note: String? = null) : XmsfInstallResult
 
     /** Play flavor: the user was sent to the release page; verification pends. */
     data object GuidanceOpened : XmsfInstallResult
@@ -63,6 +69,8 @@ data class XmsfStatus(
     val state: XmsfRuntimeState = XmsfRuntimeState.NOT_INSTALLED,
     val installedVersionName: String? = null,
     val installedVersionCode: Long? = null,
+    /** Variant of the installed runtime; null when nothing is installed. */
+    val runtimeFlavor: XmsfRuntimeFlavor? = null,
     val expectedVersionName: String? = null,
     val connectivity: XmsfConnectivity = XmsfConnectivity.UNKNOWN,
     val detail: String? = null,

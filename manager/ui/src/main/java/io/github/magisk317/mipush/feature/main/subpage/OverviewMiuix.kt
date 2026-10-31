@@ -2,10 +2,12 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import android.os.Build
 import io.github.magisk317.uikit.surface.MiuixStatusCheckCard
+import io.github.magisk317.uikit.surface.OverviewValueState
 import io.github.magisk317.uikit.surface.uiKitSurfaceGlassSample
 import io.github.magisk317.uikit.surface.rememberUiKitGlassTopBar
 import io.github.magisk317.uikit.theme.LocalUiKitSurfaceBlur
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,9 +21,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,8 +36,6 @@ import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.uikit.common.AppSnackbarHost
-import io.github.magisk317.uikit.text.AppText
-import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 import io.github.magisk317.uikit.common.AppSnackbarHostState
@@ -63,8 +65,8 @@ internal fun OverviewMiuix(
     actions: OverviewActions,
     contentPadding: PaddingValues,
     snackbarHostState: AppSnackbarHostState,
-    managerVersionHint: String? = null,
-    runtimeVersionHint: String? = null,
+    managerValueState: OverviewValueState? = null,
+    runtimeValueState: OverviewValueState? = null,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val scrollState = rememberScrollState()
@@ -134,13 +136,13 @@ internal fun OverviewMiuix(
                             label = UiKitR.string.uikit_manager_version,
                             value = state.appVersionName ?: unknown,
                             onClick = actions.onManagerVersionClick,
-                            hint = managerVersionHint,
+                            valueState = managerValueState,
                         )
                         MiuixInfoRow(
                             label = UiKitR.string.uikit_runtime_version,
                             value = state.runtimeVersionName ?: unknown,
                             onClick = actions.onRuntimeVersionClick,
-                            hint = runtimeVersionHint,
+                            valueState = runtimeValueState,
                         )
                         MiuixInfoRow(R.string.commit_info, state.appVersionCode)
                     }
@@ -208,26 +210,28 @@ private fun MiuixInfoRow(
     @StringRes label: Int,
     value: String,
     onClick: (() -> Unit)? = null,
-    hint: String? = null,
+    valueState: OverviewValueState? = null,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        BasicComponent(
-            modifier = Modifier.fillMaxWidth(),
-            title = stringResource(label),
-            summary = value,
-            onClick = onClick,
-        )
-        if (hint != null) {
-            // Style-aware footnote under the row, mirroring the uikit
-            // OverviewRowHint so both overview styles read the same.
-            AppText(
-                text = hint,
-                role = AppTextRole.Footnote,
-                color = appColor(AppColorRole.OnSurfaceVariant),
-                modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 4.dp),
-            )
-        }
-    }
+    BasicComponent(
+        modifier = Modifier.fillMaxWidth(),
+        title = stringResource(label),
+        // The update check reports inline in the value slot; a badge dot marks
+        // the persistent "update available" state.
+        summary = valueState?.text ?: value,
+        onClick = onClick,
+        endActions = if (valueState?.badge == true) {
+            {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .size(8.dp)
+                        .background(appColor(AppColorRole.Primary), CircleShape),
+                )
+            }
+        } else {
+            null
+        },
+    )
 }
 
 @Composable

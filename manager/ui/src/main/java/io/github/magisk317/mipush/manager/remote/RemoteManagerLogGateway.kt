@@ -26,6 +26,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import java.util.UUID
+import io.github.magisk317.mipush.common.utils.logW
 
 class RemoteManagerLogGateway(
     private val client: ManagerRuntimeClient,
@@ -76,6 +77,8 @@ class RemoteManagerLogGateway(
                         } else {
                             file.delete()
                         }
+                    }.onFailure {
+                        // Deleting during a prune is best-effort: a busy file stays for the next run.
                     }
                 }
             }
@@ -112,15 +115,23 @@ class RemoteManagerLogGateway(
                         remoteZip = remoteTmp,
                         outZip = outFile,
                     )
-                    runCatching { remoteTmp.delete() }
+                    runCatching { remoteTmp.delete() }.onFailure {
+                        // The temp came out of the export; a leftover is swept by the next clear.
+                    }
                     val details = listOf(dto.details, mergedDetail)
                         .filter { it.isNotBlank() }
                         .joinToString("; ")
                     ManagerLogExportResult(archivePath = outFile.absolutePath, details = details)
                 } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-                    runCatching { descriptor.close() }
-                    runCatching { remoteTmp.delete() }
-                    runCatching { outFile.delete() }
+                    runCatching { descriptor.close() }.onFailure {
+                        // Best-effort: the copy already failed and the descriptor leaves with it.
+                    }
+                    runCatching { remoteTmp.delete() }.onFailure {
+                        // Same here; a leftover temp is picked up by the next clear.
+                    }
+                    runCatching { outFile.delete() }.onFailure {
+                        // A half-written archive stays put rather than retrying inside the failure path.
+                    }
                     ManagerLogExportResult(
                         archivePath = null,
                         details = "log_export_copy_failed:${error.message ?: error.javaClass.simpleName}",
@@ -140,7 +151,9 @@ class RemoteManagerLogGateway(
                         details = "manager_local_bundle_failed:${error.message ?: error.javaClass.simpleName}",
                     )
                 }
-                if (!local.success) runCatching { outFile.delete() }
+                if (!local.success) runCatching { outFile.delete() }.onFailure {
+                    // The write outcome is already reported; deleting again would not change it.
+                }
                 ManagerLogExportResult(
                     archivePath = outFile.absolutePath.takeIf { local.success },
                     details = "$note; ${local.details}",
@@ -190,7 +203,9 @@ class RemoteManagerLogGateway(
                             )
                         }
                     } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-                        runCatching { descriptor.close() }
+                        runCatching { descriptor.close() }.onFailure {
+                            // The write outcome is recorded above; the descriptor is released with it.
+                        }
                         ManagerLogBundleWriteResult(
                             success = false,
                             details = "log_export_save_failed:${error.message ?: error.javaClass.simpleName}",
@@ -372,7 +387,13 @@ class RemoteManagerLogGateway(
             // Legacy UUID share temps + current mipush_logs share temps.
             context.cacheDir.listFiles()
                 ?.filter { it.isFile && (it.name.startsWith("runtime-log-") || it.name.startsWith("mipush_logs_") || it.name.startsWith(".runtime-export-")) }
-                ?.forEach { runCatching { it.delete() } }
+                ?.forEach { temp ->
+                    runCatching { temp.delete() }.onFailure {
+                        // A share temp still held by the receiver is left for the next clear.
+                    }
+                }
+        }.onFailure { error ->
+            logW("clearing the local log folders failed: ${error.message}", error)
         }
         val result = RemoteWriteSupport.execute(
             client = client,

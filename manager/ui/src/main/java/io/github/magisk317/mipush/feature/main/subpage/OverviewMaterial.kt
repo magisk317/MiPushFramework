@@ -36,6 +36,7 @@ import io.github.magisk317.uikit.surface.AppTopBar
 import io.github.magisk317.uikit.surface.OverviewAppInfoCard
 import io.github.magisk317.uikit.surface.OverviewDeviceInfoCard
 import io.github.magisk317.uikit.surface.OverviewLinksCard
+import io.github.magisk317.uikit.surface.OverviewValueState
 import io.github.magisk317.uikit.R as UiKitR
 
 /**
@@ -50,8 +51,8 @@ internal fun OverviewMaterial(
     actions: OverviewActions,
     contentPadding: PaddingValues,
     snackbarHostState: AppSnackbarHostState,
-    managerVersionHint: String? = null,
-    runtimeVersionHint: String? = null,
+    managerValueState: OverviewValueState? = null,
+    runtimeValueState: OverviewValueState? = null,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val scrollState = rememberScrollState()
@@ -105,8 +106,8 @@ internal fun OverviewMaterial(
                     appVersionCodeLabel = stringResource(R.string.commit_info),
                     onVersionClick = actions.onManagerVersionClick,
                     onRuntimeVersionClick = actions.onRuntimeVersionClick,
-                    managerVersionHint = managerVersionHint,
-                    runtimeVersionHint = runtimeVersionHint,
+                    managerValueState = managerValueState,
+                    runtimeValueState = runtimeValueState,
                 )
 
                 OverviewDeviceInfoCard()

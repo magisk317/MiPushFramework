@@ -50,7 +50,7 @@ class RuntimePreferenceGatewayTest {
             importLocal = { imported += it },
         )
 
-        assertFalse(gateway.setBoolean("debug_mode", true))
+        assertFalse(gateway.setBoolean("show_all_events", true))
         assertTrue(imported.isEmpty())
     }
 
@@ -65,7 +65,7 @@ class RuntimePreferenceGatewayTest {
                     ManagerRuntimePreferencesDto(
                         entries = listOf(
                             ManagerPreferenceEntryDto(
-                                key = "debug_mode",
+                                key = "show_all_events",
                                 type = "boolean",
                                 value = "true",
                                 owner = "runtime",
@@ -89,7 +89,7 @@ class RuntimePreferenceGatewayTest {
         available.value = true
 
         val imported = withTimeout(1_000L) { synced.await() }
-        assertEquals(listOf("debug_mode", "event_retention_days"), imported.map { it.key })
+        assertEquals(listOf("show_all_events", "event_retention_days"), imported.map { it.key })
         syncJob.cancel()
     }
 
@@ -123,6 +123,54 @@ class RuntimePreferenceGatewayTest {
 
         val error = runCatching { gateway.getXmppServer() }.exceptionOrNull()
         assertTrue(error is io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException)
+    }
+
+    @Test
+    fun `runtime rejection stays distinct from an unavailable runtime`() = runBlocking {
+        val imported = mutableListOf<OwnedPreferenceValue>()
+        val gateway = gateway(
+            executeRemote = {
+                ManagerWriteResultDto(
+                    requestId = "request",
+                    status = ManagerProtocol.WRITE_STATUS_FAILED,
+                    details = "unknown-key",
+                )
+            },
+            importLocal = { imported += it },
+        )
+
+        assertEquals(
+            RuntimePreferenceWriteOutcome.Rejected,
+            gateway.setBooleanWithOutcome("show_all_events", true),
+        )
+        assertTrue(imported.isEmpty())
+    }
+
+    @Test
+    fun `runtime with no answer is reported as unavailable`() = runBlocking {
+        val gateway = gateway(executeRemote = { null })
+
+        assertEquals(
+            RuntimePreferenceWriteOutcome.Unavailable,
+            gateway.setBooleanWithOutcome("show_all_events", true),
+        )
+    }
+
+    @Test
+    fun `manager owned key is refused locally without a runtime call`() = runBlocking {
+        var calls = 0
+        val gateway = gateway(
+            executeRemote = {
+                calls++
+                successResult()
+            },
+        )
+
+        assertEquals(
+            RuntimePreferenceWriteOutcome.Rejected,
+            gateway.setBooleanWithOutcome("config_directory", true),
+        )
+        assertEquals(0, calls)
     }
 
     private fun gateway(

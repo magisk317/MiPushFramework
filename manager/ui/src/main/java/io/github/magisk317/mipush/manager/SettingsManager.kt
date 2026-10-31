@@ -12,7 +12,6 @@ import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
 import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
@@ -134,8 +133,6 @@ class SettingsManager constructor(
         zygiskSpoofEnabledOrNull(getZygiskConfig(), packageName)
 
     suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean = zygiskConfigGateway.saveZygiskConfig(config)
-
-    suspend fun scanZygiskPackages(): ZygiskPackageScanResult = zygiskConfigGateway.scanZygiskPackages()
 
     suspend fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
         val current = getZygiskConfig() as? ZygiskConfigReadResult.Available ?: return false

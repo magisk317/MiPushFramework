@@ -13,6 +13,8 @@ data class ManagerApplication(
     val islandEnabled: Boolean = true,
     val islandFocusNotification: Boolean = false,
     val clickFallbackEnabled: Boolean = false,
+    val suppressWhenDisabled: Boolean = false,
+    val countLimitExempt: Boolean = false,
     val registeredType: Int = RegisteredType.NOT_REGISTERED,
     val existServices: Boolean = false,
     val appName: String = "",

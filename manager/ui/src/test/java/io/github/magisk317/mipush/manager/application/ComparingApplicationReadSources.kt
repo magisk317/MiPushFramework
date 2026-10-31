@@ -116,6 +116,7 @@ enum class ApplicationField {
     ISLAND_ENABLED,
     ISLAND_FOCUS_NOTIFICATION,
     CLICK_FALLBACK_ENABLED,
+    SUPPRESS_WHEN_DISABLED,
     REGISTERED_TYPE,
     EXIST_SERVICES,
     APP_NAME,
@@ -195,6 +196,9 @@ private fun compareApplicationDetails(
         }
         if (primary.clickFallbackEnabled != remote.clickFallbackEnabled) {
             add(ApplicationField.CLICK_FALLBACK_ENABLED)
+        }
+        if (primary.suppressWhenDisabled != remote.suppressWhenDisabled) {
+            add(ApplicationField.SUPPRESS_WHEN_DISABLED)
         }
         if (primary.registeredType != remote.registeredType) add(ApplicationField.REGISTERED_TYPE)
         if (primary.existServices != remote.existServices) add(ApplicationField.EXIST_SERVICES)

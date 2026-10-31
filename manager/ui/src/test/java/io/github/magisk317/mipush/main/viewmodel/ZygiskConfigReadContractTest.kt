@@ -19,18 +19,14 @@ class ZygiskConfigReadContractTest {
     }
 
     @Test
-    fun `remote gateway preserves unavailable module and scan reads`() {
+    fun `remote gateway preserves unavailable module reads`() {
         val source = readSource(
             "io/github/magisk317/mipush/manager/remote/RemoteZygiskConfigGateway.kt",
         )
-        val section = source
-        val module = section.section("override suspend fun isZygiskModuleEnabled", "override fun getZygiskConfigPath")
-        val scan = section.substring(section.indexOf("override suspend fun scanZygiskPackages"))
+        val module = source.section("override suspend fun isZygiskModuleEnabled", "override fun getZygiskConfigPath")
 
         assertTrue(module.contains("ZygiskModuleReadResult.Unavailable(\"runtime_unavailable\")"))
-        assertTrue(scan.contains("ZygiskPackageScanResult.Unavailable(\"runtime_unavailable\")"))
         assertFalse(module.contains("return false"))
-        assertFalse(scan.contains("return \"\""))
     }
 
     @Test
@@ -64,7 +60,8 @@ class ZygiskConfigReadContractTest {
         )
 
         assertTrue(source.contains("enabled = state.configReadAvailable"))
-        assertTrue(source.contains("Switch(checked = observe, enabled = enabled"))
+        assertTrue(source.contains("SettingsSwitchItem("))
+        assertTrue(source.contains("checked = observe"))
         assertFalse(source.contains("autoScan"))
     }
 
@@ -78,15 +75,13 @@ class ZygiskConfigReadContractTest {
     }
 
     @Test
-    fun `view model exposes module and scan failures instead of disabled or empty states`() {
+    fun `view model exposes module failures instead of disabled or empty states`() {
         val source = readSource(
             "io/github/magisk317/mipush/main/viewmodel/ZygiskConfigViewModel.kt",
         )
 
         assertTrue(source.contains("zygiskStatusAvailable"))
         assertTrue(source.contains("zygiskStatusError"))
-        assertTrue(source.contains("scanError"))
-        assertTrue(source.contains("is ZygiskPackageScanResult.Unavailable"))
     }
 
     private fun readSource(relativePath: String): String {

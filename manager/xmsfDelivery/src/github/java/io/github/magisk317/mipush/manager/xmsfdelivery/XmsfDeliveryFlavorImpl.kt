@@ -10,7 +10,11 @@ import kotlinx.coroutines.Dispatchers
  * [GithubXmsfDelivery]; this class only gives the provider a fixed FQCN to
  * instantiate.
  */
-internal class XmsfDeliveryFlavorImpl(context: Context) : XmsfDelivery by GithubXmsfDelivery(
+internal class XmsfDeliveryFlavorImpl(
+    context: Context,
+    trackCi: () -> Boolean,
+) : XmsfDelivery by GithubXmsfDelivery(
     context = context,
     scope = CoroutineScope(Dispatchers.Main.immediate),
+    trackCi = trackCi,
 )

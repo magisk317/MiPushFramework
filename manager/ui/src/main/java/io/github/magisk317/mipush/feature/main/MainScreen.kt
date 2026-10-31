@@ -56,13 +56,13 @@ import io.github.magisk317.uikit.surface.rememberIsCompactWidth
 import io.github.magisk317.uikit.surface.rememberMainChromeController
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
-private val navLog = Logger.withTag("NavDiag")
+private val navLog = XLog.tagged("NavDiag")
 
 private const val MAIN_CHROME_ANIMATION_MILLIS = 160
 

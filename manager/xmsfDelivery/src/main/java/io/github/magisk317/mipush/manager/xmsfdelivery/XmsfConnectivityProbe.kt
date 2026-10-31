@@ -44,7 +44,9 @@ class XmsfConnectivityProbe(
         } catch (_: RuntimeException) {
             XmsfConnectivity.FAILED
         } finally {
-            runCatching { client.close() }
+            runCatching { client.close() }.onFailure {
+                // The probe outcome is already decided; a failure to close the client changes nothing.
+            }
         }
     }
 

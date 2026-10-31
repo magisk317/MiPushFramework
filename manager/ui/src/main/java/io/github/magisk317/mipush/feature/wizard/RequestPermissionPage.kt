@@ -10,11 +10,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -62,12 +64,13 @@ import io.github.magisk317.uikit.onboarding.OnboardingActionRowCard
 import io.github.magisk317.uikit.onboarding.OnboardingInfoCard
 import io.github.magisk317.uikit.onboarding.OnboardingItemState
 import io.github.magisk317.uikit.onboarding.OnboardingLogCard
-import io.github.magisk317.uikit.onboarding.OnboardingSummaryHeader
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppIconButton
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.SectionHeading
+import io.github.magisk317.uikit.text.AppText
+import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.appColor
@@ -308,15 +311,30 @@ private fun PermissionSinglePage(
             )
         }
         item {
-            OnboardingSummaryHeader(
-                title = stringResource(R.string.wizard_report_title),
-                grantedText = stringResource(R.string.wizard_report_granted, grantedCount, totalCount),
-                missingText = if (outstandingCount > 0) {
-                    stringResource(R.string.wizard_report_missing, outstandingCount)
-                } else {
-                    null
-                },
-            )
+            // 计数与标题同行右侧，颜色跟随"已授权"同款主色；字号保持 Body 不变。
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    AppText(
+                        text = stringResource(R.string.wizard_report_title),
+                        role = AppTextRole.Title,
+                    )
+                    AppText(
+                        text = stringResource(R.string.wizard_report_granted, grantedCount, totalCount),
+                        role = AppTextRole.Body,
+                        color = appColor(AppColorRole.Primary),
+                    )
+                }
+                if (outstandingCount > 0) {
+                    AppText(
+                        text = stringResource(R.string.wizard_report_missing, outstandingCount),
+                        role = AppTextRole.BodySmall,
+                    )
+                }
+            }
         }
         item {
             SectionHeading(title = stringResource(R.string.wizard_section_required))
@@ -429,7 +447,7 @@ private fun showToast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
-private fun getPermissionInfos(context: Context): List<PermissionInfo> {
+internal fun getPermissionInfos(context: Context): List<PermissionInfo> {
     val pages = mutableListOf<PermissionInfo>().apply {
         add(UsageStatsPermissionInfo(context))
         add(AccessibilityPermissionInfo(context))
@@ -442,7 +460,7 @@ private fun getPermissionInfos(context: Context): List<PermissionInfo> {
     return pages
 }
 
-private fun isPermissionRequirementSatisfied(
+internal fun isPermissionRequirementSatisfied(
     index: Int,
     permissionInfos: List<PermissionInfo>,
     permissionStates: Map<Int, Boolean>

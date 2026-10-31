@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
@@ -69,9 +69,7 @@ class RemoteIconLibrarySource(
                 userId = 0,
             )
         }.getOrElse { error ->
-            Logger.w(tag = TAG) {
-                "icon library call threw offset=$offset error=${error.javaClass.simpleName}: ${error.message?.take(LOG_MESSAGE_LIMIT)}"
-            }
+            XLog.w(tag = TAG, message = "icon library call threw offset=$offset error=${error.javaClass.simpleName}: ${error.message?.take(LOG_MESSAGE_LIMIT)}")
             return IconLibraryPage(
                 emptyList(),
                 offset,
@@ -80,7 +78,7 @@ class RemoteIconLibrarySource(
         }
         val tookMs = SystemClock.elapsedRealtime() - startedAt
         if (result == null) {
-            Logger.w(tag = TAG) { "icon library page unavailable offset=$offset (runtime target missing)" }
+            XLog.w(tag = TAG, message = "icon library page unavailable offset=$offset (runtime target missing)")
             return IconLibraryPage(
                 emptyList(),
                 offset,
@@ -88,9 +86,7 @@ class RemoteIconLibrarySource(
             )
         }
         if (!RemoteWriteSupport.isSuccess(result)) {
-            Logger.w(tag = TAG) {
-                "icon library page rejected offset=$offset status=${result.status} details=${result.details.take(LOG_DETAILS_LIMIT)}"
-            }
+            XLog.w(tag = TAG, message = "icon library page rejected offset=$offset status=${result.status} details=${result.details.take(LOG_DETAILS_LIMIT)}")
             return IconLibraryPage(
                 emptyList(),
                 offset,
@@ -99,7 +95,7 @@ class RemoteIconLibrarySource(
         }
         val payload = result.details.substringAfter('|', "")
         if (payload.isEmpty()) {
-            Logger.w(tag = TAG) { "icon library page empty payload offset=$offset" }
+            XLog.w(tag = TAG, message = "icon library page empty payload offset=$offset")
             return IconLibraryPage(
                 emptyList(),
                 offset,
@@ -110,9 +106,7 @@ class RemoteIconLibrarySource(
             json.decodeFromString(ListSerializer(IconLibraryEntry.serializer()), payload)
         }
         val entries = decoded.getOrElse { error ->
-            Logger.w(tag = TAG) {
-                "icon library page decode failed offset=$offset payloadLen=${payload.length} error=${error.message?.take(LOG_DETAILS_LIMIT)}"
-            }
+            XLog.w(tag = TAG, message = "icon library page decode failed offset=$offset payloadLen=${payload.length} error=${error.message?.take(LOG_DETAILS_LIMIT)}")
             return IconLibraryPage(
                 emptyList(),
                 offset,
@@ -120,9 +114,7 @@ class RemoteIconLibrarySource(
                     "error=${error.message?.take(LOG_MESSAGE_LIMIT)} head=${payload.take(LOG_MESSAGE_LIMIT)}",
             )
         }
-        Logger.i(tag = TAG) {
-            "icon library page ok offset=$offset entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs"
-        }
+        XLog.i(tag = TAG, message = "icon library page ok offset=$offset entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs")
         val diagnostic =
             "ok entries=${entries.size} payloadLen=${payload.length} tookMs=$tookMs head=${payload.take(LOG_HEAD_LIMIT)}"
         return IconLibraryPage(entries, nextOffset = offset + entries.size, diagnostic = diagnostic)
@@ -138,9 +130,7 @@ class RemoteIconLibrarySource(
             )
         }.getOrNull()
         if (result == null || !RemoteWriteSupport.isSuccess(result)) {
-            Logger.w(tag = TAG) {
-                "icon bitmap unavailable pkg=$packageName status=${result?.status} details=${result?.details?.take(LOG_BITMAP_DETAILS_LIMIT)}"
-            }
+            XLog.w(tag = TAG, message = "icon bitmap unavailable pkg=$packageName status=${result?.status} details=${result?.details?.take(LOG_BITMAP_DETAILS_LIMIT)}")
             return null
         }
         val payload = result.details.substringAfter('|', "")

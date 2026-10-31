@@ -75,6 +75,8 @@ class RemoteManagerApplicationGateway(
                     application.islandFocusNotification,
                     application.notificationOnRegister,
                     application.clickFallbackEnabled,
+                    application.suppressWhenDisabled,
+                    application.countLimitExempt,
                 ).joinToString(","),
             ),
             operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,

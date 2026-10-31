@@ -39,13 +39,15 @@ class PreferenceRepositoryExportTest {
                 defaults["runtime_log_retention_days"],
             )
 
-            repository.setDebugMode(true)
+            repository.setAnalyticsEnabled(false)
             repository.setRuntimeLogRetentionDays(9)
             repository.setXmppServer("example.test")
 
             val updated = repository.exportOwnedPreferences(PreferenceOwner.RUNTIME).associateBy { it.key }
-            assertEquals("true", updated.getValue("debug_mode").value)
-            assertEquals("9", updated.getValue("runtime_log_retention_days").value)
+            assertEquals("false", updated.getValue("pref_enable_analytics").value)
+            // Retention is capped (segment rotation multiplies the daily budget by the window),
+            // so a request above the cap is stored and exported as the cap, not the request.
+            assertEquals("5", updated.getValue("runtime_log_retention_days").value)
             assertEquals("example.test", updated.getValue("xmpp_server").value)
         } finally {
             dataStoreScope.cancel()

@@ -82,9 +82,11 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
 open class ApplicationInfoPage : ComponentActivity() {
-    companion object {
+    companion object : CompanionLogSupport {
+        override val logTag = "ApplicationInfoPage"
         const val EXTRA_PACKAGE_NAME: String = "EXTRA_PACKAGE_NAME"
         const val EXTRA_IGNORE_NOT_REGISTERED: String = "EXTRA_IGNORE_NOT_REGISTERED"
     }
@@ -466,6 +468,18 @@ open class ApplicationInfoPage : ComponentActivity() {
                 showSwitchFeedback(clickFallbackTitle, enabled)
             }
 
+            val countLimitExemptTitle = stringResource(R.string.app_detail_count_limit_exempt)
+            SettingSwitchRow(
+                title = countLimitExemptTitle,
+                summary = stringResource(R.string.app_detail_count_limit_exempt_summary),
+                checked = currentInfo?.countLimitExempt ?: applicationInfo.countLimitExempt,
+                enabled = !blocked,
+                showDivider = true,
+            ) { enabled ->
+                infoViewModel.updateCountLimitExempt(enabled)
+                showSwitchFeedback(countLimitExemptTitle, enabled)
+            }
+
             val redirectClickTitle = stringResource(R.string.app_detail_redirect_click)
             val redirectInDevelopment = stringResource(R.string.app_detail_redirect_click_in_development)
             val scope = rememberCoroutineScope()
@@ -555,6 +569,21 @@ open class ApplicationInfoPage : ComponentActivity() {
             title = stringResource(R.string.app_detail_notifications),
             summary = stringResource(R.string.settings_manage_app_notifications_summary),
         ) {
+            val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
+            val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+            val suppressTitle = stringResource(R.string.app_detail_suppress_when_disabled)
+            val blocked = currentInfo?.blocked ?: applicationInfo.blocked
+            SettingSwitchRow(
+                title = suppressTitle,
+                summary = stringResource(R.string.app_detail_suppress_when_disabled_summary),
+                checked = currentInfo?.suppressWhenDisabled ?: applicationInfo.suppressWhenDisabled,
+                enabled = !blocked,
+                showDivider = true,
+            ) { enabled ->
+                infoViewModel.updateSuppressWhenDisabled(enabled)
+                showSwitchFeedback(suppressTitle, enabled)
+            }
+
             if (isPreview) {
                 ActionSummaryRow(
                     title = stringResource(R.string.settings_manage_app_notifications),

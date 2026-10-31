@@ -4,7 +4,6 @@ import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
 import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
 import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 
@@ -51,17 +50,5 @@ class RemoteZygiskConfigGateway(
             operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
             packageName = packageName,
         ))
-    }
-
-    override suspend fun scanZygiskPackages(): ZygiskPackageScanResult {
-        val result = RemoteWriteSupport.execute(
-            client = client,
-            operation = ManagerProtocol.WRITE_OP_ZYGISK_SCAN,
-        ) ?: return ZygiskPackageScanResult.Unavailable("runtime_unavailable")
-        return if (RemoteWriteSupport.isSuccess(result)) {
-            ZygiskPackageScanResult.Available(result.details)
-        } else {
-            ZygiskPackageScanResult.Unavailable(result.details.ifBlank { "zygisk_scan_unavailable" })
-        }
     }
 }

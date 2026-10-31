@@ -91,6 +91,8 @@ object ManagerLocalDiagnostics {
                         .take(MAX_SCANNED_LINES_PER_FILE)
                         .forEach { line -> matched += line.trim() }
                 }
+            }.onFailure {
+                // An unreadable log file must not abort the scan of the remaining ones.
             }
         }
         return if (matched.size <= MAX_PROBE_LINES) matched else matched.takeLast(MAX_PROBE_LINES)

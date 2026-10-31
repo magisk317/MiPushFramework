@@ -172,17 +172,10 @@ sealed interface ZygiskModuleReadResult {
     data class Unavailable(val reason: String) : ZygiskModuleReadResult
 }
 
-sealed interface ZygiskPackageScanResult {
-    data class Available(val output: String) : ZygiskPackageScanResult
-
-    data class Unavailable(val reason: String) : ZygiskPackageScanResult
-}
-
 interface ZygiskConfigGateway {
     suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult
     fun getZygiskConfigPath(): String
     suspend fun getZygiskConfig(): ZygiskConfigReadResult
     suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean
     suspend fun forceStopApp(packageName: String): Boolean
-    suspend fun scanZygiskPackages(): ZygiskPackageScanResult
 }

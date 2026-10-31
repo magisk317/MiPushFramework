@@ -1,18 +1,21 @@
 package io.github.magisk317.mipush.manager.di
 
 import io.github.magisk317.mipush.common.BuildConfig
-import io.github.magisk317.mipush.common.VERSION_NAME
-import io.github.magisk317.uikit.update.GitHubReleaseUpdateSource
-import io.github.magisk317.uikit.update.GitLabCiArtifactUpdateSource
-import io.github.magisk317.uikit.update.GitLabReleaseUpdateSource
-import io.github.magisk317.uikit.update.UpdateSource
+import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.uikit.update.AppUpdateSourceSpec
+import io.github.magisk317.uikit.update.AppUpdateSources
+import io.github.magisk317.uikit.update.CiStagingSpec
+import kotlinx.coroutines.flow.first
 
 /**
- * Update endpoints for the manager app, defined in exactly one place.
+ * Update endpoints for the manager app, expressed as a single [AppUpdateSourceSpec].
  *
- * Both the silent update checker (settings item + home version rows) and the
- * update controller (dialog-driven install UX) build their source list from
- * here, so the CI/debug and release tracks can never drift apart.
+ * Both the silent update checker (settings item + home version rows) and the update controller
+ * (dialog-driven install UX) read the channel through ui-kit's `AppUpdateSources`, so the CI/debug
+ * and release tracks can never drift apart here or in any other consumer app. What stays in this
+ * file is product data only: where this app's artifacts are staged and which build flags decide the
+ * default channel.
  */
 object ManagerUpdateSources {
 
@@ -25,10 +28,11 @@ object ManagerUpdateSources {
     /** CI track: latest successful pipeline on this branch. */
     const val CI_BRANCH = "beta"
     const val CI_JOB_NAME = "android:build"
+
     /**
-     * Version-keyed staging path: the {versionName} segment is resolved from
-     * the sidecar below (see GitLabCiArtifactUpdateSource), keeping the
-     * ci-dist/<package>/<versionName>/ layout symmetric with the XMSF runtime.
+     * Version-keyed staging path: the `{versionName}` segment is resolved from the sidecar below
+     * (see `GitLabCiArtifactUpdateSource`), keeping the ci-dist/<package>/<versionName>/ layout
+     * symmetric with the XMSF runtime.
      */
     const val CI_ARTIFACT_PATH = "ci-dist/io.github.magisk317.mipush/{versionName}/mipush-ci.apk"
 
@@ -36,8 +40,8 @@ object ManagerUpdateSources {
     const val CI_VERSION_SIDECAR_PATH = "ci-dist/io.github.magisk317.mipush/version.txt"
 
     /**
-     * Staged manifest sidecar whose sha256 gates the OTA download; same
-     * version-keyed layout and contract fields as the XMSF runtime manifest.
+     * Staged manifest sidecar whose sha256 gates the OTA download; same version-keyed layout and
+     * contract fields as the XMSF runtime manifest.
      */
     const val CI_MANIFEST_PATH =
         "ci-dist/io.github.magisk317.mipush/{versionName}/mipush-ci-manifest.json"
@@ -47,31 +51,30 @@ object ManagerUpdateSources {
         get() = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
 
     /**
-     * Ordered source list for the current build type. CI/debug builds see the
-     * CI artifact track first (force update), release builds see GitLab
-     * releases first and the GitHub mirror second.
+     * The manager's endpoint spec. [preferences] backs the tri-state "detect CI builds" switch, so
+     * the channel is decided at probe time; unset falls back to how this build was produced.
      */
-    fun create(gitCommit: String = BuildConfig.GIT_COMMIT): List<UpdateSource> =
-        if (isCiOrDebugBuild) {
-            listOf(
-                GitLabCiArtifactUpdateSource(
-                    projectPath = GITLAB_PROJECT_PATH,
-                    branch = CI_BRANCH,
-                    jobName = CI_JOB_NAME,
-                    artifactPath = CI_ARTIFACT_PATH,
-                    versionFilePath = CI_VERSION_SIDECAR_PATH,
-                    manifestFilePath = CI_MANIFEST_PATH,
-                    currentCommitHash = gitCommit,
-                ),
-                GitLabReleaseUpdateSource(GITLAB_PROJECT_PATH),
-            )
-        } else {
-            listOf(
-                GitLabReleaseUpdateSource(GITLAB_PROJECT_PATH),
-                GitHubReleaseUpdateSource(
-                    repository = GITHUB_REPOSITORY,
-                    gitlabProjectPath = GITLAB_PROJECT_PATH,
-                ),
-            )
-        }
+    fun spec(preferences: PreferenceRepository): AppUpdateSourceSpec = AppUpdateSourceSpec(
+        gitlabProjectPath = GITLAB_PROJECT_PATH,
+        githubRepository = GITHUB_REPOSITORY,
+        ci = CiStagingSpec(
+            artifactPath = CI_ARTIFACT_PATH,
+            branch = CI_BRANCH,
+            jobName = CI_JOB_NAME,
+            versionSidecarPath = CI_VERSION_SIDECAR_PATH,
+            manifestPath = CI_MANIFEST_PATH,
+        ),
+        isPlayFlavor = { ManagerBuildConfig.HAS_BILLING },
+        buildProvenance = { isCiOrDebugBuild },
+        currentCommitHash = { BuildConfig.GIT_COMMIT },
+        trackCiOverride = { preferences.trackCiBuildsOverride.first() },
+    )
+
+    /**
+     * Blocking channel gate shared by the manager sources and the runtime probe chain, so both
+     * targets always follow one track. Update probes invoke it from background dispatchers only.
+     */
+    fun trackCiGate(preferences: PreferenceRepository): () -> Boolean = {
+        AppUpdateSources.resolveTrackCi(spec(preferences), preferences.trackCiBuildsOverrideBlocking())
+    }
 }

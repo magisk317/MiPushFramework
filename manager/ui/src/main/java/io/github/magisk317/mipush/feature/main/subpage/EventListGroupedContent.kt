@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -192,7 +192,7 @@ internal fun EventGroupList(
                 hasMore = hasMore,
             )
         } catch (error: RuntimeReadUnavailableException) {
-            Logger.withTag("ManagerRuntime").w { "EventList loadNextPage unavailable status=${error.status}" }
+            XLog.tagged("ManagerRuntime").w { "EventList loadNextPage unavailable status=${error.status}" }
             // Do not snapshot empty transport failures; keep previous UI if any.
             if (isRefresh && allEvents.isEmpty()) {
                 viewModel.invalidateEventListSnapshot()

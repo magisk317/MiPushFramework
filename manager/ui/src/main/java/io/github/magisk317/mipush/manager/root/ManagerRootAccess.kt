@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.manager.root
 import android.os.Process
 import com.topjohnwu.superuser.Shell
 import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logW
 
 class ManagerRootAccess {
     @Volatile
@@ -24,7 +25,9 @@ class ManagerRootAccess {
     }
 
     fun requestRootAccess(): Boolean {
-        runCatching { Shell.getShell() }
+        runCatching { Shell.getShell() }.onFailure { error ->
+            logW("requesting the root shell threw: ${error.message}", error)
+        }
         return probeRootAccess(source = "request")
     }
 

@@ -16,17 +16,21 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.manager.di.ManagerUpdateSources
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfConnectivity
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfDeliveryProvider
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfInstallResult
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfLatestCheck
+import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeFlavor
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeState
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfStatus
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.preference.AppArrowItem
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 /**
  * Settings block for the XMSF runtime delivery (module `manager:xmsfDelivery`).
@@ -51,7 +55,10 @@ import kotlinx.coroutines.launch
 internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val delivery = remember(context) { XmsfDeliveryProvider.get(context) }
+    val preferences = koinInject<PreferenceRepository>()
+    val delivery = remember(context, preferences) {
+        XmsfDeliveryProvider.get(context, trackCi = ManagerUpdateSources.trackCiGate(preferences))
+    }
     val status by delivery.status.collectAsStateWithLifecycle()
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableIntStateOf(0) }
@@ -87,7 +94,7 @@ internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
     }
     val stateSummary = buildString {
         append(stateText)
-        val installed = status.installedVersionName
+        val installed = xmsfInstalledVersionLabel(status)
         if (installed != null) {
             append(" · ").append(installed)
         }
@@ -150,8 +157,11 @@ internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
                             scope.launch { progress = value }
                         }
                         when (result) {
-                            XmsfInstallResult.Installed ->
-                                snackbarHostState.showSnackbar(installedMessage, duration = AppSnackbarDuration.Short)
+                            is XmsfInstallResult.Installed ->
+                                snackbarHostState.showSnackbar(
+                                    result.note ?: installedMessage,
+                                    duration = AppSnackbarDuration.Short,
+                                )
 
                             XmsfInstallResult.GuidanceOpened ->
                                 snackbarHostState.showSnackbar(guidanceMessage, duration = AppSnackbarDuration.Short)
@@ -192,6 +202,22 @@ internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
  * - null (not probed yet): fall back to the build pin, preserving the first
  *   frame before the probe answers.
  */
+/**
+ * Installed runtime version, tagged with its variant when that variant is not
+ * the default one. Both variants of a build share one versionName, so without
+ * the tag a vc105 device is indistinguishable from a normal one in this line --
+ * and the two never update from the same channel.
+ */
+internal fun xmsfInstalledVersionLabel(status: XmsfStatus): String? {
+    val installed = status.installedVersionName ?: return null
+    val flavor = status.runtimeFlavor
+    return if (flavor == null || flavor == XmsfRuntimeFlavor.Normal) {
+        installed
+    } else {
+        "$installed/${flavor.label}"
+    }
+}
+
 internal fun xmsfArrowTarget(
     latestCheck: XmsfLatestCheck?,
     expectedVersionName: String?,

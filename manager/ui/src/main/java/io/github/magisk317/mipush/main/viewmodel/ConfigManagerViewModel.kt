@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -134,9 +134,9 @@ class ConfigManagerViewModel constructor(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
             )
-            Logger.withTag(TAG).i { "granted XMSF configuration directory permission uri=$uri" }
+            XLog.tagged(TAG).i { "granted XMSF configuration directory permission uri=$uri" }
         }.onFailure { error ->
-            Logger.withTag(TAG).w(error) { "unable to grant XMSF configuration directory permission uri=$uri" }
+            XLog.tagged(TAG).w(error) { "unable to grant XMSF configuration directory permission uri=$uri" }
         }
     }
 
@@ -280,7 +280,7 @@ class ConfigManagerViewModel constructor(
                 val next = _uiState.value.iconLibraryNextOffset ?: return@launch
                 _uiState.update { it.copy(isIconLibraryLoading = true, iconLibraryError = null) }
                 val page = runCatching { iconLibrarySource.loadLibraryPage(next) }
-                    .onFailure { Logger.w(throwable = it, tag = TAG) { "icon library page load failed offset=$next" } }
+                    .onFailure { XLog.w(tag = TAG, message = "icon library page load failed offset=$next", it) }
                     .getOrElse { error ->
                         IconLibraryPage(
                             emptyList(),
@@ -291,9 +291,7 @@ class ConfigManagerViewModel constructor(
                 if (page.entries.isEmpty()) {
                     // The runtime answered (or refused); keep the diagnostic visible instead of
                     // silently reporting "not connected", and retry shortly.
-                    Logger.w(tag = TAG) {
-                        "icon library attempt $attempts/$ICON_LIBRARY_MAX_ATTEMPTS empty: ${page.diagnostic}"
-                    }
+                    XLog.w(tag = TAG, message = "icon library attempt $attempts/$ICON_LIBRARY_MAX_ATTEMPTS empty: ${page.diagnostic}")
                     _uiState.update {
                         it.copy(
                             isIconLibraryLoading = false,

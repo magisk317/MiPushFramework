@@ -668,7 +668,9 @@ object MiPushRuntimeBridge {
         val connIntent = Intent("android.net.conn.CONNECTIVITY_CHANGE").apply {
             `package` = packageName
         }
-        runCatching { context.sendBroadcast(connIntent) }
+        runCatching { context.sendBroadcast(connIntent) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
 
         // 3. Request registration in our own runtime (to clear windows and prepare)
         PushRuntime.forceTriggerRegistration(packageName, "MiPushRuntimeBridge.triggerRegistration")

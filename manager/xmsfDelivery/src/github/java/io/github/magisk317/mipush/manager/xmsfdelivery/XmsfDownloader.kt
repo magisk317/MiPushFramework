@@ -10,8 +10,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
 /**
- * Downloads the pinned XMSF runtime APK from the GitLab generic package
- * registry and verifies it before anything installs it.
+ * Downloads one XMSF runtime variant from the GitLab generic package registry
+ * (or the CI artifacts staging area) and verifies it before anything installs.
  *
  * Security chain, in order: fetch the manifest for the pinned version, gate
  * it against the host contract, verify the sha256 sidecar (falling back to
@@ -24,7 +24,8 @@ import okhttp3.ResponseBody
 class XmsfDownloader(
     context: Context,
     private val expectedVersionName: String = BuildConfig.XMSF_DELIVERY_VERSION,
-    private val baseUrl: String = BASE_URL,
+    private val flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal,
+    private val baseUrl: String = registryBaseUrl(flavor),
     private val httpClient: OkHttpClient = defaultHttpClient(),
     private val hostVersionCodeProvider: (() -> Long)? = null,
     /**
@@ -49,7 +50,7 @@ class XmsfDownloader(
      */
     suspend fun download(onProgress: (Int) -> Unit = {}): Downloaded = withContext(Dispatchers.IO) {
         val manifest = fetchManifest(expectedVersionName)
-        manifest.validate(hostVersionCode())?.let { reason ->
+        manifest.validate(hostVersionCode(), flavor)?.let { reason ->
             error("XMSF runtime manifest rejected: $reason")
         }
         check(manifest.matchesPin(expectedVersionName)) {
@@ -79,7 +80,15 @@ class XmsfDownloader(
         val actualHash = sha256(apk)
         if (!expectedHash.equals(actualHash, ignoreCase = true)) {
             apk.delete()
-            error("runtime checksum mismatch")
+            // Name both digests: a user holding two builds of the same version
+            // can only tell a wrong artifact from a corrupt download by the
+            // values themselves.
+            error(
+                "runtime checksum mismatch for $expectedVersionName " +
+                    "(commit ${manifest.commit.ifBlank { "unknown" }}): " +
+                    "expected ${expectedHash.take(HASH_PREVIEW_LENGTH)}, " +
+                    "got ${actualHash.take(HASH_PREVIEW_LENGTH)}",
+            )
         }
         Downloaded(apk, manifest)
     }
@@ -169,11 +178,19 @@ class XmsfDownloader(
     companion object {
         /** Public GitLab project (MiPushFramework) hosting the generic package. */
         const val PROJECT_ID = "83955143"
-        const val BASE_URL =
-            "https://gitlab.com/api/v4/projects/$PROJECT_ID/packages/generic/xmsf-runtime"
+
+        private const val REGISTRY_PREFIX =
+            "https://gitlab.com/api/v4/projects/$PROJECT_ID/packages/generic"
+
+        /** Base URL of one runtime variant's generic package. */
+        fun registryBaseUrl(flavor: XmsfRuntimeFlavor): String =
+            "$REGISTRY_PREFIX/${flavor.registryPackage}"
 
         const val APK_NAME = "xmsf-runtime.apk"
         const val MANIFEST_NAME = "xmsf-runtime-manifest.json"
+
+        /** Leading characters of each digest quoted in a mismatch report. */
+        const val HASH_PREVIEW_LENGTH = 12
 
         const val CONNECT_TIMEOUT_SECONDS = 30L
         const val READ_TIMEOUT_SECONDS = 300L

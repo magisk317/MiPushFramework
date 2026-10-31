@@ -34,6 +34,8 @@ internal data class ApplicationInfoControlState(
     val islandEnabled: Boolean,
     val islandFocusEnabled: Boolean,
     val clickFallbackEnabled: Boolean,
+    val suppressWhenDisabled: Boolean,
+    val countLimitExemptEnabled: Boolean,
 )
 
 internal object ApplicationInfoStatePolicy {
@@ -45,6 +47,8 @@ internal object ApplicationInfoStatePolicy {
             islandEnabled = !info.blocked,
             islandFocusEnabled = !info.blocked && info.islandEnabled,
             clickFallbackEnabled = !info.blocked,
+            suppressWhenDisabled = !info.blocked,
+            countLimitExemptEnabled = !info.blocked,
         )
 
     fun withBlocked(info: ManagerApplication, blocked: Boolean): ManagerApplication =
@@ -54,6 +58,8 @@ internal object ApplicationInfoStatePolicy {
                 islandEnabled = false,
                 islandFocusNotification = false,
                 clickFallbackEnabled = false,
+                suppressWhenDisabled = false,
+                countLimitExempt = false,
             )
         } else {
             info.copy(blocked = false)
@@ -75,6 +81,16 @@ internal object ApplicationInfoStatePolicy {
     fun withClickFallbackEnabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
         if (!controls(info).clickFallbackEnabled) return null
         return info.copy(clickFallbackEnabled = enabled)
+    }
+
+    fun withSuppressWhenDisabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
+        if (!controls(info).suppressWhenDisabled) return null
+        return info.copy(suppressWhenDisabled = enabled)
+    }
+
+    fun withCountLimitExempt(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
+        if (!controls(info).countLimitExemptEnabled) return null
+        return info.copy(countLimitExempt = enabled)
     }
 }
 
@@ -269,6 +285,20 @@ class ApplicationInfoViewModel constructor(
     fun updateClickFallbackEnabled(enabled: Boolean) {
         val current = _applicationInfo.value ?: return
         val updated = ApplicationInfoStatePolicy.withClickFallbackEnabled(current, enabled) ?: return
+        _applicationInfo.value = updated
+        persistApplication(current, updated)
+    }
+
+    fun updateSuppressWhenDisabled(enabled: Boolean) {
+        val current = _applicationInfo.value ?: return
+        val updated = ApplicationInfoStatePolicy.withSuppressWhenDisabled(current, enabled) ?: return
+        _applicationInfo.value = updated
+        persistApplication(current, updated)
+    }
+
+    fun updateCountLimitExempt(enabled: Boolean) {
+        val current = _applicationInfo.value ?: return
+        val updated = ApplicationInfoStatePolicy.withCountLimitExempt(current, enabled) ?: return
         _applicationInfo.value = updated
         persistApplication(current, updated)
     }

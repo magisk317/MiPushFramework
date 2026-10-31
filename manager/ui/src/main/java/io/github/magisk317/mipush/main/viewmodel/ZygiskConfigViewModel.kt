@@ -8,7 +8,6 @@ import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
 import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
@@ -29,12 +28,10 @@ data class ZygiskConfigState(
     val installedApps: List<ManagerApplication> = emptyList(),
     val profile: String = ZygiskConfig.DEFAULT_PROFILE,
     val observe: Boolean = false,
-    val scanCandidates: List<String> = emptyList(),
     val configReadAvailable: Boolean = false,
     val configReadError: String? = null,
     val zygiskStatusAvailable: Boolean = false,
     val zygiskStatusError: String? = null,
-    val scanError: String? = null,
 )
 
 class ZygiskConfigViewModel(
@@ -94,7 +91,6 @@ class ZygiskConfigViewModel(
                 configReadError = (configResult as? ZygiskConfigReadResult.Unavailable)?.reason,
                 zygiskStatusAvailable = moduleResult is ZygiskModuleReadResult.Available,
                 zygiskStatusError = (moduleResult as? ZygiskModuleReadResult.Unavailable)?.reason,
-                scanError = null,
             )
             _state.value = availableConfig?.let { config ->
                 nextState.copy(
@@ -155,22 +151,6 @@ class ZygiskConfigViewModel(
 
     fun setObserve(enabled: Boolean) {
         if (_state.value.configReadAvailable) _state.value = _state.value.copy(observe = enabled)
-    }
-
-    fun scan() {
-        viewModelScope.launch(Dispatchers.IO) {
-            when (val result = settingsManager.scanZygiskPackages()) {
-                is ZygiskPackageScanResult.Available -> {
-                    _state.value = _state.value.copy(
-                        scanCandidates = result.output.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList(),
-                        scanError = null,
-                    )
-                }
-                is ZygiskPackageScanResult.Unavailable -> {
-                    _state.value = _state.value.copy(scanError = result.reason)
-                }
-            }
-        }
     }
 
 }

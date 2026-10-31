@@ -127,7 +127,6 @@ object ManagerProtocol {
     const val WRITE_OP_ZYGISK_GET_CONFIG = "zygisk_get_config"
     const val WRITE_OP_ZYGISK_SAVE_CONFIG = "zygisk_save_config"
     const val WRITE_OP_ZYGISK_FORCE_STOP = "zygisk_force_stop"
-    const val WRITE_OP_ZYGISK_SCAN = "zygisk_scan"
     const val WRITE_OP_REPAIR_XSPACE = "repair_xspace"
     const val WRITE_OP_RESET_TOP_ACTIVITY_CACHE = "reset_top_activity_cache"
     const val WRITE_OP_GET_EVENT_CONTENT = "get_event_content"

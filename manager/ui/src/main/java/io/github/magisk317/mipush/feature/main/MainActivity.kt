@@ -28,16 +28,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.feature.navigation.*
 import io.github.magisk317.mipush.feature.main.MainActivityUtils
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.mipush.main.viewmodel.RuntimeCommitMismatch
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
+import io.github.magisk317.mipush.feature.wizard.support.WizardRequirementProbe
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
 import io.github.magisk317.mipush.main.viewmodel.runtimeCommitMismatch
@@ -77,6 +78,7 @@ open class MainActivity : ComponentActivity() {
 
     private val settingsViewModel: SettingsViewModel by viewModel()
     private val preferenceRepository: PreferenceRepository by inject()
+    private val permissionGateway: ManagerPermissionGateway by inject()
     private val settingsManager: SettingsManager by inject()
     private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
@@ -112,10 +114,21 @@ open class MainActivity : ComponentActivity() {
         }
         // The report overlays the main screen instead of replacing it: everything the
         // user can grant later is still grantable from inside, and the runtime client
-        // starts connecting behind the report instead of after it.
+        // starts connecting behind the report instead of after it. The check is one-shot
+        // per build version: it is consumed here whether or not the report is shown, so a
+        // fully granted device never sees it and ordinary restarts never replay it.
         if (savedInstanceState == null) {
             lifecycleScope.launch {
-                if (WizardSPUtils.shouldShowWizard(this@MainActivity, preferenceRepository)) {
+                val hasOutstanding = WizardRequirementProbe.hasOutstandingRequirement(
+                    context = this@MainActivity,
+                    permissionGateway = permissionGateway,
+                )
+                if (WizardSPUtils.consumeLaunchReport(
+                        this@MainActivity,
+                        preferenceRepository,
+                        hasOutstandingRequirement = hasOutstanding,
+                    )
+                ) {
                     startActivity(
                         Intent(this@MainActivity, RequestPermissionPage::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
@@ -199,7 +212,6 @@ open class MainActivity : ComponentActivity() {
                     // 每次冷启动都会重新提醒（rememberSaveable 跟随 Activity 实例），
                     // app 内切 tab / 重组不会反复弹。
                     var runtimeWarningDismissed by rememberSaveable { mutableStateOf(false) }
-                    var commitMismatchDismissed by rememberSaveable { mutableStateOf(false) }
                     var managerWarningDismissed by rememberSaveable { mutableStateOf(false) }
 
                     // 错配发生时 Toast 简短通知一次。
@@ -221,13 +233,6 @@ open class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        commitMismatch != null && !commitMismatchDismissed -> {
-                            RuntimeCommitMismatchDialog(
-                                mismatch = commitMismatch,
-                                onDismiss = { commitMismatchDismissed = true },
-                            )
-                        }
-
                         managerWarning && !managerWarningDismissed -> {
                             LegacyModuleWarningDialog(
                                 packageNames = incompatibleModules,
@@ -244,9 +249,10 @@ open class MainActivity : ComponentActivity() {
                     }
 
                     val updateController = koinInject<AppUpdateController>()
-                    // 冷启动静默检测更新：后台不打扰用户，强制更新照常弹窗
+                    // 冷启动静默检测更新：后台不打扰用户，强制更新照常弹窗。
+                    // 走 kit 的统一规则：CI 轨道必检，release 听开关，商店包根本不走这里。
                     LaunchedEffect(Unit) {
-                        updateController.check(userInitiated = false)
+                        updateController.checkOnStartup()
                     }
                     AppUpdateDialog(
                         controller = updateController,
@@ -328,39 +334,6 @@ private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
             )
         },
         dismissButton = {
-            AppTextButton(
-                text = stringResource(R.string.dialog_acknowledge),
-                onClick = onDismiss,
-            )
-        },
-    )
-}
-
-@Composable
-private fun RuntimeCommitMismatchDialog(
-    mismatch: RuntimeCommitMismatch,
-    onDismiss: () -> Unit,
-) {
-    AppAlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-        ),
-        title = {
-            AppText(text = stringResource(R.string.runtime_commit_mismatch_dialog_title), color = appColor(AppColorRole.OnSurface))
-        },
-        text = {
-            AppText(
-                text = stringResource(
-                    R.string.runtime_commit_mismatch_dialog_message,
-                    mismatch.moduleCommit,
-                    mismatch.runtimeCommit,
-                ),
-                color = appColor(AppColorRole.OnSurface),
-            )
-        },
-        confirmButton = {
             AppTextButton(
                 text = stringResource(R.string.dialog_acknowledge),
                 onClick = onDismiss,

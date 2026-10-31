@@ -5,7 +5,7 @@ import com.xiaomi.push.service.MIPushAppInfo
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
@@ -103,7 +103,7 @@ object StalePackagePushGuard {
         val normalizedUserId = Utils.requireValidUserId(userId)
         fun cleanup(name: String, block: () -> Unit) {
             runCatching(block).onFailure {
-                Logger.withTag(TAG).w(it) {
+                XLog.tagged(TAG).w(it) {
                     "package absent cleanup failed step=$name pkg=$packageName user=$normalizedUserId"
                 }
             }
@@ -130,7 +130,7 @@ object StalePackagePushGuard {
                 androidUserId = normalizedUserId,
             )
         }
-        Logger.withTag(TAG).i { "marked absent package pkg=$packageName source=$source" }
+        XLog.tagged(TAG).i { "marked absent package pkg=$packageName source=$source" }
         MagiskOtel.event(
             name = "push.package",
             attributes = mapOf(

@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfLatestCheck
+import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeFlavor
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeManifest
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeState
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfStatus
@@ -70,6 +71,31 @@ class XmsfDeliverySectionTest {
     @Test
     fun `missing runtime keeps the action enabled before any probe`() {
         assertTrue(xmsfInstallEnabled(XmsfStatus(state = XmsfRuntimeState.NOT_INSTALLED), null))
+    }
+
+    @Test
+    fun `installed runtime label tags only the non-default variant`() {
+        assertEquals(
+            "1.1.2-20261026_143718",
+            xmsfInstalledVersionLabel(
+                XmsfStatus(
+                    installedVersionName = "1.1.2-20261026_143718",
+                    runtimeFlavor = XmsfRuntimeFlavor.Normal,
+                ),
+            ),
+        )
+        assertEquals(
+            "1.1.2-20261026_143718/vc105",
+            xmsfInstalledVersionLabel(
+                XmsfStatus(
+                    installedVersionName = "1.1.2-20261026_143718",
+                    runtimeFlavor = XmsfRuntimeFlavor.Vc105,
+                ),
+            ),
+        )
+        // Both variants of a build share one versionName: without this tag a
+        // vc105 device looks identical to a normal one in the summary line.
+        assertNull(xmsfInstalledVersionLabel(XmsfStatus(state = XmsfRuntimeState.NOT_INSTALLED)))
     }
 
     private fun runtimeManifest(versionName: String) = XmsfRuntimeManifest(

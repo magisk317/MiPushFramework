@@ -110,9 +110,10 @@ class XmsfCiArtifactProbeTest {
         assertEquals("android:build", manifestRequest.url.queryParameter("job"))
     }
 
-    private fun probe() = XmsfCiArtifactProbe(
-        versionSidecarUrl = server.url("/ci-dist/com.xiaomi.xmsf/version.txt").toString(),
-        manifestBaseUrl = server.url("/ci-dist/com.xiaomi.xmsf").toString(),
+    private fun probe(flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal) = XmsfCiArtifactProbe(
+        flavor = flavor,
+        versionSidecarUrl = server.url("/ci-dist/${flavor.ciDistRoot}/version.txt").toString(),
+        manifestBaseUrl = server.url("/ci-dist/${flavor.ciDistRoot}").toString(),
         httpClient = OkHttpClient(),
     )
 
@@ -120,7 +121,26 @@ class XmsfCiArtifactProbeTest {
         server.enqueue(MockResponse.Builder().code(200).body(version).build())
     }
 
-    private fun enqueueManifest(version: String, minManagerVersionCode: Long = 0L) {
+    @Test
+    fun `staged payload of another variant is refused`() = runBlocking {
+        // The staging script writes one channel root per variant; a normal APK
+        // landing in the vc105 root is caught by the variant's own version code.
+        enqueueSidecar("1.1.1-20261022_025631")
+        enqueueManifest("1.1.1-20261022_025631", versionCode = XmsfRuntimeFlavor.Normal.versionCode)
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            runBlocking { probe(XmsfRuntimeFlavor.Vc105).fetchLatestCompatible(HOST_VERSION_CODE) }
+        }
+
+        assertTrue(error.message!!.contains("rejected"), error.message!!)
+        assertTrue(error.message!!.contains("not the vc105 variant"), error.message!!)
+    }
+
+    private fun enqueueManifest(
+        version: String,
+        minManagerVersionCode: Long = 0L,
+        versionCode: Long = 1003003000,
+    ) {
         server.enqueue(
             MockResponse.Builder().code(200).body(
                 """
@@ -128,7 +148,7 @@ class XmsfCiArtifactProbeTest {
                   "schema": ${XmsfRuntimeManifest.SCHEMA},
                   "variant": "${XmsfRuntimeManifest.VARIANT}",
                   "versionName": "$version",
-                  "versionCode": 1003003000,
+                  "versionCode": $versionCode,
                   "minManagerVersionCode": $minManagerVersionCode,
                   "sha256": "${"0".repeat(64)}"
                 }

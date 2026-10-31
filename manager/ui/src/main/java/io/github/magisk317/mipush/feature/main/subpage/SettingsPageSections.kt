@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.manager.remote.RUNTIME_UNAVAILABLE_MARKER
 import org.koin.compose.koinInject
+import io.github.magisk317.uikit.update.R as UiKitUpdateR
 import io.github.magisk317.uikit.update.UpdateCheckResult
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfLatestCheck
@@ -377,6 +378,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val autoUpdateOnStart by viewModel.autoUpdateOnStart.collectAsStateWithLifecycle()
     val autoUpdateWifiOnly by viewModel.autoUpdateWifiOnly.collectAsStateWithLifecycle()
+    val trackCiBuilds by viewModel.trackCiBuilds.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -500,8 +502,8 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         enabled = allowsLogExport,
     )
 
-    if (ManagerBuildConfig.HAS_BILLING) {
-        val autoUpdateOnStartTitle = stringResource(R.string.pref_auto_update_on_start_title)
+    if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD && !ManagerBuildConfig.HAS_BILLING) {
+        val autoUpdateOnStartTitle = stringResource(UiKitUpdateR.string.uikit_update_auto_check_on_start)
         SettingsSwitchItem(
             title = autoUpdateOnStartTitle,
             summary = stringResource(R.string.pref_auto_update_on_start_summary),
@@ -513,7 +515,7 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
             }
         }
 
-        val autoUpdateWifiOnlyTitle = stringResource(R.string.pref_auto_update_wifi_only_title)
+        val autoUpdateWifiOnlyTitle = stringResource(UiKitUpdateR.string.uikit_update_auto_check_wifi_only)
         SettingsSwitchItem(
             title = autoUpdateWifiOnlyTitle,
             summary = stringResource(R.string.pref_auto_update_wifi_only_summary),
@@ -528,6 +530,17 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     val updateCoordinator = koinInject<VersionUpdateCoordinator>()
+    val trackCiTitle = stringResource(R.string.settings_track_ci_builds_title)
+    SettingsSwitchItem(
+        title = trackCiTitle,
+        summary = stringResource(R.string.settings_track_ci_builds_summary),
+        checked = trackCiBuilds,
+    ) { enabled ->
+        viewModel.setTrackCiBuilds(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(trackCiTitle, enabled, success)
+        }
+    }
     val checkReportChecking = stringResource(R.string.settings_check_report_checking)
     val checkReportManagerUpToDate = stringResource(R.string.settings_check_report_manager_up_to_date)
     val checkReportManagerAvailable = stringResource(R.string.settings_check_report_manager_available)
@@ -541,10 +554,12 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         summary = stringResource(R.string.check_update_summary),
     ) {
         scope.launch {
-            // Silent probe of both targets: never opens the manager dialog and
-            // never installs anything — the two lines only report availability.
+            // Probe both targets, report availability, then install what the
+            // check found — runtime first, manager second (the coordinator's
+            // fixed order: replacing the manager APK ends this process).
             snackbarHostState.showSnackbar(checkReportChecking)
             val report = updateCoordinator.checkBoth()
+            launch { updateCoordinator.installAvailable(report) }
             val managerLine = when (val manager = report.manager) {
                 is UpdateCheckResult.Available -> checkReportManagerAvailable.format(manager.manifest.versionName)
                 is UpdateCheckResult.UpToDate -> checkReportManagerUpToDate

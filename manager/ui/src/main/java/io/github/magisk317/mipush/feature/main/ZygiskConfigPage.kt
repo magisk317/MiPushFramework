@@ -1,7 +1,8 @@
 package io.github.magisk317.mipush.feature.main
 
-import io.github.magisk317.uikit.surface.AppPrimaryButton
+import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.uikit.preference.SettingsChoiceRow
+import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.uikit.preference.AppSwitch
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -167,9 +168,6 @@ class ZygiskConfigPage : ComponentActivity() {
                                 onProfileChanged = viewModel::setProfile,
                                 onObserveChanged = viewModel::setObserve,
                                 enabled = state.configReadAvailable,
-                                candidates = state.scanCandidates,
-                                scanError = state.scanError,
-                                onScan = viewModel::scan,
                             )
                         }
                         items(state.installedApps) { app ->
@@ -214,62 +212,35 @@ class ZygiskConfigPage : ComponentActivity() {
         observe: Boolean,
         onProfileChanged: (String) -> Unit,
         onObserveChanged: (Boolean) -> Unit,
-        candidates: List<String>,
-        scanError: String?,
-        onScan: () -> Unit,
         enabled: Boolean,
     ) {
-        // One Column owns the whole card: Surface places its content in a single Box slot,
-        // so sibling composables would stack on top of each other.
-        AppSurface(
-            modifier = Modifier.fillMaxWidth(),
-            color = appColor(AppColorRole.SurfaceContainerLow),
-            shape = appShape(AppShapeRole.Large),
+        SectionCard(
+            title = stringResource(R.string.zygisk_options_title),
+            accordionMode = false,
+            sectionExpanded = true,
+            onExpandedChange = {},
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(MaterialTheme.spacing.large),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-            ) {
-                val profileOptions = listOf(
-                    stringResource(R.string.zygisk_profile_miui14),
-                    stringResource(R.string.zygisk_profile_os4),
-                )
-                SettingsChoiceRow(
-                    title = stringResource(R.string.zygisk_profile_title),
-                    summary = profileOptions[if (profile == "miui14") 0 else 1],
-                    options = profileOptions,
-                    selectedIndex = if (profile == "miui14") 0 else 1,
-                    onSelect = { index ->
-                        onProfileChanged(if (index == 0) "miui14" else "os4")
-                    },
-                    enabled = enabled,
-                )
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    AppText(stringResource(R.string.zygisk_observe_keys), modifier = Modifier.weight(1f))
-                    AppSwitch(checked = observe, enabled = enabled, onCheckedChange = onObserveChanged)
-                }
-                AppText(
-                    stringResource(R.string.zygisk_scan_title),
-                    role = AppTextRole.Subtitle,
-                )
-                AppPrimaryButton(
-                    text = stringResource(R.string.zygisk_scan),
-                    onClick = onScan,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                scanError?.let { error ->
-                    AppText(
-                        text = stringResource(R.string.zygisk_scan_error, error),
-                        color = appColor(AppColorRole.Error),
-                    )
-                }
-                candidates.take(32).forEach { candidate ->
-                    AppText(candidate, role = AppTextRole.BodySmall)
-                }
-            }
+            val profileOptions = listOf(
+                stringResource(R.string.zygisk_profile_miui14),
+                stringResource(R.string.zygisk_profile_os4),
+            )
+            SettingsChoiceRow(
+                title = stringResource(R.string.zygisk_profile_title),
+                summary = profileOptions[if (profile == "miui14") 0 else 1],
+                options = profileOptions,
+                selectedIndex = if (profile == "miui14") 0 else 1,
+                onSelect = { index ->
+                    onProfileChanged(if (index == 0) "miui14" else "os4")
+                },
+                enabled = enabled,
+            )
+            SettingsSwitchItem(
+                title = stringResource(R.string.zygisk_observe_keys),
+                summary = "",
+                checked = observe,
+                enabled = enabled,
+                onCheckedChange = onObserveChanged,
+            )
         }
     }
 

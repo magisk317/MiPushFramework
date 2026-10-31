@@ -20,23 +20,29 @@ object XmsfDeliveryProvider {
     private val cached = AtomicReference<XmsfDelivery?>()
 
     /**
+     * @param trackCi channel gate read on every runtime probe: `true` probes
+     *   the CI artifact track, `false` the release registry only. Called from
+     *   background dispatchers; must not touch the main thread.
      * @throws IllegalStateException when the flavor class is missing (a
      *   mis-wired source set) or fails to construct.
      */
-    fun get(context: Context): XmsfDelivery {
+    fun get(context: Context, trackCi: () -> Boolean): XmsfDelivery {
         cached.get()?.let { return it }
         return synchronized(this) {
-            cached.get() ?: create(context).also { cached.set(it) }
+            cached.get() ?: create(context, trackCi).also { cached.set(it) }
         }
     }
 
-    private fun create(context: Context): XmsfDelivery {
+    private fun create(context: Context, trackCi: () -> Boolean): XmsfDelivery {
         val appContext = context.applicationContext ?: context
         val instance = try {
             val clazz = Class.forName(FLAVOR_IMPL_CLASS)
-            val constructor = clazz.getDeclaredConstructor(Context::class.java)
+            val constructor = clazz.getDeclaredConstructor(
+                Context::class.java,
+                Function0::class.java,
+            )
             constructor.isAccessible = true
-            constructor.newInstance(appContext)
+            constructor.newInstance(appContext, trackCi)
         } catch (error: ReflectiveOperationException) {
             throw IllegalStateException(
                 "XMSF delivery flavor implementation $FLAVOR_IMPL_CLASS is unavailable",

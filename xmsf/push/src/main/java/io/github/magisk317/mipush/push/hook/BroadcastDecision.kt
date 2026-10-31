@@ -35,6 +35,8 @@ object BroadcastDecision {
         val decorated = container.deepCopy()
         runCatching {
             PushShellBridgeHolder.policy().applyConfigurations(realTargetPackage, decorated)
+        }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
         }
         return decorated
     }

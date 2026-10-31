@@ -62,6 +62,7 @@ import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.common.showLatestSnackbar
 import io.github.magisk317.uikit.surface.DonateDialog
 import io.github.magisk317.uikit.surface.QRCodeDialog
+import io.github.magisk317.uikit.surface.OverviewValueState
 import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
 import io.github.magisk317.uikit.surface.startAlipayPlatformDonate
 import io.github.magisk317.uikit.theme.UiKitStyle
@@ -106,11 +107,48 @@ internal class OverviewActions(
     val onSourceCode: () -> Unit,
     val onDonate: () -> Unit,
     val onStatusCardClick: () -> Unit = {},
-    /** Tap either version row to check both update targets and install what is available. */
+    /** Tap the manager row: check and update the manager itself only. */
     val onManagerVersionClick: () -> Unit = {},
-    /** The play flavor routes the runtime row to the release guidance page instead. */
+    /** Tap the runtime row: check and update the runtime only; the play flavor routes to guidance. */
     val onRuntimeVersionClick: () -> Unit = {},
 )
+
+/**
+ * Maps an update-target hint to the inline state rendered inside the owning
+ * version row's value slot. `null` leaves the row showing the plain version;
+ * "update available" is the only state that keeps a persistent, badge-marked
+ * value — the coordinator clears the terminal no-op states by itself.
+ */
+@Composable
+private fun VersionRowHint.toValueState(): OverviewValueState? = when (this) {
+    VersionRowHint.Hidden -> null
+    VersionRowHint.Checking -> OverviewValueState(
+        text = stringResource(R.string.version_hint_checking),
+        colorRole = AppColorRole.OnSurfaceVariant,
+    )
+    VersionRowHint.UpToDate -> OverviewValueState(
+        text = stringResource(R.string.version_hint_up_to_date),
+        colorRole = AppColorRole.OnSurfaceVariant,
+    )
+    is VersionRowHint.Available -> OverviewValueState(
+        text = stringResource(R.string.version_hint_available, latestVersionName),
+        colorRole = AppColorRole.Primary,
+        badge = true,
+        badgeColorRole = AppColorRole.Primary,
+    )
+    is VersionRowHint.Updating -> OverviewValueState(
+        text = stringResource(R.string.version_hint_updating, percent),
+        colorRole = AppColorRole.Primary,
+    )
+    is VersionRowHint.Failed -> OverviewValueState(
+        text = stringResource(R.string.version_hint_failed, message),
+        colorRole = AppColorRole.Error,
+    )
+    VersionRowHint.Unsupported -> OverviewValueState(
+        text = stringResource(R.string.version_hint_unsupported),
+        colorRole = AppColorRole.OnSurfaceVariant,
+    )
+}
 
 @Composable
 fun Overview(
@@ -174,12 +212,12 @@ fun Overview(
         onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
         onDonate = { showDonateDialog = true },
         onStatusCardClick = onNavigateToConnectionStatus,
-        onManagerVersionClick = { scope.launch { updateCoordinator.checkAndUpdate() } },
+        onManagerVersionClick = { scope.launch { updateCoordinator.checkAndUpdateManager() } },
         onRuntimeVersionClick = {
             // The play distribution never handles an APK: the runtime row hands
             // the user to the release page instead of probing the registry.
             if (updateCoordinator.canUpdateRuntimeInApp) {
-                scope.launch { updateCoordinator.checkAndUpdate() }
+                scope.launch { updateCoordinator.checkAndUpdateRuntime() }
             } else {
                 updateCoordinator.openRuntimeGuidance(context)
             }
@@ -192,8 +230,8 @@ fun Overview(
             actions = actions,
             contentPadding = contentPadding,
             snackbarHostState = snackbarHostState,
-            managerVersionHint = managerVersionHint.displayText(),
-            runtimeVersionHint = runtimeVersionHint.displayText(),
+            managerValueState = managerVersionHint.toValueState(),
+            runtimeValueState = runtimeVersionHint.toValueState(),
         )
 
         UiKitStyle.Expressive -> OverviewMaterial(
@@ -201,8 +239,8 @@ fun Overview(
             actions = actions,
             contentPadding = contentPadding,
             snackbarHostState = snackbarHostState,
-            managerVersionHint = managerVersionHint.displayText(),
-            runtimeVersionHint = runtimeVersionHint.displayText(),
+            managerValueState = managerVersionHint.toValueState(),
+            runtimeValueState = runtimeVersionHint.toValueState(),
         )
     }
 

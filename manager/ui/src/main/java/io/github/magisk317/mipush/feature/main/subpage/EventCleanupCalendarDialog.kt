@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppAlertDialog
@@ -115,7 +115,7 @@ fun EventCleanupCalendarDialog(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                Logger.withTag("EventCleanupCalendar").e(error) { "Failed to clean event history" }
+                XLog.tagged("EventCleanupCalendar").e(error) { "Failed to clean event history" }
                 onCleanupFailed()
             }
         }
@@ -308,7 +308,7 @@ private fun LaunchedEffectLoadCounts(
             viewModel.loadDayCounts()
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            Logger.withTag("EventCleanupCalendar").e(error) { "Failed to load event cleanup day counts" }
+            XLog.tagged("EventCleanupCalendar").e(error) { "Failed to load event cleanup day counts" }
             emptyMap()
         }
         val map = HashMap<LocalDate, Int>(counts.size)

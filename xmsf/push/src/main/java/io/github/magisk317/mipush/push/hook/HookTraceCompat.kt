@@ -6,7 +6,7 @@ import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 
 object HookTraceCompat {
     @JvmStatic
@@ -61,7 +61,7 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onServiceCreate(pushService: XMPushServiceCore) {
-        Logger.withTag("HookTraceCompat").d { "onServiceCreate called for $pushService" }
+        XLog.tagged("HookTraceCompat").d { "onServiceCreate called for $pushService" }
         HookTrace.mark("XMPushServiceCore.onCreate")
         AspectLogCompat.logServiceMethod("XMPushServiceCore.onCreate", details = "Service started")
     }
@@ -74,7 +74,7 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onStartCommand(intent: Intent?) {
-        Logger.withTag("HookTraceCompat").d { "onStartCommand called with intent: $intent" }
+        XLog.tagged("HookTraceCompat").d { "onStartCommand called with intent: $intent" }
         HookTrace.mark("XMPushServiceCore.onStartCommand")
         AspectLogCompat.logServiceMethod("XMPushServiceCore.onStartCommand", intent)
     }

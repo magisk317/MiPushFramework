@@ -58,6 +58,9 @@ class RemoteManagerEventGateway(
             .setData(Uri.fromParts("package", packageName, null))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
+            .onFailure { error ->
+                logW("opening package settings for $packageName failed: ${error.message}", error)
+            }
     }
 
     override suspend fun startConfigPreview(packageName: String) {
