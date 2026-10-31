@@ -54,6 +54,8 @@ class PushRuntimePendingPacketStoreTest {
                     throw IllegalStateException("boom")
                 }
             })
+        }.onFailure {
+            // The sender throws on purpose; the assertions below read the store state instead.
         }
 
         assertEquals(2, delivered.size)
@@ -82,6 +84,8 @@ class PushRuntimePendingPacketStoreTest {
                 PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, newPayload, androidUserId = 0)
                 throw IllegalStateException("boom")
             })
+        }.onFailure {
+            // The sender throws on purpose; the assertions below read the store state instead.
         }
 
         val flushed = mutableListOf<ByteArray>()

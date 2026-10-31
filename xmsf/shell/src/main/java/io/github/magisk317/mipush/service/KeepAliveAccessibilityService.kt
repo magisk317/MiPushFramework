@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.service
 
 import android.view.accessibility.AccessibilityEvent
 import io.github.magisk317.mipush.platform.activity.DetectionService
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -14,7 +14,7 @@ class KeepAliveAccessibilityService : DetectionService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Logger.withTag("KeepAlive").w { "KeepAliveAccessibilityService connected" }
+        XLog.tagged("KeepAlive").w { "KeepAliveAccessibilityService connected" }
         MagiskOtel.event(
             name = "a11y.service",
             attributes = mapOf(
@@ -48,7 +48,7 @@ class KeepAliveAccessibilityService : DetectionService() {
     }
 
     override fun onDestroy() {
-        Logger.withTag("KeepAlive").w { "KeepAliveAccessibilityService destroyed" }
+        XLog.tagged("KeepAlive").w { "KeepAliveAccessibilityService destroyed" }
         MagiskOtel.event(
             name = "a11y.service",
             attributes = mapOf(

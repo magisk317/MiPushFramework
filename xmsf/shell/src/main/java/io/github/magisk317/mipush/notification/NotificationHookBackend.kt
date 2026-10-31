@@ -12,7 +12,7 @@ import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.NotificationManagerReflection
@@ -21,11 +21,11 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.lang.reflect.InvocationTargetException
 
 private object BackendLog {
-    fun d(tag: String, message: String?) = Logger.withTag(tag).d { message.orEmpty() }
-    fun w(tag: String, message: String?) = Logger.withTag(tag).w { message.orEmpty() }
+    fun d(tag: String, message: String?) = XLog.tagged(tag).d { message.orEmpty() }
+    fun w(tag: String, message: String?) = XLog.tagged(tag).w { message.orEmpty() }
     fun e(tag: String, message: String?, throwable: Throwable?) =
-        if (throwable == null) Logger.withTag(tag).e { message.orEmpty() }
-        else Logger.withTag(tag).e(throwable) { message.orEmpty() }
+        if (throwable == null) XLog.tagged(tag).e { message.orEmpty() }
+        else XLog.tagged(tag).e(throwable) { message.orEmpty() }
 }
 
 object NotificationHookBackend {

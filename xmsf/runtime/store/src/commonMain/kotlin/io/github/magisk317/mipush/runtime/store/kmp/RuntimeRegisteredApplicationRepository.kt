@@ -25,6 +25,8 @@ interface RuntimeRegisteredApplicationStore {
     suspend fun isClickFallbackEnabled(packageName: String, userId: Int): Boolean?
 
     suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
+
+    suspend fun isSuppressWhenDisabled(packageName: String, userId: Int): Boolean?
 }
 
 data class RuntimeRegisteredApplicationRegistration(
@@ -108,11 +110,15 @@ class RuntimeRegisteredApplicationRepository(
     suspend fun isClickFallbackEnabled(packageName: String): Boolean =
         store.isClickFallbackEnabled(packageName, userId) ?: false
 
+    suspend fun isSuppressWhenDisabled(packageName: String): Boolean =
+        store.isSuppressWhenDisabled(packageName, userId) ?: false
+
     suspend fun getIslandSettings(packageName: String): RuntimeIslandSettings? =
         store.getByPackageName(packageName, userId)?.let {
             RuntimeIslandSettings(
                 enabled = it.islandEnabled,
                 focusNotification = it.islandFocusNotification,
+                countLimitExempt = it.countLimitExempt,
             )
         }
 

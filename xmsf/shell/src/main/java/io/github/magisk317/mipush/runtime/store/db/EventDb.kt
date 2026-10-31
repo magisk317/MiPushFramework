@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import androidx.room.RoomRawQuery
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
@@ -41,7 +41,7 @@ object EventDb {
     }
 
     suspend fun insertEventAsync(event: RuntimeEventRow): Long {
-        Logger.withTag("EventDb").d { "insertEvent() called with: $event" }
+        XLog.tagged("EventDb").d { "insertEvent() called with: $event" }
         val scoped = event.copy(userId = currentUserId())
         if (scoped.type == EventRowType.SendMessage) {
             Utils.setLastReceiveTime(scoped.pkg, scoped.date, scoped.userId)
@@ -56,7 +56,7 @@ object EventDb {
         eventDao.getById(id, requireValidUserId(userId))
 
     suspend fun insertOrReplaceEventAsync(event: RuntimeEventRow): Long {
-        Logger.withTag("EventDb").d { "insertOrReplaceEvent() called with: $event" }
+        XLog.tagged("EventDb").d { "insertOrReplaceEvent() called with: $event" }
         val scoped = event.copy(userId = currentUserId())
         if (scoped.type == EventRowType.SendMessage) {
             Utils.setLastReceiveTime(scoped.pkg, scoped.date, scoped.userId)

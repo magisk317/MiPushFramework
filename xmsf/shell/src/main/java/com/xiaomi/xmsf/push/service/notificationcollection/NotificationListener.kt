@@ -7,7 +7,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.notification.TopNotificationCoordinator
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
@@ -23,7 +23,7 @@ class NotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         val eventUserId = sbn.userId
         if (!acceptsUser(eventUserId)) {
-            Logger.withTag(TAG).d { "skip notification from another user key=${sbn.key} user=$eventUserId" }
+            XLog.tagged(TAG).d { "skip notification from another user key=${sbn.key} user=$eventUserId" }
             return
         }
         // Stock 7.4.67-C schedules sweet reminder expiry from its posted callback. Keep this in
@@ -83,7 +83,7 @@ class NotificationListener : NotificationListenerService() {
                 // public rebind route so replacement and non-MIUI installs share the valid path.
                 requestRebind(ComponentName(context, NotificationListener::class.java))
                 context.startService(Intent(context, NotificationListener::class.java))
-            }
+            }.onFailure { }
         }
     }
 }

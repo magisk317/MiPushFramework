@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
@@ -19,17 +20,16 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.FREEZE_PREF_ENABLED
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_DELAY_MINUTES
-import io.github.magisk317.mipush.common.FREEZE_PREF_REFREEZE_POLICY
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.service.ForegroundHelper
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 /** Shell-local runtime preference write handlers. Dependencies remain explicit to avoid executor coupling. */
+@StableLogTag
 internal object ManagerRuntimePreferenceCommandSupport {
     suspend fun setRuntimeBoolean(
         request: ManagerWriteRequestDto,
@@ -45,10 +45,9 @@ internal object ManagerRuntimePreferenceCommandSupport {
         val enabled = request.booleanArgument
         when (key) {
             COLOR_STATUS_BAR_ICON_KEY -> preferenceRepository.setColorStatusBarIcon(enabled)
+            MONOCHROME_SHADE_ICON_KEY -> preferenceRepository.setMonochromeShadeIcon(enabled)
             THIRD_PARTY_ICON_PACK_KEY -> preferenceRepository.setThirdPartyIconPack(enabled)
             SYSTEM_APP_ICON_PACK_KEY -> preferenceRepository.setSystemAppIconPack(enabled)
-            "debug_mode" -> preferenceRepository.setDebugMode(enabled)
-            LOG_SANITIZATION_ENABLED_KEY -> preferenceRepository.setLogSanitizationEnabled(enabled)
             ENABLE_ANALYTICS_KEY -> preferenceRepository.setAnalyticsEnabled(enabled)
             "show_all_events" -> preferenceRepository.setShowAllEvents(enabled)
             "start_foreground" -> {
@@ -68,7 +67,7 @@ internal object ManagerRuntimePreferenceCommandSupport {
             ISLAND_PREF_FOCUS_NOTIF -> preferenceRepository.setIslandFocusNotification(enabled)
             else -> error("unreachable runtime boolean key=$key")
         }
-        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
+        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }.onFailure { }
         logInfo("set_runtime_boolean key=$key value=$enabled")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK)
     }
@@ -86,11 +85,9 @@ internal object ManagerRuntimePreferenceCommandSupport {
         val value = request.intArgument
         when (key) {
             ISLAND_PREF_TIMEOUT -> preferenceRepository.setIslandTimeout(value)
-            FREEZE_PREF_REFREEZE_POLICY -> preferenceRepository.setFreezeRefreezePolicy(value)
-            FREEZE_PREF_REFREEZE_DELAY_MINUTES -> preferenceRepository.setFreezeRefreezeDelayMinutes(value)
             else -> error("unreachable runtime int key=$key")
         }
-        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
+        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }.onFailure { }
         logInfo("set_runtime_int key=$key value=$value")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_OK)
     }
@@ -122,8 +119,9 @@ internal object ManagerRuntimePreferenceCommandSupport {
     )
 
     private val allowedRuntimeBooleanKeys = setOf(
-        COLOR_STATUS_BAR_ICON_KEY, THIRD_PARTY_ICON_PACK_KEY, SYSTEM_APP_ICON_PACK_KEY, "debug_mode",
-        LOG_SANITIZATION_ENABLED_KEY, ENABLE_ANALYTICS_KEY, "show_all_events", "start_foreground",
+        COLOR_STATUS_BAR_ICON_KEY, MONOCHROME_SHADE_ICON_KEY, THIRD_PARTY_ICON_PACK_KEY,
+        SYSTEM_APP_ICON_PACK_KEY,
+        ENABLE_ANALYTICS_KEY, "show_all_events", "start_foreground",
         "start_push_as_foreground_service", KEEPALIVE_PREF_OOM_ADJ, KEEPALIVE_PREF_ANTI_KILL,
         KEEPALIVE_PREF_STANDBY_BYPASS, ISLAND_PREF_ENABLED,
         ISLAND_PREF_FIRST_FLOAT, ISLAND_PREF_ENABLE_FLOAT, ISLAND_PREF_SHOW_NOTIFICATION,
@@ -131,7 +129,5 @@ internal object ManagerRuntimePreferenceCommandSupport {
     )
     private val allowedRuntimeIntKeys = setOf(
         ISLAND_PREF_TIMEOUT,
-        FREEZE_PREF_REFREEZE_POLICY,
-        FREEZE_PREF_REFREEZE_DELAY_MINUTES,
     )
 }

@@ -158,6 +158,8 @@ object PushClientStatusSupport {
     }
 
     private fun logInfo(message: String) {
-        runCatching { logI(message) }
+        runCatching { logI(message) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
     }
 }

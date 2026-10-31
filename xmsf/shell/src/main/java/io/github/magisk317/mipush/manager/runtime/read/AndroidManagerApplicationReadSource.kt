@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
@@ -133,7 +133,7 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             }.getOrElse { info }
         }
     } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
-        Logger.withTag(TAG).e(error) { "Failed to load installed packages for manager runtime" }
+        XLog.tagged(TAG).e(error) { "Failed to load installed packages for manager runtime" }
         emptyList()
     }
 
@@ -145,13 +145,13 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             timeoutMs = ROOT_PACKAGE_SCAN_TIMEOUT_MS,
         )
         if (!result.isSuccess) {
-            Logger.withTag(TAG).w { "Root package scan failed: ${result.stderrText}" }
+            XLog.tagged(TAG).w { "Root package scan failed: ${result.stderrText}" }
             return null
         }
         val packages = result.stdout.mapNotNull { line ->
             line.trim().removePrefix("package:").takeIf { it.isNotBlank() }
         }.distinct()
-        Logger.withTag(TAG).i { "Root package scan returned ${packages.size} packages" }
+        XLog.tagged(TAG).i { "Root package scan returned ${packages.size} packages" }
         return packages
     }
 

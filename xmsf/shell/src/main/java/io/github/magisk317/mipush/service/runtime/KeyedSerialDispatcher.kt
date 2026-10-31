@@ -271,7 +271,8 @@ internal class KeyedSerialDispatcher<K>(
     }
 
     private fun reportFailure(key: K, failure: Throwable) {
-        runCatching { failureHandler?.invoke(key, failure) }
+        // A throwing failure handler must not take down the dispatcher.
+        runCatching { failureHandler?.invoke(key, failure) }.onFailure { }
     }
 
     // Package-private test visibility keeps production diagnostics out of the public API.

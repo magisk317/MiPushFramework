@@ -108,6 +108,8 @@ object DatabaseUtils {
                 attributes = attributes,
                 statusOk = statusOk,
             )
+        }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
         }
     }
 

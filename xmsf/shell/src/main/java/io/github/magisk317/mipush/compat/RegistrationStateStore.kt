@@ -12,7 +12,9 @@ import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 object RegistrationStateStore {
 
     enum class Source {

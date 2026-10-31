@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.BundleSerializer
 
 import android.content.Intent
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.*
@@ -330,7 +330,7 @@ object ConvertUtils {
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec, userId)
         logD(formatCandidateSummary(container.packageName, candidateRegSecs))
         if (candidateRegSecs.isEmpty()) {
-            Logger.withTag(TAG).d { "resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}" }
+            XLog.tagged(TAG).d { "resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}" }
             return null
         }
         for (candidateRegSec in candidateRegSecs) {

@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.app.di
 import android.content.Context
 import android.net.Uri
 import android.os.Process
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
@@ -145,5 +145,7 @@ internal fun ManagerApplication.toRegisteredApplicationRow(): RuntimeRegisteredA
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
+        countLimitExempt = countLimitExempt,
         userId = userId,
     )

@@ -27,8 +27,7 @@ import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.TelemetryRemoteGate
-import co.touchlab.kermit.Severity
-import io.github.magisk317.xposed.logging.LogSanitizerConfig
+import io.github.magisk317.xposed.logging.LogLevel
 import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
@@ -45,6 +44,7 @@ import io.github.magisk317.mipush.notification.NotificationPostResult
 import io.github.magisk317.mipush.notification.NotificationShellBridge
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.notification.LegacyNotificationIdentityMigration
+import io.github.magisk317.mipush.notification.StaleTargetNotificationCleanup
 import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
@@ -81,6 +81,8 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
+import io.github.magisk317.xposed.logging.publishSwitch
+import io.github.magisk317.xposed.logging.configureForInstallation
 
 open class MiPushFrameworkApp : Application() {
     private val preferenceRepository: PreferenceRepository by lazy { AppDependencies.get(this) }
@@ -91,8 +93,11 @@ open class MiPushFrameworkApp : Application() {
         super.onCreate()
         // Every process of this package evaluates the policy from its own build flags before the
         // first log line: it decides redaction, verbosity and how much an export collects.
+        // The predicate must stay identical everywhere (Hooker, the telemetry environment label,
+        // the log sink and the health snapshot all read the same channel); a build type alone is
+        // not enough because the Play release job sets IS_CI_BUILD without being a debug build.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.BUILD_TYPE == "debug",
+            isDebugBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
             allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
         )
         TelemetryDisabler.disableAll(this)
@@ -100,8 +105,10 @@ open class MiPushFrameworkApp : Application() {
         PushShellBridgeHolder.install(DefaultPushShellBridge)
         Utils.regSecRecoveryListener = RegSecRecoveryHealer
         if (!isAppMainProc(this)) {
-            LogUtils.init(this)
-            CrashHandler.installCrashLogger()
+            initBasicLogger()
+            if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) {
+                CrashHandler.installCrashLogger()
+            }
             logI("Initialized minimal app shell outside main process")
             return
         }
@@ -129,7 +136,9 @@ open class MiPushFrameworkApp : Application() {
             ),
         )
         initBasicLogger()
-        CrashHandler.installCrashLogger()
+        if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) {
+            CrashHandler.installCrashLogger()
+        }
         DatabaseUtils.init(this)
         onAppDependenciesStarted()
         XSpaceXmsfInstallKeeper.scheduleForced(this, "MiPushFrameworkApp.onCreate")
@@ -178,6 +187,9 @@ open class MiPushFrameworkApp : Application() {
         applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching { LegacyNotificationIdentityMigration.runOnce(this@MiPushFrameworkApp) }
                 .onFailure { logW("legacy notification identity migration failed: ${it.message}") }
+        }
+        applicationScope.launch(Dispatchers.IO) {
+            StaleTargetNotificationCleanup.runIfSelfUpdated(this@MiPushFrameworkApp)
         }
         // IslandOptionsSnapshotReader.initialize() now observes DataStore Flow directly;
         // the ACTION_PREF_CHANGED broadcast receiver was removed in favor of Flow.
@@ -328,25 +340,24 @@ open class MiPushFrameworkApp : Application() {
         logW("Recent memory-related process exit: ${MemoryLimitDiagnostics.describeExit(latestExit)}")
     }
 
+    /**
+     * Logging is a build-channel capability. `MagiskLogPolicy.install` ran before this point, so
+     * the snapshot below is the single authority for every process of this package:
+     *
+     * - debug / CI: VERBOSE level, on-disk runtime logs, hook tracing, plaintext when the build
+     *   allows it, and log export (the settings entries are gated on the same snapshot).
+     * - release: no file sink at all, so nothing is written to disk; hook tracing off; export
+     *   unavailable; text always sanitized.
+     *
+     * There is deliberately no runtime preference here: a stored value must not be able to raise
+     * or lower verbosity, or to relax redaction on a shipped build.
+     */
     private fun initBasicLogger() {
-        LogUtils.init(this)
-        val initialDebugMode = runCatching {
-            runBlocking { preferenceRepository.isDebugMode.first() }
-        }.getOrDefault(false)
-        LogUtils.setMinLogLevel(if (initialDebugMode) Severity.Verbose else Severity.Info)
-        HookTrace.enabled = initialDebugMode
-        // The switch asks for verbose logging; the kit keeps redaction on whenever the build
-        // requires it, so turning this on in a released app cannot export plaintext.
-        LogSanitizerConfig.applyUserSwitch(!initialDebugMode)
-        // 收集后续变更，确保设置页开关拨动后实时生效
-        applicationScope.launch {
-            preferenceRepository.isDebugMode.collect { enabled ->
-                LogUtils.setMinLogLevel(if (enabled) Severity.Verbose else Severity.Info)
-                HookTrace.enabled = enabled
-                LogSanitizerConfig.applyUserSwitch(!enabled)
-            }
-        }
-        logI("App starts: $VERSION_NAME, debugMode=$initialDebugMode")
+        val policy = MagiskLogPolicy.current()
+        LogUtils.init(this, verboseLogging = policy.verboseLogging)
+        LogUtils.setMinLogLevel(if (policy.verboseLogging) LogLevel.VERBOSE else LogLevel.WARN)
+        HookTrace.enabled = policy.verboseLogging
+        logI("App starts: $VERSION_NAME, verboseLogging=${policy.verboseLogging}")
     }
 
     private fun notifyDozeWhiteListRequest(manager: NotificationManagerCompat) {

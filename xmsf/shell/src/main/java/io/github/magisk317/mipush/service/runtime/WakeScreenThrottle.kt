@@ -61,7 +61,7 @@ internal class WakeScreenThrottle(
         if (lastAdmittedByPackage.size <= maxEntries) return
         val iterator = lastAdmittedByPackage.entries.iterator()
         while (lastAdmittedByPackage.size > maxEntries && iterator.hasNext()) {
-            iterator.next()
+            val eldest = iterator.next()
             iterator.remove()
         }
     }

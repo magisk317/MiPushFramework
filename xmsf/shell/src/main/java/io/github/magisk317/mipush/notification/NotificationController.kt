@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
@@ -30,6 +30,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 /**
  * Publish/notify/cancel facade for the push notification pipeline.
@@ -39,6 +40,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
  * same-package extension functions, so call sites keep the
  * `NotificationController.foo(...)` syntax.
  */
+@StableLogTag
 object NotificationController {
     enum class PublishResult {
         Posted,
@@ -122,7 +124,7 @@ object NotificationController {
         }
         when {
             channel == null -> {
-                Logger.withTag(TAG).d {
+                XLog.tagged(TAG).d {
                     "publish skipped unavailable matched channel pkg=$packageName id=$notificationId " +
                         "channel=$channelId source=${if (metaInfo.isMockReplay()) "mock_replay" else "server"}"
                 }
@@ -130,7 +132,7 @@ object NotificationController {
                 return PublishResult.Failed
             }
             channel.importance == NotificationManager.IMPORTANCE_NONE -> {
-                Logger.withTag(TAG).d {
+                XLog.tagged(TAG).d {
                     "publish skipped disabled matched channel pkg=$packageName id=$notificationId " +
                         "channel=$channelId importance=${channel.importance} " +
                         "source=${if (metaInfo.isMockReplay()) "mock_replay" else "server"}"
@@ -156,11 +158,11 @@ object NotificationController {
         }
         val notification = (notifyResult as? NotifyResult.Posted)?.notification
         if (notification == null) {
-            Logger.withTag(TAG).d { "publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)" }
+            XLog.tagged(TAG).d { "publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)" }
             emit(result = "skip", reason = "notify_null")
             return PublishResult.Failed
         }
-        Logger.withTag(TAG).d {
+        XLog.tagged(TAG).d {
             "publish posted pkg=$packageName id=$notificationId group=${notification.group} " +
                 "tag=${MIPushNotificationPublishHelper.getNotificationTag(packageName)}"
         }
@@ -439,7 +441,7 @@ object NotificationController {
         // is not showing anything on the user's behalf, so dropping the original would leave them
         // with no notification at all (the silent-loss regression). See shouldSuppressOriginalByIslandProxy.
         if (shouldSuppressOriginalByIslandProxy(islandOptions.showOriginalNotification, islandProxyTookOver)) {
-            Logger.withTag(TAG).d {
+            XLog.tagged(TAG).d {
                 "skip original notification post pkg=$packageName id=$notificationId " +
                     "tag=$tag showOriginalNotification=false islandProxyTookOver=$islandProxyTookOver"
             }
@@ -461,7 +463,7 @@ object NotificationController {
             userId = userId,
         )
         if (!postResult.posted) {
-            Logger.withTag(TAG).w {
+            XLog.tagged(TAG).w {
                 "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId} " +
                     "owner=${postResult.owner} reason=${postResult.reason}"
             }
@@ -470,7 +472,7 @@ object NotificationController {
             return NotifyResult.Failed
         }
         if (postResult.owner == NotificationPostOwner.LOCAL_XMSF) {
-            Logger.withTag(TAG).w {
+            XLog.tagged(TAG).w {
                 "publish used local XMSF fallback pkg=$packageName id=$notificationId tag=$tag " +
                     "channel=${notificationToPost.channelId} reason=${postResult.reason}"
             }

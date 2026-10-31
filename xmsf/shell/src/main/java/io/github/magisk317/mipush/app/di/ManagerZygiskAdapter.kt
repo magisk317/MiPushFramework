@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.app.di
 import android.content.Context
 import android.net.Uri
 import android.os.Process
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
@@ -170,25 +170,6 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.manager.application.Z
             "am force-stop ${shellQuote(packageName)}",
             timeoutMs = 5_000L,
         ).isSuccess
-    }
-
-    override suspend fun scanZygiskPackages(): io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult {
-        if (!hasExistingRootForZygisk()) {
-            return io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Unavailable("zygisk_root_missing")
-        }
-        val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
-            "/system/bin/sh /data/adb/modules/mipush_zygisk/bin/mipushctl scan",
-            timeoutMs = 30_000L,
-        )
-        return if (result.isSuccess) {
-            io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Available(
-                result.stdout.joinToString("\n"),
-            )
-        } else {
-            io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Unavailable(
-                ZygiskFailure.scanReason(result),
-            )
-        }
     }
 
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"

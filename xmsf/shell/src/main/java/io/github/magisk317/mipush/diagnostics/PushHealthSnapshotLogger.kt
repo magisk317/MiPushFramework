@@ -2,15 +2,14 @@ package io.github.magisk317.mipush.diagnostics
 
 import android.app.Application
 import android.content.Context
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.control.PushControllerUtils
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
-import kotlinx.coroutines.runBlocking
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 
 object PushHealthSnapshotLogger {
     private const val TAG = "PushHealthSnapshot"
@@ -25,9 +24,9 @@ object PushHealthSnapshotLogger {
         if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
         val text = "[$key] $message"
         if (throwable == null) {
-            Logger.withTag(TAG).w { text }
+            XLog.tagged(TAG).w { text }
         } else {
-            Logger.e(throwable) { text }
+            XLog.e(text, throwable)
         }
     }
 
@@ -36,7 +35,7 @@ object PushHealthSnapshotLogger {
         val processName: String,
         val pushEnabled: Boolean,
         val regIdPresent: Boolean,
-        val debugMode: Boolean,
+        val verboseLogging: Boolean,
         val lifecycleReady: Boolean,
         val lifecyclePendingCount: Int,
         val runtimeExecutionReady: Boolean,
@@ -60,7 +59,7 @@ object PushHealthSnapshotLogger {
     fun log(context: Context, stage: String, extra: String? = null) {
         runCatching {
             val snapshot = capture(context, stage, extra)
-            Logger.withTag(TAG).i { format(snapshot) }
+            XLog.tagged(TAG).i { format(snapshot) }
         }.onFailure {
             warnLimited(
                 key = "capture:$stage",
@@ -77,7 +76,7 @@ object PushHealthSnapshotLogger {
             ?: context.packageName
         val pushEnabled = runCatching { PushControllerUtils.isPrefsEnable(context) }.getOrDefault(false)
         val regIdPresent = runCatching { MiPushClient.getRegId(context).isNotBlank() }.getOrDefault(false)
-        val debugMode = runCatching { runBlocking { Global.configCenter().isDebugModeAsync() } }.getOrDefault(false)
+        val verboseLogging = MagiskLogPolicy.current().verboseLogging
         val lifecycle = XMPushServiceLifecycleBridge.snapshot()
         val runtime = PushRuntime.snapshot()
         return Snapshot(
@@ -85,7 +84,7 @@ object PushHealthSnapshotLogger {
             processName = processName,
             pushEnabled = pushEnabled,
             regIdPresent = regIdPresent,
-            debugMode = debugMode,
+            verboseLogging = verboseLogging,
             lifecycleReady = lifecycle.serviceReady,
             lifecyclePendingCount = lifecycle.pendingStartCount,
             runtimeExecutionReady = runtime.executionReady,
@@ -114,7 +113,7 @@ object PushHealthSnapshotLogger {
                 processName = snapshot.processName,
                 pushEnabled = snapshot.pushEnabled,
                 regIdPresent = snapshot.regIdPresent,
-                debugMode = snapshot.debugMode,
+                verboseLogging = snapshot.verboseLogging,
                 lifecycleReady = snapshot.lifecycleReady,
                 lifecyclePendingCount = snapshot.lifecyclePendingCount,
                 runtimeExecutionReady = snapshot.runtimeExecutionReady,

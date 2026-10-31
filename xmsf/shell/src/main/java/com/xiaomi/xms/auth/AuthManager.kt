@@ -1,7 +1,7 @@
 package com.xiaomi.xms.auth
 
 import android.os.Bundle
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 
 /**
  * Allow-all replacement for the stock XMSF focus-auth manager.
@@ -25,7 +25,7 @@ object AuthManager {
     val binder: android.os.IBinder = object : IAuthService.Stub() {
         override fun auth(bundle: Bundle?, callback: IAuthServiceCallback?) {
             val result = authorize(bundle)
-            runCatching { callback?.onAuthResult(result) }
+            runCatching { callback?.onAuthResult(result) }.onFailure { }
         }
 
         override fun syncAuth(bundle: Bundle?): Bundle = authorize(bundle)
@@ -33,7 +33,7 @@ object AuthManager {
 
     private fun authorize(bundle: Bundle?): Bundle {
         val pkg = bundle?.getString("package_name")
-        Logger.withTag(TAG).d { "authorized pkg=$pkg (allow-all)" }
+        XLog.tagged(TAG).d { "authorized pkg=$pkg (allow-all)" }
         val result = Bundle()
         result.putBundle("result_auth_params", bundle)
         result.putInt("result_code", 0)

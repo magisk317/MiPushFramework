@@ -120,7 +120,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
             alarmAlive = Alarm.isAlive(),
             shouldFalldown = wasFalldown,
         )
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "reconnect_established host=${connection.host} falldown=$wasFalldown " +
                 "alarmAlive=${Alarm.isAlive()} ${connectionDiagnostic(connection)}"
         )
@@ -199,7 +199,7 @@ internal class MiPushRuntimeConnectionLifecycleAdapter(
         state.setActiveConnection(connection)
         runtimeObservationSink.observeReconnectStarted(System.currentTimeMillis())
         publishConnectionStatus(ConnectionStatus.connecting)
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "connection_started host=${connection.host} ${connectionDiagnostic(connection)}"
         )
         channelObservationSink.observeChannelEvent(

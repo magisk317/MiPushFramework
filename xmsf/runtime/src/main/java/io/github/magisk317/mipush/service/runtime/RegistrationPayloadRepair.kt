@@ -203,6 +203,12 @@ object RegistrationPayloadRepair {
                 if (!value.isNullOrBlank()) {
                     map[key] = value
                 }
+            }.onFailure {
+                logW("registration payload bundle key skipped: ${it.message}", it)
+            }.onFailure {
+                logW("registration payload bundle key skipped: ${it.message}", it)
+            }.onFailure {
+                logW("registration payload bundle key skipped: ${it.message}", it)
             }
         }
         return map

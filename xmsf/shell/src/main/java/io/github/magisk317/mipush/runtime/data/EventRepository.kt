@@ -22,12 +22,13 @@ import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRe
 import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRequest
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.core.RepeatedFailureLogPolicy
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushServiceCore as SdkXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.utils.ConvertUtils
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -47,7 +48,9 @@ import io.github.magisk317.mipush.service.PushServiceStarter
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 class EventRepository constructor(
     private val context: Context,
     private val configCenter: ConfigCenter,
@@ -55,6 +58,8 @@ class EventRepository constructor(
     private val configNavigationHelper: ConfigNavigationHelper,
     private val notificationAvailabilityReader: NotificationAvailabilityReader,
 ) {
+
+    private val configFailureLogPolicy = RepeatedFailureLogPolicy()
 
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
         if (container == null) {
@@ -361,7 +366,7 @@ class EventRepository constructor(
             configurations.handle(event.pkg, newContainer)
             containerToJson(newContainer, event.regSec).toString()
         } catch (e: Throwable) {
-            Logger.withTag("EventRepository").e(e) { "getContent failed for ${event.pkg}" }
+            XLog.tagged("EventRepository").e(e) { "getContent failed for ${event.pkg}" }
             e.toString()
         }
     }
@@ -375,8 +380,24 @@ class EventRepository constructor(
         return try {
             configurations.handle(container.packageName, container)
         } catch (t: Throwable) {
-            Logger.withTag("EventRepository").w { "configureContainer failed for ${container.packageName}: ${t.message}" }
+            logConfigFailure(container, t)
             HashSet()
+        }
+    }
+
+    /**
+     * Event-list projection runs the configuration pass for every visible row, so one failing
+     * rule used to emit a page-sized burst of warnings that carried only [Throwable.message].
+     * Warn once per package/action window and hand the throwable to the logger: the recorded
+     * stack is what identifies the offending rule, the message alone never did.
+     */
+    private fun logConfigFailure(container: XmPushActionContainer, t: Throwable) {
+        val key = "${container.packageName}|${container.action}"
+        if (!configFailureLogPolicy.shouldLog(key, System.currentTimeMillis())) return
+        val messageId = io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(container)
+        XLog.tagged("EventRepository").w(t) {
+            "configureContainer failed pkg=${container.packageName} action=${container.action} " +
+                "messageId=$messageId: ${t.message}"
         }
     }
 

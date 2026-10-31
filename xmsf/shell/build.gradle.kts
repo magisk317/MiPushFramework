@@ -6,6 +6,27 @@ plugins {
 extra["artifactBaseName"] = "xmsf"
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
+
+/**
+ * The debug-build suffix, or null when this build carries no pinned timestamp.
+ *
+ * Same chain and normalization as magisk.app.packaging, which is what writes the
+ * APK versionName: the runtime reports VERSION_NAME to telemetry and to its own
+ * log lines, and a CI runtime that calls itself "1.1.2" while dumpsys says
+ * "1.1.2-<ts>" is a build set nobody can match to a published artifact.
+ */
+fun pinnedBuildSuffix(): String? {
+    val raw = sequenceOf(
+        project.findProperty("buildTs")?.toString(),
+        System.getenv("MAGISK_BUILD_TIMESTAMP"),
+    ).mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }.firstOrNull() ?: return null
+
+    val compact = raw.filter { it.isDigit() }
+    if (compact.length != 14) return null
+    return "-${compact.substring(0, 8)}_${compact.substring(8)}"
+}
+
+val debugVersionSuffix = pinnedBuildSuffix().orEmpty()
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
 
 android {
@@ -51,9 +72,7 @@ android {
         }
 
         buildConfigField("String", "GIT_TAG", "\"$versionNameStr\"")
-        val buildTs = project.findProperty("buildTs")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-        val fullVersionName = if (buildTs != null) "$versionNameStr-$buildTs" else versionNameStr
-        buildConfigField("String", "VERSION_NAME", "\"$fullVersionName\"")
+        buildConfigField("String", "VERSION_NAME", "\"$versionNameStr$debugVersionSuffix\"")
     }
 
     buildTypes {
@@ -100,7 +119,7 @@ dependencies {
     implementation(project(":xmsf:push"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.sqlite.bundled)
-    implementation(libs.kermit)
+    implementation(project(":magisk-xposed-kit:logging"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     implementation(libs.libsu.core)

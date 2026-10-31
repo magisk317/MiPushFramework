@@ -87,6 +87,10 @@ data class RuntimeRegisteredApplicationRow(
     val islandFocusNotification: Boolean = false,
     @ColumnInfo(name = "click_fallback_enabled", defaultValue = "0")
     val clickFallbackEnabled: Boolean = false,
+    @ColumnInfo(name = "suppress_when_disabled", defaultValue = "0")
+    val suppressWhenDisabled: Boolean = false,
+    @ColumnInfo(name = "count_limit_exempt", defaultValue = "0")
+    val countLimitExempt: Boolean = false,
     @ColumnInfo(name = "registered_type")
     val registeredType: Int,
     @ColumnInfo(name = "app_name")

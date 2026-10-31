@@ -14,6 +14,8 @@ data class StoredApplicationSnapshot(
     val islandEnabled: Boolean,
     val islandFocusNotification: Boolean,
     val clickFallbackEnabled: Boolean,
+    val suppressWhenDisabled: Boolean,
+    val countLimitExempt: Boolean = false,
     val registeredType: Int,
     val appName: String,
 )
@@ -141,6 +143,8 @@ fun StoredApplicationSnapshot.toManagerApplication(
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
+        countLimitExempt = countLimitExempt,
         registeredType = registeredType,
         existServices = installed?.hasMiPushServices == true,
         appName = displayName,
@@ -187,6 +191,8 @@ fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplica
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
+        countLimitExempt = countLimitExempt,
         registeredType = registeredType,
         appName = appName,
     )

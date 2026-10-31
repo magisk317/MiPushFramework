@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.Context
 import android.graphics.Bitmap
@@ -10,14 +9,9 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Icon
 import android.os.Build
-import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
-import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
-import io.github.magisk317.mipush.common.notification.iconpack.ResolveFailure
-import io.github.magisk317.mipush.common.notification.iconpack.ResolveResult
-import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -88,87 +82,6 @@ internal fun NotificationController.applyStatusBarIcon(
     }
     notificationBuilder.setColor(Notification.COLOR_DEFAULT)
     return Notification.COLOR_DEFAULT
-}
-
-@SuppressLint("RestrictedApi")
-internal fun NotificationController.applyIconPackSmallIcon(
-    context: Context,
-    targetPackage: String,
-    notificationBuilder: NotificationCompat.Builder,
-    colorStatusBarIcon: Boolean,
-    userId: Int? = null,
-    resolver: IconPackResolver = iconPackResolver,
-): ResolveResult? {
-    if (targetPackage.isBlank()) return null
-
-    // The configured directory is the existing product icon-pack source. ConfigCenter loads
-    // <tree>/icon/*.json into IconConfigurations; use it before the optional protocol seam.
-    // A non-null, enabled, decodable entry is the concrete "path exists" signal.
-    val configuredIcon = runCatching {
-        Global.iconConfigurations().get(targetPackage)
-    }.getOrNull()
-    val configuredBitmap = configuredIcon?.bitmap()
-    if (configuredIcon?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
-        runCatching {
-            notificationBuilder.setSmallIcon(
-                IconCompat.createFromIcon(Icon.createWithBitmap(configuredBitmap)),
-            )
-            notificationBuilder.addExtras(
-                Bundle().apply {
-                    putString(
-                        ICON_PACK_SOURCE_IDENTITY_EXTRA,
-                        thirdPartyPackSourceIdentity(targetPackage),
-                    )
-                },
-            )
-            if (colorStatusBarIcon) {
-                val iconColor = configuredIcon.color()
-                if (iconColor != NotificationCompat.COLOR_DEFAULT) {
-                    notificationBuilder.setColor(iconColor)
-                }
-            }
-            logI("applied configured icon pack target=$targetPackage")
-        }.onFailure {
-            logW("failed to apply configured icon pack target=$targetPackage", it)
-        }.getOrNull()?.let { return null }
-    }
-
-    val result = runCatching {
-        resolver.resolve(targetPackage, userId, context)
-    }.getOrNull() ?: return null
-    // Do not let a reused builder carry a prior notification's source identity into a
-    // blocked/failed resolution.
-    notificationBuilder.addExtras(Bundle().apply { putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, null) })
-    if (result is ResolveResult.Available) {
-        // NotificationCompat carries this as IconCompat, but the framework Notification gets
-        // the exact platform Icon.createWithBitmap source. No second bitmap is synthesized.
-        val applied = runCatching {
-            notificationBuilder.setSmallIcon(
-                IconCompat.createFromIcon(Icon.createWithBitmap(result.value.bitmap)),
-            )
-            // The marker audits the source identity; the bitmap remains on the framework
-            // Notification.smallIcon and is the only header transport used by SystemUI.
-            notificationBuilder.addExtras(
-                Bundle().apply {
-                    putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, result.value.sourceIdentity)
-                },
-            )
-            // iconColor is only the existing notification color metadata. Its absence never
-            // invalidates the bitmap, and monochrome mode keeps its established default color.
-            val iconColor = result.value.iconColor
-            if (colorStatusBarIcon && iconColor != null) {
-                notificationBuilder.setColor(iconColor)
-            }
-            true
-        }.getOrDefault(false)
-        if (!applied) {
-            notificationBuilder.addExtras(Bundle().apply {
-                putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, null)
-            })
-            return ResolveResult.Unavailable(ResolveFailure.LOAD_FAILED)
-        }
-    }
-    return result
 }
 
 /**

@@ -25,7 +25,9 @@ import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 class AppPushMessageProcessor constructor(
     private val configurations: Configurations,
     private val frozenAppCoordinator: FrozenAppCoordinator? = null,

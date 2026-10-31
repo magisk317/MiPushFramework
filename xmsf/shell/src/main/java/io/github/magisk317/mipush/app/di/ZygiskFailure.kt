@@ -27,12 +27,4 @@ internal object ZygiskFailure {
         result.stderrText.isNotBlank() -> "zygisk_config_read_failed"
         else -> "zygisk_root_exec_failed"
     }
-
-    fun scanReason(result: BoundedShellResult): String = when {
-        result.skipped -> "zygisk_root_missing"
-        result.timedOut -> "zygisk_scan_timeout"
-        MISSING_FILE_PATTERN.containsMatchIn(result.stderrText) -> "zygisk_module_not_installed"
-        result.stderrText.isNotBlank() -> "zygisk_scan_failed"
-        else -> "zygisk_root_exec_failed"
-    }
 }

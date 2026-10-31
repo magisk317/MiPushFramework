@@ -145,4 +145,11 @@ class MiPushMessageStockContractTest {
 
         assertEquals(command.autoMarkPkgs, restored.autoMarkPkgs)
     }
+    @Test
+    fun `serialVersionUID is a static long field with the stock value`() {
+        val field = MiPushMessage::class.java.getDeclaredField("serialVersionUID")
+        assertTrue(java.lang.reflect.Modifier.isStatic(field.modifiers), "R8/Kotlin shape dropped the static field")
+        assertEquals(Long::class.javaPrimitiveType, field.type)
+        assertEquals(1L, field.getLong(null))
+    }
 }

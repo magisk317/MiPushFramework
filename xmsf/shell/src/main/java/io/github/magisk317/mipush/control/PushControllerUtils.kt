@@ -31,8 +31,10 @@ import java.util.Objects
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 @SuppressLint("WrongConstant")
+@StableLogTag
 object PushControllerUtils {
     private val liveReceiver: BroadcastReceiver = KeepAliveReceiver()
     private val retryInterval = intArrayOf(3600000, 7200000, 14400000, 28800000, 86400000)
@@ -126,7 +128,12 @@ object PushControllerUtils {
             try {
                 val filter = IntentFilter()
                 filter.addAction(Intent.ACTION_SCREEN_ON)
-                context.registerReceiver(liveReceiver, filter)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.registerReceiver(liveReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    @Suppress("UnspecifiedRegisterReceiverFlag")
+                    context.registerReceiver(liveReceiver, filter)
+                }
             } catch (e: Throwable) {
                 logE("Unexpected error", e)
             }

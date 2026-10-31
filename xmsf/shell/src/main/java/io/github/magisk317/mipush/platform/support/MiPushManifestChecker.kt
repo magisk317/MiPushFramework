@@ -12,7 +12,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.text.TextUtils
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
@@ -21,8 +21,10 @@ import io.github.magisk317.mipush.common.Constants
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 @Suppress("UNCHECKED_CAST")
+@StableLogTag
 class MiPushManifestChecker private constructor(
     private val context: Context
 ) {
@@ -111,7 +113,7 @@ class MiPushManifestChecker private constructor(
 
         private fun warnServiceIssueOnce(cacheKey: String, message: String) {
             if (warnedServiceIssues.add(cacheKey)) {
-                Logger.withTag(MiPushManifestChecker::class.java.simpleName).w { message }
+                XLog.tagged(MiPushManifestChecker::class.java.simpleName).w { message }
             }
         }
 

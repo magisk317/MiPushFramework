@@ -94,6 +94,23 @@ class RuntimeRegisteredApplicationRepositoryTest {
     }
 
     @Test
+    fun `suppress when disabled flag defaults off and reads through the scoped store`() = runBlocking {
+        val store = FakeStore(
+            rows = mutableListOf(
+                row(id = 5, packageName = "com.example.app", userId = 7),
+            ),
+        )
+        val repository = repository(store)
+
+        assertFalse(repository.isSuppressWhenDisabled("com.example.app"))
+        assertFalse(repository.isSuppressWhenDisabled("com.missing.app"))
+        store.update(
+            store.require("com.example.app").copy(suppressWhenDisabled = true),
+        )
+        assertTrue(repository.isSuppressWhenDisabled("com.example.app"))
+    }
+
+    @Test
     fun `unregistration reports missing, idempotent and updated transitions`() = runBlocking {
         val store = FakeStore(
             rows = mutableListOf(
@@ -207,6 +224,9 @@ class RuntimeRegisteredApplicationRepositoryTest {
             rows[index] = rows[index].copy(clickFallbackEnabled = enabled)
             return 1
         }
+
+        override suspend fun isSuppressWhenDisabled(packageName: String, userId: Int): Boolean? =
+            getByPackageName(packageName, userId)?.suppressWhenDisabled
 
         fun require(packageName: String): RuntimeRegisteredApplicationRow =
             rows.first { it.packageName == packageName }

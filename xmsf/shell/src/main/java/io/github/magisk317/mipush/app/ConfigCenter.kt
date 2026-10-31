@@ -2,7 +2,8 @@ package io.github.magisk317.mipush.app
 
 import android.content.Context
 import android.net.Uri
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.platform.support.ManagerComponentNames
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
@@ -51,7 +52,11 @@ class ConfigCenter constructor(
         return true
     }
 
-    suspend fun isDebugModeAsync(): Boolean = preferenceRepository.isDebugMode.first()
+    /**
+     * Detailed diagnostics availability for this process. Build-channel only: a release build has
+     * no debug channel at all, so the bridge never enables debug actions or verbose formatting.
+     */
+    suspend fun isVerboseLoggingAsync(): Boolean = MagiskLogPolicy.current().verboseLogging
 
     suspend fun isShowAllEventsAsync(): Boolean = preferenceRepository.isShowAllEvents.first()
 
@@ -89,9 +94,9 @@ class ConfigCenter constructor(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
         }.onSuccess {
-            Logger.withTag(TAG).i { "persisted configuration directory permission uri=$treeUri" }
+            XLog.tagged(TAG).i { "persisted configuration directory permission uri=$treeUri" }
         }.onFailure { error ->
-            Logger.withTag(TAG).w(error) { "unable to persist configuration directory permission uri=$treeUri" }
+            XLog.tagged(TAG).w(error) { "unable to persist configuration directory permission uri=$treeUri" }
         }
         runCatching {
             context.grantUriPermission(
@@ -100,9 +105,9 @@ class ConfigCenter constructor(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
             )
-            Logger.withTag(TAG).i { "granted manager configuration directory permission uri=$treeUri" }
+            XLog.tagged(TAG).i { "granted manager configuration directory permission uri=$treeUri" }
         }.onFailure { error ->
-            Logger.withTag(TAG).w(error) { "unable to grant manager configuration directory permission uri=$treeUri" }
+            XLog.tagged(TAG).w(error) { "unable to grant manager configuration directory permission uri=$treeUri" }
         }
     }
 }

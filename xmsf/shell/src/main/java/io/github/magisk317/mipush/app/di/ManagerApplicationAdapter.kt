@@ -3,7 +3,8 @@ package io.github.magisk317.mipush.app.di
 import android.content.Context
 import android.net.Uri
 import android.os.Process
-import co.touchlab.kermit.Logger
+import android.os.SystemClock
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
@@ -52,6 +53,7 @@ import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -81,11 +83,18 @@ import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
+import io.github.magisk317.mipush.common.logging.StableLogTag
+
+@StableLogTag
+private const val FORCE_REGISTER_RESULT_TIMEOUT_MS = 6_000L
+private const val FORCE_REGISTER_RESULT_POLL_MS = 250L
+private const val FORCE_REGISTER_ROOT_LAUNCH_TIMEOUT_MS = 5_000L
 
 class XmsfManagerApplicationGateway : ManagerApplicationGateway {
 
@@ -150,7 +159,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
             .sortedWith(ManagerApplicationReadPolicy.comparator)
             .toList()
-        Logger.withTag("XmsfManagerApplicationGateway").d {
+        XLog.tagged("XmsfManagerApplicationGateway").d {
             "manager app list loaded total=${catalog.totalCandidatePackages} shown=${apps.size} ms=${timer.elapsed()}"
         }
         return ManagerApplications(
@@ -275,7 +284,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         // Force-register must actively request elevation (KSU/Magisk prompt).
         // refreshRootAccessIfGranted() returns false when grant state is still unknown.
         if (!PermissionUtils.requestRootAccess()) {
-            Logger.withTag("XmsfManagerApplicationGateway").w {
+            XLog.tagged("XmsfManagerApplicationGateway").w {
                 "force-register aborted: root not granted pkg=$packageName"
             }
             logW("force register aborted for $packageName: root not granted")
@@ -314,21 +323,57 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
             )
         }
-        // Align with upstream MyPushMessageHandler.launchApp(): thaw the target (pm enable /
-        // IceBox), pull it to the foreground and wait until it is actually foreground before
-        // dispatching the fake RegIdExpired. Never force-stop: a stopped app has no live
-        // process, so its runtime receiver is gone and every dispatch channel fails — that
-        // was the "已拒绝" (DENY_DISABLED) force-register case.
+        // Root's ActivityManager path first. This gateway runs inside the background xmsf
+        // process, so Context.startActivity() is subject to Android's background-launch policy
+        // even though the Manager UI initiated the call; `am start -W` is not, and it reports
+        // whether the launch actually happened. Never force-stop: a stopped app has no live
+        // process, so every dispatch channel fails — that was the "已拒绝" (DENY_DISABLED) case.
         recordForceRegisterStage(packageName, "force_register_relaunch")
-        runCatching {
-            withContext(Dispatchers.IO) {
-                RegistrationHelper.launchAppForForceRegister(context, packageName)
+        val rootLaunched = withContext(Dispatchers.IO) {
+            launchTargetAppViaRoot(context, packageName)
+        }
+        if (!rootLaunched) {
+            logW("force register: root launch failed for $packageName, falling back to SDK pull-up")
+            recordForceRegisterStage(packageName, "force_register_root_launch_failed")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    RegistrationHelper.launchAppForForceRegister(context, packageName)
+                }
+            }.onFailure {
+                logW("force register: SDK pull up failed for $packageName: ${it.localizedMessage}")
+                recordForceRegisterStage(packageName, "force_register_relaunch_failed")
             }
-        }.onFailure {
-            logW("force register: pull up failed for $packageName: ${it.localizedMessage}")
-            recordForceRegisterStage(packageName, "force_register_relaunch_failed")
+        } else {
+            recordForceRegisterStage(packageName, "force_register_root_launch_succeeded")
+            delay(500L)
         }
         return forceRegisterWithFeedback(context, packageName, registeredType)
+    }
+
+    private fun launchTargetAppViaRoot(context: Context, packageName: String): Boolean {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        val component = launchIntent.component?.flattenToShortString() ?: return false
+        val userId = Utils.requireValidUserId(Utils.myUserId())
+        val enable = AppRootAccessFacade.runRootCommand(
+            "pm enable --user $userId ${shellQuote(packageName)}",
+            timeoutMs = FORCE_REGISTER_ROOT_LAUNCH_TIMEOUT_MS,
+        )
+        if (!enable.isSuccess) {
+            logW("force register: pm enable failed pkg=$packageName exitCode=${enable.exitCode}")
+        }
+        val result = AppRootAccessFacade.runRootCommand(
+            "am start --user $userId -W -n ${shellQuote(component)}",
+            timeoutMs = FORCE_REGISTER_ROOT_LAUNCH_TIMEOUT_MS,
+        )
+        val output = (result.stdoutText + "\n" + result.stderrText).trim()
+        val failed = output.contains("Error", ignoreCase = true) ||
+            output.contains("Exception", ignoreCase = true)
+        logI(
+            "force register root launch pkg=$packageName component=$component " +
+                "success=${result.isSuccess && !failed} exitCode=${result.exitCode} " +
+                "timedOut=${result.timedOut}",
+        )
+        return result.isSuccess && !failed
     }
 
     private fun recordForceRegisterStage(
@@ -345,7 +390,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
     }
 
-    private fun forceRegisterWithFeedback(
+    private suspend fun forceRegisterWithFeedback(
         context: Context,
         packageName: String,
         registeredType: Int,
@@ -361,12 +406,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             logI("force register: wiped app-side MiPush data for $packageName success=$wiped")
             recordForceRegisterStage(packageName, "force_register_wiped_app_data success=$wiped")
         }
+        val dispatchStartedAt = System.currentTimeMillis()
         val result = runCatching { RegistrationHelper.tryForceRegister(packageName) }
         if (result.getOrDefault(false)) {
-            return ManagerForceRegisterResult(
-                succeeded = true,
-                message = context.getString(com.xiaomi.xmsf.R.string.force_register_sent),
-            )
+            return awaitForceRegisterResult(context, packageName, dispatchStartedAt)
         }
         val cause = result.exceptionOrNull()
         if (cause is NoClassDefFoundError || cause is ClassNotFoundException) {
@@ -375,11 +418,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable),
             )
         }
+
+        val fallbackStartedAt = System.currentTimeMillis()
         return if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
-            ManagerForceRegisterResult(
-                succeeded = true,
-                message = context.getString(com.xiaomi.xmsf.R.string.force_register_sent),
-            )
+            awaitForceRegisterResult(context, packageName, fallbackStartedAt)
         } else {
             ManagerForceRegisterResult(
                 succeeded = false,
@@ -387,6 +429,62 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             )
         }
     }
+
+    /**
+     * "Dispatched" is not "registered". The old flow reported success as soon as the platform
+     * accepted the intent, which is why the logs show `force register ... dispatched` for apps
+     * that never sent a REGISTER_APP at all. Wait for the real outcome and say which one it was.
+     */
+    private suspend fun awaitForceRegisterResult(
+        context: Context,
+        packageName: String,
+        startedAtMs: Long,
+    ): ManagerForceRegisterResult {
+        var registerRequestSeen = false
+        val deadline = SystemClock.uptimeMillis() + FORCE_REGISTER_RESULT_TIMEOUT_MS
+        while (SystemClock.uptimeMillis() < deadline) {
+            val application = RegisteredApplicationDb.getRegisteredApplication(packageName)
+            if (application?.registeredType == RegisteredAppRegisteredType.Registered) {
+                recordForceRegisterStage(packageName, "force_register_confirmed")
+                return ManagerForceRegisterResult(
+                    succeeded = true,
+                    message = context.getString(com.xiaomi.xmsf.R.string.force_register_confirmed),
+                )
+            }
+            registerRequestSeen = registerRequestSeen || hasRegisterRequestSince(packageName, startedAtMs)
+            delay(FORCE_REGISTER_RESULT_POLL_MS)
+        }
+
+        registerRequestSeen = registerRequestSeen || hasRegisterRequestSince(packageName, startedAtMs)
+        val reason = if (registerRequestSeen) {
+            "force_register_server_result_timeout"
+        } else {
+            "force_register_request_not_seen"
+        }
+        logW("force register result timeout pkg=$packageName reason=$reason")
+        recordForceRegisterStage(
+            packageName,
+            "$reason timeoutMs=$FORCE_REGISTER_RESULT_TIMEOUT_MS",
+            EventRowResultType.DENY_DISABLED,
+        )
+        return ManagerForceRegisterResult(
+            succeeded = false,
+            message = context.getString(com.xiaomi.xmsf.R.string.force_register_timeout),
+        )
+    }
+
+    private suspend fun hasRegisterRequestSince(packageName: String, startedAtMs: Long): Boolean =
+        EventDb.queryAsync(
+            skip = 0,
+            limit = 32,
+            types = setOf(EventRowType.Registration),
+            pkg = packageName,
+            text = null,
+        ).any { event ->
+            event.date >= startedAtMs && event.info.isNullOrBlank()
+        }
+
+    private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"
 
 }
 

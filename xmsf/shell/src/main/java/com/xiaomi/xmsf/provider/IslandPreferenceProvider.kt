@@ -19,10 +19,11 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
+import io.github.magisk317.mipush.common.NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
@@ -50,10 +51,11 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
+        MONOCHROME_SHADE_ICON_KEY,
         THIRD_PARTY_ICON_PACK_KEY,
         SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
-        LOG_SANITIZATION_ENABLED_KEY,
+        NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -90,7 +92,7 @@ class IslandPreferenceProvider : ContentProvider() {
 
         return MatrixCursor(arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE)).apply {
             val snapshot = IslandOptionsSnapshotReader.read(appContext, packageName, userId)
-            val flags = snapshot.options.toPreferenceFlags(snapshot.logSanitizationEnabled)
+            val flags = snapshot.options.toPreferenceFlags()
             requestedKeys.forEach { key ->
                 addRow(arrayOf(key, flags.getValue(key)))
             }

@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.service.runtime
 import android.annotation.SuppressLint
 import android.os.Binder
 import android.os.IBinder
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import android.os.Parcel
 
 /**
@@ -35,10 +35,10 @@ internal class ProcessObserverCompat(
             )
             transactObserver(activityManager, layout.activityManagerDescriptor, layout.register, observer)
             registration = Registration(activityManager, observer, layout)
-            Logger.withTag(TAG).i { "Registered process observer with runtime transaction layout" }
+            XLog.tagged(TAG).i { "Registered process observer with runtime transaction layout" }
             true
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "Process observer unavailable; keep-alive will use polling" }
+            XLog.tagged(TAG).w(it) { "Process observer unavailable; keep-alive will use polling" }
         }.getOrDefault(false)
     }
 
@@ -54,7 +54,7 @@ internal class ProcessObserverCompat(
                 current.observer,
             )
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "Failed to unregister process observer" }
+            XLog.tagged(TAG).w(it) { "Failed to unregister process observer" }
         }
     }
 

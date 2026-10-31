@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
@@ -42,7 +42,7 @@ internal object NotificationMockReplaySupport {
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
         notificationBuilder.setOnlyAlertOnce(false)
         notificationBuilder.setSilent(false)
-        Logger.withTag(TAG).d {
+        XLog.tagged(TAG).d {
             "apply mock replay visibility pkg=$packageName category=alarm priority=max group=$group summary=false"
         }
     }
@@ -95,7 +95,7 @@ internal object NotificationMockReplaySupport {
                     io.github.magisk317.mipush.common.utils.Utils.myUserId(),
                 ),
             )) {
-            Logger.withTag(TAG).w { "skip mock replay receipt for foreign user=$userId pkg=$packageName" }
+            XLog.tagged(TAG).w { "skip mock replay receipt for foreign user=$userId pkg=$packageName" }
             return false
         }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
@@ -142,9 +142,10 @@ internal object NotificationMockReplaySupport {
         if (source.contentIntent != null) builder.setContentIntent(source.contentIntent)
         if (sourceSmallIcon != null) {
             @SuppressLint("RestrictedApi")
-            runCatching { builder.setSmallIcon(IconCompat.createFromIcon(sourceSmallIcon)) }
+            runCatching { builder.setSmallIcon(IconCompat.createFromIcon(sourceSmallIcon)) }.onFailure { }
         }
-        applyStatusBarIcon(context, packageName, builder, effectiveColorStatusBarIcon)
+        // The helper applies the color to the builder; bind the result to keep the discard explicit.
+        val appliedColor = applyStatusBarIcon(context, packageName, builder, effectiveColorStatusBarIcon)
         val receipt = ProgressStyleBuilder.buildNotification(context, builder)
         val receiptTag = if (replaceOriginal) originalTag else "$RECEIPT_TAG_PREFIX$packageName"
         val receiptId = if (replaceOriginal) notificationId else receiptNotificationId(packageName)
@@ -153,12 +154,12 @@ internal object NotificationMockReplaySupport {
                 NotificationController.getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt, userId)
             if (!postedAsTarget) manager.notify(receiptTag, receiptId, receipt)
             PushRuntime.observeNotificationEvent(packageName, "mock_replay_visible_receipt_posted", "NotificationController.publish")
-            Logger.withTag(TAG).d {
+            XLog.tagged(TAG).d {
                 "posted mock replay visible receipt pkg=$packageName sourceId=$notificationId tag=$receiptTag targetIdentity=$postedAsTarget"
             }
             true
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}" }
+            XLog.tagged(TAG).w(it) { "mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}" }
         }.getOrDefault(false)
     }
 

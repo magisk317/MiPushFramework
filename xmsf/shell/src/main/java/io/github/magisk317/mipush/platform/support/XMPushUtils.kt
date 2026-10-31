@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.platform.support
 
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.push.service.MIPushEventProcessor
-import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import android.content.Context
@@ -122,8 +121,16 @@ object XMPushUtils {
         packageName: String,
         payload: ByteArray,
         fromNotification: Boolean = false,
-        notified: Boolean = false
-    ): Boolean = dispatchToApplicationResult(context, packageName, payload, fromNotification, notified).dispatched
+        notified: Boolean = false,
+        includeStoppedPackages: Boolean = false,
+    ): Boolean = dispatchToApplicationResult(
+        context,
+        packageName,
+        payload,
+        fromNotification,
+        notified,
+        includeStoppedPackages,
+    ).dispatched
 
     @JvmStatic
     fun dispatchToApplicationResult(
@@ -131,7 +138,8 @@ object XMPushUtils {
         packageName: String,
         payload: ByteArray,
         fromNotification: Boolean = false,
-        notified: Boolean = false
+        notified: Boolean = false,
+        includeStoppedPackages: Boolean = false,
     ): DispatchResult {
         val startedAt = System.nanoTime()
         fun finish(result: DispatchResult): DispatchResult {
@@ -175,6 +183,9 @@ object XMPushUtils {
             // (e.g. Baidu XmNotifyActivity) inside its own process and opens the content.
             if (notified) {
                 putExtra("mipush_notified", true)
+            }
+            if (includeStoppedPackages) {
+                addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             }
             // Try to add category if it's a notification
             val notifyId = packToContainer(payload)?.metaInfo?.notifyId
@@ -243,78 +254,46 @@ object XMPushUtils {
     }
 
     /**
-     * Force-register delivery, aligned with upstream `RegistrationHelper.tryForceRegister`:
-     * a single package-scoped broadcast carrying the fake RegIdExpired payload.
+     * Force-register delivery uses the same service-first + explicit-broadcast fallback as ordinary
+     * message delivery, plus `FLAG_INCLUDE_STOPPED_PACKAGES` so a stopped app can still be woken.
      *
-     * Broadcast-first is mandatory here. The framework process runs in the background, so
-     * `startService(PushMessageHandler)` is refused on modern Android, and an app that was
-     * force-stopped has no live process hosting a runtime receiver. A package-scoped broadcast
-     * reaches the app's manifest-declared `PushMessageReceiver` without any background-start
-     * exemption, and `FLAG_INCLUDE_STOPPED_PACKAGES` lets it wake a stopped app.
-     *
-     * When the target has no enabled manifest receiver (callback-mode apps), the unified
-     * 3-channel dispatch still gets its chance through the service channel, which succeeds
-     * once the caller has pulled the app to the foreground.
+     * `sendBroadcast()` only means the system accepted an intent. It is not evidence that the SDK
+     * processed the fake RegIdExpired notification, so a broadcast is no longer reported as the
+     * final answer: the caller must observe the follow-up REGISTER_APP / SERVER_RESULT.
      */
     @JvmStatic
     fun dispatchForceRegister(
         context: Context,
         packageName: String,
-        payload: ByteArray
-    ): Boolean {
-        if (packageName.isBlank()) return false
-        val startedAt = System.nanoTime()
-        val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
-            `package` = packageName
-            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
-            putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
-            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-        }
-        val manifestReceivers = runCatching {
-            context.packageManager.queryBroadcastReceivers(intent, PackageManager.MATCH_DISABLED_COMPONENTS)
-        }.getOrDefault(emptyList())
-            .mapNotNull { resolveInfo -> resolveInfo.activityInfo }
-            .filter { info -> info.packageName == packageName && info.enabled && info.exported }
-        val sent = runCatching {
-            context.sendBroadcast(intent)
-            true
-        }.getOrDefault(false)
-        if (sent && manifestReceivers.isNotEmpty()) {
-            MagiskOtel.event(
-                name = "push.dispatch",
-                attributes = mapOf(
-                    "result" to "ok",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "app_dispatch",
-                    "reason" to "force_register_broadcast",
-                    "target_package" to packageName,
-                    "payload_size" to payload.size.toString(),
-                ),
-                statusOk = true,
-            )
-            return true
-        }
-        // No enabled manifest receiver can take the broadcast (callback-mode app): give the
-        // service-first dispatch its chance instead of reporting a bare broadcast as success.
-        val dispatched = dispatchToApplication(context, packageName, payload)
-        if (!dispatched) {
-            MagiskOtel.event(
-                name = "push.dispatch",
-                attributes = mapOf(
-                    "result" to "error",
-                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
-                    "process" to "xmsf",
-                    "stage" to "app_dispatch",
-                    "reason" to "force_register_no_receiver",
-                    "target_package" to packageName,
-                    "payload_size" to payload.size.toString(),
-                ),
-                statusOk = false,
-            )
-        }
-        return dispatched
-    }
+        payload: ByteArray,
+    ): Boolean = dispatchToApplicationResult(
+        context = context,
+        packageName = packageName,
+        payload = payload,
+        fromNotification = false,
+        notified = false,
+        includeStoppedPackages = true,
+    ).also { result ->
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to if (result.dispatched) "ok" else "error",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "force_register_dispatch",
+                "reason" to when (result) {
+                    is DispatchResult.ServiceStarted -> "service_started"
+                    is DispatchResult.BroadcastSent ->
+                        if (result.explicit) "broadcast_explicit" else "broadcast_generic"
+                    is DispatchResult.ServiceBlocked -> "service_blocked"
+                    DispatchResult.Failed -> "failed"
+                },
+                "target_package" to packageName.ifBlank { "unknown" },
+                "payload_size" to payload.size.toString(),
+            ),
+            statusOk = result.dispatched,
+        )
+    }.dispatched
 
     internal fun genericBroadcastResult(
         hasPotentialReceiver: Boolean,

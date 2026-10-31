@@ -4,14 +4,11 @@ import android.content.Context
 import android.content.ContentValues
 import android.net.Uri
 import io.github.magisk317.mipush.utils.LogUtils
-import io.github.magisk317.mipush.utils.LogBundleExporter
-import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
 import io.github.magisk317.xposed.logging.BaseXposedLogProvider
 import io.github.magisk317.xposed.logging.LogProviderQuotaConfig
 import io.github.magisk317.xposed.logging.LogProviderQuotaPolicy
 import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.xposed.logging.XposedLogEvent
-import java.io.File
 
 class ModuleLogProvider : BaseXposedLogProvider() {
 
@@ -44,16 +41,6 @@ class ModuleLogProvider : BaseXposedLogProvider() {
         val ctx = context?.applicationContext ?: return
         synchronized(writeLock) {
             val route = ModuleLogIngressPolicy.resolveRoute(event.route)
-            val estimatedBytes = event.message.toByteArray(Charsets.UTF_8).size.toLong() +
-                event.throwable.toByteArray(Charsets.UTF_8).size.toLong() + 1024L
-            if (!ModuleLogIngressPolicy.ensurePersistentQuota(
-                    logDir = LogBundleExporter.getLogDir(ctx),
-                    route = route,
-                    incomingBytes = estimatedBytes,
-                )
-            ) {
-                return
-            }
             LogUtils.appendModuleLog(
                 context = ctx,
                 source = route,
@@ -79,8 +66,6 @@ class ModuleLogProvider : BaseXposedLogProvider() {
 }
 
 internal object ModuleLogIngressPolicy {
-    const val MAX_PERSISTED_LOG_BYTES = DailyRouteLogQuota.DEFAULT_MAX_BYTES
-    internal const val MAX_EVENT_BYTES = 192L * 1024L
     private const val DEFAULT_ROUTE = "app"
     private val allowedRoutes = setOf(
         "app",
@@ -107,19 +92,6 @@ internal object ModuleLogIngressPolicy {
 
     internal fun resolveRoute(route: String?): String =
         route?.trim()?.takeIf(allowedRoutes::contains) ?: DEFAULT_ROUTE
-
-    fun ensurePersistentQuota(
-        logDir: File?,
-        route: String = "MiPush",
-        incomingBytes: Long = MAX_EVENT_BYTES,
-        currentDay: String = java.time.LocalDate.now().toString(),
-    ): Boolean = DailyRouteLogQuota.ensureCapacity(
-        logDir = logDir,
-        route = route,
-        currentDay = currentDay,
-        incomingBytes = incomingBytes.coerceAtMost(MAX_EVENT_BYTES),
-        maxBytes = MAX_PERSISTED_LOG_BYTES,
-    )
 
     internal fun isTrustedSystemPackage(packageName: String, flags: Int): Boolean =
         callerGuard.isPackageAllowed(packageName, flags)

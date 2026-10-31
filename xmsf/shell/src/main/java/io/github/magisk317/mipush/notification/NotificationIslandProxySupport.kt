@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import androidx.core.app.NotificationCompat
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -85,12 +85,12 @@ internal object NotificationIslandProxySupport {
         }.fold(
             onSuccess = {
                 PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_posted", "NotificationController.publish")
-                Logger.withTag(TAG).d { "posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId" }
+                XLog.tagged(TAG).d { "posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId" }
                 true
             },
             onFailure = {
                 PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_failed", "NotificationController.publish")
-                Logger.withTag(TAG).w(it) { "island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
+                XLog.tagged(TAG).w(it) { "island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
                 false
             },
         )
@@ -117,7 +117,7 @@ internal object NotificationIslandProxySupport {
                 },
             )
         }.onFailure {
-            Logger.withTag(TAG).w(it) { "cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
+            XLog.tagged(TAG).w(it) { "cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}" }
         }
     }
 

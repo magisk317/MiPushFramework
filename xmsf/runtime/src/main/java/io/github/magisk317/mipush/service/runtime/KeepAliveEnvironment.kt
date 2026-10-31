@@ -2,11 +2,12 @@ package io.github.magisk317.mipush.service.runtime
 
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.os.Build
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.provider.Settings
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import dalvik.system.PathClassLoader
 
 /**
@@ -170,7 +171,7 @@ internal object KeepAliveEnvironment {
                 }
             }
         }.onFailure {
-            Logger.withTag(TAG).d { "MIUI device-level API unavailable; using stock RAM fallback" }
+            XLog.tagged(TAG).d { "MIUI device-level API unavailable; using stock RAM fallback" }
         }.getOrNull()
         if (reflectedClass != null) return reflectedClass
 
@@ -205,7 +206,14 @@ internal object KeepAliveEnvironment {
     @Suppress("DEPRECATION")
     private fun readBattery(context: Context): BatterySnapshot? {
         val intent = runCatching {
-            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            // Sticky probe of a protected system broadcast; the flag is meaningless for a
+            // null receiver but required on API 33+. The system is exempt from NOT_EXPORTED.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            }
         }.getOrNull() ?: return null
         val level = intent.getIntExtra("level", -1)
         val scale = intent.getIntExtra("scale", -1)

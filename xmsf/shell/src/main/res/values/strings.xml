@@ -55,8 +55,6 @@
     <string name="debug_test_title">%1$s Test</string>
     <string name="debug_test_content">%1$s test content</string>
     <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
-    <string name="settings_debug_mode">Enable debug mode</string>
-    <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
@@ -304,6 +302,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="force_register_requires_root">Force register requires root access</string>
     <string name="force_register_unavailable">Required components are missing in this build, skipped</string>
     <string name="force_register_sent">Force-register request sent</string>
+    <string name="force_register_confirmed">Application registration confirmed</string>
+    <string name="force_register_timeout">Request sent, but no registration result was confirmed before timeout</string>
     <string name="force_register_failed">Force-register failed, check logs</string>
     <string name="mock_notification_missing_regsec">Cannot replay this encrypted push message: register secret is missing. Re-register the app and try again.</string>
     <string name="mock_notification_failed_event_not_found">Replay failed: event record not found in database (may have been pruned or deleted).</string>
@@ -314,8 +314,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_no_receiver">Replay failed: target app receiver not found for this push intent.</string>
     <string name="settings_home_service_title">Connection &amp; service</string>
     <string name="settings_home_service_summary">XMPP server, foreground service, and permission check.</string>
-    <string name="settings_home_keepalive_title">Keep-alive &amp; system limits</string>
-    <string name="settings_home_keepalive_summary">OOM adj, anti-kill, standby/Doze bypass, and dedicated keep-alive service.</string>
     <string name="settings_home_notifications_title">Dynamic Island &amp; Focus notifications</string>
     <string name="settings_home_notifications_summary">Event list visibility and island display controls.</string>
     <string name="settings_home_misc_title">Miscellaneous</string>
@@ -334,8 +332,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_version_label">Version</string>
     <string name="relay_mode_foreground">Foreground</string>
     <string name="relay_mode_background">Background</string>
-    <string name="settings_debug_mode_enabled">Verbose</string>
-    <string name="settings_debug_mode_disabled">Standard</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>

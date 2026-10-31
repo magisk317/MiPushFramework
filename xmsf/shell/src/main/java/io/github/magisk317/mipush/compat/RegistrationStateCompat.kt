@@ -433,9 +433,9 @@ object RegistrationStateCompat {
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = false
                 isExpandEntityReferences = false
-                runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
-                runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
-                runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+                runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }.onFailure { }
+                runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }.onFailure { }
+                runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }.onFailure { }
             }
             val document = factory.newDocumentBuilder().parse(InputSource(StringReader(content)))
             val values = linkedMapOf<String, String>()

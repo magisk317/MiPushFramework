@@ -80,11 +80,8 @@ class NotificationClickDispatchContractTest {
         ).readText()
 
         assertTrue(source.contains("notified: Boolean = false"))
-        assertTrue(
-            source.contains(
-                "): Boolean = dispatchToApplicationResult(context, packageName, payload, fromNotification, notified).dispatched",
-            ),
-        )
+        assertTrue(source.contains("includeStoppedPackages: Boolean = false"))
+        assertTrue(source.contains(".dispatched"))
         assertTrue(source.contains("putExtra(\"mipush_notified\", true)"))
     }
 

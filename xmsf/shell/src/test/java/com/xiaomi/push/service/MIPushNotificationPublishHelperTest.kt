@@ -50,6 +50,20 @@ class MIPushNotificationPublishHelperTest {
     }
 
     @Test
+    fun `inactive target gate sits beside the blocked gate with a skip attribution`() {
+        val source = readShellSource(
+            "io/github/magisk317/mipush/service/runtime/MIPushNotificationPublishHelper.kt",
+        )
+        val blockedGate = source.indexOf("skip blocked application")
+        val inactiveGate = source.indexOf("skip inactive target application")
+
+        assertTrue(blockedGate >= 0)
+        assertTrue(inactiveGate > blockedGate, "inactive-target gate must follow the blocked gate")
+        assertTrue(source.contains("shouldSuppressForInactiveApp(container.packageName)"))
+        assertTrue(source.contains("\"target_app_inactive\""))
+    }
+
+    @Test
     fun `policy-suppressed publish is treated as handled replay`() {
         assertEquals(
             MockReplayOutcome.Dispatched,

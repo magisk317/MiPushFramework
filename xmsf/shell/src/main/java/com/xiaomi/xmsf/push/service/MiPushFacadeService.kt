@@ -16,7 +16,7 @@ import android.os.Messenger
 import android.widget.Toast
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
@@ -162,13 +162,16 @@ open class MiPushFacadeService : Service() {
         if (Constants.CONFIGURATIONS_UPDATE_ACTION == intent.action) {
             if (!PushControllerUtils.isAppMainProc(this)) {
                 val directory = runBlocking { configCenter.getConfigurationDirectoryAsync() }
-                Configurations.getInstance().init(
+                val configurationsReady = Configurations.getInstance().init(
                     this,
                     directory
                 ) && iconConfigurations.init(
                     this,
                     directory
                 )
+                if (!configurationsReady) {
+                    android.util.Log.w("MiPushFacadeService", "configurations init reported failure")
+                }
             }
             return
         }
@@ -383,9 +386,9 @@ open class MiPushFacadeService : Service() {
             if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
             val text = "[$key] $message"
             if (throwable == null) {
-                Logger.withTag(TAG).w { text }
+                XLog.tagged(TAG).w { text }
             } else {
-                Logger.e(throwable) { text }
+                XLog.e(text, throwable)
             }
         }
     }

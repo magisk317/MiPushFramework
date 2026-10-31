@@ -361,8 +361,10 @@ internal object StockPushSupport {
     }
 
     private fun checkCallKitWhitelist(extras: Bundle?): Bundle {
-        extras?.getString("pkg_name")?.takeIf(::isBoundedIdentifier)
-            ?: return code(CODE_INVALID_ARGUMENT)
+        val packageName = extras?.getString("pkg_name")
+        if (packageName?.let(::isBoundedIdentifier) != true) {
+            return code(CODE_INVALID_ARGUMENT)
+        }
         // The stock whitelist source is not shipped. False is a safe, explicit deny result.
         return success(Bundle().apply { putBoolean("isInCallKitWhitelist", false) })
     }

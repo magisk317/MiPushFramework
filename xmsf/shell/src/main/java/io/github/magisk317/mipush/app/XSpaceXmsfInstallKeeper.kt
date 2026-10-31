@@ -162,8 +162,9 @@ object XSpaceXmsfInstallKeeper {
             if (installedPackages.isEmpty()) {
                 return RepairResult(Stage.ALREADY_SYNCHRONIZED)
             }
-            installedPackages.forEach { packageName ->
-                runRootCommand(uninstallCommand(packageName), UNINSTALL_TIMEOUT_MS)
+            for (packageName in installedPackages) {
+                // The package-list probe below is authoritative; bind the result to keep the discard explicit.
+                val uninstallResult = runRootCommand(uninstallCommand(packageName), UNINSTALL_TIMEOUT_MS)
             }
             val allRemoved = packageNames.none { packageName ->
                 isPackageListed(
@@ -183,8 +184,9 @@ object XSpaceXmsfInstallKeeper {
         if (missingPackages.isEmpty()) {
             return RepairResult(Stage.ALREADY_SYNCHRONIZED)
         }
-        missingPackages.forEach { packageName ->
-            runRootCommand(installExistingCommand(packageName), INSTALL_TIMEOUT_MS)
+        for (packageName in missingPackages) {
+            // The package-list probe below is authoritative; bind the result to keep the discard explicit.
+            val installResult = runRootCommand(installExistingCommand(packageName), INSTALL_TIMEOUT_MS)
         }
 
         val allInstalled = packageNames.all { packageName ->

@@ -188,7 +188,6 @@ internal class PushMessageProcessorNotificationActionSupport(
                 }
             }
             if (!NotificationType.HybridUnregisterResult.value.equals(notification.type)) {
-                NotificationType.PushLogUpload.value.equals(notification.type)
                 return null
             }
             try {

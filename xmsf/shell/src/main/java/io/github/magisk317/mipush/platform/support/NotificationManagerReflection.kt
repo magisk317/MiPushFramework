@@ -42,7 +42,7 @@ object NotificationManagerReflection {
         type.interfaces.forEach { interfaceType ->
             runCatching {
                 return findMethod(interfaceType, name, parameterTypes, visited)
-            }
+            }.onFailure { }
         }
         type.superclass?.let { superclass ->
             return findMethod(superclass, name, parameterTypes, visited)

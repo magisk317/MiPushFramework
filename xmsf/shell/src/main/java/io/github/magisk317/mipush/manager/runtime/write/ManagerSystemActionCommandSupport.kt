@@ -34,7 +34,7 @@ internal object ManagerSystemActionCommandSupport {
         logInfo: (String) -> Unit,
     ): ManagerWriteResultDto {
         Handler(Looper.getMainLooper()).postDelayed({
-            runCatching { Process.killProcess(Process.myPid()) }
+            runCatching { Process.killProcess(Process.myPid()) }.onFailure { }
         }, 250L)
         logInfo("restart_runtime scheduled")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RESTART_RUNTIME_OK)

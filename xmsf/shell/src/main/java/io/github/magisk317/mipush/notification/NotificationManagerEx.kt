@@ -26,7 +26,7 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.logging.LogRoute
 import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import io.github.magisk317.xposed.logging.XLog as SharedXLog
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import java.util.LinkedHashMap
 
@@ -281,7 +281,7 @@ object NotificationManagerEx {
         userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ): NotifyResult {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        Logger.withTag(TAG).d {
+        XLog.tagged(TAG).d {
             "notify() called with: packageName = $packageName, tag = $tag, id = $requestedId, " +
                 "channel = ${notification.channelId}, group = ${notification.group}"
         }
@@ -292,7 +292,8 @@ object NotificationManagerEx {
         if (id != requestedId) {
             logD("merge duplicate notification publish pkg=$packageName channel=${notification.channelId} requestedId=$requestedId -> $id")
         }
-        runCatching { NotificationDedupPolicy.record(dedupFingerprint, id, System.currentTimeMillis()) }
+        // Dedup bookkeeping is best-effort; a failure must not block the notification.
+        runCatching { NotificationDedupPolicy.record(dedupFingerprint, id, System.currentTimeMillis()) }.onFailure { }
         val currentUserId = Utils.myUserId()
         if (!canNotifyForUser(userId, currentUserId)) {
             logW(
@@ -472,7 +473,7 @@ object NotificationManagerEx {
         userId: Int = Utils.requireValidUserId(Utils.myUserId()),
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        Logger.withTag(TAG).d { "cancel() called with: packageName = $packageName, tag = $tag, id = $id" }
+        XLog.tagged(TAG).d { "cancel() called with: packageName = $packageName, tag = $tag, id = $id" }
         val currentUserId = Utils.myUserId()
         if (!canCancelForUser(userId, currentUserId)) {
             logW(

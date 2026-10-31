@@ -17,7 +17,6 @@ dependencies {
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.sqlite.bundled)
-    implementation(libs.kermit)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)

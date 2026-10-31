@@ -31,7 +31,10 @@ import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
+import io.github.magisk317.mipush.common.logging.StableLogTag
+import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
+@StableLogTag
 class RegistrationHelper(
     private val context: Context,
     private val packageName: String
@@ -65,7 +68,8 @@ class RegistrationHelper(
         tryForceRegister(packageName)
     }
 
-    companion object {
+    companion object : CompanionLogSupport {
+        override val logTag = "RegistrationHelper"
         @JvmStatic
         fun classifyForceRegisterPlan(
             packageName: String,

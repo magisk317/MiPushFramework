@@ -46,32 +46,4 @@ class ZygiskFailureReasonTest {
         )
     }
 
-    @Test
-    fun `scan failures map to stable reasons`() {
-        assertEquals(
-            "zygisk_scan_timeout",
-            ZygiskFailure.scanReason(BoundedShellResult.timedOut()),
-        )
-        assertEquals(
-            "zygisk_module_not_installed",
-            ZygiskFailure.scanReason(
-                BoundedShellResult(
-                    exitCode = 1,
-                    stderr = listOf("sh: /data/adb/modules/mipush_zygisk/bin/mipushctl: No such file or directory"),
-                ),
-            ),
-        )
-        assertEquals(
-            "zygisk_root_exec_failed",
-            ZygiskFailure.scanReason(BoundedShellResult(exitCode = 127)),
-        )
-        assertEquals(
-            "zygisk_scan_failed",
-            ZygiskFailure.scanReason(BoundedShellResult(exitCode = 127, stderr = listOf("mipushctl: scan aborted"))),
-        )
-        assertEquals(
-            "zygisk_root_exec_failed",
-            ZygiskFailure.scanReason(BoundedShellResult(exitCode = -1)),
-        )
-    }
 }

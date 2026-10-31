@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 /**
  * Scans installed apps for MiPush credentials in their manifests and proactively
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * This handles cases where the app's push framework (e.g. mPaaS) discovers xmsf
  * but doesn't send a registration intent.
  */
+@StableLogTag
 object ProactiveMiPushRegistrar {
     private const val TAG = "ProactiveMiPushRegistrar"
     private const val MIN_SCAN_INTERVAL_MS = 120_000L

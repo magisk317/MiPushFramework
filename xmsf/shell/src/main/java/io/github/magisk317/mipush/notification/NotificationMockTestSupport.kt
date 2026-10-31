@@ -24,12 +24,7 @@ import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
-import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
-import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
-import io.github.magisk317.mipush.common.notification.iconpack.ResolveFailure
-import io.github.magisk317.mipush.common.notification.iconpack.ResolveResult
-import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
@@ -99,7 +94,7 @@ fun testMock(
         tag = tag,
         userId = resolveUserId(context, packageName),
     )
-    Logger.withTag(TAG).d { "mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag" }
+    XLog.tagged(TAG).d { "mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag" }
 
     val notifyIntent = ManagerUiEntryPoints.mainActivityIntent(
         context = context,
@@ -281,7 +276,8 @@ fun testMock(
                 for (i in steps.indices) {
                     Thread.sleep(3000)
                     val updateBuilder = NotificationCompat.Builder(context, mockChannelId).apply {
-                        applyStatusBarIcon(context, packageName, this, colorStatusBarIcon)
+                        // The helper applies the color to this builder; bind the result to keep the discard explicit.
+                        val appliedColor = applyStatusBarIcon(context, packageName, this, colorStatusBarIcon)
                         setWhen(System.currentTimeMillis())
                         setContentTitle(deliveryTitle)
                         setContentText(texts[i])
@@ -308,7 +304,7 @@ fun testMock(
 
     val notification = NativeNotificationFeatureBuilder.buildNotification(context, builder, nativeFeature)
     nm.notify(tag, id, notification)
-    Logger.withTag(TAG).d {
+    XLog.tagged(TAG).d {
         "mock test posted kind=${kind.name} pkg=$packageName id=$id tag=$tag " +
             "focus=${notification.extras.containsKey(FOCUS_PARAM)} " +
             "contentIntent=${notification.contentIntent != null} nativeFeature=${nativeFeature.feature}"
@@ -367,7 +363,7 @@ private fun handleMockFocusSemantic(
     )
 
     if (focusPlan.allowIslandProxy && NotificationManagerEx.isHooked) {
-        Logger.withTag(TAG).d {
+        XLog.tagged(TAG).d {
             "mock test island broadcast kind=${kind.name} style=$style pkg=$packageName " +
                 "id=$notificationId reason=${focusPlan.reason}"
         }
@@ -416,7 +412,7 @@ private fun handleMockFocusSemantic(
         ),
     )
 
-    Logger.withTag(TAG).d {
+    XLog.tagged(TAG).d {
         "mock test focus semantic kind=${kind.name} style=$style pkg=$packageName " +
             "id=$notificationId reason=${focusPlan.reason} nativeFeature=${nativeFeature.feature}"
     }
@@ -480,7 +476,7 @@ private fun Context.sendMockIslandBroadcast(
     val userId = resolveUserId(this, sourcePackage)
     val options = MiPushIslandPreferences.read(this, sourcePackage, userId)
     val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
-    Logger.withTag(TAG).d {
+    XLog.tagged(TAG).d {
         "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
             "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}"
     }

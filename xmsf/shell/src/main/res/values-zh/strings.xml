@@ -58,8 +58,6 @@
 
 
     <string name="debug_test_content">这是%1$s测试内容</string>
-    <string name="settings_debug_mode">启用调试模式</string>
-    <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
@@ -286,6 +284,8 @@
     <string name="force_register_requires_root">强制注册需要 Root 权限</string>
     <string name="force_register_unavailable">当前构建缺少强制注册所需组件，已跳过</string>
     <string name="force_register_sent">已发送强制注册请求</string>
+    <string name="force_register_confirmed">已确认应用注册成功</string>
+    <string name="force_register_timeout">已发送请求，但在超时时间内未确认注册结果</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
     <string name="mock_notification_failed_event_not_found">重放失败：数据库中未找到该记录（可能已被清理或删除）。</string>
@@ -296,8 +296,6 @@
     <string name="mock_notification_no_receiver">重放失败：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">连接与服务</string>
     <string name="settings_home_service_summary">XMPP 服务器、前台服务与权限检查。</string>
-    <string name="settings_home_keepalive_title">保活与系统限制</string>
-    <string name="settings_home_keepalive_summary">OOM Adj、防杀、待机/Doze 绕过与专用保活服务。</string>
     <string name="settings_home_notifications_title">灵动岛与焦点通知</string>
     <string name="settings_home_notifications_summary">事件列表展示与灵动岛显示控制。</string>
     <string name="settings_home_misc_title">其他杂项</string>
@@ -316,8 +314,6 @@
     <string name="settings_version_label">版本</string>
     <string name="relay_mode_foreground">前台</string>
     <string name="relay_mode_background">后台</string>
-    <string name="settings_debug_mode_enabled">详细</string>
-    <string name="settings_debug_mode_disabled">标准</string>
     <string name="settings_group_display_and_list">显示与列表</string>
     <string name="settings_group_data_and_debug">数据与调试</string>
     <string name="settings_blur_radius">背景模糊强度</string>

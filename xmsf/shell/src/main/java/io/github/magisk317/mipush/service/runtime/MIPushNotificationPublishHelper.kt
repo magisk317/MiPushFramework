@@ -46,6 +46,8 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
+import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
 /**
  * Publish-time facade for MiPush notifications: entry gating, policy dispatch,
@@ -57,6 +59,7 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * on the companion, so call sites keep the
  * `MIPushNotificationPublishHelper.foo(...)` syntax.
  */
+@StableLogTag
 class MIPushNotificationPublishHelper {
 
     /**
@@ -68,7 +71,8 @@ class MIPushNotificationPublishHelper {
         val cause: String? = null,
     )
 
-    companion object {
+    companion object : CompanionLogSupport {
+        override val logTag = "MIPushNotificationPublishHelper"
         private const val TAG = "MyNotificationHelper"
 
         const val CLASS_NAME_PUSH_MESSAGE_HANDLER = Constants.PUSH_MESSAGE_HANDLER_CLASS
@@ -210,6 +214,17 @@ class MIPushNotificationPublishHelper {
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
                 logD("skip blocked application pkg=${container.packageName} action=${container.action}")
                 return finish(MockReplayOutcome.BlockedByPermission, "app_blocked", container.packageName.orEmpty())
+            }
+            if (RegisteredApplicationDb.shouldSuppressForInactiveApp(container.packageName)) {
+                logD(
+                    "skip inactive target application pkg=${container.packageName} " +
+                        "action=${container.action} messageId=$messageId"
+                )
+                return finish(
+                    MockReplayOutcome.BlockedByPermission,
+                    "target_app_inactive",
+                    container.packageName.orEmpty(),
+                )
             }
             if (!isMockReplay && shouldDropReplayNotification(container)) {
                 val messageTs = container.metaInfo?.messageTs ?: 0L

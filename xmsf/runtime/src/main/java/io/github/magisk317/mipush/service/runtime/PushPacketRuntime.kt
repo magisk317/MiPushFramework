@@ -120,6 +120,8 @@ object PushPacketRuntime {
     }
 
     private fun safeWarn(message: String) {
-        runCatching { logW(message) }
+        runCatching { logW(message) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
     }
 }

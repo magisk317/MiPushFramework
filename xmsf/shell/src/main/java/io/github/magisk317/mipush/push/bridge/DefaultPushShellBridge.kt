@@ -44,7 +44,7 @@ object DefaultPushShellBridge : PushShellBridge {
     }
 
     override fun isPushDebugEnabled(): Boolean =
-        kotlinx.coroutines.runBlocking { Global.configCenter().isDebugModeAsync() }
+        io.github.magisk317.xposed.logging.MagiskLogPolicy.current().verboseLogging
 
     override fun formatContainerForDebug(container: XmPushActionContainer?): String =
         io.github.magisk317.mipush.utils.ConvertUtils.toJson(container).toString()
@@ -193,7 +193,7 @@ object DefaultPushShellBridge : PushShellBridge {
         for ((name, step) in steps) {
             runCatching(step).onFailure {
                 failures += 1
-                co.touchlab.kermit.Logger.withTag("PushShellBridge").w(it) {
+                io.github.magisk317.xposed.logging.XLog.tagged("PushShellBridge").w(it) {
                     "package cleanup failed step=$name pkg=$packageName user=$userId"
                 }
             }

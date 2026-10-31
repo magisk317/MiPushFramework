@@ -46,6 +46,7 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
 class MyPushMessageHandler : Service() {
     private val job = SupervisorJob()
@@ -261,7 +262,7 @@ class MyPushMessageHandler : Service() {
             try {
                 task(elevated)
             } finally {
-                runCatching { appContext.unbindService(connection) }
+                runCatching { appContext.unbindService(connection) }.onFailure { }
                 completion.countDown()
             }
         }
@@ -295,7 +296,8 @@ class MyPushMessageHandler : Service() {
         }
     }
 
-    companion object {
+    companion object : CompanionLogSupport {
+        override val logTag = "MyPushMessageHandler"
         private const val APP_STATE_ELEVATION_TIMEOUT_MS = 5_000L
 
         /** Bounded window (~1.5s) for the post-hand-off visibility check. */

@@ -215,13 +215,13 @@ internal object NotificationIconRenderingSupport {
     }
 
     private fun logD(message: String) =
-        co.touchlab.kermit.Logger.withTag(TAG).d { message }
+        io.github.magisk317.xposed.logging.XLog.tagged(TAG).d { message }
 
     private fun logE(message: String, throwable: Throwable? = null) {
-        if (throwable == null) co.touchlab.kermit.Logger.withTag(TAG).e { message }
-        else co.touchlab.kermit.Logger.withTag(TAG).e(throwable) { message }
+        if (throwable == null) io.github.magisk317.xposed.logging.XLog.tagged(TAG).e { message }
+        else io.github.magisk317.xposed.logging.XLog.tagged(TAG).e(throwable) { message }
     }
 
     private fun logW(message: String) =
-        co.touchlab.kermit.Logger.withTag(TAG).w { message }
+        io.github.magisk317.xposed.logging.XLog.tagged(TAG).w { message }
 }

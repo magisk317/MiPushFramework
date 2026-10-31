@@ -33,7 +33,7 @@ object StockSurfaceBootstrap {
             bindRegistered = false
             appContext
         } ?: return@Runnable
-        runCatching { context.unbindService(serviceConnection) }
+        runCatching { context.unbindService(serviceConnection) }.onFailure { }
         scheduleRetry()
     }
 
@@ -86,7 +86,7 @@ object StockSurfaceBootstrap {
             object : OnlineConfig.OCUpdateCallback(ONLINE_CONFIG_CALLBACK_ID, "service box") {
                 override fun onCallback() {
                     val bridge = synchronized(lock) { serviceBoxBridge }
-                    runCatching { bridge?.notifyOnlineConfigChanged() }
+                    runCatching { bridge?.notifyOnlineConfigChanged() }.onFailure { }
                 }
             },
         )
@@ -129,7 +129,7 @@ object StockSurfaceBootstrap {
             appContext
         }
         handler.removeCallbacks(bindTimeoutRunnable)
-        if (context != null) runCatching { context.unbindService(serviceConnection) }
+        if (context != null) runCatching { context.unbindService(serviceConnection) }.onFailure { }
         scheduleRetry()
     }
 

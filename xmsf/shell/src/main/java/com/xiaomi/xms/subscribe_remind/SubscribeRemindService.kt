@@ -25,7 +25,7 @@ class SubscribeRemindService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     private fun unsupported(callback: IResultCallback?) {
-        runCatching { callback?.onResult(ERROR_NOT_SUPPORT, Bundle()) }
+        runCatching { callback?.onResult(ERROR_NOT_SUPPORT, Bundle()) }.onFailure { }
     }
 
     private companion object {

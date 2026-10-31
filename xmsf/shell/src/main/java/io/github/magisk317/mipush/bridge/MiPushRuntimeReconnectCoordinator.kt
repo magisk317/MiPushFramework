@@ -34,7 +34,7 @@ internal class MiPushRuntimeReconnectCoordinator(
             superPowerMode,
             extremePowerMode,
         )
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "should_reconnect_policy result=${plan.shouldReconnect} hasNetwork=$hasNetwork " +
                 "hasAccount=$hasAccount activeClients=$activeClientCount " +
                 "effectiveClients=$effectiveCount pushDisabled=$pushDisabled " +
@@ -56,7 +56,7 @@ internal class MiPushRuntimeReconnectCoordinator(
         val activeClientCount = PushClientsManager.getInstance().getActiveClientCount()
         val effectiveClients = activeClientCount > 0 || hasAccount
         val allowedByPolicy = hasNetwork && (effectiveClients || force)
-        ReconnectDebugLog.w(
+        ReconnectDebugLog.i(
             "reconnect_policy hasNetwork=$hasNetwork hasAccount=$hasAccount " +
                 "activeClients=$activeClientCount effectiveClients=$effectiveClients " +
                 "allowed=$allowedByPolicy force=$force connected=$isConnected " +

@@ -9,7 +9,6 @@ import android.os.IBinder
 import android.os.Process
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.BuildConfig
-import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
@@ -55,6 +54,7 @@ import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.runtime.write.ManagerWriteRuntimeExecutor
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadPage
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
@@ -64,7 +64,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 class ManagerRuntimeService : Service() {
     private val applicationProbeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter by lazy {
@@ -86,6 +88,15 @@ class ManagerRuntimeService : Service() {
     private val preferenceReader by lazy { ManagerPreferenceRuntimeReader(this) }
     private val configurationUploadWriter by lazy { ManagerConfigurationUploadRuntimeWriter(this) }
     private val writeExecutor by lazy { ManagerWriteRuntimeExecutor(this) }
+
+    /**
+     * The gateway lines are logged from inside the anonymous [IManagerRuntimeService.Stub], where
+     * `logI` would resolve the tag to that anonymous class — an R8 name that differs per flavor.
+     * Pin the component name instead so `ManagerRuntime` stays greppable in the shipped log.
+     */
+    private fun managerRuntimeLog(message: String) {
+        XLog.tagged("ManagerRuntime").i { message }
+    }
 
     private val binder = object : IManagerRuntimeService.Stub() {
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
@@ -113,7 +124,7 @@ class ManagerRuntimeService : Service() {
                     runtimeCommit = BuildConfig.GIT_COMMIT,
                 ).also { handshake ->
                     val durationMs = android.os.SystemClock.elapsedRealtime() - started
-                    logI(
+                    managerRuntimeLog(
                         "ManagerRuntime handshake client=$clientMajor.$clientMinor " +
                             "compat=${handshake.compatibilityReason} " +
                             "commit=${handshake.runtimeCommit} " +
@@ -141,7 +152,7 @@ class ManagerRuntimeService : Service() {
             val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
                 runtimeSettingsAdapter.getConnectionSnapshot().toWireDto().also { snapshot ->
-                    logI(
+                    managerRuntimeLog(
                         "ManagerRuntime getConnectionSnapshot state=${snapshot.connectionState} " +
                             "host=${snapshot.serverHost.orEmpty()} " +
                             "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
@@ -170,7 +181,7 @@ class ManagerRuntimeService : Service() {
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     )?.let(::invalidArgument)
-                    logI(
+                    managerRuntimeLog(
                         "ManagerRuntime getApplicationPage items=${page.items.size} " +
                             "using=${page.stats.usingMiPush} total=${page.stats.total} " +
                             "token=${!page.nextPageToken.isNullOrBlank()} " +
@@ -223,7 +234,7 @@ class ManagerRuntimeService : Service() {
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     )?.let(::invalidArgument)
-                    logI(
+                    managerRuntimeLog(
                         "ManagerRuntime getEventPage items=${page.items.size} " +
                             "lastId=${query.lastId} pkg=${query.packageName.orEmpty()} " +
                             "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
@@ -499,6 +510,7 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
         registeredType = registeredType,
         existServices = existServices,
         appName = appName,
@@ -517,6 +529,8 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
         clickFallbackEnabled = clickFallbackEnabled,
+        suppressWhenDisabled = suppressWhenDisabled,
+        countLimitExempt = countLimitExempt,
         registeredType = registeredType,
         existServices = existServices,
         appName = appName,

@@ -11,7 +11,7 @@ import android.os.Looper
 import android.os.Parcel
 import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.service.ForegroundHelper.Companion.CHANNEL_STATUS
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -79,13 +79,13 @@ object BackgroundActivityStartEnabler {
             if (notifyPushStatusInitializing(context, channelId, nm)) {
                 channelId
             } else {
-                Logger.withTag(TAG).w {
+                XLog.tagged(TAG).w {
                     "Initializing notification unavailable; trying existing active notification donor"
                 }
                 null
             }
         } else {
-            Logger.withTag(TAG).i {
+            XLog.tagged(TAG).i {
                 "Notifications disabled for XMSF; using existing active notification donor"
             }
             null
@@ -132,7 +132,7 @@ object BackgroundActivityStartEnabler {
             nm.notify(TAG, 0, n)
             true
         }.onFailure {
-            Logger.withTag(TAG).e(it) { "Failed to post initializing notification: ${it.message}" }
+            XLog.tagged(TAG).e(it) { "Failed to post initializing notification: ${it.message}" }
         }.getOrDefault(false)
     }
 
@@ -159,7 +159,7 @@ object BackgroundActivityStartEnabler {
             } else {
                 if (channel.importance > NotificationManager.IMPORTANCE_NONE) break
                 if (channelPostfix == 16) {
-                    Logger.withTag(TAG).e { "Failed to obtain available notification channel." }
+                    XLog.tagged(TAG).e { "Failed to obtain available notification channel." }
                     return null
                 }
                 channelId = CHANNEL_STATUS + (++channelPostfix)
@@ -177,14 +177,14 @@ object BackgroundActivityStartEnabler {
         Handler(Looper.getMainLooper()).postDelayed({
             val notifications = runCatching { nm.activeNotifications }
                 .onFailure {
-                    Logger.withTag(TAG).e(it) {
+                    XLog.tagged(TAG).e(it) {
                         "Failed to read active notifications attempt=$attempt: ${it.message}"
                     }
                 }
                 .getOrDefault(emptyArray())
             val captureSource = findCaptureNotification(notifications)
             val captured = captureSource != CaptureSource.None
-            Logger.withTag(TAG).d {
+            XLog.tagged(TAG).d {
                 "Capture attempt=$attempt activeCount=${notifications.size} captured=$captured " +
                     "source=${captureSource.name} remainingRetries=$retries"
             }
@@ -200,14 +200,14 @@ object BackgroundActivityStartEnabler {
                     },
                 )
             } else if (retries == 0) {
-                Logger.withTag(TAG).e {
+                XLog.tagged(TAG).e {
                     "Failed to capture active notification after attempts=$attempt"
                 }
                 emitBg(result = "error", reason = "active_notification_capture_failed", statusOk = false)
                 cancelInitializingNotificationSafely(nm)
                 deleteTemporaryChannel(nm, postedChannelId)
             } else {
-                Logger.withTag(TAG).i {
+                XLog.tagged(TAG).i {
                     "Wait to capture active notification attempt=$attempt nextAttempt=${attempt + 1}"
                 }
                 scheduleCapture(nm, postedChannelId, retries - 1)
@@ -218,7 +218,7 @@ object BackgroundActivityStartEnabler {
     private fun cancelInitializingNotificationSafely(nm: NotificationManager) {
         runCatching { nm.cancel(TAG, 0) }
             .onFailure {
-                Logger.withTag(TAG).w(it) { "skip initializing notification cleanup: ${it.message}" }
+                XLog.tagged(TAG).w(it) { "skip initializing notification cleanup: ${it.message}" }
             }
     }
 
@@ -257,7 +257,7 @@ object BackgroundActivityStartEnabler {
         return if (isInitializingNotification(statusBarNotification.id, statusBarNotification.tag)) {
             CaptureSource.InitializingNotification
         } else {
-            Logger.withTag(TAG).i {
+            XLog.tagged(TAG).i {
                 "Captured existing active notification donor " +
                     "pkg=${statusBarNotification.packageName} id=${statusBarNotification.id} " +
                     "tag=${statusBarNotification.tag} channel=${statusBarNotification.notification.channelId}"

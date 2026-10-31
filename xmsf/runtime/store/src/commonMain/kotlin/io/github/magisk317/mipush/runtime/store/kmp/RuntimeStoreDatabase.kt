@@ -12,7 +12,7 @@ import androidx.room.RoomDatabaseConstructor
         RuntimeDeletedEventRow::class,
         RuntimeRegisteredApplicationRow::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @ConstructedBy(RuntimeStoreDatabaseConstructor::class)

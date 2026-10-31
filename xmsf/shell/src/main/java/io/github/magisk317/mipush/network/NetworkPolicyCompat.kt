@@ -75,12 +75,13 @@ object NetworkPolicyCompat {
             "persist.sys.country"
         )
         for (key in keys) {
+            // Some ROMs do not expose every key; the build-time default remains in effect.
             runCatching {
                 val clazz = Class.forName("android.os.SystemProperties")
                 val setMethod = clazz.getDeclaredMethod("set", String::class.java, String::class.java)
                 setMethod.isAccessible = true
                 setMethod.invoke(null, key, countryCode)
-            }
+            }.onFailure { }
         }
     }
 

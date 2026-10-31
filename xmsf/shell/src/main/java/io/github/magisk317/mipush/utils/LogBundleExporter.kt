@@ -23,6 +23,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.app.MemoryLimitDiagnostics
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
@@ -44,8 +45,12 @@ object LogBundleExporter {
     private const val STAGING_STALE_MAX_AGE_MS = 30L * 60L * 1000L
     private const val XMSF_KEEPER_PACKAGE = "com.xiaomi.xmsfkeeper"
     private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
+    private const val ZYGISK_DIAGNOSTICS_FILE = "zygisk_diagnostics.txt"
+    private const val TARGET_PROCESS_DIAGNOSTICS_FILE = "target_process_diagnostics.txt"
+    private const val ZYGISK_CONFIG_PATH = "/data/adb/mipush_zygisk/app.conf"
     private const val APPLICATION_EXIT_HISTORY_FILE = "application_exit_history.txt"
     private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
+    private const val TARGET_PROCESS_DIAGNOSTICS_TIMEOUT_MS = 12_000L
     private const val DEFAULT_HASH_BUFFER_SIZE = 64 * 1024
     private const val PRIVATE_LOG_DIR_NAME = "log"
     const val BLOCK_REASON_NEED_ROOT = "uikit_log_export_need_root"
@@ -214,6 +219,16 @@ object LogBundleExporter {
                     captureXmsfKeepaliveDiagnostics(stagingDir, safeDetails)
                     safeDetails += "keepaliveDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
                 }
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    captureZygiskDiagnostics(stagingDir, safeDetails)
+                    safeDetails += "zygiskDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
+                }
+                run {
+                    val started = SystemClock.elapsedRealtime()
+                    captureTargetProcessDiagnostics(context, stagingDir, safeDetails)
+                    safeDetails += "targetProcessDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
+                }
             }
 
             run {
@@ -225,7 +240,7 @@ object LogBundleExporter {
             safeDetails += "exportParallelWorkers=$workers"
         } finally {
             pool.shutdown()
-            runCatching { pool.awaitTermination(2, TimeUnit.MINUTES) }
+            runCatching { pool.awaitTermination(2, TimeUnit.MINUTES) }.onFailure { }
         }
     }
 
@@ -347,7 +362,7 @@ object LogBundleExporter {
                 } else {
                     child.delete()
                 }
-            }
+            }.onFailure { }
         }
     }
 
@@ -378,12 +393,12 @@ object LogBundleExporter {
                 if (file.isFile) {
                     val mtime = file.lastModified()
                     if (mtime > 0L && mtime < cutoffMs) {
-                        runCatching { file.delete() }
+                        runCatching { file.delete() }.onFailure { }
                     }
                 } else if (file.isDirectory) {
                     val mtime = file.lastModified()
                     if (mtime > 0L && mtime < cutoffMs) {
-                        runCatching { deleteRecursivelyWithSuFallback(file) }
+                        runCatching { deleteRecursivelyWithSuFallback(file) }.onFailure { }
                     }
                 }
                 return@forEach
@@ -391,7 +406,7 @@ object LogBundleExporter {
             val day = dateRegex.find(file.name)?.groupValues?.getOrNull(1)
             val fileTime = day?.let { LogUtils.parseDayStartMs(it) } ?: file.lastModified()
             if (fileTime > 0L && fileTime < cutoffMs) {
-                runCatching { file.delete() }
+                runCatching { file.delete() }.onFailure { }
             }
         }
     }
@@ -401,7 +416,7 @@ object LogBundleExporter {
         if (root.isFile) {
             val mtime = root.lastModified()
             if (mtime > 0L && mtime < cutoffMs) {
-                runCatching { root.delete() }
+                runCatching { root.delete() }.onFailure { }
             }
             return
         }
@@ -416,7 +431,7 @@ object LogBundleExporter {
                     } else {
                         file.delete()
                     }
-                }
+                }.onFailure { }
             }
         }
         // Drop empty root leftovers only if everything is gone; keep the directory itself.
@@ -428,7 +443,7 @@ object LogBundleExporter {
             if (!include(file)) return@forEach
             val mtime = file.lastModified()
             if (mtime > 0L && mtime < cutoffMs) {
-                runCatching { file.delete() }
+                runCatching { file.delete() }.onFailure { }
             }
         }
     }
@@ -539,6 +554,10 @@ object LogBundleExporter {
             identity.jsonFields().forEach { (field, value) -> payload.put(field, value) }
             payload
                 .put("isCiBuild", BuildConfig.IS_CI_BUILD)
+                .put(
+                    "verboseLogging",
+                    io.github.magisk317.xposed.logging.MagiskLogPolicy.current().verboseLogging,
+                )
                 .put("fileCount", summary.fileCount)
                 .put("totalBytes", summary.totalBytes)
                 .put("entryCount", summary.entryCount)
@@ -784,7 +803,7 @@ object LogBundleExporter {
         DiagnosticShell.deleteRecursivelyWithSuFallback(
             target = target,
             rootAvailable = {
-                runCatching { com.topjohnwu.superuser.Shell.getShell() }
+                runCatching { com.topjohnwu.superuser.Shell.getShell() }.onFailure { }
                 rootCommandAccess.refreshRootAccessIfGranted()
             },
             onWarning = { logW(it) },
@@ -867,8 +886,170 @@ object LogBundleExporter {
         )
     }
 
+    /**
+     * Snapshot of the Zygisk spoof layer: which config the module is reading, which device
+     * profile it resolved, and what the module itself logged. Without this a report cannot show
+     * whether an app was ever in the spoof list, or which profile was active when it failed.
+     */
+    private fun captureZygiskDiagnostics(stagingDir: File, details: MutableList<String>) {
+        val output = File(stagingDir, "system/$ZYGISK_DIAGNOSTICS_FILE")
+        val parent = output.parentFile
+        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
+            details += "zygisk diagnostics failed: output dir unavailable"
+            return
+        }
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
+            output.writeText("status=unavailable\nreason=root_not_granted\n")
+            details += "zygisk diagnostics skipped: root not granted"
+            return
+        }
+
+        val appConfig = rootCommandAccess.runRootCommand(
+            "cat ${shQuote(ZYGISK_CONFIG_PATH)}",
+            timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS,
+        )
+        val deviceConfig = rootCommandAccess.runRootCommand(
+            "grep -E ${shQuote("^(#|ro\\.(product|build|miui|hardware|boot\\.hardware|soc)\\.|persist\\.sys\\.(country|oem|miui))")}" +
+                " ${shQuote("/data/adb/mipush_zygisk/device.conf")} 2>/dev/null || true",
+            timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS,
+        )
+        val runtime = rootCommandAccess.runRootCommand(
+            """
+            for p in /data/adb/modules/mipush_zygisk /data/adb/modules/MiPushZygisk /data/adb/modules/mipushzygisk; do
+                if [ -f "${'$'}p/module.prop" ]; then
+                    echo "## module.prop:${'$'}p"
+                    grep -E '^(id|name|version|versionCode|description|author)=' "${'$'}p/module.prop" || true
+                fi
+            done
+            echo '## mipushcut state'
+            cat /data/adb/mipush_zygisk/mipushcut.state 2>/dev/null || true
+            echo '## selected properties'
+            getprop | grep -E '^(\[mipush\.zygisk\.enabled\]|\[ro\.(product|build|miui|hardware|boot\.hardware|soc)\.|\[persist\.sys\.(country|oem|miui)\.)' || true
+            echo '## MiPushZygisk logcat'
+            logcat -d -v threadtime -b all -s 'MiPushZygisk:*' | tail -n 2000 || true
+            """.trimIndent(),
+            timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS,
+        )
+        val text = buildString {
+            appendLine("schemaVersion=1")
+            appendLine("status=available")
+            appendLine("configPath=$ZYGISK_CONFIG_PATH")
+            appendLine("configReadSuccess=${appConfig.isSuccess}")
+            appendLine("configExitCode=${appConfig.exitCode}")
+            appendLine("configTimedOut=${appConfig.timedOut}")
+            appendLine("configEntryCount=${safeZygiskPackages(appConfig.stdoutText).size}")
+            appendLine("[app.conf]")
+            appendLine(appConfig.stdoutText.ifBlank { "<empty>" })
+            appendLine("[device.conf platform-only]")
+            appendLine(deviceConfig.stdoutText.ifBlank { "<empty>" })
+            appendLine("[module/property/logcat]")
+            appendLine(runtime.stdoutText.ifBlank { "<empty>" })
+            if (runtime.stderrText.isNotBlank()) {
+                appendLine("[stderr]")
+                appendLine(runtime.stderrText)
+            }
+        }
+        output.writeText(text)
+        details += "zygisk diagnostics: system/$ZYGISK_DIAGNOSTICS_FILE"
+    }
+
+    /**
+     * Per-target-app exit reasons and crash lines. `getHistoricalProcessExitReasons` only accepts
+     * the calling package, so the previous bundle could never show why a spoofed app died or was
+     * killed; the root `dumpsys activity exit-info` call covers every registered package plus the
+     * apps in the spoof list.
+     */
+    private fun captureTargetProcessDiagnostics(
+        context: Context,
+        stagingDir: File,
+        details: MutableList<String>,
+    ) {
+        val output = File(stagingDir, "system/$TARGET_PROCESS_DIAGNOSTICS_FILE")
+        val parent = output.parentFile
+        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
+            details += "target process diagnostics failed: output dir unavailable"
+            return
+        }
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
+            output.writeText("status=unavailable\nreason=root_not_granted\n")
+            details += "target process diagnostics skipped: root not granted"
+            return
+        }
+
+        val configuredPackages = rootCommandAccess.runRootCommand(
+            "cat ${shQuote(ZYGISK_CONFIG_PATH)}",
+            timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS,
+        ).stdoutText
+        val registeredPackages = runCatching {
+            RegisteredApplicationDb.getList(null).map { it.packageName }
+        }.getOrDefault(emptyList())
+        val targets = (listOf(context.packageName, Constants.SERVICE_APP_NAME) +
+            safeZygiskPackages(configuredPackages) + registeredPackages)
+            .map { it.substringBefore('|').removePrefix("-").trim() }
+            .filter(::isSafePackageName)
+            .distinct()
+            .take(64)
+        if (targets.isEmpty()) {
+            output.writeText("status=unavailable\nreason=no_target_packages\n")
+            details += "target process diagnostics skipped: no target packages"
+            return
+        }
+
+        val packagePattern = targets.joinToString("|") { it.replace(".", "\\.") }
+        val command = buildString {
+            targets.forEach { packageName ->
+                append("echo ").append(shQuote("## exit-info:$packageName")).append("; ")
+                append("dumpsys activity exit-info ").append(shQuote(packageName))
+                    .append(" 2>&1 | tail -n 120; ")
+            }
+            append("echo ").append(shQuote("## crash-logcat")).append("; ")
+            append("logcat -d -v threadtime -b crash | grep -E ")
+                .append(shQuote(packagePattern)).append(" | tail -n 1500 || true; ")
+            append("echo ").append(shQuote("## activity-logcat")).append("; ")
+            append("logcat -d -v threadtime -b all | grep -E ")
+                .append(shQuote(packagePattern)).append(" | grep -E ")
+                .append(shQuote("FATAL EXCEPTION|AndroidRuntime|ANR|am_crash|Process .* has died"))
+                .append(" | tail -n 1500 || true")
+        }
+        val result = rootCommandAccess.runRootCommand(
+            command,
+            timeoutMs = TARGET_PROCESS_DIAGNOSTICS_TIMEOUT_MS,
+        )
+        val text = buildString {
+            appendLine("schemaVersion=1")
+            appendLine("status=${if (result.isSuccess) "available" else "partial"}")
+            appendLine("targetCount=${targets.size}")
+            appendLine("targets=${targets.joinToString(",")}")
+            appendLine("exitCode=${result.exitCode}")
+            appendLine("timedOut=${result.timedOut}")
+            appendLine("skipped=${result.skipped}")
+            appendLine("[stdout]")
+            appendLine(result.stdoutText.ifBlank { "<empty>" })
+            appendLine("[stderr]")
+            appendLine(result.stderrText.ifBlank { "<empty>" })
+        }
+        output.writeText(text)
+        details += "target process diagnostics: system/$TARGET_PROCESS_DIAGNOSTICS_FILE targets=${targets.size}"
+    }
+
+    /** Package names from a Zygisk app.conf, so diagnostics can cover the spoofed apps. */
+    private fun safeZygiskPackages(content: String): List<String> = content.lineSequence()
+        .map { it.trim() }
+        .filter {
+            it.isNotEmpty() && !it.startsWith("#") && !it.startsWith("profile=") &&
+                !it.startsWith("observe=") && !it.startsWith("spoof=")
+        }
+        .map { it.removePrefix("-") }
+        .map { it.substringBefore('|') }
+        .filter(::isSafePackageName)
+        .distinct()
+        .toList()
+
+    private fun isSafePackageName(value: String): Boolean =
+        Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+").matches(value)
+
     private fun captureXmsfKeepaliveDiagnostics(stagingDir: File, details: MutableList<String>) {
-        runCatching { com.topjohnwu.superuser.Shell.getShell() }
+        runCatching { com.topjohnwu.superuser.Shell.getShell() }.onFailure { }
         if (!rootCommandAccess.refreshRootAccessIfGranted()) {
             details += "xmsf keepalive diagnostics skipped: root not granted"
             return

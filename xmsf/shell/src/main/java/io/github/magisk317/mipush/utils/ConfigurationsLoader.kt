@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJson
@@ -227,7 +227,7 @@ class ConfigurationsLoader private constructor(
         ): StringBuilder {
             val file = pair.first
             val e = pair.second
-            Logger.withTag(TAG).e(e) { "JSON parse error in ${file.name}" }
+            XLog.tagged(TAG).e(e) { "JSON parse error in ${file.name}" }
 
             var errmsg = StringBuilder(e.toString())
             val pattern = Pattern.compile(" character (\\d+) of ")
@@ -277,7 +277,7 @@ class ConfigurationsLoader private constructor(
                     }
                 }
             } catch (e: Exception) {
-                Logger.withTag(TAG).e(e) { "readTextFromUri failed" }
+                XLog.tagged(TAG).e(e) { "readTextFromUri failed" }
             }
             return stringBuilder.toString()
         }

@@ -12,7 +12,6 @@ import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
-import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
@@ -48,6 +47,9 @@ import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
 import java.security.MessageDigest
 
+import io.github.magisk317.mipush.common.logging.StableLogTag
+
+@StableLogTag
 class ManagerWriteRuntimeExecutor(
     private val context: Context,
     private val preferenceRepository: PreferenceRepository,
@@ -211,7 +213,6 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG -> zygiskGetConfig(request)
             ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG -> zygiskSaveConfig(request)
             ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP -> zygiskForceStop(request)
-            ManagerProtocol.WRITE_OP_ZYGISK_SCAN -> zygiskScan(request)
             ManagerProtocol.WRITE_OP_REPAIR_XSPACE -> repairXSpace(request)
             ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE -> resetTopActivityCache(request)
             ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT -> getEventContent(request)
@@ -305,6 +306,10 @@ class ManagerWriteRuntimeExecutor(
                 ?: current.notificationOnRegister,
             clickFallbackEnabled = parts.getOrNull(5)?.toBooleanStrictOrNull()
                 ?: current.clickFallbackEnabled,
+            suppressWhenDisabled = parts.getOrNull(6)?.toBooleanStrictOrNull()
+                ?: current.suppressWhenDisabled,
+            countLimitExempt = parts.getOrNull(7)?.toBooleanStrictOrNull()
+                ?: current.countLimitExempt,
         )
         applicationGateway.updateApplication(updated)
         return success(request.requestId, "application_updated")
@@ -712,21 +717,6 @@ class ManagerWriteRuntimeExecutor(
             success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
         } else {
             failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_FAILED)
-        }
-    }
-
-    private suspend fun zygiskScan(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
-        }
-        return when (val result = zygiskConfigGateway.scanZygiskPackages()) {
-            is io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Available -> success(
-                request.requestId,
-                result.output.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
-                resultLong = result.output.length.toLong(),
-            )
-            is io.github.magisk317.mipush.manager.application.ZygiskPackageScanResult.Unavailable ->
-                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
         }
     }
 

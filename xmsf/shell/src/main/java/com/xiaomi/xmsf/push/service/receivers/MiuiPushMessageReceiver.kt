@@ -14,7 +14,7 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import android.os.SystemClock
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.serialization.json.Json
@@ -137,9 +137,9 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
             if (!warnLimiter.tryAcquire(key, SystemClock.elapsedRealtime()).allowed) return
             val text = "[$key] $message"
             if (throwable == null) {
-                Logger.withTag(TAG).w { text }
+                XLog.tagged(TAG).w { text }
             } else {
-                Logger.e(throwable) { text }
+                XLog.e(text, throwable)
             }
         }
         private const val REGISTERED_PACKAGES_PREFS = "pref_registered_pkg_names"

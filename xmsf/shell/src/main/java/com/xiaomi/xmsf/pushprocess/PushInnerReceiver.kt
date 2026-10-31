@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -78,7 +78,7 @@ class PushInnerReceiver : BroadcastReceiver() {
                 )
             }
             else -> {
-                Logger.withTag(TAG).w { "Rejected unsupported internal control target" }
+                XLog.tagged(TAG).w { "Rejected unsupported internal control target" }
                 MagiskOtel.event(
                     name = "push.control",
                     attributes = mapOf(
@@ -97,7 +97,7 @@ class PushInnerReceiver : BroadcastReceiver() {
     private fun deliverKitMessage(context: Context, message: ControlMessage) {
         val kitName = message.kitName
         if (kitName.isNullOrBlank() || !KIT_NAME_PATTERN.matches(kitName)) {
-            Logger.withTag(TAG).w { "Rejected internal delivery without a valid kit name" }
+            XLog.tagged(TAG).w { "Rejected internal delivery without a valid kit name" }
             return
         }
         val nested = Bundle().apply {
@@ -120,7 +120,7 @@ class PushInnerReceiver : BroadcastReceiver() {
         }
         // The stock handlers mutate installed XMS/kit modules. This replacement has no
         // equivalent signed module manager, so accepting the request would be unsafe.
-        Logger.withTag(TAG).w { "Rejected unsupported privileged control command: $category" }
+        XLog.tagged(TAG).w { "Rejected unsupported privileged control command: $category" }
     }
 
     internal data class ControlMessage(
@@ -165,7 +165,7 @@ class PushInnerReceiver : BroadcastReceiver() {
                     config = config,
                 )
             }.onFailure {
-                Logger.withTag(TAG).w { "Rejected malformed internal control message" }
+                XLog.tagged(TAG).w { "Rejected malformed internal control message" }
             }.getOrNull()
         }
     }

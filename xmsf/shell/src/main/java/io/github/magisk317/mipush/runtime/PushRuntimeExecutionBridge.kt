@@ -23,8 +23,15 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.freeze.FrozenAppCoordinator
 import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.xposed.logging.MagiskOtel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
 
     @Volatile
@@ -37,14 +44,18 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
         }.getOrDefault(false)
     }
 
+    private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     @JvmStatic
     fun attach(context: Context) {
         appContext = context.applicationContext ?: context
         PushRuntime.attachExecutionHost(this)
-        runCatching {
-            AppDependencies.get<FrozenAppCoordinator>(context.applicationContext).ensureStarted()
-        }.onFailure {
-            logW("frozen app coordinator start failed", it)
+        startupScope.launch {
+            runCatching {
+                AppDependencies.get<PreferenceRepository>(context.applicationContext).purgeRetiredFreezeKeys()
+            }.onFailure {
+                logW("retired freeze preference keys purge failed", it)
+            }
         }
         runCatching {
             PushRuntime.synchronizePersistedRegistrationState(

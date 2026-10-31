@@ -272,6 +272,9 @@ interface RuntimeRegisteredApplicationDao {
     @Query("SELECT click_fallback_enabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
     suspend fun isClickFallbackEnabled(pkg: String, userId: Int): Boolean?
 
+    @Query("SELECT suppress_when_disabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
+    suspend fun isSuppressWhenDisabled(pkg: String, userId: Int): Boolean?
+
     @Query("UPDATE REGISTERED_APPLICATION SET click_fallback_enabled = :enabled WHERE id = :id AND user_id = :userId")
     suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
 

@@ -4,14 +4,12 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import com.xiaomi.xmsf.R
-import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
-import io.github.magisk317.mipush.common.logging.DailyRouteLogQuota
+import io.github.magisk317.xposed.logging.DailyJsonlLogStore
 import io.github.magisk317.xposed.logging.JsonLineEncoder
 import io.github.magisk317.xposed.logging.JsonLineField
+import io.github.magisk317.xposed.logging.LogLevel
 import io.github.magisk317.xposed.logging.LogSink
-import io.github.magisk317.xposed.logging.LoggingKit
 import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.XLog as SharedXLog
 import java.io.File
@@ -29,20 +27,14 @@ object LogUtils {
     private const val DEFAULT_ROUTE = "app"
     private val dailyDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
     private val logTimestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
-    private val dailyRuntimeLogPattern = Regex("""^runtime(?:\.[A-Za-z0-9_.-]+)?\.\d{4}-\d{2}-\d{2}\.jsonl$""")
-    private val dailyLogDateRegex = Regex("""^runtime(?:\.[^.]+)*\.(\d{4}-\d{2}-\d{2})\.jsonl$""")
-    private val redundantAppRouteRuntimeLogPattern = Regex("""^runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl$""")
+    private val dailyRuntimeLogPattern = Regex("""^runtime(?:\.[A-Za-z0-9_.-]+)?\.\d{4}-\d{2}-\d{2}(?:-\d+)?\.jsonl$""")
+    private val dailyLogDateRegex = Regex("""^runtime(?:\.[^.]+)*\.(\d{4}-\d{2}-\d{2})(?:-\d+)?\.jsonl$""")
+    private val redundantAppRouteRuntimeLogPattern = Regex("""^runtime\.app\.\d{4}-\d{2}-\d{2}(?:-\d+)?\.jsonl$""")
     private val legacyTextLogPattern = Regex("""^(logs_\d{4}-\d{2}-\d{2}|runtime(?:\.[A-Za-z0-9_.-]+)?)\.(txt|log)$""")
     private val legacyModuleTextLogPattern = Regex("""^[A-Za-z0-9_.-]+_\d{4}-\d{2}-\d{2}\.txt$""")
     private const val FULL_PRUNE_INTERVAL_MS = 30L * 60L * 1000L
 
-    private fun Severity.toAndroidPriority(): Int = when (this) {
-        Severity.Verbose -> Log.VERBOSE
-        Severity.Debug -> Log.DEBUG
-        Severity.Info -> Log.INFO
-        Severity.Warn -> Log.WARN
-        Severity.Error, Severity.Assert -> Log.ERROR
-    }
+    private fun LogLevel.toAndroidPriority(): Int = priority
 
     @Volatile
     private var lastFullPruneAtMs: Long = 0L
@@ -50,16 +42,11 @@ object LogUtils {
     // Unified single-letter level mapping aligned with android.util.Log priorities.
     // Module-side XLog.d/.i/.w/.e writes D/I/W/E through the same content provider,
     // so normalizing here keeps runtime.*.jsonl consistent across both producers.
-    private fun Severity.toShortLetter(): String = when (this) {
-        Severity.Verbose -> "V"
-        Severity.Debug -> "D"
-        Severity.Info -> "I"
-        Severity.Warn -> "W"
-        Severity.Error -> "E"
-        Severity.Assert -> "A"
-    }
+    private fun LogLevel.toShortLetter(): String = shortName
 
     private val writeLock = Any()
+
+    private val fileStore = DailyJsonlLogStore()
 
     @Volatile
     private var appContext: Context? = null
@@ -68,7 +55,7 @@ object LogUtils {
     private var retentionDays: Int = MagiskLogPolicy.DEFAULT_LOG_RETENTION_DAYS
 
     @Volatile
-    private var minLogLevel: Severity = Severity.Verbose
+    private var minLogLevel: LogLevel = LogLevel.VERBOSE
 
     data class RuntimeLogEntry(
         val timestamp: Long,
@@ -108,19 +95,31 @@ object LogUtils {
         val text: String,
     )
 
+    /**
+     * @param verboseLogging whether this build is a capture channel (debug / CI). A release build
+     *   installs no file sink at all: nothing is written to `files/log`, so there is no runtime
+     *   log to retain, prune or export. Logcat still receives the level-filtered stream.
+     */
     @JvmStatic
-    fun init(context: Context) {
+    fun init(context: Context, verboseLogging: Boolean = MagiskLogPolicy.current().verboseLogging) {
         val resolved = context.applicationContext ?: context
         appContext = resolved
+        minLogLevel = if (verboseLogging) LogLevel.VERBOSE else LogLevel.WARN
         runCatching {
             deleteLegacyTextLogFiles(resolved)
             pruneAllLogArtifacts(resolved, Date(), force = true)
+            if (!verboseLogging) {
+                // Release: keep the logger configured for logcat only. The kit discards events
+                // when no sink is installed, so no file is ever created for them.
+                SharedXLog.configure(
+                    tag = "xmsf",
+                    logLevel = minLogLevel.toAndroidPriority(),
+                    logToXposed = false,
+                    sink = null,
+                )
+                return@runCatching
+            }
             val sink = fileLogSink(resolved)
-            LoggingKit.init(
-                defaultTag = "xmsf",
-                minSeverity = minLogLevel,
-                sink = sink,
-            )
             SharedXLog.configure(
                 tag = "xmsf",
                 logLevel = minLogLevel.toAndroidPriority(),
@@ -129,14 +128,13 @@ object LogUtils {
             )
         }.onFailure {
             // 文件日志初始化失败时不回退到会泄露日志的默认 writer。
-            android.util.Log.e("xmsf", "Kermit file log init failed, logs will be discarded", it)
+            android.util.Log.e("xmsf", "XLog file log init failed, logs will be discarded", it)
         }
     }
 
     @JvmStatic
-    fun setMinLogLevel(level: Severity) {
+    fun setMinLogLevel(level: LogLevel) {
         minLogLevel = level
-        Logger.setMinSeverity(level)
         SharedXLog.setLogLevel(level.toAndroidPriority())
     }
 
@@ -156,8 +154,6 @@ object LogUtils {
             retentionDays = MagiskLogPolicy.DEFAULT_LOG_RETENTION_DAYS
             lastFullPruneAtMs = 0L
         }
-        Logger.setLogWriters(emptyList())
-        Logger.setMinSeverity(Severity.Verbose)
         SharedXLog.resetForTest()
     }
 
@@ -231,15 +227,8 @@ object LogUtils {
                 if (!logDir.exists()) logDir.mkdirs()
                 pruneAllLogArtifacts(context, now, force = false)
                 val routeName = sanitizeSegment(route)
-                val day = currentDateString(now)
-                val incomingBytes = line.toByteArray(Charsets.UTF_8).size.toLong()
-                if (DailyRouteLogQuota.ensureCapacity(logDir, routeName, day, incomingBytes)) {
-                    writeLineToFile(
-                        File(logDir, DailyRouteLogQuota.runtimeFileName(routeName, day)),
-                        line,
-                    )
-                }
-            }
+                fileStore.appendLine(logDir, listOf(routeStem(routeName)), now.time, line)
+            }.onFailure { }
         }
     }
 
@@ -336,9 +325,6 @@ object LogUtils {
         return file.isFile && redundantAppRouteRuntimeLogPattern.matches(file.name)
     }
 
-    internal fun currentDateString(now: Date = Date()): String =
-        Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(dailyDateFormatter)
-
     /**
      * Prune every log-related artifact owned by this package under the retention window:
      * runtime jsonl, crash files, export zips/staging, legacy cache logs, MiPush SDK logs.
@@ -376,7 +362,7 @@ object LogUtils {
         return logDir.listFiles()
             .orEmpty()
             .filter { it.isFile && dailyRuntimeLogPattern.matches(it.name) && !isRedundantAppRouteRuntimeLog(it) }
-            .sortedWith(compareBy<File> { dailyLogDate(it.name).orEmpty() }.thenBy { it.name })
+            .sortedWith(compareBy(DailyJsonlLogStore.DAILY_FILE_ORDER) { it.name })
     }
 
     private fun summarizeFile(file: File): RuntimeLogFileInfo {
@@ -409,20 +395,20 @@ object LogUtils {
             .forEach { file ->
                 if (!file.isFile) return@forEach
                 if (isRedundantAppRouteRuntimeLog(file)) {
-                    runCatching { file.delete() }
+                    runCatching { file.delete() }.onFailure { }
                     return@forEach
                 }
                 if (!dailyRuntimeLogPattern.matches(file.name)) {
                     // Unknown leftover files under the runtime log dir still respect retention by mtime.
                     val mtime = file.lastModified()
                     if (mtime > 0L && mtime < cutoff) {
-                        runCatching { file.delete() }
+                        runCatching { file.delete() }.onFailure { }
                     }
                     return@forEach
                 }
                 val fileTime = dailyLogDateStartMs(file.name) ?: file.lastModified()
                 if (fileTime > 0L && fileTime < cutoff) {
-                    runCatching { file.delete() }
+                    runCatching { file.delete() }.onFailure { }
                 }
             }
     }
@@ -448,12 +434,6 @@ object LogUtils {
             retentionDays = MagiskLogPolicy.retentionDays(days)
             context?.let { pruneAllLogArtifacts(it, Date(), force = true) }
         }
-    }
-
-    private fun writeLineToFile(file: File, line: String) {
-        val parent = file.parentFile ?: return
-        if (!parent.exists()) parent.mkdirs()
-        file.appendText(line)
     }
 
     private fun parseLogTimeMs(line: String): Long? {
@@ -492,6 +472,9 @@ object LogUtils {
         JsonLineField.number("pid", entry.pid),
         JsonLineField.string("threadName", entry.threadName, include = entry.threadName.isNotBlank()),
     )
+
+    private fun routeStem(route: String): String =
+        if (route == DEFAULT_ROUTE) "runtime" else "runtime.$route"
 
     private fun sanitizeSegment(value: String): String {
         return value

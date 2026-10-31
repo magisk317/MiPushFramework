@@ -13,7 +13,9 @@ import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
 import java.util.Objects
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
+@StableLogTag
 class FirstRegister(
     private val context: Context,
     private val isRegistered: (Context) -> Boolean = ::pushRegistered,
@@ -68,7 +70,9 @@ class FirstRegister(
             )
             return
         }
-        requestRegistration("FirstRegister.run", "initial_register")
+        if (!requestRegistration("FirstRegister.run", "initial_register")) {
+            logI("async register request not accepted; the isRegistered probe below decides the path")
+        }
         if (isRegistered(context)) {
             logI("register successed")
             MagiskOtel.event(

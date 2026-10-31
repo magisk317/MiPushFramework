@@ -8,15 +8,15 @@ import android.net.Uri
 import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
 import io.github.magisk317.mipush.notification.policy.NotificationAppSettingsBlockSelector
 import io.github.magisk317.mipush.notification.policy.NotificationDumpCommandContract
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 
 private object RootLog {
-    fun d(tag: String, message: String?) = Logger.withTag(tag).d { message.orEmpty() }
-    fun w(tag: String, message: String?) = Logger.withTag(tag).w { message.orEmpty() }
+    fun d(tag: String, message: String?) = XLog.tagged(tag).d { message.orEmpty() }
+    fun w(tag: String, message: String?) = XLog.tagged(tag).w { message.orEmpty() }
     fun e(tag: String, message: String?, throwable: Throwable?) =
-        if (throwable == null) Logger.withTag(tag).e { message.orEmpty() }
-        else Logger.withTag(tag).e(throwable) { message.orEmpty() }
+        if (throwable == null) XLog.tagged(tag).e { message.orEmpty() }
+        else XLog.tagged(tag).e(throwable) { message.orEmpty() }
 }
 
 object NotificationRootFallback {

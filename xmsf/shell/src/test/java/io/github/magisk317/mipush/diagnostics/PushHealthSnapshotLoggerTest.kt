@@ -13,7 +13,7 @@ class PushHealthSnapshotLoggerTest {
             processName = "com.xiaomi.xmsf",
             pushEnabled = true,
             regIdPresent = false,
-            debugMode = true,
+            verboseLogging = true,
             lifecycleReady = false,
             lifecyclePendingCount = 3,
             runtimeExecutionReady = true,
@@ -40,7 +40,7 @@ class PushHealthSnapshotLoggerTest {
         assertTrue(line.contains("process=com.xiaomi.xmsf"))
         assertTrue(line.contains("pushEnabled=true"))
         assertTrue(line.contains("regIdPresent=false"))
-        assertTrue(line.contains("debugMode=true"))
+        assertTrue(line.contains("verboseLogging=true"))
         assertTrue(line.contains("lifecycleReady=false"))
         assertTrue(line.contains("lifecyclePending=3"))
         assertTrue(line.contains("runtimeExecutionReady=true"))
@@ -68,7 +68,7 @@ class PushHealthSnapshotLoggerTest {
             processName = "proc",
             pushEnabled = false,
             regIdPresent = true,
-            debugMode = false,
+            verboseLogging = false,
             lifecycleReady = true,
             lifecyclePendingCount = 0,
             runtimeExecutionReady = false,

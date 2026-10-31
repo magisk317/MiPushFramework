@@ -165,6 +165,22 @@ object RuntimeStoreMigrations {
         }
     }
 
+    /**
+     * v11 adds both per-app notification toggles: suppress-while-disabled and the HyperOS
+     * count-limit exemption. Existing rows default to 0 (off) for both, so notifications keep
+     * flowing and HyperOS's per-package trimming stays active until the user opts in per app.
+     */
+    val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN suppress_when_disabled INTEGER NOT NULL DEFAULT 0"
+            )
+            connection.execSQL(
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -175,5 +191,6 @@ object RuntimeStoreMigrations {
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
+        MIGRATION_10_11,
     )
 }

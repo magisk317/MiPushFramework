@@ -35,6 +35,16 @@ class EventRepositoryContractTest {
         assertTrue(adapter.contains("restoredId.takeIf { it > 0L }"))
     }
 
+    @Test
+    fun `configuration failures keep the throwable and stay rate limited`() {
+        val repository = readSource("io/github/magisk317/mipush/runtime/data/EventRepository.kt")
+
+        assertTrue(repository.contains("XLog.tagged(\"EventRepository\").w(t)"))
+        assertTrue(repository.contains("private val configFailureLogPolicy = RepeatedFailureLogPolicy()"))
+        assertTrue(repository.contains("configureContainer failed pkg="))
+        assertFalse(repository.contains("configureContainer failed for"))
+    }
+
     private fun readSource(relativePath: String): String {
         val candidates = listOf(
             File("src/main/java/$relativePath"),

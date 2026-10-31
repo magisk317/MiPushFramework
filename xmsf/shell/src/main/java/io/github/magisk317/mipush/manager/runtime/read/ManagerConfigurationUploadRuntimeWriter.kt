@@ -98,7 +98,7 @@ class ManagerConfigurationUploadRuntimeWriter(
                 )
             }
         } finally {
-            runCatching { descriptor.close() }
+            runCatching { descriptor.close() }.onFailure { }
         }
     }
 

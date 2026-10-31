@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.platform.support
 
 import android.widget.Toast
 import java.io.File
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.CrashLogRecorder
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.common.utils.Utils
@@ -29,7 +29,7 @@ object CrashHandler {
                 crashInfo.append(stackTrace[i])
             }
             Utils.makeText(crashInfo, Toast.LENGTH_LONG)
-            Logger.withTag(tag).e(e) { "Mi Push Crash" }
+            XLog.tagged(tag).e(e) { "Mi Push Crash" }
         }
         // Installed last so the recorder chains through the reporter above and owns the file:
         // the crash name and whether the stack is redacted come from the kit policy, and the

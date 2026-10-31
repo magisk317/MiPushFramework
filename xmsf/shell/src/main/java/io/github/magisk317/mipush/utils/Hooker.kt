@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
@@ -124,11 +124,11 @@ object Hooker {
             private var innerTag = TAG
 
             override fun log(str: String, th: Throwable) {
-                Logger.withTag(innerTag).d(th) { str }
+                XLog.tagged(innerTag).d(th) { str }
             }
 
             override fun log(str: String) {
-                Logger.withTag(innerTag).d { str }
+                XLog.tagged(innerTag).d { str }
             }
         }
     }

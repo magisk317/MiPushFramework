@@ -10,7 +10,7 @@ import java.io.File
 class RuntimeStoreMigrationContractTest {
     @Test
     fun `migration registry covers every production schema version`() {
-        assertEquals(9, RuntimeStoreMigrations.ALL.size)
+        assertEquals(10, RuntimeStoreMigrations.ALL.size)
         RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
             assertEquals(index + 1, migration.startVersion)
             assertEquals(index + 2, migration.endVersion)
@@ -18,14 +18,14 @@ class RuntimeStoreMigrationContractTest {
     }
 
     @Test
-    fun `runtime store database declares the production v10 entities`() {
+    fun `runtime store database declares the production v11 entities`() {
         val source = readSource(
             "../runtime/store/src/commonMain/kotlin/" +
                 "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
 
         assertTrue(source.contains("@Database("))
-        assertTrue(source.contains("version = 10"))
+        assertTrue(source.contains("version = 11"))
         listOf(
             "RuntimeEventRow::class",
             "RuntimeDeletedEventRow::class",
@@ -67,6 +67,8 @@ class RuntimeStoreMigrationContractTest {
             "CREATE TABLE IF NOT EXISTS `DELETED_EVENT`",
             "ALTER TABLE `DELETED_EVENT` ADD COLUMN `deleted_at` INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN click_fallback_enabled",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN suppress_when_disabled",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt",
         ).forEach { sqlFragment ->
             assertTrue(source.contains(sqlFragment), "Missing migration SQL: $sqlFragment")
         }

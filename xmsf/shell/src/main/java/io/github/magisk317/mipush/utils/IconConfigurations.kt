@@ -9,6 +9,7 @@ import java.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.highcapable.anip.sdk.Anip
+import io.github.magisk317.mipush.common.notification.iconpack.IconPackSnapshotEntry
 import com.highcapable.anip.sdk.config.AnipConfig
 import com.highcapable.anip.sdk.config.RemoteSource
 import com.highcapable.anip.sdk.entity.NotificationIcon
@@ -23,11 +24,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import io.github.magisk317.mipush.common.logging.StableLogTag
 
 /**
  * Manages notification icon configurations using the official ANIP SDK
  * (Android Notification Icon Project) while maintaining compatibility with legacy JSON structures.
  */
+@StableLogTag
 class IconConfigurations constructor(
     @Suppress("unused") configCenter: ConfigCenter? = null
 ) {
@@ -235,6 +238,49 @@ class IconConfigurations constructor(
         logI("IconConfigurations: libraryPage offset=$offset limit=$limit total=${all.size} page=${page.size}")
             page
         }
+
+    /**
+     * Stamp identifying the ANIP release currently held in memory, or null when nothing is loaded.
+     * The snapshot endpoint compares it against the file on disk to decide whether a rebuild is due.
+     */
+    fun releaseStamp(): Long? = anipInstance?.let { anip ->
+        runCatching { anip.timestamp }.getOrNull()?.takeIf { it > 0L }
+    }
+
+    /**
+     * The whole icon-pack index for one SystemUI snapshot, in the same priority order as [get]:
+     * user-directory overrides first, then the ANIP release. Disabled entries are left out, so an
+     * absent package is a confirmed "not configured" rather than a load failure.
+     */
+    suspend fun snapshotIcons(context: Context?): List<IconPackSnapshotEntry> = withContext(Dispatchers.IO) {
+        if (context == null) return@withContext emptyList()
+        val pngs = LinkedHashMap<String, IconPackSnapshotEntry>()
+        legacyIconConfigs.values.forEach { config ->
+            val pkg = config.packageName ?: return@forEach
+            if (config.isEnabled == false) return@forEach
+            pngOf(config.bitmap())?.let { pngs[pkg] = IconPackSnapshotEntry(pkg, it) }
+        }
+        val anip = runCatching { ensureAnipInitialized(context.applicationContext) }.getOrNull()
+            ?: return@withContext pngs.values.toList()
+        libraryCategories.flatMap { (category, _) -> runCatching { anip.getIcons(category) }.getOrDefault(emptyList()) }
+            .forEach { icon ->
+                if (pngs.containsKey(icon.packageName)) return@forEach
+                val bitmap = runCatching { icon.loadBitmap() }.getOrNull()
+                pngOf(bitmap)?.let { pngs[icon.packageName] = IconPackSnapshotEntry(icon.packageName, it) }
+            }
+        logI("IconConfigurations: snapshot entries=${pngs.size} stamp=${runCatching { anip.timestamp }.getOrNull()}")
+        pngs.values.toList()
+    }
+
+    private fun pngOf(bitmap: Bitmap?): ByteArray? {
+        if (bitmap == null || bitmap.isRecycled) return null
+        return runCatching {
+            java.io.ByteArrayOutputStream().use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) return null
+                output.toByteArray()
+            }
+        }.getOrNull()
+    }
 
     /** Base64-encoded PNG of the icon for [pkg], or null when the library has no such icon. */
     suspend fun iconBitmapBase64(context: Context?, pkg: String): String? =

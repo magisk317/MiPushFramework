@@ -11,7 +11,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.edit
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmpush.thrift.ConfigKey
 import io.github.magisk317.mipush.common.utils.Utils
@@ -72,7 +72,7 @@ object KeepAliveRuntimeAdapter {
         val keepAlive = runCatching {
             onlineConfig.getBooleanValue(ONLINE_CONFIG_KEY_KEEP_ALIVE, true)
         }.getOrElse {
-            Logger.withTag(TAG).w(it) { "Keep-alive online config unavailable" }
+            XLog.tagged(TAG).w(it) { "Keep-alive online config unavailable" }
             return
         }
         updateOnlineConfig(context, keepAlive)
@@ -184,7 +184,7 @@ object KeepAliveRuntimeAdapter {
         // KeepAlive state is process-local. A package-data callback resolved for another user
         // must not clear a same-named target in this process.
         if (normalizedUserId != processUserId) {
-            Logger.withTag(TAG).w { "skip keep-alive cleanup for foreign user=$normalizedUserId currentUser=$processUserId package=$targetPackage" }
+            XLog.tagged(TAG).w { "skip keep-alive cleanup for foreign user=$normalizedUserId currentUser=$processUserId package=$targetPackage" }
             return
         }
         ensureInitialized(context)
@@ -287,7 +287,7 @@ object KeepAliveRuntimeAdapter {
             }
         }
         if (shouldLogFallback) {
-            Logger.withTag(TAG).w { "Process observer unavailable; using ${RECONCILE_INTERVAL_MS}ms polling fallback" }
+            XLog.tagged(TAG).w { "Process observer unavailable; using ${RECONCILE_INTERVAL_MS}ms polling fallback" }
             MagiskOtel.event(
                 name = "push.keepalive",
                 attributes = mapOf(
@@ -374,7 +374,7 @@ object KeepAliveRuntimeAdapter {
                 }
             }
         }
-        Logger.withTag(TAG).i { "Process observer registered; polling fallback disabled" }
+        XLog.tagged(TAG).i { "Process observer registered; polling fallback disabled" }
         MagiskOtel.event(
             name = "push.keepalive",
             attributes = mapOf(
@@ -508,7 +508,9 @@ object KeepAliveRuntimeAdapter {
         }
         if (existing != null) {
             synchronized(lock) { bindings.remove(targetPackage) }
-            runCatching { context.unbindService(existing.connection) }
+            runCatching { context.unbindService(existing.connection) }.onFailure {
+                XLog.tagged("KeepAliveRuntimeAdapter").w(it) { "unbinding the stale keep-alive service failed" }
+            }
         }
 
         lateinit var runnable: Runnable
@@ -557,7 +559,7 @@ object KeepAliveRuntimeAdapter {
         retryCount: Int,
     ) {
         if (retryCount > MAX_BIND_RETRY_COUNT) {
-            Logger.withTag(TAG).w { "Keep-alive binding stopped after $MAX_BIND_RETRY_COUNT retries: ${strategy.targetPackage}" }
+            XLog.tagged(TAG).w { "Keep-alive binding stopped after $MAX_BIND_RETRY_COUNT retries: ${strategy.targetPackage}" }
             return
         }
         val mayBind = synchronized(lock) {
@@ -571,7 +573,7 @@ object KeepAliveRuntimeAdapter {
             KeepAliveEnvironment.snapshot(context),
         )
         if (environmentBlock != null) {
-            Logger.withTag(TAG).i { "Keep-alive binding blocked for ${strategy.targetPackage}: $environmentBlock" }
+            XLog.tagged(TAG).i { "Keep-alive binding blocked for ${strategy.targetPackage}: $environmentBlock" }
             return
         }
 
@@ -581,6 +583,7 @@ object KeepAliveRuntimeAdapter {
 
         synchronized(lock) { bindings.remove(strategy.targetPackage) }?.let { stale ->
             runCatching { context.unbindService(stale.connection) }
+                .onFailure { error -> XLog.w("unbind of a stale binding failed: ${error.message}", error) }
         }
         val intent = buildBindIntent(strategy, triggerProcess)
         lateinit var record: BindingRecord
@@ -593,7 +596,7 @@ object KeepAliveRuntimeAdapter {
                 }
                 if (isCurrent) {
                     cancelPendingRetry(strategy.targetPackage)
-                    Logger.withTag(TAG).i { "Keep-alive target connected package=${strategy.targetPackage} trigger=$triggerProcess" }
+                    XLog.tagged(TAG).i { "Keep-alive target connected package=${strategy.targetPackage} trigger=$triggerProcess" }
                     MagiskOtel.event(
                         name = "push.keepalive",
                         attributes = mapOf(
@@ -626,10 +629,10 @@ object KeepAliveRuntimeAdapter {
 
         scheduleBindRetry(context, strategy, triggerProcess, retryCount + 1)
         val bound = runCatching { context.bindService(intent, connection, Context.BIND_AUTO_CREATE) }
-            .onFailure { Logger.withTag(TAG).w(it) { "Keep-alive target binding failed" } }
+            .onFailure { XLog.tagged(TAG).w(it) { "Keep-alive target binding failed" } }
             .getOrDefault(false)
         if (!bound) {
-            Logger.withTag(TAG).w { "Keep-alive target bindService returned false package=${strategy.targetPackage}" }
+            XLog.tagged(TAG).w { "Keep-alive target bindService returned false package=${strategy.targetPackage}" }
             synchronized(lock) {
                 if (bindings[strategy.targetPackage] === record) {
                     bindings.remove(strategy.targetPackage)
@@ -656,7 +659,7 @@ object KeepAliveRuntimeAdapter {
             }
         }
         if (shouldRetry) {
-            Logger.withTag(TAG).w { "Keep-alive target binding lost package=${strategy.targetPackage} reason=$reason; retry scheduled" }
+            XLog.tagged(TAG).w { "Keep-alive target binding lost package=${strategy.targetPackage} reason=$reason; retry scheduled" }
             MagiskOtel.event(
                 name = "push.keepalive",
                 attributes = mapOf(
@@ -720,7 +723,7 @@ object KeepAliveRuntimeAdapter {
         cancelTargetCallbacks(targetPackage)
         val binding = synchronized(lock) { bindings.remove(targetPackage) } ?: return
         runCatching { context.unbindService(binding.connection) }
-            .onFailure { Logger.withTag(TAG).w(it) { "Keep-alive target unbind failed" } }
+            .onFailure { XLog.tagged(TAG).w(it) { "Keep-alive target unbind failed" } }
     }
 
     private fun unbindAll() {
@@ -772,7 +775,7 @@ object KeepAliveRuntimeAdapter {
 
     internal fun parseStrategy(configJson: String?): Strategy? =
         KeepAliveStrategyParsingSupport.parse(configJson, Build.DEVICE) {
-            Logger.withTag(TAG).w { "Rejected malformed keep-alive strategy" }
+            XLog.tagged(TAG).w { "Rejected malformed keep-alive strategy" }
         }?.let { parsed ->
             Strategy(
                 targetPackage = parsed.targetPackage,

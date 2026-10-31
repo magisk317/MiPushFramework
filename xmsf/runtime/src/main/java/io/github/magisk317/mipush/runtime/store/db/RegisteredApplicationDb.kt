@@ -78,6 +78,23 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
+    fun isSuppressWhenDisabled(pkg: String): Boolean = runBlocking {
+        repository().isSuppressWhenDisabled(pkg)
+    }
+
+    /**
+     * Per-app opt-in from the manager's app detail page: suppress this app's notifications
+     * while the target is disabled or suspended. Defaults to off; a missing row or a store
+     * failure keeps notifications flowing.
+     */
+    @JvmStatic
+    fun shouldSuppressForInactiveApp(pkg: String?): Boolean {
+        if (pkg.isNullOrBlank()) return false
+        if (!runCatching { isSuppressWhenDisabled(pkg) }.getOrDefault(false)) return false
+        return Utils.isAppDisabledOrSuspended(pkg)
+    }
+
+    @JvmStatic
     fun updateClickFallbackEnabled(id: Long, enabled: Boolean): Int = runBlocking {
         repository().updateClickFallbackEnabled(id, enabled)
     }
@@ -171,6 +188,9 @@ object RegisteredApplicationDb {
 
         override suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int =
             DatabaseUtils.registeredApplicationDao.updateClickFallbackEnabled(id, enabled, userId)
+
+        override suspend fun isSuppressWhenDisabled(packageName: String, userId: Int): Boolean? =
+            DatabaseUtils.registeredApplicationDao.isSuppressWhenDisabled(packageName, userId)
     }
 }
 

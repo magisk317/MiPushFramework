@@ -7,7 +7,7 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.RemoteException
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.micloudsdk.sync.IMiCloudPushService
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -17,12 +17,12 @@ import java.util.concurrent.atomic.AtomicReference
 class BindMiCloudPushService : IntentService("BindMiCloudPushService") {
     override fun onHandleIntent(intent: Intent?) {
         if (intent == null) {
-            Logger.withTag(TAG).w { "Ignoring restarted service without a request" }
+            XLog.tagged(TAG).w { "Ignoring restarted service without a request" }
             return
         }
         val bindIntent = intent.getParcelableExtra<Intent>(EXTRA_BIND_INTENT)
         if (bindIntent == null) {
-            Logger.withTag(TAG).w { "Ignoring request without key_to_bind_intent" }
+            XLog.tagged(TAG).w { "Ignoring request without key_to_bind_intent" }
             return
         }
 
@@ -43,29 +43,29 @@ class BindMiCloudPushService : IntentService("BindMiCloudPushService") {
         try {
             bound = bindService(bindIntent, connection, BIND_AUTO_CREATE)
             if (!bound) {
-                Logger.withTag(TAG).w { "MiCloud push target refused binding" }
+                XLog.tagged(TAG).w { "MiCloud push target refused binding" }
                 return
             }
             if (!connected.await(CONNECTION_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
-                Logger.withTag(TAG).w { "Timed out waiting for MiCloud push target" }
+                XLog.tagged(TAG).w { "Timed out waiting for MiCloud push target" }
                 return
             }
             val remote = IMiCloudPushService.Stub.asInterface(connectedBinder.get())
             if (remote == null) {
-                Logger.withTag(TAG).w { "MiCloud push target returned no binder" }
+                XLog.tagged(TAG).w { "MiCloud push target returned no binder" }
                 return
             }
             remote.startWork(bindIntent)
         } catch (interrupted: InterruptedException) {
             Thread.currentThread().interrupt()
-            Logger.withTag(TAG).w(interrupted) { "Interrupted while waiting for MiCloud push target" }
+            XLog.tagged(TAG).w(interrupted) { "Interrupted while waiting for MiCloud push target" }
         } catch (failure: RemoteException) {
-            Logger.withTag(TAG).w(failure) { "MiCloud push work failed" }
+            XLog.tagged(TAG).w(failure) { "MiCloud push work failed" }
         } catch (failure: SecurityException) {
-            Logger.withTag(TAG).w(failure) { "MiCloud push target rejected binding" }
+            XLog.tagged(TAG).w(failure) { "MiCloud push target rejected binding" }
         } finally {
             if (bound) {
-                runCatching { unbindService(connection) }
+                runCatching { unbindService(connection) }.onFailure { }
             }
         }
     }

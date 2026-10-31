@@ -538,7 +538,8 @@ private class ExtensionServiceConnectionPool {
 
             override fun onServiceConnected(name: ComponentName, binder: IBinder) {
                 val service = IExtensionInterface.Stub.asInterface(binder) ?: run {
-                    runCatching { context.unbindService(this) }
+                    // Teardown: a failed unbind must not change the failure reported to the caller.
+                    runCatching { context.unbindService(this) }.onFailure { }
                     onFailure()
                     return
                 }
@@ -555,7 +556,7 @@ private class ExtensionServiceConnectionPool {
                 }
                 connected = true
                 if (selected.connection !== this) {
-                    runCatching { context.unbindService(this) }
+                    runCatching { context.unbindService(this) }.onFailure { }
                 }
                 onConnected(selected.service)
             }
@@ -600,7 +601,7 @@ private class ExtensionServiceConnectionPool {
             // Stock 7.4.67-C recycles the package connection after its last pending message.
             // Keeping it forever would retain target processes after the extension timeout.
             recordToRelease.context.unbindService(recordToRelease.connection)
-        }
+        }.onFailure { }
     }
 
     private fun disconnect(
@@ -617,7 +618,8 @@ private class ExtensionServiceConnectionPool {
                 true
             }
         }
-        runCatching { context.unbindService(connection) }
+        // Teardown: the record is already removed; a failed unbind has no remedy.
+        runCatching { context.unbindService(connection) }.onFailure { }
         return removed
     }
 

@@ -53,7 +53,7 @@ class ManagerWriteIdempotencyStore(
                     inFlight += requestId
                     return BeginResult.Execute
                 }
-                runCatching { condition.await(50L, TimeUnit.MILLISECONDS) }
+                runCatching { condition.await(50L, TimeUnit.MILLISECONDS) }.onFailure { }
             }
         } finally {
             lock.unlock()

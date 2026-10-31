@@ -11,7 +11,7 @@ import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
-import co.touchlab.kermit.Logger
+import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
@@ -47,7 +47,7 @@ class ForegroundHelper(private val service: Service) {
                     stopForegroundNotification()
                 }
             } catch (t: Throwable) {
-                Logger.withTag("ForegroundHelper").e(t) { "Failed to check foreground service preference" }
+                XLog.tagged("ForegroundHelper").e(t) { "Failed to check foreground service preference" }
                 MagiskOtel.event(
                     name = "push.keepalive",
                     attributes = mapOf(
@@ -71,7 +71,7 @@ class ForegroundHelper(private val service: Service) {
             showForegroundNotificationToKeepAlive()
             stopForegroundNotification()
         } catch (t: Throwable) {
-            Logger.withTag("ForegroundHelper").w(t) {
+            XLog.tagged("ForegroundHelper").w(t) {
                 "Failed to satisfy external startForegroundService contract, falling back to background dispatch"
             }
             MagiskOtel.event(

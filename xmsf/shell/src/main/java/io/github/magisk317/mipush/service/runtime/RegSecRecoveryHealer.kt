@@ -32,6 +32,7 @@ object RegSecRecoveryHealer : RegSecRecoveryListener {
             )
         }.getOrDefault(false)
         if (!changed) return
+        // Event logging is best-effort; the registration state is already healed.
         runCatching {
             runBlocking {
                 EventDb.insertEventAsync(
@@ -39,7 +40,7 @@ object RegSecRecoveryHealer : RegSecRecoveryListener {
                     RegistrationType("regsec_recovery_heal", packageName, null),
                 )
             }
-        }
+        }.onFailure { }
     }
 
     internal fun shouldMarkRegistered(row: RuntimeRegisteredApplicationRow): Boolean =
