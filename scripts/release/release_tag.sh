@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
+bash "$TOOLKIT_DIR/ci/verify_toolkit_pin.sh" --root "$ROOT_DIR"
 
 # The branch snapshot, the signed tag and the force-push protection dance all
 # live in the toolkit now. Only the project-specific pre-push build stays here.
