@@ -28,4 +28,28 @@ interface ManagerRuntimeActions {
      * 这里负责把新值即时反映到清理器并跑一次,避免用户改小后要等下次入库才生效。
      */
     suspend fun applyEventRetentionDays(days: Int)
+    suspend fun getZygiskSpoofPackages(): Set<String>?
+}
+
+fun parseZygiskSpoofPackages(content: String): Set<String> {
+    val enabled = linkedSetOf<String>()
+    val denied = hashSetOf<String>()
+    content.lineSequence().forEach { rawLine ->
+        val line = rawLine.trim()
+        if (line.isEmpty() || line.startsWith("#") ||
+            line.startsWith("profile=") || line.startsWith("observe=") ||
+            line.startsWith("spoof=") || line.startsWith("auto_scan=")) {
+            return@forEach
+        }
+        val deniedRule = line.startsWith("-")
+        val packageName = line.removePrefix("-").substringBefore('|').trim()
+        if (!packageName.contains('.')) return@forEach
+        if (deniedRule) {
+            denied += packageName
+            enabled -= packageName
+        } else if (packageName !in denied) {
+            enabled += packageName
+        }
+    }
+    return enabled
 }

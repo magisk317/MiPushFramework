@@ -5,12 +5,13 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.core.net.toUri
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
+import io.github.magisk317.xposed.permission.canDrawOverlaysPermission
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 class AlertWindowPermissionOperator(private val context: Context) : PermissionOperator {
     override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
-        return Settings.canDrawOverlays(context)
+        return context.canDrawOverlaysPermission()
     }
 
     override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {

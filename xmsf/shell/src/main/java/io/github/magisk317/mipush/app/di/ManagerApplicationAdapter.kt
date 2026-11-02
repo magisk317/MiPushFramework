@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway

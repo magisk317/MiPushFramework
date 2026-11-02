@@ -30,7 +30,6 @@ import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.XmppServerViewModel
-import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.events.EventListCacheStore
 import io.github.magisk317.mipush.manager.events.EventListBackgroundSyncCoordinator
@@ -88,7 +87,6 @@ val managerKoinModule = module {
         SettingsManager(
             get<ManagerRuntimeActions>(),
             get<ManagerLogGateway>(),
-            get<io.github.magisk317.mipush.manager.application.ZygiskConfigGateway>(),
         )
     }
     single {
@@ -155,10 +153,9 @@ val managerKoinModule = module {
             parentScope = get<ManagerRuntimeClient>().scopeForBackgroundWork(),
         )
     }
-    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidApplication(), get(), get(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidApplication()) }
-    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), androidApplication()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>(), get<ApplicationListCacheStore>()) }
     viewModel {
         ConnectionStatusViewModel(

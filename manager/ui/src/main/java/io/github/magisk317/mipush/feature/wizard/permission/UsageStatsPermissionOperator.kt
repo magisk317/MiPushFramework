@@ -10,26 +10,16 @@ import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityImpl
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
+import io.github.magisk317.xposed.permission.hasUsageStatsAccessViaAppOps
 
 class UsageStatsPermissionOperator(private val context: Context) : PermissionOperator {
     @SuppressLint("MissingPermission")
     override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         val uid = context.applicationInfo.uid
         val packageName = context.packageName
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
-        val mode = appOps.checkOpNoThrow(AppOpsManagerOverride.OPSTR_GET_USAGE_STATS, uid, packageName)
-        if (isAllowedMode(mode)) return true
-
-        val rawMode = runCatching {
-            val method = AppOpsManager::class.java.getMethod(
-                "unsafeCheckOpRawNoThrow",
-                String::class.java,
-                Int::class.javaPrimitiveType,
-                String::class.java
-            )
-            method.invoke(appOps, AppOpsManagerOverride.OPSTR_GET_USAGE_STATS, uid, packageName) as Int
-        }.getOrNull()
-        if (isAllowedMode(rawMode)) return true
+        // Platform AppOps layers live in the shared kit probe now; the requirement-specific
+        // fallback chain (accessibility proxy, usage query, root gateway) stays below.
+        if (context.hasUsageStatsAccessViaAppOps(uid, packageName)) return true
 
         if (ActivityAccessibilityImpl().isEnabled(context)) return true
 

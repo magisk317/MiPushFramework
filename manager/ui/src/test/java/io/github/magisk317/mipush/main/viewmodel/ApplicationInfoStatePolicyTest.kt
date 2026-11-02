@@ -17,7 +17,6 @@ class ApplicationInfoStatePolicyTest {
 
         val controls = ApplicationInfoStatePolicy.controls(info)
 
-        assertTrue(controls.zygiskConfigurable)
         assertTrue(controls.recentActivityEnabled)
         assertTrue(controls.islandEnabled)
         assertTrue(controls.islandFocusEnabled)
@@ -35,7 +34,6 @@ class ApplicationInfoStatePolicyTest {
 
         val controls = ApplicationInfoStatePolicy.controls(info)
 
-        assertFalse(controls.zygiskConfigurable)
         assertFalse(controls.recentActivityEnabled)
         assertFalse(controls.islandEnabled)
         assertFalse(controls.islandFocusEnabled)
@@ -122,12 +120,6 @@ class ApplicationInfoStatePolicyTest {
         val enabled = ApplicationInfoStatePolicy.withSuppressWhenDisabled(disabled, enabled = true)
         requireNotNull(enabled)
         assertTrue(enabled.suppressWhenDisabled)
-    }
-
-    @Test
-    fun `invalid package is never Zygisk configurable`() {
-        val controls = ApplicationInfoStatePolicy.controls(app(packageName = "not-a-package"))
-        assertFalse(controls.zygiskConfigurable)
     }
 
     private fun app(

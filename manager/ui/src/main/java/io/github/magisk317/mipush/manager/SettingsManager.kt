@@ -3,15 +3,12 @@ package io.github.magisk317.mipush.manager
 import android.content.Context
 import android.widget.Toast
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.application.ManagerLogClearResult
 import io.github.magisk317.mipush.manager.application.ManagerLogExportResult
 import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
-import io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult
-import io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriter
 import io.github.magisk317.mipush.manager.logs.ManagerLogBundleWriteResult
@@ -28,7 +25,6 @@ import kotlinx.coroutines.withContext
 class SettingsManager constructor(
     private val runtimeActions: ManagerRuntimeActions,
     private val logGateway: ManagerLogGateway,
-    private val zygiskConfigGateway: io.github.magisk317.mipush.manager.application.ZygiskConfigGateway,
 ) {
     private companion object {
         const val DEFAULT_LOG_COPY_BUFFER_SIZE = 64 * 1024
@@ -120,37 +116,5 @@ class SettingsManager constructor(
         runtimeActions.resetTopActivityCache()
     }
 
-    suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult = zygiskConfigGateway.isZygiskModuleEnabled()
-
-    fun getZygiskConfigPath(): String = zygiskConfigGateway.getZygiskConfigPath()
-
-    suspend fun getZygiskConfig(): ZygiskConfigReadResult = zygiskConfigGateway.getZygiskConfig()
-
-    suspend fun getZygiskSpoofPackages(): Set<String>? =
-        zygiskSpoofPackagesOrNull(getZygiskConfig())
-
-    suspend fun isZygiskSpoofEnabled(packageName: String): Boolean? =
-        zygiskSpoofEnabledOrNull(getZygiskConfig(), packageName)
-
-    suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean = zygiskConfigGateway.saveZygiskConfig(config)
-
-    suspend fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
-        val current = getZygiskConfig() as? ZygiskConfigReadResult.Available ?: return false
-        val updated = current.config.withPackageEnabled(packageName, enabled)
-        val saved = saveZygiskConfig(updated)
-        if (saved) {
-            zygiskConfigGateway.forceStopApp(packageName)
-        }
-        return saved
-    }
+    suspend fun getZygiskSpoofPackages(): Set<String>? = runtimeActions.getZygiskSpoofPackages()
 }
-
-internal fun zygiskSpoofPackagesOrNull(result: ZygiskConfigReadResult): Set<String>? =
-    (result as? ZygiskConfigReadResult.Available)?.config?.enabledPackages()
-
-internal fun zygiskSpoofEnabledOrNull(
-    result: ZygiskConfigReadResult,
-    packageName: String,
-): Boolean? = (result as? ZygiskConfigReadResult.Available)
-    ?.config
-    ?.isEnabledForPackage(packageName)

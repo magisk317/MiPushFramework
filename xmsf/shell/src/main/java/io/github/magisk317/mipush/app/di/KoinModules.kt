@@ -56,7 +56,6 @@ val xmsfCoreKoinModule = module {
     single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
     single<ManagerLogGateway> { XmsfManagerLogGateway() }
     single<ManagerPermissionGateway> { XmsfManagerPermissionGateway() }
-    single<io.github.magisk317.mipush.manager.application.ZygiskConfigGateway> { XmsfZygiskConfigGateway() }
     single { ConfigurationsLoader(get()) }
     single { Configurations(get()) }
     single { IconConfigurations(get()) }

@@ -12,12 +12,12 @@ import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.friendlyDateString
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.application.ApplicationListCacheStore
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.application.CachedApplicationSnapshot
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.common.utils.logW
 import java.util.Date
