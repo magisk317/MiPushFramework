@@ -230,6 +230,7 @@ android:build:
       exit "$status"
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
+    MAGISK_IS_CI_BUILD: "true"
     MAGISK_ANDROID_BUILD_TASKS: >-
       :xmsf:assembleDebug
       :mipush:assembleGithubDebug

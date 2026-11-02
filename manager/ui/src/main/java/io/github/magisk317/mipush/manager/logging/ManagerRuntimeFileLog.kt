@@ -46,6 +46,7 @@ object ManagerRuntimeFileLog {
     fun init(context: Context) {
         val resolved = context.applicationContext ?: context
         appContext.set(resolved)
+        val policy = MagiskLogPolicy.current()
         runCatching {
             val now = Date()
             synchronized(writeLock) {
@@ -54,8 +55,12 @@ object ManagerRuntimeFileLog {
             }
             XLog.configure(
                 tag = "MiPushManager",
-                logLevel = LogLevel.VERBOSE.priority,
-                sink = managerLogSink(resolved),
+                logLevel = if (policy.verboseLogging) {
+                    LogLevel.VERBOSE.priority
+                } else {
+                    LogLevel.WARN.priority
+                },
+                sink = if (policy.verboseLogging) managerLogSink(resolved) else null,
             )
         }.onFailure {
             android.util.Log.e("MiPushManager", "Manager file log init failed", it)
