@@ -1,5 +1,6 @@
 package com.xiaomi.smack.util
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import io.github.magisk317.xposed.logging.XLog
 import com.xiaomi.push.service.CommonPacketExtensionProvider
 import com.xiaomi.push.service.PushClientsManager
@@ -344,7 +345,7 @@ object PacketParserUtils {
             try {
                 type = Presence.Type.valueOf(typeAttribute)
             } catch (e: IllegalArgumentException) {
-                System.err.println("Found invalid presence type $typeAttribute")
+                MyLog.w("Found invalid presence type $typeAttribute")
             }
         }
         val presence = Presence(type)
@@ -373,7 +374,7 @@ object PacketParserUtils {
                             try {
                                 presence.setMode(Presence.Mode.valueOf(text))
                             } catch (e: IllegalArgumentException) {
-                                System.err.println("Found invalid presence mode $text")
+                                MyLog.w("Found invalid presence mode $text")
                             }
                         }
                         Message.MSG_TYPE_ERROR -> presence.error = parseError(xmlPullParser)
@@ -442,7 +443,7 @@ object PacketParserUtils {
                     setFeature("http://xmlpull.org/v1/doc/features.html#process-namespaces", true)
                 }
             } catch (e: XmlPullParserException) {
-                e.printStackTrace()
+                MyLog.e(e)
             }
         }
         sDecryptedMsgParser?.setInput(InputStreamReader(ByteArrayInputStream(bytes)))

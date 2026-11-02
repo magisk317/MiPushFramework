@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.utils
 
+import com.xiaomi.xmsf.BuildConfig
+
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
@@ -23,6 +25,7 @@ import java.util.Date
 import java.util.Locale
 
 object LogUtils {
+    private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
     private const val MAX_READ_LINES = 2000
     private const val DEFAULT_ROUTE = "app"
     private val dailyDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
@@ -98,19 +101,19 @@ object LogUtils {
     /**
      * @param verboseLogging whether this build is a capture channel (debug / CI). A release build
      *   installs no file sink at all: nothing is written to `files/log`, so there is no runtime
-     *   log to retain, prune or export. Logcat still receives the level-filtered stream.
+     *   log to retain, prune or export.
      */
     @JvmStatic
     fun init(context: Context, verboseLogging: Boolean = MagiskLogPolicy.current().verboseLogging) {
         val resolved = context.applicationContext ?: context
         appContext = resolved
-        minLogLevel = if (verboseLogging) LogLevel.VERBOSE else LogLevel.WARN
+        val enabled = BUILD_LOGGING_ENABLED && verboseLogging
+        minLogLevel = if (enabled) LogLevel.VERBOSE else LogLevel.WARN
         runCatching {
             deleteLegacyTextLogFiles(resolved)
             pruneAllLogArtifacts(resolved, Date(), force = true)
-            if (!verboseLogging) {
-                // Release: keep the logger configured for logcat only. The kit discards events
-                // when no sink is installed, so no file is ever created for them.
+            if (!enabled) {
+                // Release: keep no sink. The shared policy discards events before formatting.
                 SharedXLog.configure(
                     tag = "xmsf",
                     logLevel = minLogLevel.toAndroidPriority(),
@@ -128,7 +131,14 @@ object LogUtils {
             )
         }.onFailure {
             // 文件日志初始化失败时不回退到会泄露日志的默认 writer。
-            android.util.Log.e("xmsf", "XLog file log init failed, logs will be discarded", it)
+            if (BUILD_LOGGING_ENABLED) {
+                android.util.Log.e(
+                    "xmsf",
+                    DefaultLogSanitizer.limitForLog(
+                        "XLog file log init failed: ${it.javaClass.simpleName}; logs discarded",
+                    ),
+                )
+            }
         }
     }
 
@@ -182,6 +192,7 @@ object LogUtils {
         throwable: String,
         alreadySanitized: Boolean = false,
     ) {
+        if (!BUILD_LOGGING_ENABLED || !MagiskLogPolicy.current().loggingEnabled) return
         appendRuntimeLog(
             context = context.applicationContext ?: context,
             level = level.ifBlank { "I" },
@@ -206,14 +217,19 @@ object LogUtils {
         processName: String,
         alreadySanitized: Boolean = false,
     ) {
+        if (!BUILD_LOGGING_ENABLED || !MagiskLogPolicy.current().loggingEnabled) return
         val now = Date()
         val thread = Thread.currentThread()
         val entry = RuntimeLogEntry(
             timestamp = now.time,
             level = level,
             tag = tag,
-            message = if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
-            throwable = if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+            message = DefaultLogSanitizer.limitForLog(
+                if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
+            ),
+            throwable = DefaultLogSanitizer.limitForLog(
+                if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+            ),
             route = route,
             packageName = packageName,
             processName = processName,

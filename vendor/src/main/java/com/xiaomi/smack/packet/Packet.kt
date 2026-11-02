@@ -1,5 +1,6 @@
 package com.xiaomi.smack.packet
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.core.os.BundleCompat
@@ -168,7 +169,7 @@ abstract class Packet {
                                 sb.append(StringUtils.encodeBase64(bytes.toByteArray()))
                                 sb.append("</value>")
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                MyLog.e(e)
                             }
                         }
                     }

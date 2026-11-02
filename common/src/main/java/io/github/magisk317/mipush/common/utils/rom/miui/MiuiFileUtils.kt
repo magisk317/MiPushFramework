@@ -10,8 +10,7 @@ internal object MiuiFileUtils {
     private fun getPackageInfo(context: Context, packageName: String): PackageInfo? {
         return try {
             context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-        } catch (e: PackageManager.NameNotFoundException) {
-            e.printStackTrace()
+        } catch (_: PackageManager.NameNotFoundException) {
             null
         }
     }

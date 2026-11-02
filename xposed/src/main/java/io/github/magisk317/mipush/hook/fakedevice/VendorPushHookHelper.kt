@@ -42,7 +42,6 @@ internal sealed class VendorForceAction {
 internal object VendorPushHookHelper {
     private const val TAG = "VendorPushCompat"
     private const val MAX_LOGS_PER_KEY = 8
-    private const val LOG_VALUE_MAX_LENGTH = 240
 
     private val hookedMethods: MutableSet<String> = Collections.synchronizedSet(HashSet())
     private val logCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
@@ -331,11 +330,7 @@ internal object VendorPushHookHelper {
     }
 
     private fun truncateLogValue(value: String): String {
-        return if (value.length > LOG_VALUE_MAX_LENGTH) {
-            value.take(LOG_VALUE_MAX_LENGTH) + "..."
-        } else {
-            value
-        }
+        return DefaultLogSanitizer.limitForLog(value)
     }
 
     internal fun markHooked(key: String): Boolean = hookedMethods.add(key)

@@ -1,5 +1,6 @@
 package com.xiaomi.smack.provider
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.smack.packet.IQ
 import com.xiaomi.smack.packet.PacketExtension
 import java.util.Collections
@@ -91,7 +92,7 @@ class ProviderManager private constructor() {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
         }
     }
 
@@ -117,7 +118,7 @@ class ProviderManager private constructor() {
                 iqProviders[providerKey] = cls
             }
         } catch (e: ClassNotFoundException) {
-            e.printStackTrace()
+            MyLog.e(e)
         }
     }
 
@@ -143,7 +144,7 @@ class ProviderManager private constructor() {
                 extensionProviders[providerKey] = cls
             }
         } catch (e: ClassNotFoundException) {
-            e.printStackTrace()
+            MyLog.e(e)
         }
     }
 

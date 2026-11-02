@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.manager.logging
 
+import io.github.magisk317.mipush.manager.BuildConfig
+
 import android.annotation.SuppressLint
 import android.content.Context
 import io.github.magisk317.xposed.logging.DailyJsonlLogStore
@@ -25,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Export merges these files into the runtime log bundle as app/log/runtime.manager.*.jsonl.
  */
 object ManagerRuntimeFileLog {
+    private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
     private const val ROUTE = "manager"
     private const val MANAGER_STEM = "runtime.manager"
     private const val PRUNE_INTERVAL_MS = 30L * 60L * 1000L
@@ -46,6 +49,7 @@ object ManagerRuntimeFileLog {
     fun init(context: Context) {
         val resolved = context.applicationContext ?: context
         appContext.set(resolved)
+        val policy = MagiskLogPolicy.current()
         runCatching {
             val now = Date()
             synchronized(writeLock) {
@@ -54,11 +58,22 @@ object ManagerRuntimeFileLog {
             }
             XLog.configure(
                 tag = "MiPushManager",
-                logLevel = LogLevel.VERBOSE.priority,
-                sink = managerLogSink(resolved),
+                logLevel = if (policy.verboseLogging) {
+                    LogLevel.VERBOSE.priority
+                } else {
+                    LogLevel.WARN.priority
+                },
+                sink = if (BUILD_LOGGING_ENABLED && policy.verboseLogging) managerLogSink(resolved) else null,
             )
         }.onFailure {
-            android.util.Log.e("MiPushManager", "Manager file log init failed", it)
+            if (BUILD_LOGGING_ENABLED) {
+                android.util.Log.e(
+                    "MiPushManager",
+                    DefaultLogSanitizer.limitForLog(
+                        "Manager file log init failed: ${it.javaClass.simpleName}",
+                    ),
+                )
+            }
         }
     }
 
@@ -96,8 +111,11 @@ object ManagerRuntimeFileLog {
             val dir = getLogDir(context)
             dir.listFiles()?.forEach { file ->
                 val cleared = runCatching { file.delete() }.getOrDefault(false)
-                if (!cleared && file.exists()) {
-                    android.util.Log.w("MiPushManager", "log file survived clear: ${file.name}")
+                if (BUILD_LOGGING_ENABLED && !cleared && file.exists()) {
+                    android.util.Log.w(
+                        "MiPushManager",
+                        DefaultLogSanitizer.limitForLog("log file survived clear: ${file.name}"),
+                    )
                 }
             }
             lastPruneAtMs = System.currentTimeMillis()
@@ -134,11 +152,15 @@ object ManagerRuntimeFileLog {
             JsonLineField.string("tag", tag),
             JsonLineField.string(
                 "message",
-                if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
+                DefaultLogSanitizer.limitForLog(
+                    if (alreadySanitized) message else DefaultLogSanitizer.sanitizeIfEnabled(message),
+                ),
             ),
             JsonLineField.string(
                 "throwable",
-                if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+                DefaultLogSanitizer.limitForLog(
+                    if (alreadySanitized) throwable else DefaultLogSanitizer.sanitizeIfEnabled(throwable),
+                ),
                 include = throwable.isNotBlank(),
             ),
             JsonLineField.string("route", ROUTE),

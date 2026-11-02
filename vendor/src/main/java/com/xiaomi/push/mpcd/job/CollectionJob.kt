@@ -114,7 +114,7 @@ abstract class CollectionJob(
                     bufferedOutputStream.write(encryptedData)
                     bufferedOutputStream.flush()
                 } catch (e: IOException) {
-                    e.printStackTrace()
+                    MyLog.e(e)
                 } finally {
                     if (fileLock != null && fileLock.isValid()) {
                         try { fileLock.release() } catch (e: IOException) {}

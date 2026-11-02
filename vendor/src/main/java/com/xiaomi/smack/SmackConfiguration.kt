@@ -1,5 +1,6 @@
 package com.xiaomi.smack
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.mipush.sdk.OperatePushHelper
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -62,14 +63,14 @@ object SmackConfiguration {
                             eventType = parser.next()
                         } while (eventType != XmlPullParser.END_DOCUMENT)
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        MyLog.e(e)
                     } finally {
                         inputStream?.close()
                     }
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
         }
     }
 
@@ -126,7 +127,7 @@ object SmackConfiguration {
         try {
             Class.forName(className)
         } catch (e: ClassNotFoundException) {
-            System.err.println("Error! A startup class specified in smack-config.xml could not be loaded: $className")
+            MyLog.w("Startup class could not be loaded: $className")
         }
     }
 
@@ -134,7 +135,7 @@ object SmackConfiguration {
         return try {
             parser.nextText().toInt()
         } catch (e: NumberFormatException) {
-            e.printStackTrace()
+            MyLog.e(e)
             defaultValue
         }
     }
