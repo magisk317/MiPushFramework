@@ -468,6 +468,12 @@ telegram:ci:
     - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "push" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
       when: manual
       allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "web" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "beta" && $CI_PIPELINE_SOURCE == "api" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+      when: manual
+      allow_failure: true
     - when: never
   tags:
     - $MIPUSH_GITLAB_LINUX_ARM64_RUNNER_TAG
