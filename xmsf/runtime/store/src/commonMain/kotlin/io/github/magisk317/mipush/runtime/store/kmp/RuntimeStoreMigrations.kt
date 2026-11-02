@@ -166,18 +166,28 @@ object RuntimeStoreMigrations {
     }
 
     /**
-     * v11 adds both per-app notification toggles: suppress-while-disabled and the HyperOS
-     * count-limit exemption. Existing rows default to 0 (off) for both, so notifications keep
-     * flowing and HyperOS's per-package trimming stays active until the user opts in per app.
+     * v11 adds the per-app suppress-while-disabled flag. Existing rows default to 0 (off),
+     * so notifications keep flowing until the user opts in from the manager's app detail page.
      */
     val MIGRATION_10_11: Migration = object : Migration(10, 11) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL(
                 "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN suppress_when_disabled INTEGER NOT NULL DEFAULT 0"
             )
-            connection.execSQL(
-                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt INTEGER NOT NULL DEFAULT 0"
-            )
+        }
+    }
+
+    /**
+     * v12 adds the HyperOS count-limit exemption. v11 shipped with only
+     * suppress_when_disabled, so this migration must remain separate.
+     */
+    val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+        override fun migrate(connection: SQLiteConnection) {
+            if (!connection.hasColumn("REGISTERED_APPLICATION", "count_limit_exempt")) {
+                connection.execSQL(
+                    "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt INTEGER NOT NULL DEFAULT 0"
+                )
+            }
         }
     }
 
@@ -192,5 +202,14 @@ object RuntimeStoreMigrations {
         MIGRATION_8_9,
         MIGRATION_9_10,
         MIGRATION_10_11,
+        MIGRATION_11_12,
     )
+
+    private fun SQLiteConnection.hasColumn(tableName: String, columnName: String): Boolean =
+        prepare("PRAGMA table_info(`$tableName`)").use { statement ->
+            while (statement.step()) {
+                if (statement.getText(1) == columnName) return true
+            }
+            false
+        }
 }

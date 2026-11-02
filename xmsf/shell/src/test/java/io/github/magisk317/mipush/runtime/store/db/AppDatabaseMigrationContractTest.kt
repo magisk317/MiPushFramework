@@ -10,7 +10,7 @@ import java.io.File
 class RuntimeStoreMigrationContractTest {
     @Test
     fun `migration registry covers every production schema version`() {
-        assertEquals(10, RuntimeStoreMigrations.ALL.size)
+        assertEquals(11, RuntimeStoreMigrations.ALL.size)
         RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
             assertEquals(index + 1, migration.startVersion)
             assertEquals(index + 2, migration.endVersion)
@@ -18,14 +18,14 @@ class RuntimeStoreMigrationContractTest {
     }
 
     @Test
-    fun `runtime store database declares the production v11 entities`() {
+    fun `runtime store database declares the production v12 entities`() {
         val source = readSource(
             "../runtime/store/src/commonMain/kotlin/" +
                 "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
 
         assertTrue(source.contains("@Database("))
-        assertTrue(source.contains("version = 11"))
+        assertTrue(source.contains("version = 12"))
         listOf(
             "RuntimeEventRow::class",
             "RuntimeDeletedEventRow::class",
