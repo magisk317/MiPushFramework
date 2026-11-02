@@ -530,15 +530,17 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     val updateCoordinator = koinInject<VersionUpdateCoordinator>()
-    val trackCiTitle = stringResource(R.string.settings_track_ci_builds_title)
-    SettingsSwitchItem(
-        title = trackCiTitle,
-        summary = stringResource(R.string.settings_track_ci_builds_summary),
-        checked = trackCiBuilds,
-    ) { enabled ->
-        viewModel.setTrackCiBuilds(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(trackCiTitle, enabled, success)
+    if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
+        val trackCiTitle = stringResource(R.string.settings_track_ci_builds_title)
+        SettingsSwitchItem(
+            title = trackCiTitle,
+            summary = stringResource(R.string.settings_track_ci_builds_summary),
+            checked = trackCiBuilds,
+        ) { enabled ->
+            viewModel.setTrackCiBuilds(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(trackCiTitle, enabled, success)
+            }
         }
     }
     val checkReportChecking = stringResource(R.string.settings_check_report_checking)
