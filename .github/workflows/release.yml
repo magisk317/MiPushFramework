@@ -238,7 +238,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 90
     env:
-      MIPUSH_ZYGISK_REF: d4f2903fda4fcc9ccdd078599c94138e23774a2f
+      MIPUSH_ZYGISK_REF: d99cc62e101a0c1339c5532f4f46f67447f789fd
     steps:
       - name: Configure GitLab submodule credentials
         env:
