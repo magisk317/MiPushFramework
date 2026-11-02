@@ -200,12 +200,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: AppSnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
-        val zygiskStateLabel = when (isZygiskEnabledForApp) {
-            true -> stringResource(R.string.zygisk_enabled)
-            false -> stringResource(R.string.zygisk_disabled)
-            null -> stringResource(R.string.zygisk_unavailable)
-        }
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
@@ -286,29 +280,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                                 RegistrationStateStyle.ErrorColor
                             },
                         )
-                        HeaderMetricCard(
-                            label = stringResource(R.string.zygisk_status),
-                            value = zygiskStateLabel,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            accent = if (isZygiskEnabledForApp == true) {
-                                RegistrationStateStyle.GreenColor
-                            } else {
-                                appColor(AppColorRole.Secondary)
-                            },
-                            onClick = {
-                                context.startActivity(android.content.Intent(context, ZygiskConfigPage::class.java))
-                            }
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-                    ) {
                         HeaderMetricCard(
                             label = stringResource(R.string.app_detail_last_push),
                             value = lastPush,
@@ -427,24 +398,10 @@ open class ApplicationInfoPage : ComponentActivity() {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
-        val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
-        val isZygiskConfigurableForApp by infoViewModel.isZygiskConfigurableForApp.collectAsStateWithLifecycle()
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
         ) {
-            val zygiskTitle = stringResource(R.string.zygisk_spoof_switch)
-            SettingSwitchRow(
-                title = zygiskTitle,
-                summary = stringResource(R.string.zygisk_spoof_switch_summary),
-                checked = isZygiskEnabledForApp == true && !blocked,
-                enabled = isZygiskConfigurableForApp && !blocked && isZygiskEnabledForApp != null,
-                showDivider = true,
-            ) { enabled ->
-                infoViewModel.updateZygiskEnabledForApp(enabled)
-                showSwitchFeedback(zygiskTitle, enabled)
-            }
-
             val blockTitle = stringResource(R.string.app_detail_block)
             SettingSwitchRow(
                 title = blockTitle,

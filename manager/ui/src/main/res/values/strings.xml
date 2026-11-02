@@ -277,13 +277,9 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="notification_channels_copy_id">Copy channel ID</string>
     <string name="notification_channels_delete_failed">Failed to delete notification channel</string>
 
-    <string name="zygisk_status">Zygisk configuration</string>
-    <string name="zygisk_status_summary">Manage module status and app spoofing</string>
     <string name="zygisk_enabled">Enabled</string>
     <string name="zygisk_disabled">Disabled</string>
     <string name="zygisk_unavailable">Unavailable</string>
-    <string name="zygisk_spoof_switch">Zygisk device spoofing</string>
-    <string name="zygisk_spoof_switch_summary">When enabled, the app will think it is running on a Xiaomi device, prompting it to register with MiPush.</string>
     <string name="zygisk_save">Save Zygisk configuration</string>
     <string name="zygisk_save_success">Zygisk configuration saved</string>
     <string name="zygisk_save_failed">Could not save Zygisk configuration</string>

@@ -77,11 +77,5 @@ class ManagerPhase4ParcelableTest {
                 base.copy(packageName = "com.example", eventId = 9L, userId = -1),
             ),
         )
-        assertEquals(
-            "write_package_name_required",
-            ManagerProtocol.validateWriteRequest(
-                base.copy(operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP),
-            ),
-        )
     }
 }

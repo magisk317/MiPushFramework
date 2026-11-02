@@ -62,10 +62,6 @@
             android:exported="false"
             android:theme="@style/AppTheme" />
         <activity
-            android:name="io.github.magisk317.mipush.feature.main.ZygiskConfigPage"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-        <activity
             android:name="io.github.magisk317.mipush.feature.main.subpage.ConfigurationsPage"
             android:exported="false"
             android:theme="@style/AppTheme" />

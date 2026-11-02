@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.manager.application.ManagerEventGateway
 import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
-import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.configuration.ConfigCatalogService
@@ -23,7 +22,6 @@ import io.github.magisk317.mipush.manager.remote.RemoteManagerEventGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerLogGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerPermissionGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerRuntimeActions
-import io.github.magisk317.mipush.manager.remote.RemoteZygiskConfigGateway
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -68,5 +66,4 @@ val managerRemoteHostModule = module {
     single<ManagerPermissionGateway> {
         RemoteManagerPermissionGateway(androidContext(), get(), get())
     }
-    single<ZygiskConfigGateway> { RemoteZygiskConfigGateway(get()) }
 }

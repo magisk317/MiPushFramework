@@ -196,15 +196,6 @@ internal fun IntegrationsBlock(
     }
 
     SettingsItem(
-        title = stringResource(R.string.zygisk_status),
-        summary = stringResource(R.string.zygisk_status_summary),
-    ) {
-        context.startActivity(
-            Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java),
-        )
-    }
-
-    SettingsItem(
         title = stringResource(R.string.settings_configurations_management_title),
         summary = stringResource(R.string.settings_configurations_entry_summary),
         onClick = onNavigateToConfigurations,
@@ -530,15 +521,17 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
     }
 
     val updateCoordinator = koinInject<VersionUpdateCoordinator>()
-    val trackCiTitle = stringResource(R.string.settings_track_ci_builds_title)
-    SettingsSwitchItem(
-        title = trackCiTitle,
-        summary = stringResource(R.string.settings_track_ci_builds_summary),
-        checked = trackCiBuilds,
-    ) { enabled ->
-        viewModel.setTrackCiBuilds(enabled) { success ->
-            if (success) notifyPrefChanged(context)
-            showSwitchFeedback(trackCiTitle, enabled, success)
+    if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) {
+        val trackCiTitle = stringResource(R.string.settings_track_ci_builds_title)
+        SettingsSwitchItem(
+            title = trackCiTitle,
+            summary = stringResource(R.string.settings_track_ci_builds_summary),
+            checked = trackCiBuilds,
+        ) { enabled ->
+            viewModel.setTrackCiBuilds(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(trackCiTitle, enabled, success)
+            }
         }
     }
     val checkReportChecking = stringResource(R.string.settings_check_report_checking)

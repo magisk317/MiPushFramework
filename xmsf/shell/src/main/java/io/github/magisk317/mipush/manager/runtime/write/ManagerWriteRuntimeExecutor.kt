@@ -34,8 +34,6 @@ import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerNotificationChannelCommandGateway
-import io.github.magisk317.mipush.manager.application.ZygiskConfigGateway
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
@@ -59,7 +57,6 @@ class ManagerWriteRuntimeExecutor(
     private val permissionGateway: ManagerPermissionGateway,
     private val logGateway: ManagerLogGateway,
     private val notificationGateway: ManagerNotificationChannelCommandGateway,
-    private val zygiskConfigGateway: ZygiskConfigGateway,
     private val idempotencyStore: ManagerWriteIdempotencyStore = ManagerWriteIdempotencyStore(),
 ) {
 
@@ -75,7 +72,6 @@ class ManagerWriteRuntimeExecutor(
         permissionGateway = AppDependencies.get(context),
         logGateway = AppDependencies.get(context),
         notificationGateway = AppDependencies.get(context),
-        zygiskConfigGateway = AppDependencies.get(context),
     )
 
     fun execute(request: ManagerWriteRequestDto): ManagerWriteResultDto {
@@ -178,6 +174,7 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_QUERY_LIVE_UPDATE_PERMISSION -> queryLiveUpdatePermission(request)
             ManagerProtocol.WRITE_OP_GRANT_LIVE_UPDATE_PERMISSION -> grantLiveUpdatePermission(request)
             ManagerProtocol.WRITE_OP_QUERY_ROOT -> queryRoot(request)
+            ManagerProtocol.WRITE_OP_QUERY_ZYGISK_PACKAGES -> queryZygiskPackages(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN -> setRuntimeBoolean(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_INT -> setRuntimeInt(request)
             ManagerProtocol.WRITE_OP_RESTART_RUNTIME -> restartRuntime(request)
@@ -211,10 +208,6 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY -> countEventsByDay(request)
             ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS -> clearLogFolders(request)
             ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL -> deleteNotificationChannel(request)
-            ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED -> zygiskIsEnabled(request)
-            ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG -> zygiskGetConfig(request)
-            ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG -> zygiskSaveConfig(request)
-            ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP -> zygiskForceStop(request)
             ManagerProtocol.WRITE_OP_REPAIR_XSPACE -> repairXSpace(request)
             ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE -> resetTopActivityCache(request)
             ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT -> getEventContent(request)
@@ -715,58 +708,6 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private suspend fun zygiskIsEnabled(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        return when (val result = zygiskConfigGateway.isZygiskModuleEnabled()) {
-            is io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult.Available -> success(
-                requestId = request.requestId,
-                details = ManagerProtocol.WRITE_DETAIL_ZYGISK_OK,
-                resultLong = if (result.enabled) 1L else 0L,
-            )
-            is io.github.magisk317.mipush.manager.application.ZygiskModuleReadResult.Unavailable ->
-                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
-        }
-    }
-
-    private suspend fun zygiskGetConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        return when (val result = zygiskConfigGateway.getZygiskConfig()) {
-            is io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Available -> {
-                val content = result.config.toFileContent()
-                success(
-                    requestId = request.requestId,
-                    details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
-                    resultLong = content.length.toLong(),
-                )
-            }
-            is io.github.magisk317.mipush.manager.application.ZygiskConfigReadResult.Unavailable ->
-                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
-        }
-    }
-
-    private suspend fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
-            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
-        }
-        val config = ZygiskConfig.parse(request.argument)
-        val ok = zygiskConfigGateway.saveZygiskConfig(config)
-        return if (ok) {
-            success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
-        } else {
-            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_FAILED)
-        }
-    }
-
-    private suspend fun zygiskForceStop(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val packageName = request.packageName.trim()
-        if (io.github.magisk317.mipush.manager.api.ManagerProtocol.validateApplicationPackageName(packageName) != null) {
-            return failed(request.requestId, "invalid_package")
-        }
-        return if (zygiskConfigGateway.forceStopApp(packageName)) {
-            success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
-        } else {
-            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_FAILED)
-        }
-    }
-
     private suspend fun repairXSpace(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val result = permissionGateway.repairXSpaceUserSupport()
         val details = when (result.stage) {
@@ -788,6 +729,12 @@ class ManagerWriteRuntimeExecutor(
             details = result.details.ifBlank { details }.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
             resultLong = if (result.xmsfInstalled) 1L else 0L,
         )
+    }
+
+    private suspend fun queryZygiskPackages(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packages = runtimeActions.getZygiskSpoofPackages()
+            ?: return failed(request.requestId, "zygisk_packages_unavailable")
+        return success(request.requestId, packages.joinToString("\n"))
     }
 
     private suspend fun resetTopActivityCache(request: ManagerWriteRequestDto): ManagerWriteResultDto {
