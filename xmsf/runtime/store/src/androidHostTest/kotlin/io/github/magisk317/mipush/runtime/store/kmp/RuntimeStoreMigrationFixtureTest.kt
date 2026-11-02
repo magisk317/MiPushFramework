@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test
 
 class RuntimeStoreMigrationFixtureTest {
     @Test
-    fun `every legacy schema version migrates to v11 and preserves runtime data`() {
-        for (version in 1..11) {
+    fun `every legacy schema version migrates to v12 and preserves runtime data`() {
+        for (version in 1..12) {
             val connection = createFixture(version)
             try {
                 migrateToLatest(connection, version)
 
-                assertEquals(11L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
+                assertEquals(12L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
                 assertEquals(
                     listOf("id", "pkg", "type", "date", "result", "dev_info", "payload", "reg_sec", "search_text", "user_id"),
                     columnNames(connection, "EVENT"),
@@ -47,7 +47,7 @@ class RuntimeStoreMigrationFixtureTest {
                     "suppress_when_disabled for v$version",
                 )
                 assertEquals(
-                    if (version >= 11) 1L else 0L,
+                    if (version >= 12) 1L else 0L,
                     scalarLong(connection, "SELECT count_limit_exempt FROM REGISTERED_APPLICATION WHERE id = 1"),
                     "count_limit_exempt for v$version",
                 )
@@ -75,10 +75,26 @@ class RuntimeStoreMigrationFixtureTest {
     }
 
     @Test
+    fun `v11 schema that already contains count limit exemption migrates idempotently to v12`() {
+        val connection = createFixture(12)
+        try {
+            connection.execSQL("PRAGMA user_version = 11")
+
+            migrateToLatest(connection, 11)
+
+            assertEquals(12L, scalarLong(connection, "PRAGMA user_version"))
+            assertEquals(1L, scalarLong(connection, "SELECT count_limit_exempt FROM REGISTERED_APPLICATION WHERE id = 1"))
+            assertEquals(1, columnNames(connection, "REGISTERED_APPLICATION").count { it == "count_limit_exempt" })
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
     fun `migration registry is contiguous and ends at production schema`() {
-        assertEquals(10, RuntimeStoreMigrations.ALL.size)
+        assertEquals(11, RuntimeStoreMigrations.ALL.size)
         assertEquals(1, RuntimeStoreMigrations.ALL.first().startVersion)
-        assertEquals(11, RuntimeStoreMigrations.ALL.last().endVersion)
+        assertEquals(12, RuntimeStoreMigrations.ALL.last().endVersion)
         RuntimeStoreMigrations.ALL.toList().zipWithNext().forEach { (current, next) ->
             assertEquals(current.endVersion, next.startVersion)
         }
@@ -119,7 +135,7 @@ class RuntimeStoreMigrationFixtureTest {
                 ${if (version >= 3) "blocked INTEGER NOT NULL DEFAULT 0," else ""}
                 ${if (version >= 4) "island_enabled INTEGER NOT NULL DEFAULT 1, island_focus_notification INTEGER NOT NULL DEFAULT 0," else ""}
                 registered_type INTEGER NOT NULL,
-                app_name TEXT NOT NULL${if (version >= 7) ", user_id INTEGER NOT NULL DEFAULT 0" else ""}${if (version >= 10) ", click_fallback_enabled INTEGER NOT NULL DEFAULT 0" else ""}${if (version >= 11) ", suppress_when_disabled INTEGER NOT NULL DEFAULT 0, count_limit_exempt INTEGER NOT NULL DEFAULT 0" else ""}
+                app_name TEXT NOT NULL${if (version >= 7) ", user_id INTEGER NOT NULL DEFAULT 0" else ""}${if (version >= 10) ", click_fallback_enabled INTEGER NOT NULL DEFAULT 0" else ""}${if (version >= 11) ", suppress_when_disabled INTEGER NOT NULL DEFAULT 0" else ""}${if (version >= 12) ", count_limit_exempt INTEGER NOT NULL DEFAULT 0" else ""}
             )
             """.trimIndent(),
         )
@@ -171,8 +187,10 @@ class RuntimeStoreMigrationFixtureTest {
         }
         connection.execSQL("INSERT INTO EVENT ($eventColumns) VALUES ($eventValues)")
 
-        val applicationColumns = if (version >= 11) {
+        val applicationColumns = if (version >= 12) {
             "id, pkg, type, notification_on_register, blocked, island_enabled, island_focus_notification, registered_type, app_name, user_id, click_fallback_enabled, suppress_when_disabled, count_limit_exempt"
+        } else if (version >= 11) {
+            "id, pkg, type, notification_on_register, blocked, island_enabled, island_focus_notification, registered_type, app_name, user_id, click_fallback_enabled, suppress_when_disabled"
         } else if (version >= 10) {
             "id, pkg, type, notification_on_register, blocked, island_enabled, island_focus_notification, registered_type, app_name, user_id, click_fallback_enabled"
         } else if (version >= 7) {
@@ -184,8 +202,10 @@ class RuntimeStoreMigrationFixtureTest {
         } else {
             "id, pkg, type, notification_on_register, registered_type, app_name"
         }
-        val applicationValues = if (version >= 11) {
+        val applicationValues = if (version >= 12) {
             "1, 'com.example.app', 0, 1, 0, 1, 0, 0, 'Example', $eventUserId, 1, 1, 1"
+        } else if (version >= 11) {
+            "1, 'com.example.app', 0, 1, 0, 1, 0, 0, 'Example', $eventUserId, 1, 1"
         } else if (version >= 10) {
             "1, 'com.example.app', 0, 1, 0, 1, 0, 0, 'Example', $eventUserId, 1"
         } else if (version >= 7) {

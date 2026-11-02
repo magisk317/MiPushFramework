@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "59dfec876755f573853ca7a3d0523aef",
+    "identityHash": "6e7f11a83e9cf26653d7253cea0c5bf4",
     "entities": [
       {
         "tableName": "EVENT",
@@ -184,7 +184,7 @@
       },
       {
         "tableName": "REGISTERED_APPLICATION",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `pkg` TEXT NOT NULL, `user_id` INTEGER NOT NULL DEFAULT 0, `type` INTEGER NOT NULL, `notification_on_register` INTEGER NOT NULL, `blocked` INTEGER NOT NULL DEFAULT 0, `island_enabled` INTEGER NOT NULL DEFAULT 1, `island_focus_notification` INTEGER NOT NULL DEFAULT 0, `click_fallback_enabled` INTEGER NOT NULL DEFAULT 0, `suppress_when_disabled` INTEGER NOT NULL DEFAULT 0, `count_limit_exempt` INTEGER NOT NULL DEFAULT 0, `registered_type` INTEGER NOT NULL, `app_name` TEXT NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `pkg` TEXT NOT NULL, `user_id` INTEGER NOT NULL DEFAULT 0, `type` INTEGER NOT NULL, `notification_on_register` INTEGER NOT NULL, `blocked` INTEGER NOT NULL DEFAULT 0, `island_enabled` INTEGER NOT NULL DEFAULT 1, `island_focus_notification` INTEGER NOT NULL DEFAULT 0, `click_fallback_enabled` INTEGER NOT NULL DEFAULT 0, `suppress_when_disabled` INTEGER NOT NULL DEFAULT 0, `registered_type` INTEGER NOT NULL, `app_name` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -252,13 +252,6 @@
             "defaultValue": "0"
           },
           {
-            "fieldPath": "countLimitExempt",
-            "columnName": "count_limit_exempt",
-            "affinity": "INTEGER",
-            "notNull": true,
-            "defaultValue": "0"
-          },
-          {
             "fieldPath": "registeredType",
             "columnName": "registered_type",
             "affinity": "INTEGER",
@@ -293,7 +286,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '59dfec876755f573853ca7a3d0523aef')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6e7f11a83e9cf26653d7253cea0c5bf4')"
     ]
   }
 }
