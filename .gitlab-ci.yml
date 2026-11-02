@@ -223,6 +223,7 @@ android:build:
       exit "$status"
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
+    MAGISK_IS_CI_BUILD: "true"
     MAGISK_ANDROID_BUILD_TASKS: >-
       :xmsf:assembleDebug
       :mipush:assembleGithubDebug
@@ -683,30 +684,38 @@ android:release:apk:
       # build its "<versionCode>-<versionName>" release tag.
       - play-release.env
 
-android:release:aab:
-  extends: .magisk_android_release_aab
-  variables:
-    MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
-    MAGISK_PLAY_TRACK_OVERRIDE: "production"
-  resource_group: mipush-android-release-play
-  stage: build
-  tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
-    - when: never
-  needs:
-    - job: android:release:guard
-      artifacts: false
-  artifacts:
-    name: "MiPushFramework-release-bundle-$CI_COMMIT_TAG"
-    when: always
-    expire_in: 30 days
-    paths:
-      - mipush/build/outputs/bundle/**/*.aab
-      - mipush/build/outputs/mapping/**/mapping.txt
-      - play-release.env
-
+# ===== PLAY SUSPENDED 2026-11-05 =====
+# Play packaging and publishing (production and beta tracks) are
+# suspended pending the store review outcome. The four suspended jobs
+# are android:release:aab, android:release:publish-play, android:ci:aab
+# and android:ci:publish-play below. To restore, uncomment all four
+# blocks and drop this header. xmsf:runtime:publish is untouched: its
+# play-release.env input is produced by android:release:apk, which
+# remains active.
+# android:release:aab:
+#   extends: .magisk_android_release_aab
+#   variables:
+#     MAGISK_ANDROID_RELEASE_AAB_TASKS: ":mipush:bundlePlayRelease"
+#     MAGISK_PLAY_TRACK_OVERRIDE: "production"
+#   resource_group: mipush-android-release-play
+#   stage: build
+#   tags:
+#     - $MIPUSH_BUILD_RUNNER_TAG
+#   rules:
+#     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+#     - when: never
+#   needs:
+#     - job: android:release:guard
+#       artifacts: false
+#   artifacts:
+#     name: "MiPushFramework-release-bundle-$CI_COMMIT_TAG"
+#     when: always
+#     expire_in: 30 days
+#     paths:
+#       - mipush/build/outputs/bundle/**/*.aab
+#       - mipush/build/outputs/mapping/**/mapping.txt
+#       - play-release.env
+# 
 android:release:gitlab:
   extends:
     - .magisk_linux_base
@@ -775,101 +784,103 @@ xmsf:runtime:publish:
           --version-code "$XMSF_RUNTIME_VERSION_CODE"
       done
 
-android:release:publish-play:
-  extends: .magisk_android_publish_play
-  resource_group: mipush-android-release-play
-  stage: release
-  tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
-    - when: never
-  variables:
-    MAGISK_PLAY_TRACK_OVERRIDE: "production"
-    MAGISK_ANDROID_APP_MODULE: "mipush"
-  needs:
-    - job: android:release:aab
-      artifacts: true
-  artifacts:
-    reports:
-      dotenv: play-release-status.env
-    paths:
-      - play-release-status.env
-    when: always
-    expire_in: 1 day
-
-android:ci:aab:
-  extends:
-    - .magisk_android_base
-    - .magisk_android_ci_aab_rules
-  resource_group: mipush-android-release-play
-  stage: build
-  tags:
-    - $MIPUSH_BUNDLE_RUNNER_TAG
+# android:release:publish-play:
+#   extends: .magisk_android_publish_play
+#   resource_group: mipush-android-release-play
+#   stage: release
+#   tags:
+#     - $MIPUSH_BUILD_RUNNER_TAG
+#   rules:
+#     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+#     - when: never
+#   variables:
+#     MAGISK_PLAY_TRACK_OVERRIDE: "production"
+#     MAGISK_ANDROID_APP_MODULE: "mipush"
+#   needs:
+#     - job: android:release:aab
+#       artifacts: true
+#   artifacts:
+#     reports:
+#       dotenv: play-release-status.env
+#     paths:
+#       - play-release-status.env
+#     when: always
+#     expire_in: 1 day
+# 
+# android:ci:aab:
+#   extends:
+#     - .magisk_android_base
+#     - .magisk_android_ci_aab_rules
+#   resource_group: mipush-android-release-play
+#   stage: build
+#   tags:
+#     - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
   # come from CI variables, assets from the repository), so beta bundle
   # production must not wait for other build/package jobs. Packaging, followed
   # by Renovate's automatic delivery when applicable, keeps priority over quality.
-  needs: []
-  variables:
-    MAGISK_IS_CI_BUILD: "true"
-  script:
-    - |
-      set -euo pipefail
-      export MAGISK_PLAY_TRACK_OVERRIDE=beta
-      keystore_path="$CI_PROJECT_DIR/release.jks"
-      printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
-      chmod 0600 "$keystore_path"
-      bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
-        --package-name "$MAGISK_ANDROID_RELEASE_PACKAGE_NAME" \
-        --version-file "$CI_PROJECT_DIR/gradle/libs.versions.toml" \
-        --output "$CI_PROJECT_DIR/play-release.env" \
-        --initial-version-code "$MAGISK_PLAY_INITIAL_VERSION_CODE"
-      source "$CI_PROJECT_DIR/play-release.env"
-      KEYSTORE_FILE="$keystore_path" STORE_PASSWORD="$STORE_PASSWORD" KEY_ALIAS="$KEY_ALIAS" KEY_PASSWORD="$KEY_PASSWORD" \
-        bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-          :mipush:bundlePlayRelease -PversionName="$MAGISK_PLAY_VERSION_NAME" -PversionCode="$MAGISK_PLAY_VERSION_CODE"
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - mipush/build/outputs/bundle/**/*.aab
-      - mipush/build/outputs/mapping/**/mapping.txt
-      - play-release.env
-
-android:ci:publish-play:
-  extends:
-    - .magisk_android_base
-    - .magisk_android_ci_publish_play_rules
-  resource_group: mipush-android-release-play
-  stage: release
-  tags:
-    - $MIPUSH_BUILD_RUNNER_TAG
-  needs:
-    - job: android:ci:aab
-      artifacts: true
-  script:
-    - |
-      set -euo pipefail
-      set -a
-      source play-release.env
-      set +a
-      export MAGISK_PLAY_AAB_FILE="$(find mipush/build/outputs/bundle -type f -name '*.aab' | sort | head -n 1)"
-      export MAGISK_PLAY_TITLE="MiPush Manager"
-      export MAGISK_PLAY_SHORT_DESCRIPTION="System-level Xiaomi push service for non-MIUI Android devices."
-      export MAGISK_PLAY_FULL_DESCRIPTION="MiPush Manager provides a system-level Xiaomi push service for non-MIUI Android devices. It centralizes Xiaomi push connections, improves notification compatibility, and offers runtime diagnostics and configuration controls."
-      export MAGISK_PLAY_MAPPING_FILE="$(find mipush/build/outputs/mapping -type f -name mapping.txt | sort | head -n 1 || true)"
-      export MAGISK_PLAY_SYMBOLS_FILE="$(find mipush/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip 2>/dev/null | sort | head -n 1 || true)"
-      export MAGISK_RELEASE_ENV_FILE=play-release-status.env
-      bash "$MAGISK_CI_TOOLKIT_DIR/release/publish_play.sh"
-  artifacts:
-    reports:
-      dotenv: play-release-status.env
-    paths:
-      - play-release-status.env
-    when: always
-    expire_in: 1 day
-
+#   needs: []
+#   variables:
+#     # Play requires a signed, non-debuggable AAB. This internal diagnostic artifact
+#     # deliberately uses bundlePlayRelease while keeping the CI log channel.
+#     MAGISK_IS_CI_BUILD: "true"
+#   script:
+#     - |
+#       set -euo pipefail
+#       export MAGISK_PLAY_TRACK_OVERRIDE=beta
+#       keystore_path="$CI_PROJECT_DIR/release.jks"
+#       printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
+#       chmod 0600 "$keystore_path"
+#       bash "$MAGISK_CI_TOOLKIT_DIR/release/resolve_play_release.sh" \
+#         --package-name "$MAGISK_ANDROID_RELEASE_PACKAGE_NAME" \
+#         --version-file "$CI_PROJECT_DIR/gradle/libs.versions.toml" \
+#         --output "$CI_PROJECT_DIR/play-release.env" \
+#         --initial-version-code "$MAGISK_PLAY_INITIAL_VERSION_CODE"
+#       source "$CI_PROJECT_DIR/play-release.env"
+#       KEYSTORE_FILE="$keystore_path" STORE_PASSWORD="$STORE_PASSWORD" KEY_ALIAS="$KEY_ALIAS" KEY_PASSWORD="$KEY_PASSWORD" \
+#         bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
+#           :mipush:bundlePlayRelease -PversionName="$MAGISK_PLAY_VERSION_NAME" -PversionCode="$MAGISK_PLAY_VERSION_CODE"
+#   artifacts:
+#     when: always
+#     expire_in: 7 days
+#     paths:
+#       - mipush/build/outputs/bundle/**/*.aab
+#       - mipush/build/outputs/mapping/**/mapping.txt
+#       - play-release.env
+# 
+# android:ci:publish-play:
+#   extends:
+#     - .magisk_android_base
+#     - .magisk_android_ci_publish_play_rules
+#   resource_group: mipush-android-release-play
+#   stage: release
+#   tags:
+#     - $MIPUSH_BUILD_RUNNER_TAG
+#   needs:
+#     - job: android:ci:aab
+#       artifacts: true
+#   script:
+#     - |
+#       set -euo pipefail
+#       set -a
+#       source play-release.env
+#       set +a
+#       export MAGISK_PLAY_AAB_FILE="$(find mipush/build/outputs/bundle -type f -name '*.aab' | sort | head -n 1)"
+#       export MAGISK_PLAY_TITLE="MiPush Manager"
+#       export MAGISK_PLAY_SHORT_DESCRIPTION="System-level Xiaomi push service for non-MIUI Android devices."
+#       export MAGISK_PLAY_FULL_DESCRIPTION="MiPush Manager provides a system-level Xiaomi push service for non-MIUI Android devices. It centralizes Xiaomi push connections, improves notification compatibility, and offers runtime diagnostics and configuration controls."
+#       export MAGISK_PLAY_MAPPING_FILE="$(find mipush/build/outputs/mapping -type f -name mapping.txt | sort | head -n 1 || true)"
+#       export MAGISK_PLAY_SYMBOLS_FILE="$(find mipush/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip 2>/dev/null | sort | head -n 1 || true)"
+#       export MAGISK_RELEASE_ENV_FILE=play-release-status.env
+#       bash "$MAGISK_CI_TOOLKIT_DIR/release/publish_play.sh"
+#   artifacts:
+#     reports:
+#       dotenv: play-release-status.env
+#     paths:
+#       - play-release-status.env
+#     when: always
+#     expire_in: 1 day
+# 
 telegram:release:
   extends: .magisk_telegram_release
   resource_group: mipush-android-release-publish

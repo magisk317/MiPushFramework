@@ -60,7 +60,9 @@ class GithubXmsfDelivery(
      */
     private fun probeChain(flavor: XmsfRuntimeFlavor): XmsfLatestProbeChain {
         val gate = trackCi()
-        Log.i(TAG, "runtime channel: trackCi=$gate variant=${flavor.label}")
+        if (BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD) {
+            Log.i(TAG, "runtime channel: trackCi=$gate variant=${flavor.label}")
+        }
         return XmsfLatestProbeChain(
             ciArtifacts = if (gate) ciProbeFactory(flavor) else null,
             registry = registryProbeFactory(flavor),

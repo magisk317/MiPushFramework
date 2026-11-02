@@ -1,5 +1,6 @@
 package com.xiaomi.channel.commonutils.android
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import android.content.Context
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
@@ -30,7 +31,7 @@ object AssetUtils {
             fileOutputStream.flush()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
             false
         } finally {
             IOUtils.closeQuietly(fileInputStream)

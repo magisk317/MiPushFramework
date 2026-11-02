@@ -1,17 +1,26 @@
 package com.xiaomi.channel.commonutils.logger
 
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.XLog
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 class WarnOnceTest {
     @BeforeEach
     fun setUp() {
+        MagiskLogPolicy.install(isDiagnosticBuild = true)
         WarnOnce.reset()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        XLog.resetForTest()
+        MagiskLogPolicy.install(isDiagnosticBuild = false)
     }
 
     @Test

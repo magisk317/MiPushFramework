@@ -6,6 +6,7 @@ import androidx.core.os.BundleCompat
 import com.xiaomi.channel.commonutils.android.PermissionUtils
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.xmsf.vendor.runtime.BuildConfig
 import com.xiaomi.push.log.MIPushDebugLog
 import com.xiaomi.push.log.MIPushLog2File
 import com.google.protobuf.micro.CodedOutputStreamMicro
@@ -62,6 +63,7 @@ object Logger {
 
     @JvmStatic
     fun setPushLog(context: Context) {
+        if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) return
         val hasUserLogger = sUserLogger != null
         val hasWritePermission = if (sDisablePushLog) false else hasWritePermission(context)
 

@@ -1,6 +1,7 @@
 package com.xiaomi.channel.commonutils.logger
 
 import android.content.Context
+import com.xiaomi.xmsf.vendor.runtime.BuildConfig
 import io.github.magisk317.xposed.logging.XLog
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Decouples from android.util.Log and supports pure JVM testing seamlessly.
  */
 object MyLog {
+    private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
     const val DEBUG = 1
     const val ERROR = 4
     const val FATAL = 5
@@ -53,6 +55,7 @@ object MyLog {
 
     @JvmStatic
     fun heapInfo(context: Context, str: String) {
+        if (!BUILD_LOGGING_ENABLED) return
         i("+++Heap Info+++$str")
     }
 
@@ -99,6 +102,7 @@ object MyLog {
 
     @JvmStatic
     fun pe(code: Int?) {
+        if (!BUILD_LOGGING_ENABLED) return
         if (debugLoggingEnabled && LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
             val jLongValue = mStartTimes.remove(code) ?: return
             val strRemove = mActionNames.remove(code)
@@ -109,11 +113,13 @@ object MyLog {
 
     @JvmStatic
     fun persist(str: String) {
+        if (!BUILD_LOGGING_ENABLED) return
         logger.i { str }
     }
 
     @JvmStatic
     fun printCallStack(str: String) {
+        if (!BUILD_LOGGING_ENABLED) return
         val stringWriter = StringWriter()
         val printWriter = PrintWriter(stringWriter)
         printWriter.println(str)
@@ -123,6 +129,7 @@ object MyLog {
 
     @JvmStatic
     fun ps(str: String): Int {
+        if (!BUILD_LOGGING_ENABLED) return NEGATIVE_CODE
         if (!debugLoggingEnabled || LOG_LEVEL > 1) {
             return NEGATIVE_CODE
         }
@@ -172,6 +179,7 @@ object MyLog {
     }
 
     private fun shouldLog(level: Int): Boolean {
+        if (!BUILD_LOGGING_ENABLED) return false
         if (level == DEBUG && !debugLoggingEnabled) return false
         return level >= LOG_LEVEL
     }

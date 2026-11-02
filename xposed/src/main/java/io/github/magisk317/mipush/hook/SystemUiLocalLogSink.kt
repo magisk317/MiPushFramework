@@ -1,6 +1,8 @@
 package io.github.magisk317.mipush.hook
 
 import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import io.github.magisk317.xposed.logging.LogEvent
 import java.io.File
 
@@ -10,6 +12,7 @@ import java.io.File
  * when XMSF was killed between render and capture.
  */
 internal object SystemUiLocalLogSink {
+    private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
     private const val PROCESS = "com.android.systemui"
     private const val DIR_NAME = "mipush-hook"
     private const val FILE_NAME = "runtime.hook.systemui.jsonl"
@@ -19,6 +22,7 @@ internal object SystemUiLocalLogSink {
     private val writeLock = Any()
 
     fun append(event: LogEvent) {
+        if (!BUILD_LOGGING_ENABLED) return
         val processName = currentProcessName()
         if (!processName.startsWith(PROCESS)) {
             return
@@ -58,8 +62,12 @@ internal object SystemUiLocalLogSink {
                     lastFailureReportMs = now
                     // Report through logcat directly: routing back through XLog would
                     // re-enter this sink while the local file is unwritable.
-                    android.util.Log.w("SystemUiLocalLogSink",
-                        "local append failed count=$failedAppends error=${it.javaClass.simpleName}: ${it.message}")
+                    android.util.Log.w(
+                        "SystemUiLocalLogSink",
+                        DefaultLogSanitizer.limitForLog(
+                            "local append failed count=$failedAppends error=${it.javaClass.simpleName}",
+                        ),
+                    )
                 }
             }
         }

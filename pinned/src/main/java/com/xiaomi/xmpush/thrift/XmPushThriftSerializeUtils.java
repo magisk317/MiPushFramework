@@ -9,7 +9,6 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.os.Build;
 import android.text.TextUtils;
-import android.util.Log;
 import java.lang.reflect.Method;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TDeserializer;
@@ -29,8 +28,6 @@ public class XmPushThriftSerializeUtils {
     private static final int NOTIFICATION_STATUS_UNKNOWN = 0;
     private static final int NOTIFICATION_STATUS_ALLOWED = 1;
     private static final int NOTIFICATION_STATUS_BLOCKED = 2;
-    private static final String TAG = "XmPushThriftSerializeUtils";
-
     public static void convertByteArrayToThriftObject(TBase<?, ?> t, byte[] bArr) throws TException {
         if (bArr == null) {
             throw new TException("the message byte is empty.");
@@ -45,7 +42,6 @@ public class XmPushThriftSerializeUtils {
         try {
             return new TSerializer(new TBinaryProtocol.Factory()).serialize(t);
         } catch (TException e) {
-            Log.e(TAG, "convertThriftObjectToBytes catch TException.", e);
             return null;
         }
     }
@@ -108,7 +104,7 @@ public class XmPushThriftSerializeUtils {
                     return notificationManager.areNotificationsEnabled() ? NOTIFICATION_STATUS_ALLOWED : NOTIFICATION_STATUS_BLOCKED;
                 }
             } catch (Throwable th) {
-                Log.w(TAG, "Failed to query notifications for current package", th);
+                // Best-effort platform query: callers already handle the unknown status.
             }
         }
         Integer mode = queryNotificationMode(context, applicationInfo.uid, packageName);
@@ -143,7 +139,6 @@ public class XmPushThriftSerializeUtils {
             KeyguardManager keyguardManager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
             return keyguardManager != null && keyguardManager.isKeyguardLocked();
         } catch (Throwable th) {
-            Log.w(TAG, "Failed to query keyguard state", th);
             return false;
         }
     }
@@ -162,7 +157,6 @@ public class XmPushThriftSerializeUtils {
             method.setAccessible(true);
             return coerceInteger(method.invoke(appOps, opPostNotification, Integer.valueOf(uid), packageName));
         } catch (Throwable th) {
-            Log.w(TAG, "Failed to query app ops notification mode", th);
             return null;
         }
     }

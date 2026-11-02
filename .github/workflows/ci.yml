@@ -239,6 +239,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
       MAGISK_BUILD_TYPE: debug
+      MAGISK_IS_CI_BUILD: true
       HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - name: Configure GitLab submodule credentials

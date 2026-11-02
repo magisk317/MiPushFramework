@@ -37,7 +37,7 @@ object JobMutualExclusor {
             fileLock = randomAccessFile.channel.lock()
             checkPeriodAndRecordWorking(context, str, period)
         } catch (e: IOException) {
-            e.printStackTrace()
+            MyLog.e(e)
             true
         } finally {
             if (fileLock?.isValid == true) {

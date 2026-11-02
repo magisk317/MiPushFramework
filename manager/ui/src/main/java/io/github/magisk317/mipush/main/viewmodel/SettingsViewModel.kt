@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Intent
-import android.util.Log
+import io.github.magisk317.xposed.logging.XLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
@@ -593,10 +593,10 @@ class SettingsViewModel constructor(
             val foregroundIntent = Intent().setClassName(applicationContext, RUNTIME_LOG_EXPORT_SERVICE)
             applicationContext.startForegroundService(foregroundIntent)
         }.onFailure { error ->
-            Log.w(RUNTIME_LOG_EXPORT_TAG, "foreground_start_failed", error)
+            XLog.w(RUNTIME_LOG_EXPORT_TAG, "foreground_start_failed", error)
         }
         runtimeLogExportScope.launch {
-            Log.i(RUNTIME_LOG_EXPORT_TAG, "save_started")
+            XLog.i(RUNTIME_LOG_EXPORT_TAG, "save_started")
             val result = runCatching {
                 val writeResult = applicationContext.contentResolver
                     .openOutputStream(destination, "wt")
@@ -628,7 +628,7 @@ class SettingsViewModel constructor(
                     details = "log_export_save_failed:${error.message ?: error.javaClass.simpleName}",
                 )
             }
-            Log.i(
+            XLog.i(
                 RUNTIME_LOG_EXPORT_TAG,
                 "save_finished success=${result.success} details=${result.details}",
             )

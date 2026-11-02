@@ -170,7 +170,7 @@ open class MiPushFacadeService : Service() {
                     directory
                 )
                 if (!configurationsReady) {
-                    android.util.Log.w("MiPushFacadeService", "configurations init reported failure")
+                    logW("configurations init reported failure")
                 }
             }
             return

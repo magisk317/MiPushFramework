@@ -97,8 +97,7 @@ open class MiPushFrameworkApp : Application() {
         // the log sink and the health snapshot all read the same channel); a build type alone is
         // not enough because the Play release job sets IS_CI_BUILD without being a debug build.
         MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
-            allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
+            isDiagnosticBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
         )
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)

@@ -1,30 +1,29 @@
 package com.xiaomi.push.service
 
-import android.util.Log
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.xmsf.vendor.runtime.BuildConfig
 
+/**
+ * Routine lifecycle lines for the reconnect state machine: policy decisions, job and timer
+ * bookkeeping, connection milestones.
+ *
+ * Only internal diagnostic builds emit them at all, and the text goes through `MyLog` into the
+ * kit `XLog`, which owns both the shared 80-character budget and the release short-circuit.
+ * `Hooker.initMiSdkLogger` pins the release floor at `MyLog.WARN`, so these levels are absent
+ * from shipped logs by design; `w` stays reserved for reconnect failures and timeouts.
+ */
 object ReconnectDebugLog {
-    private const val TAG = "XMPushReconnect"
+    private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
 
-    /**
-     * Routine lifecycle: policy decisions, job and timer bookkeeping, connection milestones.
-     *
-     * `Hooker.initMiSdkLogger` pins the release floor at `MyLog.WARN`, so these lines are dropped
-     * from the shipped runtime log on purpose and only appear in debug/CI builds. `w` stays
-     * reserved for reconnect failures and timeouts.
-     */
     fun i(message: String) {
-        runCatching { Log.i(TAG, message) }.onFailure { }
-        MyLog.i(message)
+        if (BUILD_LOGGING_ENABLED) MyLog.i(message)
     }
 
     fun w(message: String) {
-        runCatching { Log.w(TAG, message) }.onFailure { }
-        MyLog.w(message)
+        if (BUILD_LOGGING_ENABLED) MyLog.w(message)
     }
 
     fun e(message: String) {
-        runCatching { Log.e(TAG, message) }.onFailure { }
-        MyLog.e(message)
+        if (BUILD_LOGGING_ENABLED) MyLog.e(message)
     }
 }

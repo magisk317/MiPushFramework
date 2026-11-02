@@ -1,5 +1,7 @@
 package com.xiaomi.xmsf.utils
 
+import com.xiaomi.xmsf.BuildConfig
+
 import android.content.Context
 import android.content.ContentValues
 import android.net.Uri
@@ -7,6 +9,7 @@ import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.xposed.logging.BaseXposedLogProvider
 import io.github.magisk317.xposed.logging.LogProviderQuotaConfig
 import io.github.magisk317.xposed.logging.LogProviderQuotaPolicy
+import io.github.magisk317.xposed.logging.MagiskLogPolicy
 import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.xposed.logging.XposedLogEvent
 
@@ -29,6 +32,8 @@ class ModuleLogProvider : BaseXposedLogProvider() {
         ModuleLogIngressPolicy.isCallerAllowed(context)
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
+        if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) return null
+        if (!MagiskLogPolicy.current().loggingEnabled) return null
         val context = context?.applicationContext ?: return null
         if (uri.authority != AUTHORITY || uri.pathSegments != listOf(ENTRY_PATH)) return null
         if (values == null || !isCallerAllowed(context)) return null
@@ -38,6 +43,8 @@ class ModuleLogProvider : BaseXposedLogProvider() {
     }
 
     override fun appendLog(event: XposedLogEvent) {
+        if (!BuildConfig.DEBUG && !BuildConfig.IS_CI_BUILD) return
+        if (!MagiskLogPolicy.current().loggingEnabled) return
         val ctx = context?.applicationContext ?: return
         synchronized(writeLock) {
             val route = ModuleLogIngressPolicy.resolveRoute(event.route)

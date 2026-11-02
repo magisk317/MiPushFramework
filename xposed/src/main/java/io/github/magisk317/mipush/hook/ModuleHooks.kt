@@ -77,9 +77,8 @@ class LibXposedEntry : BaseLibXposedEntry {
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         // A hooked process is its own JVM: nothing installed by an Application reaches it, so the
         // policy is evaluated here from these build flags before the first hook log line.
-        MagiskLogPolicy.install(
-            isDebugBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
-            allowPlaintextLogs = BuildConfig.ALLOW_PLAINTEXT_LOGS,
+        val logPolicy = MagiskLogPolicy.install(
+            isDiagnosticBuild = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD,
         )
         XposedRuntime.install(module, hookApi)
         // The Douyin provider gate caches a negative answer, so a compiled or inlined copy of the
@@ -88,16 +87,18 @@ class LibXposedEntry : BaseLibXposedEntry {
         // private and the kit is shared across six consumers, so plumbing it through the kit would
         // be a cross-repo change for a single call site (issue #143).
         DouyinMiuiGateHook.bindDeoptimizer(module)
-        XposedLogClient.configure(
-            authority = "com.xiaomi.xmsf.module.log",
-            source = "mipush",
-        )
+        if (logPolicy.loggingEnabled) {
+            XposedLogClient.configure(
+                authority = "com.xiaomi.xmsf.module.log",
+                source = "mipush",
+            )
+        }
         XLog.configure(
             tag = "mipush",
             logLevel = if (MagiskLogPolicy.current().verboseLogging) Log.DEBUG else Log.INFO,
             logToXposed = false,
             defaultRoute = "hook",
-            sink = LogSink { event ->
+            sink = if (BUILD_LOGGING_ENABLED && logPolicy.loggingEnabled) LogSink { event ->
                 XposedLogClient.send(
                     XposedLogEvent(
                         source = "mipush",
@@ -112,7 +113,7 @@ class LibXposedEntry : BaseLibXposedEntry {
                     ),
                 )
                 SystemUiLocalLogSink.append(event)
-            },
+            } else null,
         )
         // Hook processes had no config at all, so every MagiskOtel.event in this module was a
         // no-op. Configure before the first event below so hook.load / fake_device spans land.
@@ -320,6 +321,7 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     private companion object {
         private const val TAG = "LibXposedEntry"
+        private val BUILD_LOGGING_ENABLED = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
         private const val PERSONAL_ASSISTANT_PACKAGE_NAME =
