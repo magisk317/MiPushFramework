@@ -126,14 +126,30 @@ class SystemUiNotificationPolicyTest {
     }
 
     @Test
-    fun `monochrome synthetic summaries block MIUI substitution`() {
-        assertTrue(
+    fun `unmanaged synthetic summary with pack miss keeps native substitution`() {
+        assertFalse(
             SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
                 isMiPushManaged = false,
                 iconPackHit = false,
                 isSyntheticAutogroupSummary = true,
             ),
-            "The summary copies a colorful launcher icon but loses target_package.",
+            "An unmanaged pack miss must keep SystemUI's native summary behavior.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = true,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+            ),
+            "Managed summaries may still use the monochrome fallback chain.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = true,
+                isSyntheticAutogroupSummary = true,
+            ),
+            "A configured icon-pack hit remains module-owned.",
         )
     }
 

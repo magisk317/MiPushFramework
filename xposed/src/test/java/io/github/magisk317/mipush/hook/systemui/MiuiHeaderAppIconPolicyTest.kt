@@ -94,6 +94,18 @@ class MiuiHeaderAppIconPolicyTest {
                 postedGlyphIsUnusable = false,
             ),
         )
+        // Managed summaries keep the existing silhouette fallback.
+        assertEquals(
+            MiuiHeaderShadeSource.SILHOUETTE,
+            MiuiHeaderAppIconPolicy.selectMonochromeShadeSource(
+                isMiPushManaged = true,
+                attemptsIconPack = true,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+                postedGlyphIsMonochrome = false,
+                postedGlyphIsUnusable = false,
+            ),
+        )
         assertEquals(
             MiuiHeaderShadeSource.SILHOUETTE,
             MiuiHeaderAppIconPolicy.selectMonochromeShadeSource(
@@ -184,28 +196,27 @@ class MiuiHeaderAppIconPolicyTest {
                 val expected = when {
                     attemptsIconPack && iconPackHit -> MiuiHeaderShadeSource.ICON_PACK
                     isMiPushManaged -> MiuiHeaderShadeSource.SILHOUETTE
-                    attemptsIconPack && isSyntheticAutogroupSummary -> MiuiHeaderShadeSource.SILHOUETTE
+                    isSyntheticAutogroupSummary -> MiuiHeaderShadeSource.NONE
                     attemptsIconPack && postedGlyphIsUnusable -> MiuiHeaderShadeSource.SILHOUETTE
                     attemptsIconPack && postedGlyphIsMonochrome -> MiuiHeaderShadeSource.POSTED_GLYPH
                     else -> MiuiHeaderShadeSource.NONE
                 }
                 assertEquals(expected, source)
-                // An unmanaged app only ever gets a synthesized silhouette when its own posted
-                // glyph is unusable (resId=0, or the framework generic auto-group mark) or when the
-                // record is an auto-group summary -- never because nobody configured it.
-                if (!isMiPushManaged && !iconPackHit && source == MiuiHeaderShadeSource.SILHOUETTE) {
-                    assertTrue(attemptsIconPack && (postedGlyphIsUnusable || isSyntheticAutogroupSummary))
+                // An unmanaged synthetic summary never gets a synthesized silhouette solely from
+                // being synthetic; only managed posts or configured pack hits are module-owned.
+                if (!isMiPushManaged && isSyntheticAutogroupSummary && !iconPackHit) {
+                    assertFalse(source == MiuiHeaderShadeSource.SILHOUETTE)
                 }
             }
         }
     }
 
     @Test
-    fun `monochrome shade resolves auto-group summaries like the status bar`() {
-        // The summary copies the child's own small icon, so without this branch the header keeps
-        // that glyph while the status bar above it shows the package silhouette.
+    fun `monochrome shade preserves unmanaged auto-group summaries on a pack miss`() {
+        // The summary is not proof that the module owns the app's glyph. Without an icon-pack hit,
+        // an unmanaged header must stay native just like the status bar.
         assertEquals(
-            MiuiHeaderShadeSource.SILHOUETTE,
+            MiuiHeaderShadeSource.NONE,
             MiuiHeaderAppIconPolicy.selectMonochromeShadeSource(
                 isMiPushManaged = false,
                 attemptsIconPack = true,
@@ -215,8 +226,7 @@ class MiuiHeaderAppIconPolicyTest {
                 postedGlyphIsUnusable = false,
             ),
         )
-        // The status bar forces a silhouette for summaries even outside the icon-pack switches;
-        // the header does not, so a package the user excluded keeps its native header.
+        // The same native result applies when the package is outside the icon-pack switches.
         assertEquals(
             MiuiHeaderShadeSource.NONE,
             MiuiHeaderAppIconPolicy.selectMonochromeShadeSource(
