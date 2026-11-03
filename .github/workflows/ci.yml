@@ -402,7 +402,7 @@ jobs:
     timeout-minutes: 45
     env:
       MAGISK_BUILD_TYPE: debug
-      MIPUSH_ZYGISK_REF: d99cc62e101a0c1339c5532f4f46f67447f789fd
+      MIPUSH_ZYGISK_REF: ef5e1c7105da70d32a098b304cfe5bf77ac4a576
     steps:
       - name: Configure GitLab submodule credentials
         env:
