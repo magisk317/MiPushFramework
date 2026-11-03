@@ -165,6 +165,32 @@ class RemoteManagerPermissionGateway(
         )
     }
 
+    override suspend fun isLiveUpdatePermissionSupported(): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_LIVE_UPDATE_PERMISSION,
+        )
+        return RemoteWriteSupport.isSuccess(result)
+    }
+
+    override suspend fun isLiveUpdatePermissionGranted(context: Context): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_LIVE_UPDATE_PERMISSION,
+        )
+        return result?.resultLong == 1L ||
+            result?.details == ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_GRANTED
+    }
+
+    override suspend fun grantLiveUpdatePermission(context: Context): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_GRANT_LIVE_UPDATE_PERMISSION,
+        )
+        return RemoteWriteSupport.isSuccess(result) &&
+            result?.details == ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_GRANTED
+    }
+
     private suspend fun queryRootState(requestAuthorization: Boolean): ManagerRootAccessState {
         val result = RemoteWriteSupport.execute(
             client = client,

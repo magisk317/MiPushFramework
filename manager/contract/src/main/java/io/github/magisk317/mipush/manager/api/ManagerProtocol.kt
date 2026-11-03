@@ -21,7 +21,7 @@ import io.github.magisk317.mipush.manager.RuntimeEnvironmentValidationInput
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 7
+    const val MINOR = 8
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -83,6 +83,8 @@ object ManagerProtocol {
     const val WRITE_STATUS_UNSUPPORTED = "unsupported"
     const val WRITE_STATUS_DUPLICATE = "duplicate"
     const val WRITE_DETAIL_MOCK_REPLAY_POSTED = "mock_replay_posted"
+    const val WRITE_DETAIL_MOCK_REPLAY_POSTED_TARGET = "mock_replay_posted_target"
+    const val WRITE_DETAIL_MOCK_REPLAY_POSTED_LOCAL_FALLBACK = "mock_replay_posted_local_fallback"
     const val WRITE_DETAIL_MOCK_REPLAY_DISPATCHED = "mock_replay_dispatched"
     const val WRITE_DETAIL_MOCK_REPLAY_FAILED = "mock_replay_failed"
     const val WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED = "mock_replay_failed_channel_disabled"
@@ -115,6 +117,8 @@ object ManagerProtocol {
     const val WRITE_OP_QUERY_DUAL_APP = "query_dual_app"
     const val WRITE_OP_GRANT_SILENT_PERMISSIONS = "grant_silent_permissions"
     const val WRITE_OP_QUERY_USAGE_STATS = "query_usage_stats"
+    const val WRITE_OP_QUERY_LIVE_UPDATE_PERMISSION = "query_live_update_permission"
+    const val WRITE_OP_GRANT_LIVE_UPDATE_PERMISSION = "grant_live_update_permission"
     const val WRITE_OP_QUERY_ROOT = "query_root"
     const val WRITE_OP_SET_RUNTIME_BOOLEAN = "set_runtime_boolean"
     const val WRITE_OP_SET_RUNTIME_INT = "set_runtime_int"
@@ -162,6 +166,9 @@ object ManagerProtocol {
     const val WRITE_DETAIL_GRANT_SILENT_OK = "grant_silent_ok"
     const val WRITE_DETAIL_GRANT_SILENT_ROOT_MISSING = "grant_silent_root_missing"
     const val WRITE_DETAIL_GRANT_SILENT_FAILED = "grant_silent_failed"
+    const val WRITE_DETAIL_LIVE_UPDATE_PERMISSION_GRANTED = "live_update_permission_granted"
+    const val WRITE_DETAIL_LIVE_UPDATE_PERMISSION_MISSING = "live_update_permission_missing"
+    const val WRITE_DETAIL_LIVE_UPDATE_PERMISSION_ROOT_MISSING = "live_update_permission_root_missing"
     const val WRITE_DETAIL_ROOT_AVAILABLE = "root_available"
     const val WRITE_DETAIL_ROOT_MISSING = "root_missing"
     const val DEFAULT_MAX_PAGE_SIZE = ManagerContractLimits.DEFAULT_MAX_PAGE_SIZE

@@ -318,6 +318,18 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     override suspend fun grantNotificationPermission(context: Context): Boolean =
         PermissionUtils.grantNotificationPermission(context)
 
+    override suspend fun isLiveUpdatePermissionSupported(): Boolean =
+        PermissionUtils.supportsLiveUpdatePermission()
+
+    override suspend fun isLiveUpdatePermissionGranted(context: Context): Boolean =
+        PermissionUtils.hasLiveUpdatePublisherPermission(context)
+
+    override suspend fun grantLiveUpdatePermission(context: Context): Boolean =
+        PermissionUtils.grantLiveUpdatePublisherPermission(
+            context = context,
+            userId = Utils.requireValidUserId(Utils.myUserId()),
+        )
+
     private fun rootSnapshot(runtimeState: ManagerRootAccessState): ManagerRootAccessSnapshot {
         val userId = Utils.myUserId()
         val managerUid = Utils.context?.packageManager?.let { packageManager ->

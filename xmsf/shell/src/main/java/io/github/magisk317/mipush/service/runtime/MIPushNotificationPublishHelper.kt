@@ -141,7 +141,8 @@ class MIPushNotificationPublishHelper {
                 extraAttrs: Map<String, String> = emptyMap(),
             ): MockReplayOutcome {
                 val result = resultOverride ?: when (outcome) {
-                    MockReplayOutcome.Dispatched, MockReplayOutcome.Posted -> "ok"
+                    MockReplayOutcome.Dispatched, MockReplayOutcome.PostedTarget -> "ok"
+                    MockReplayOutcome.PostedLocalFallback -> "fallback"
                     MockReplayOutcome.BlockedByPermission -> "skip"
                     else -> "error"
                 }

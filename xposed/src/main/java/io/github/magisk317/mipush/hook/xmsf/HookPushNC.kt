@@ -43,6 +43,7 @@ object HookPushNC {
 
     private const val TAG = "HookPushNC"
     private const val ExpectedHookApiVersion = 2
+    private const val ExpectedRuntimeBridgeApiVersion = 2
 
     private const val TargetClass = "io.github.magisk317.mipush.notification.NotificationManagerEx"
     private const val RuntimeNotificationBridgeClass = "io.github.magisk317.mipush.notification.NotificationHookBridge"
@@ -108,29 +109,8 @@ object HookPushNC {
             return
         }
 
-        //notify(
-        //        packageName: String,
-        //        tag: String?, id: Int, notification: Notification, userId: Int
-        //    ): Boolean
-        classNotificationManager.hookMethod(
-            "notify",
-            String::class.java,
-            String::class.java,
-            Int::class.java,
-            Notification::class.java,
-            Int::class.java,
-        ) {
-            replace(hookCheck) {
-                tryInvoke {
-                    runtimeBridge.notify(
-                        args[0] as String,
-                        args[1] as String?,
-                        args[2] as Int,
-                        args[3] as Notification
-                    )
-                }
-            }
-        }
+        // NotificationManagerEx.notify remains product-owned. It calls the hooked identity bridge
+        // for the target attempt, then owns permission repair and local fallback in one place.
 
         //cancel(
         //        packageName: String,
@@ -551,12 +531,12 @@ object HookPushNC {
         ) {
             replace(hookCheck) {
                 tryInvoke {
-                    runtimeBridge.notify(
+                    runtimeBridge.notifyAsTargetPackage(
                         args[1] as String,
                         args[2] as String?,
                         args[3] as Int,
                         args[4] as Notification
-                    )
+                    ).isTargetPosted
                 }
             }
         }
@@ -694,11 +674,22 @@ object HookPushNC {
     }
 
     private class RuntimeNotificationBridge private constructor(private val bridgeClass: Class<*>) {
+        data class PostResult(
+            val posted: Boolean,
+            val owner: String,
+            val reason: String,
+        ) {
+            val isTargetPosted: Boolean
+                get() = posted && owner == "TARGET"
+        }
+
         companion object {
             fun create(classLoader: ClassLoader): RuntimeNotificationBridge? = runCatching {
                 val bridge = classLoader.findClass(RuntimeNotificationBridgeClass)
                 val version = bridge.getOrNull<Int>("HOOK_API_VERSION") ?: 0
-                check(version == 1) { "notification bridge api mismatch: $version" }
+                check(version == ExpectedRuntimeBridgeApiVersion) {
+                    "notification bridge api mismatch: $version"
+                }
                 RuntimeNotificationBridge(bridge)
             }.onFailure {
                 XLog.e(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "failed to resolve XMSF notification bridge", it)
@@ -733,8 +724,19 @@ object HookPushNC {
             }.toTypedArray()
         }
 
-        fun notify(packageName: String, tag: String?, id: Int, notification: Notification): Boolean =
-            invoke(
+        private fun decodePostResult(value: Any?): PostResult {
+            val result = requireNotNull(value) { "notification bridge returned null post result" }
+            val resultClass = result.javaClass
+            val posted = resultClass.getDeclaredMethod("getPosted").invoke(result) as Boolean
+            val owner = requireNotNull(resultClass.getDeclaredMethod("getOwner").invoke(result)) {
+                "notification bridge returned null owner"
+            }.toString()
+            val reason = resultClass.getDeclaredMethod("getReason").invoke(result) as String
+            return PostResult(posted = posted, owner = owner, reason = reason)
+        }
+
+        fun notify(packageName: String, tag: String?, id: Int, notification: Notification): PostResult =
+            decodePostResult(invoke(
                 "notify",
                 arrayOf(
                     String::class.java,
@@ -746,7 +748,7 @@ object HookPushNC {
                 tag,
                 id,
                 notification,
-            ) as Boolean
+            ))
 
         fun cancel(packageName: String, tag: String?, id: Int) {
             invoke("cancel", arrayOf(String::class.java, String::class.java, Int::class.javaPrimitiveType!!), packageName, tag, id)
@@ -809,8 +811,8 @@ object HookPushNC {
         fun createTargetNotificationChannels(packageName: String, channels: List<NotificationChannel>): Boolean =
             invoke("createTargetNotificationChannels", arrayOf(String::class.java, List::class.java), packageName, channels) as Boolean
 
-        fun notifyAsTargetPackage(packageName: String, tag: String?, id: Int, notification: Notification): Boolean =
-            invoke(
+        fun notifyAsTargetPackage(packageName: String, tag: String?, id: Int, notification: Notification): PostResult =
+            decodePostResult(invoke(
                 "notifyAsTargetPackage",
                 arrayOf(
                     String::class.java,
@@ -822,7 +824,7 @@ object HookPushNC {
                 tag,
                 id,
                 notification,
-            ) as Boolean
+            ))
 
         fun cancelAsTargetPackage(packageName: String, tag: String?, id: Int): Boolean =
             invoke("cancelAsTargetPackage", arrayOf(String::class.java, String::class.java, Int::class.javaPrimitiveType!!), packageName, tag, id) as Boolean

@@ -43,14 +43,18 @@ import io.github.magisk317.mipush.common.logging.StableLogTag
 @StableLogTag
 object NotificationController {
     enum class PublishResult {
-        Posted,
+        PostedTarget,
+        PostedLocalFallback,
         ChannelDisabled,
         SuppressedByPolicy,
         Failed,
     }
 
     private sealed interface NotifyResult {
-        data class Posted(val notification: Notification) : NotifyResult
+        data class Posted(
+            val notification: Notification,
+            val owner: NotificationPostOwner,
+        ) : NotifyResult
         data object SuppressedByPolicy : NotifyResult
         data object ChannelDisabled : NotifyResult
         data object Failed : NotifyResult
@@ -156,7 +160,8 @@ object NotificationController {
             emit(result = "skip", reason = "matched_channel_disabled")
             return PublishResult.ChannelDisabled
         }
-        val notification = (notifyResult as? NotifyResult.Posted)?.notification
+        val postedResult = notifyResult as? NotifyResult.Posted
+        val notification = postedResult?.notification
         if (notification == null) {
             XLog.tagged(TAG).d { "publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)" }
             emit(result = "skip", reason = "notify_null")
@@ -173,8 +178,20 @@ object NotificationController {
                 notification,
             )
         }
-        emit(result = "ok")
-        return PublishResult.Posted
+        return when (postedResult.owner) {
+            NotificationPostOwner.TARGET -> {
+                emit(result = "ok", reason = "target")
+                PublishResult.PostedTarget
+            }
+            NotificationPostOwner.LOCAL_XMSF -> {
+                emit(result = "ok", reason = "local_fallback")
+                PublishResult.PostedLocalFallback
+            }
+            NotificationPostOwner.NONE -> {
+                emit(result = "error", statusOk = false, reason = "owner_none")
+                PublishResult.Failed
+            }
+        }
     }
 
     @JvmStatic
@@ -462,7 +479,7 @@ object NotificationController {
             notification = notificationToPost,
             userId = userId,
         )
-        if (!postResult.posted) {
+        if (!postResult.posted || postResult.owner == NotificationPostOwner.NONE) {
             XLog.tagged(TAG).w {
                 "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId} " +
                     "owner=${postResult.owner} reason=${postResult.reason}"
@@ -501,7 +518,7 @@ object NotificationController {
             )
         }
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
-        return NotifyResult.Posted(notificationToPost)
+        return NotifyResult.Posted(notificationToPost, postResult.owner)
     }
 
     /** Cancels one (packageName, tag, id) slot with every coordinator that tracks publish identity. */

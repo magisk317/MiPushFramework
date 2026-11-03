@@ -9,11 +9,12 @@ class MockReplayOutcomeTest {
         val outcomes = listOf(
             MockReplayOutcome.BlockedByPermission,
             MockReplayOutcome.Dispatched,
-            MockReplayOutcome.Posted,
+            MockReplayOutcome.PostedTarget,
+            MockReplayOutcome.PostedLocalFallback,
             MockReplayOutcome.FailedChannelDisabled,
             MockReplayOutcome.Failed,
         )
 
-        assertEquals(5, outcomes.toSet().size)
+        assertEquals(6, outcomes.toSet().size)
     }
 }

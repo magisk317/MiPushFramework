@@ -217,8 +217,10 @@ object MockMIPushMessage {
                 emitMockReplay(result = "skip", statusOk = true, reason = "blocked_by_permission", startedAt = startedAt)
             MockReplayOutcome.Dispatched ->
                 emitMockReplay(result = "ok", statusOk = true, reason = "dispatched", startedAt = startedAt)
-            MockReplayOutcome.Posted ->
-                emitMockReplay(result = "ok", statusOk = true, reason = "posted", startedAt = startedAt)
+            MockReplayOutcome.PostedTarget ->
+                emitMockReplay(result = "ok", statusOk = true, reason = "posted_target", startedAt = startedAt)
+            MockReplayOutcome.PostedLocalFallback ->
+                emitMockReplay(result = "fallback", statusOk = true, reason = "posted_local_fallback", startedAt = startedAt)
             MockReplayOutcome.FailedChannelDisabled ->
                 emitMockReplay(result = "error", statusOk = false, reason = "channel_disabled", startedAt = startedAt)
             MockReplayOutcome.FailedEventNotFound ->
@@ -245,7 +247,8 @@ object MockMIPushMessage {
     internal fun MockReplayOutcome.observationAction(): String = when (this) {
         MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
         MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
-        MockReplayOutcome.Posted -> "mock_replay_posted"
+        MockReplayOutcome.PostedTarget -> "mock_replay_posted_target"
+        MockReplayOutcome.PostedLocalFallback -> "mock_replay_posted_local_fallback"
         MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
         MockReplayOutcome.FailedEventNotFound -> "mock_replay_failed_event_not_found"
         MockReplayOutcome.FailedPayloadMissing -> "mock_replay_failed_payload_missing"

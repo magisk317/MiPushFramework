@@ -216,6 +216,8 @@
     <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
     <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>
 
+    <string name="wizard_title_live_update_permission">实时动态通知发布</string>
+    <string name="wizard_title_live_update_text">允许 XMSF 以目标应用身份发布 Android 实时动态通知。仅 Android 16 及以上版本需要，并需要 Root 权限。</string>
     <string name="wizard_descr_finish">大功告成！本软件已准备就绪。</string>
     <string name="status_ok">成功</string>
     <string name="wizard_title_finish_button">开启推送之旅</string>
@@ -521,7 +523,8 @@
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
     <string name="mock_notification_blocked_by_permission">重放被应用设置或通知权限拦截。</string>
     <string name="mock_notification_dispatched">重放已分发；当前运行路径无法确认通知最终发布。</string>
-    <string name="mock_notification_posted">重放通知已发布。</string>
+    <string name="mock_notification_posted_target">重放通知已按目标应用身份发布。</string>
+    <string name="mock_notification_posted_local_fallback">重放通知已由 XMSF 本地兜底显示，未建立目标应用通知所有权。</string>
     <string name="mock_notification_failed_channel_disabled">重放失败：通知渠道已禁用，请在系统通知设置中启用该渠道。</string>
     <string name="mock_notification_failed_event_not_found">重放失败：数据库中未找到该记录（可能已被历史清理或删除）。</string>
     <string name="mock_notification_failed_payload_missing">重放失败：该事件缺少原始推送载荷（Payload），无法重新构造通知。</string>

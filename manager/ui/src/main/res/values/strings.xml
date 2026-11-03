@@ -203,6 +203,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="wizard_title_ignore_battery_optimizations_text">Add com.xiaomi.xmsf (XMSF) to the battery optimization whitelist so the push connection can remain active with the screen off.</string>
     <string name="wizard_title_notification_permission">Notification Permission</string>
     <string name="wizard_title_notification_text">You need to grant \"Notification\" permission to receive push notifications on Android 13+.</string>
+    <string name="wizard_title_live_update_permission">Live Update publishing</string>
+    <string name="wizard_title_live_update_text">Allow XMSF to publish Android Live Update notifications for target apps. Requires Android 16+ and Root access.</string>
     <string name="wizard_title_doze_whitelist">Ignore battery optimization</string>
     <string name="wizard_descr_doze_whitelist">Add MiPushFramework to battery optimization whitelist.</string>
     <string name="wizard_title_finish_button">Start the journey</string>
@@ -538,7 +540,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_missing_regsec">Cannot replay this encrypted push message: register secret is missing. Re-register the app and try again.</string>
     <string name="mock_notification_blocked_by_permission">Replay was blocked by the app or notification permission settings.</string>
     <string name="mock_notification_dispatched">Replay was dispatched; this runtime cannot confirm the final notification post.</string>
-    <string name="mock_notification_posted">Replay notification posted.</string>
+    <string name="mock_notification_posted_target">Replay notification posted as the target app.</string>
+    <string name="mock_notification_posted_local_fallback">Replay notification displayed by XMSF fallback; target-app ownership was not established.</string>
     <string name="mock_notification_failed_channel_disabled">Replay failed: the notification channel is disabled. Enable it in system notification settings.</string>
     <string name="mock_notification_failed_event_not_found">Replay failed: event record not found in database (may have been pruned or deleted).</string>
     <string name="mock_notification_failed_payload_missing">Replay failed: missing original push payload to reconstruct notification.</string>

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 class ManagerPhase4ParcelableTest {
     @Test
     fun `protocol recognizes write capability`() {
-        assertEquals(7, ManagerProtocol.MINOR)
+        assertEquals(8, ManagerProtocol.MINOR)
         assertTrue(ManagerProtocol.KNOWN_CAPABILITIES.contains(ManagerProtocol.CAPABILITY_WRITE_COMMANDS))
         assertEquals(
             "invalid_write_request_id",
