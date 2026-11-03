@@ -155,17 +155,23 @@ class HookSystemUI : BaseHook() {
                             }
                             return null
                         }
-                        // Broken/generic icons (resId=0 summary, autogroup glyph) must be
-                        // replaced with something renderable: icon pack (category-gated), then
-                        // the package's own colorful icon, then the framework Android logo.
-                        // Never null: a broken glyph would render as garbage.
+                        // Broken/generic icons from a managed post may need a safe replacement.
+                        // For an unmanaged synthetic summary, a pack miss must remain native;
+                        // do not turn the fallback into a launcher/silhouette substitution.
+                        val isSyntheticAutogroupSummary =
+                            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                                notification.flags,
+                            )
                         fun brokenResourceFallback(): Icon? =
                             monochromeFallback()
-                                ?: StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
-                                    context = context,
-                                    packageName = owner,
-                                )
-                                ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                ?: if (!isSyntheticAutogroupSummary || isMiPushManaged) {
+                                    StatusBarMonochromeIconPolicy.applicationIconForPackageOrNull(
+                                        context = context,
+                                        packageName = owner,
+                                    ) ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                } else {
+                                    null
+                                }
                         // AUTOGROUP/system summaries: resId=0 white-block, or android
                         // ic_notification_summary_auto generic glyph (Alipay aggregate case).
                         if (SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
@@ -454,10 +460,11 @@ class HookSystemUI : BaseHook() {
      *
      * Synthetic AUTOGROUP_SUMMARY records are different: HyperOS either ships a generic
      * framework glyph (android:0x010805c7) or copies the representative child's colorful
-     * launcher icon, and never inherits the child's target_package extras. Monochrome resolves
-     * icon pack -> white silhouette -> Android logo for them. Nothing here runs in color mode --
+     * launcher icon, and never inherits the child's target_package extras. A configured icon-pack
+     * entry is still authoritative; when it misses, only a genuinely managed post may use the
+     * silhouette/Android-logo fallback. Ordinary unmanaged summaries stay on SystemUI's native
+     * rendering. Nothing here runs in color mode --
      * [SystemUiNotificationPolicy.isMonochromeTakeoverEnabled] returns the descriptor to MIUI.
-     * Ordinary application group summaries never enter this branch.
      */
     private fun hookAndroid17StatusBarIconDescriptor(classLoader: ClassLoader) {
         runCatching {
@@ -516,13 +523,18 @@ class HookSystemUI : BaseHook() {
                                 )
                             }
                             if (isSyntheticAutogroupSummary) {
-                                // Synthetic summaries copy the child's smallIcon but not its
-                                // target_package extras, so they never look MiPush-managed. On
-                                // HyperOS that icon is often the app's colorful launcher resource.
-                                // Monochrome resolves icon pack -> white silhouette -> Android logo.
+                                // An automatic summary loses the child's MiPush marker. Keep
+                                // unmanaged apps on SystemUI's native summary glyph when their
+                                // package is not configured; only managed posts may use the
+                                // silhouette/framework fallbacks. This keeps a Chrome summary
+                                // consistent with its native single notifications.
                                 val summaryIcon = iconPackIcon()
-                                    ?: monochromeSilhouette()
-                                    ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                    ?: if (isMiPushManaged) {
+                                        monochromeSilhouette()
+                                            ?: StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                                    } else {
+                                        null
+                                    }
                                 if (summaryIcon != null) {
                                     // The Android logo / package icon replaces the generic
                                     // framework glyph, so the descriptor carries our glyph.
@@ -534,10 +546,16 @@ class HookSystemUI : BaseHook() {
                                     setHookObjectField(descriptor, "icon", summaryIcon)
                                     XLog.d(
                                         TAG,
-                                        "status bar icon source=autogroup owner=$owner",
+                                        "status bar icon source=autogroup owner=$owner " +
+                                            "managed=$isMiPushManaged",
                                     )
                                     return@runCatching
                                 }
+                                XLog.d(
+                                    TAG,
+                                    "status bar icon source=autogroup-native owner=$owner " +
+                                        "managed=$isMiPushManaged",
+                                )
                             }
                             // Product rule (2026-10): icon pack hit -> substitute; miss -> keep
                             // the posted glyph under SystemUI's native rendering. The silhouette
@@ -652,9 +670,13 @@ class HookSystemUI : BaseHook() {
                 context = context,
                 packageName = packageName,
             )
-        // Autogroup summaries ship a broken generic glyph or a copied colorful launcher icon;
-        // replace with icon pack (category-gated), then the package's monochrome silhouette,
-        // then the Android logo. Only reached under monochrome.
+        // An icon-pack hit is always safe to apply. On a miss, preserve the native summary
+        // for unmanaged apps; only MiPush-managed posts may use silhouette/framework fallbacks.
+        // This mirrors the descriptor hook above and prevents a Chrome summary from diverging
+        // from its native single-notification glyph.
+        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+            notification.extras,
+        )
         fun silhouetteIcon(packageName: String): Icon? =
             StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
                 context = context,
@@ -664,7 +686,7 @@ class HookSystemUI : BaseHook() {
         if (icon == null && owner != sbn.packageName) {
             icon = iconPackIcon(sbn.packageName)
         }
-        if (icon == null) {
+        if (icon == null && isMiPushManaged) {
             icon = silhouetteIcon(owner)
                 ?: if (owner != sbn.packageName) {
                     silhouetteIcon(sbn.packageName)
@@ -672,10 +694,17 @@ class HookSystemUI : BaseHook() {
                     null
                 }
         }
-        if (icon == null) {
+        if (icon == null && isMiPushManaged) {
             icon = StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
         }
-        if (icon == null) return
+        if (icon == null) {
+            XLog.d(
+                TAG,
+                "setIcon preserved autogroup summary native owner=$owner " +
+                    "managed=$isMiPushManaged",
+            )
+            return
+        }
         val drawable = runCatching { icon.loadDrawable(context) }.getOrNull() ?: return
         imageView.setImageDrawable(drawable)
         imageView.invalidate()

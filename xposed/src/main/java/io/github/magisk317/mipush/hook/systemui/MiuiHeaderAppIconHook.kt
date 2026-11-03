@@ -147,10 +147,10 @@ class MiuiHeaderAppIconHook {
      * Source chain mirrors the status bar, because a shade glyph that disagrees with the
      * status-bar glyph next to it reads as a bug: icon-pack hit, then a silhouette for
      * MiPush-managed posts (whose launcher bitmap would tint into a white block) and for
-     * synthetic auto-group summaries (the same record the status bar answers with a
-     * silhouette), then the notification's own already-grayscale smallIcon tinted, and
-     * otherwise no replacement at all. Synthesizing a silhouette for an ordinary unmanaged
-     * post is what produced blank Alipay headers and a white blob for the framework icon.
+     * synthetic auto-group summaries only when they are managed or configured, then the
+     * notification's own already-grayscale smallIcon tinted, and otherwise no replacement at all.
+     * Synthesizing a silhouette for an ordinary unmanaged post is what produced blank Alipay
+     * headers and a white blob for the framework icon.
      */
     private fun applyMonochromeShadeIcon(
         context: Context,
@@ -590,12 +590,11 @@ internal object MiuiHeaderAppIconPolicy {
     /**
      * Source for the notification-center monochrome header icon.
      *
-     * Mirrors the status bar chain including its synthetic auto-group branch: a summary record
-     * copies the child's smallIcon but none of its extras, so it never looks MiPush-managed and
-     * its glyph is whatever the app ships for the status bar (a bell, for apps that have one).
-     * The status bar answers that with icon-pack then silhouette, so the header must too, or the
-     * two surfaces disagree about one and the same record. Unlike the status bar this stays
-     * inside the icon-pack switches: outside their scope nothing is forced into the header.
+     * Mirrors the status bar ownership rule: a summary record copies the child's smallIcon but
+     * none of its extras, so it normally does not look MiPush-managed. A configured icon-pack hit
+     * is authoritative; an unmanaged pack miss stays native, while a genuinely managed post may
+     * use the silhouette fallback. Unlike the status bar this stays inside the icon-pack switches:
+     * outside their scope nothing is forced into the header.
      */
     fun selectMonochromeShadeSource(
         isMiPushManaged: Boolean,
@@ -607,7 +606,9 @@ internal object MiuiHeaderAppIconPolicy {
     ): MiuiHeaderShadeSource = when {
         attemptsIconPack && iconPackHit -> MiuiHeaderShadeSource.ICON_PACK
         isMiPushManaged -> MiuiHeaderShadeSource.SILHOUETTE
-        attemptsIconPack && isSyntheticAutogroupSummary -> MiuiHeaderShadeSource.SILHOUETTE
+        // An unmanaged synthetic summary with a pack miss stays native, just like the status
+        // bar descriptor and ImageView paths. Do not infer ownership from the synthetic flag.
+        isSyntheticAutogroupSummary -> MiuiHeaderShadeSource.NONE
         attemptsIconPack && postedGlyphIsUnusable -> MiuiHeaderShadeSource.SILHOUETTE
         attemptsIconPack && postedGlyphIsMonochrome -> MiuiHeaderShadeSource.POSTED_GLYPH
         else -> MiuiHeaderShadeSource.NONE
