@@ -76,7 +76,7 @@ class RuntimePreferenceWriteContractTest {
         )
         val dispatch = source.section(
             "private suspend fun dispatch",
-            "private suspend fun zygiskIsEnabled",
+            "private suspend fun repairXSpace",
         )
 
         assertFalse(dispatch.contains("runBlocking"))

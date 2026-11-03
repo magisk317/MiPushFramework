@@ -3,12 +3,9 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.core.zygisk.ZygiskPackagePolicy
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
-import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
-import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.notification.NotificationChannelReadResult
 import io.github.magisk317.mipush.manager.notification.NotificationChannelReadStatus
@@ -29,7 +26,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal data class ApplicationInfoControlState(
-    val zygiskConfigurable: Boolean,
     val recentActivityEnabled: Boolean,
     val islandEnabled: Boolean,
     val islandFocusEnabled: Boolean,
@@ -41,8 +37,6 @@ internal data class ApplicationInfoControlState(
 internal object ApplicationInfoStatePolicy {
     fun controls(info: ManagerApplication): ApplicationInfoControlState =
         ApplicationInfoControlState(
-            zygiskConfigurable =
-                !info.blocked && ZygiskPackagePolicy.isManagedPackage(info.packageName),
             recentActivityEnabled = !info.blocked,
             islandEnabled = !info.blocked,
             islandFocusEnabled = !info.blocked && info.islandEnabled,
@@ -145,19 +139,11 @@ class ApplicationInfoViewModel constructor(
     private val applicationSource: RemoteApplicationDetailSource,
     private val notificationChannelSource: RemoteNotificationChannelSource,
     private val notificationChannelCommand: RemoteNotificationChannelCommand,
-    private val settingsManager: SettingsManager,
-    private val permissionGateway: ManagerPermissionGateway,
     private val context: Application,
 ) : ViewModel() {
 
     private val _applicationInfo = MutableStateFlow<ManagerApplication?>(null)
     val applicationInfo: StateFlow<ManagerApplication?> = _applicationInfo.asStateFlow()
-
-    private val _isZygiskEnabledForApp = MutableStateFlow<Boolean?>(null)
-    val isZygiskEnabledForApp: StateFlow<Boolean?> = _isZygiskEnabledForApp.asStateFlow()
-
-    private val _isZygiskConfigurableForApp = MutableStateFlow(false)
-    val isZygiskConfigurableForApp: StateFlow<Boolean> = _isZygiskConfigurableForApp.asStateFlow()
 
     private val _diagnostics = MutableStateFlow<ManagerApplicationDiagnostics?>(null)
     val diagnostics: StateFlow<ManagerApplicationDiagnostics?> = _diagnostics.asStateFlow()
@@ -177,12 +163,10 @@ class ApplicationInfoViewModel constructor(
             } catch (_: RuntimeWriteUnavailableException) {
                 if (_applicationInfo.value == updated) {
                     _applicationInfo.value = previous
-                    refreshZygiskConfigurable(previous)
                 }
             } catch (_: RuntimeWriteRejectedException) {
                 if (_applicationInfo.value == updated) {
                     _applicationInfo.value = previous
-                    refreshZygiskConfigurable(previous)
                 }
             }
         }
@@ -193,45 +177,8 @@ class ApplicationInfoViewModel constructor(
         ignoreNotRegistered: Boolean = false,
     ) {
         _applicationInfo.value = info
-        refreshZygiskConfigurable(info)
-        loadZygiskState(info.packageName, blocked = info.blocked)
         loadDiagnostics(info.packageName, info.registeredType)
         loadNotificationChannels(info.packageName)
-    }
-
-    private fun refreshZygiskConfigurable(info: ManagerApplication) {
-        _isZygiskConfigurableForApp.value =
-            ApplicationInfoStatePolicy.controls(info).zygiskConfigurable
-    }
-
-    private fun loadZygiskState(packageName: String, blocked: Boolean) {
-        viewModelScope.launch {
-            if (blocked || !ZygiskPackagePolicy.isManagedPackage(packageName)) {
-                _isZygiskEnabledForApp.value = false
-                return@launch
-            }
-            val enabled = withContext(Dispatchers.IO) {
-                val hasRoot = permissionGateway.hasCachedRootAccess() ||
-                    permissionGateway.refreshRootAccessIfGranted()
-                if (hasRoot) settingsManager.isZygiskSpoofEnabled(packageName) else null
-            }
-            _isZygiskEnabledForApp.value = enabled
-        }
-    }
-
-    fun updateZygiskEnabledForApp(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val packageName = current.packageName
-        if (current.blocked || !ZygiskPackagePolicy.isManagedPackage(packageName)) return
-        viewModelScope.launch {
-            val success = withContext(Dispatchers.IO) {
-                if (!permissionGateway.requestRootAccess()) return@withContext false
-                settingsManager.setZygiskSpoofEnabled(packageName, enabled)
-            }
-            if (success) {
-                _isZygiskEnabledForApp.value = enabled
-            }
-        }
     }
 
     private fun loadDiagnostics(packageName: String, registeredType: Int) {
@@ -251,21 +198,6 @@ class ApplicationInfoViewModel constructor(
         val updated = ApplicationInfoStatePolicy.withBlocked(current, blocked)
         _applicationInfo.value = updated
         persistApplication(current, updated)
-        refreshZygiskConfigurable(updated)
-        if (blocked) {
-            _isZygiskEnabledForApp.value = false
-            viewModelScope.launch {
-                withContext(Dispatchers.IO) {
-                    val hasRoot = permissionGateway.hasCachedRootAccess() ||
-                        permissionGateway.refreshRootAccessIfGranted()
-                    if (hasRoot) {
-                        settingsManager.setZygiskSpoofEnabled(current.packageName, false)
-                    }
-                }
-            }
-        } else {
-            loadZygiskState(updated.packageName, blocked = false)
-        }
     }
 
     fun updateIslandEnabled(enabled: Boolean) {

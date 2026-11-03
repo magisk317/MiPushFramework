@@ -6,7 +6,6 @@ import io.github.magisk317.mipush.core.configuration.ConfigDocumentContent
 import io.github.magisk317.mipush.core.configuration.ConfigListItem
 import io.github.magisk317.mipush.core.configuration.LocalConfigSummary
 import io.github.magisk317.mipush.core.configuration.RemoteConfigFile
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 
 // Application and notification ports.
 
@@ -162,23 +161,3 @@ data class ManagerXSpaceRepairResult(
     val documentsUiAvailable: Boolean = false,
     val details: String = "",
 )
-
-sealed interface ZygiskConfigReadResult {
-    data class Available(val config: io.github.magisk317.mipush.core.zygisk.ZygiskConfig) : ZygiskConfigReadResult
-
-    data class Unavailable(val reason: String) : ZygiskConfigReadResult
-}
-
-sealed interface ZygiskModuleReadResult {
-    data class Available(val enabled: Boolean) : ZygiskModuleReadResult
-
-    data class Unavailable(val reason: String) : ZygiskModuleReadResult
-}
-
-interface ZygiskConfigGateway {
-    suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult
-    fun getZygiskConfigPath(): String
-    suspend fun getZygiskConfig(): ZygiskConfigReadResult
-    suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean
-    suspend fun forceStopApp(packageName: String): Boolean
-}

@@ -487,13 +487,9 @@
     <string name="notification_channels_copy_id">复制通知渠道ID</string>
     <string name="notification_channels_delete_failed">删除通知渠道失败</string>
 
-    <string name="zygisk_status">Zygisk配置</string>
-    <string name="zygisk_status_summary">管理模块状态与应用伪装</string>
     <string name="zygisk_enabled">已开启</string>
     <string name="zygisk_disabled">未开启或未授权 Root</string>
     <string name="zygisk_unavailable">暂时无法读取</string>
-    <string name="zygisk_spoof_switch">启用 Zygisk 机型伪装</string>
-    <string name="zygisk_spoof_switch_summary">开启后，Zygisk 模块将在该应用内伪装设备属性，促使其主动注册 MiPush。</string>
     <string name="zygisk_save">保存 Zygisk 配置</string>
     <string name="zygisk_save_success">Zygisk 配置已保存</string>
     <string name="zygisk_save_failed">Zygisk 配置保存失败</string>

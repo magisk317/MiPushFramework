@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.magisk317.mipush.manager.application.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.parseZygiskSpoofPackages
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
@@ -102,6 +103,15 @@ class RemoteManagerRuntimeActions(
                 )
             }
         }
+    }
+
+    override suspend fun getZygiskSpoofPackages(): Set<String>? {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_ZYGISK_PACKAGES,
+        ) ?: return null
+        if (!RemoteWriteSupport.isSuccess(result)) return null
+        return parseZygiskSpoofPackages(result.details)
     }
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) = Unit

@@ -196,15 +196,6 @@ internal fun IntegrationsBlock(
     }
 
     SettingsItem(
-        title = stringResource(R.string.zygisk_status),
-        summary = stringResource(R.string.zygisk_status_summary),
-    ) {
-        context.startActivity(
-            Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java),
-        )
-    }
-
-    SettingsItem(
         title = stringResource(R.string.settings_configurations_management_title),
         summary = stringResource(R.string.settings_configurations_entry_summary),
         onClick = onNavigateToConfigurations,

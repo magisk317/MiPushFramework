@@ -61,11 +61,10 @@ Key source:
   successful database insert/update operations update that cache synchronously. SystemUI carries
   `StatusBarNotification.userId` through the provider query so its package cache uses the same
   identity instead of a package-only key.
-- Zygisk configuration reads use the same rule: a missing root, unavailable Binder, or failed
-  file read is an unavailable result, never an empty `ZygiskConfig`. The manager must not save
-  while the current configuration cannot be read; an actually empty file remains a valid empty
-  configuration. Module status and package scans follow the same rule: unavailable is distinct
-  from disabled and from a successful scan with no candidates.
+- MiPushZygisk owns its configuration through the module WebUI and `mipushctl`. MiPushFramework
+  no longer reads or writes `app.conf`, exposes per-app Zygisk switches, or proxies those writes
+  through Binder. The XMSF marker only reports module presence and must not be interpreted as the
+  third-party spoof master switch.
 - Notification-channel pages remain Binder DTOs until `RemoteNotificationChannelSource` maps them
   into manager domain summaries. The UI consumes that snapshot directly, and deletion sends only
   the package/channel identity command; no manager path reconstructs framework channel objects.

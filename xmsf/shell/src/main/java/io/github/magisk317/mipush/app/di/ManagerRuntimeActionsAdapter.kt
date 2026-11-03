@@ -8,7 +8,6 @@ import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.core.zygisk.ZygiskConfig
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
@@ -35,6 +34,7 @@ import io.github.magisk317.mipush.manager.application.ManagerRootSubjectStatus
 import io.github.magisk317.mipush.manager.application.ManagerRootTarget
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.manager.application.parseZygiskSpoofPackages
 import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairResult
 import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
@@ -51,6 +51,7 @@ import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -111,6 +112,14 @@ class XmsfManagerRuntimeActions(
     }
 
     override suspend fun getConnectionSnapshot() = runtimeSettingsAdapter.getConnectionSnapshot()
+
+    override suspend fun getZygiskSpoofPackages(): Set<String>? {
+        val result = AppRootAccessFacade.runRootCommand(
+            "cat /data/adb/mipush_zygisk/app.conf",
+            timeoutMs = 5_000L,
+        )
+        return result.takeIf { it.isSuccess }?.let { parseZygiskSpoofPackages(it.stdoutText) }
+    }
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) {
         PushRuntime.observeNotificationEvent(packageName, action, source)
