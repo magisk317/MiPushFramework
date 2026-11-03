@@ -293,6 +293,12 @@ class RequestPermissionViewModelTest {
 
         override suspend fun grantNotificationPermission(context: Context): Boolean = false
 
+        override suspend fun isLiveUpdatePermissionSupported(): Boolean = false
+
+        override suspend fun isLiveUpdatePermissionGranted(context: Context): Boolean = false
+
+        override suspend fun grantLiveUpdatePermission(context: Context): Boolean = false
+
         private fun unsupportedRepair() = ManagerXSpaceRepairResult(ManagerXSpaceRepairStage.ROOT_MISSING)
 
         private fun snapshot() = ManagerRootAccessSnapshot(

@@ -12,7 +12,11 @@ class MockMIPushMessageOutcomeTest {
             MockReplayOutcome.BlockedByPermission.observationAction(),
         )
         assertEquals("mock_replay_dispatched", MockReplayOutcome.Dispatched.observationAction())
-        assertEquals("mock_replay_posted", MockReplayOutcome.Posted.observationAction())
+        assertEquals("mock_replay_posted_target", MockReplayOutcome.PostedTarget.observationAction())
+        assertEquals(
+            "mock_replay_posted_local_fallback",
+            MockReplayOutcome.PostedLocalFallback.observationAction(),
+        )
         assertEquals(
             "mock_replay_failed_channel_disabled",
             MockReplayOutcome.FailedChannelDisabled.observationAction(),

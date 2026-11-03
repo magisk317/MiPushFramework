@@ -34,10 +34,17 @@ internal object WizardRequirementProbe {
         ) {
             return true
         }
-        val permissionInfos = getPermissionInfos(context)
+        val liveUpdateSupported = try {
+            permissionGateway.isLiveUpdatePermissionSupported()
+        } catch (_: Exception) {
+            false
+        }
+        val permissionInfos = getPermissionInfos(context, liveUpdateSupported)
         val permissionStates = evaluatePermissionStatesNow(permissionInfos, permissionGateway)
         for (index in permissionInfos.indices) {
-            if (!isPermissionRequirementSatisfied(index, permissionInfos, permissionStates)) {
+            if (permissionInfos[index].isRequired &&
+                !isPermissionRequirementSatisfied(index, permissionInfos, permissionStates)
+            ) {
                 return true
             }
         }

@@ -13,7 +13,7 @@ import android.service.notification.StatusBarNotification
  * resolves this class through the com.xiaomi.xmsf classloader and only dispatches hook callbacks.
  */
 object NotificationHookBridge {
-    const val HOOK_API_VERSION = 1
+    const val HOOK_API_VERSION = 2
 
     @JvmStatic
     fun init(context: Context) {
@@ -21,7 +21,7 @@ object NotificationHookBridge {
     }
 
     @JvmStatic
-    fun notify(packageName: String, tag: String?, id: Int, notification: Notification): Boolean =
+    fun notify(packageName: String, tag: String?, id: Int, notification: Notification): NotificationHookBackend.PostResult =
         NotificationHookBackend.notify(packageName, tag, id, notification)
 
     @JvmStatic
@@ -113,7 +113,7 @@ object NotificationHookBridge {
         tag: String?,
         id: Int,
         notification: Notification,
-    ): Boolean = NotificationHookBackend.notify(packageName, tag, id, notification)
+    ): NotificationHookBackend.PostResult = NotificationHookBackend.notify(packageName, tag, id, notification)
 
     @JvmStatic
     fun cancelAsTargetPackage(packageName: String, tag: String?, id: Int): Boolean {

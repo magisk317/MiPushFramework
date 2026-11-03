@@ -28,16 +28,36 @@ private object BackendLog {
         else XLog.tagged(tag).e(throwable) { message.orEmpty() }
 }
 
+private val MEMOIZED_READ_SYSTEM_OPS = setOf(
+    "getNotificationChannel",
+    "getNotificationChannels",
+    "getNotificationChannelGroup",
+    "getNotificationChannelGroups",
+    "areNotificationsEnabled",
+    "getActiveNotifications",
+)
+
+internal fun shouldMemoizeSecurityFailure(operation: String): Boolean =
+    operation in MEMOIZED_READ_SYSTEM_OPS
+
 object NotificationHookBackend {
     private const val TAG = "SystemNotificationManager"
     private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
-    // 某些系统 API（如 getNotificationChannelsForPackage）需要 STATUS_BAR_SERVICE 权限，
-    // 本进程 uid 稳定拿不到，每次调用都必然抛 SecurityException 再回退 root。
-    // 记录列表逐行查询时这会造成大量无谓的失败反射调用；这里记住"该操作已被系统拒绝"，
-    // 之后直接走 fallback，不再每行重试。按操作名区分（权限门槛与包无关）。
-    private val blockedSystemOps = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    enum class PostOwner {
+        TARGET,
+        NONE,
+    }
 
+    data class PostResult(
+        val posted: Boolean,
+        val owner: PostOwner,
+        val reason: String,
+    )
+
+    // Only stable read probes are memoized. A write can fail because of notification-specific
+    // policy or permission state, so caching that failure would suppress every later package.
+    private val blockedSystemOps = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
     private lateinit var appContext: android.content.Context
 
     @JvmStatic
@@ -116,20 +136,22 @@ object NotificationHookBackend {
         fallback: (Throwable) -> T,
         block: () -> T
     ): T {
-        // 该操作此前已被系统权限拒绝：直接走 fallback，不再发起注定失败的反射调用。
-        if (blockedSystemOps.contains(operation)) {
+        val memoizeSecurityFailure = shouldMemoizeSecurityFailure(operation)
+        if (memoizeSecurityFailure && blockedSystemOps.contains(operation)) {
             return fallback(SecurityException("$operation previously blocked, using fallback"))
         }
         return runCatching { block() }.fold(
             onSuccess = { it },
             onFailure = { throwable ->
                 val cause = throwable.unwrapSystemCallFailure()
-                if (cause is SecurityException) {
+                if (cause is SecurityException && memoizeSecurityFailure) {
                     if (blockedSystemOps.add(operation)) {
                         BackendLog.w(TAG, "$operation: system API blocked for $packageName (memoized, will skip retries): ${cause.message}")
                     } else {
                         BackendLog.w(TAG, "$operation: system API blocked for $packageName: ${cause.message}")
                     }
+                } else if (cause is SecurityException) {
+                    BackendLog.w(TAG, "$operation: system API blocked for $packageName (not memoized): ${cause.message}")
                 } else {
                     BackendLog.e(TAG, "$operation: system API failed for $packageName", cause)
                 }
@@ -170,15 +192,6 @@ object NotificationHookBackend {
         )
     }
 
-    private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {
-        return runCatching {
-            localNotificationManager()?.notify(tag, id, notification)
-            true
-        }.onFailure {
-            BackendLog.e(TAG, "notify: local fallback failed", it)
-        }.getOrDefault(false)
-    }
-
     private fun cancelLocally(tag: String?, id: Int) {
         runCatching {
             localNotificationManager()?.cancel(tag, id)
@@ -206,7 +219,7 @@ object NotificationHookBackend {
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification
-    ): Boolean {
+    ): PostResult {
         BackendLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
 
         try {
@@ -272,14 +285,18 @@ object NotificationHookBackend {
                 is UidResolution.Found -> Unit
                 UidResolution.MissingPackage -> {
                     BackendLog.d(TAG, "notify() package not installed, drop: $packageName")
-                    return false
+                    return PostResult(false, PostOwner.NONE, "target_absent")
                 }
                 UidResolution.Unavailable -> Unit
             }
         }
-        return runSystemCall("notify", packageName, fallback = {
-            BackendLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
-            notifyLocally(tag, id, notification)
+        return runSystemCall("notify", packageName, fallback = { error ->
+            BackendLog.w(TAG, "notify() target system call failed: $packageName id=$id error=${error.message}")
+            PostResult(
+                posted = false,
+                owner = PostOwner.NONE,
+                reason = if (error is SecurityException) "security_exception" else "system_call_failed",
+            )
         }) {
             val methodEnqueueNotificationWithTag = NotificationManagerReflection.findMethod(
                 requireNotificationManager().javaClass,
@@ -296,7 +313,7 @@ object NotificationHookBackend {
             val opPkg = XMSF_PACKAGE_NAME
             methodEnqueueNotificationWithTag.invoke(requireNotificationManager(), packageName, opPkg, tag, id, notification, getUserId())
             BackendLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
-            true
+            PostResult(true, PostOwner.TARGET, "target_enqueue")
         }
     }
 

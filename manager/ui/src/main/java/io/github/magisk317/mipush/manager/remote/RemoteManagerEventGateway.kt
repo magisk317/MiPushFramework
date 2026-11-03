@@ -92,7 +92,9 @@ class RemoteManagerEventGateway(
             return MockReplayOutcome.Failed
         }
         val outcome = when (result.details) {
-            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED -> MockReplayOutcome.Posted
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED,
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED_TARGET -> MockReplayOutcome.PostedTarget
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED_LOCAL_FALLBACK -> MockReplayOutcome.PostedLocalFallback
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_DISPATCHED -> MockReplayOutcome.Dispatched
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED -> MockReplayOutcome.BlockedByPermission
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED_CHANNEL_DISABLED -> MockReplayOutcome.FailedChannelDisabled
@@ -109,16 +111,20 @@ class RemoteManagerEventGateway(
                 MockReplayOutcome.Failed
             }
         }
-        val statusOk = outcome == MockReplayOutcome.Posted || outcome == MockReplayOutcome.Dispatched
+        val statusOk = outcome == MockReplayOutcome.PostedTarget ||
+            outcome == MockReplayOutcome.PostedLocalFallback ||
+            outcome == MockReplayOutcome.Dispatched
         emitManager(
             stage = "manager_mock_replay",
             result = when (outcome) {
-                MockReplayOutcome.Posted, MockReplayOutcome.Dispatched -> "ok"
+                MockReplayOutcome.PostedTarget, MockReplayOutcome.Dispatched -> "ok"
+                MockReplayOutcome.PostedLocalFallback -> "fallback"
                 MockReplayOutcome.BlockedByPermission -> "skip"
                 else -> "error"
             },
             reason = when (outcome) {
-                MockReplayOutcome.Posted -> "posted"
+                MockReplayOutcome.PostedTarget -> "posted_target"
+                MockReplayOutcome.PostedLocalFallback -> "posted_local_fallback"
                 MockReplayOutcome.Dispatched -> "dispatched"
                 MockReplayOutcome.BlockedByPermission -> "blocked_by_permission"
                 MockReplayOutcome.FailedChannelDisabled -> "channel_disabled"

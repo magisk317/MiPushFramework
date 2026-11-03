@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 class NotificationHookBridgeContractTest {
     @Test
     fun exposesVersionedRuntimeContract() {
-        assertEquals(1, NotificationHookBridge.HOOK_API_VERSION)
+        assertEquals(2, NotificationHookBridge.HOOK_API_VERSION)
         val methods = NotificationHookBridge::class.java.declaredMethods.map { it.name }.toSet()
 
         assertTrue("notify" in methods)
@@ -21,6 +21,26 @@ class NotificationHookBridgeContractTest {
         assertTrue("getActiveNotifications" in methods)
         assertTrue("notifyAsTargetPackage" in methods)
         assertTrue("cancelAsTargetPackage" in methods)
+    }
+
+    @Test
+    fun `post result keeps target ownership as a structured contract`() {
+        val result = NotificationHookBackend.PostResult(
+            posted = true,
+            owner = NotificationHookBackend.PostOwner.TARGET,
+            reason = "target_enqueue",
+        )
+
+        assertTrue(result.posted)
+        assertEquals(NotificationHookBackend.PostOwner.TARGET, result.owner)
+        assertEquals("target_enqueue", result.reason)
+    }
+
+    @Test
+    fun `notification writes are never memoized after a security failure`() {
+        assertFalse(shouldMemoizeSecurityFailure("notify"))
+        assertFalse(shouldMemoizeSecurityFailure("cancel"))
+        assertTrue(shouldMemoizeSecurityFailure("getNotificationChannels"))
     }
 
     @Test
