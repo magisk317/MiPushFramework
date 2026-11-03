@@ -411,20 +411,33 @@ object NotificationManagerEx {
         val isLiveUpdate = notification.extras?.getBoolean("xmsf.live_update", false) == true ||
             notification.extras?.getBoolean("android.requestPromotedOngoing", false) == true
         if (!isLiveUpdate) return false
-        val granted = runCatching {
-            PermissionUtils.grantSilentPermissions(packageName = packageName)
-        }.getOrDefault(false)
-        if (!granted) {
+        val grants = runCatching {
+            PermissionUtils.grantLiveUpdatePermissions(
+                context = appContext,
+                targetPackage = packageName,
+                userId = Utils.requireValidUserId(Utils.myUserId()),
+            )
+        }.getOrElse {
+            logNotificationDiagnostic(
+                Log.WARN,
+                "live-update permission repair failed pkg=$packageName id=$id",
+                it,
+            )
+            return false
+        }
+        if (!grants.canRetryTargetPost) {
             logNotificationDiagnostic(
                 Log.DEBUG,
-                "live-update identity retry skipped: silent grant failed pkg=$packageName id=$id",
+                "live-update identity retry skipped: caller permission missing pkg=$packageName id=$id " +
+                    "caller=${grants.callerPermissionGranted} targetAppOp=${grants.targetAppOpAllowed}",
             )
             return false
         }
         val ok = NotificationVendorAdapter.notifyAsTarget(appContext, packageName, tag, id, notification)
         logNotificationDiagnostic(
             Log.DEBUG,
-            "live-update identity retry after appops grant pkg=$packageName id=$id ok=$ok",
+            "live-update identity retry after permission repair pkg=$packageName id=$id ok=$ok " +
+                "targetAppOpAllowed=${grants.targetAppOpAllowed}",
         )
         return ok
     }

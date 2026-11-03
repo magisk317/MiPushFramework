@@ -19,7 +19,8 @@ class EncryptedPayloadFallbackPolicyTest {
     @Test
     fun `successful or policy-blocked outcomes do not dispatch a second payload`() {
         listOf(
-            MockReplayOutcome.Posted,
+            MockReplayOutcome.PostedTarget,
+            MockReplayOutcome.PostedLocalFallback,
             MockReplayOutcome.Dispatched,
             MockReplayOutcome.BlockedByPermission,
         ).forEach { outcome ->

@@ -78,7 +78,8 @@ internal fun EventDetailsDialog(
     val replayFeedback = mapOf(
         MockReplayOutcome.BlockedByPermission to stringResource(R.string.mock_notification_blocked_by_permission),
         MockReplayOutcome.Dispatched to stringResource(R.string.mock_notification_dispatched),
-        MockReplayOutcome.Posted to stringResource(R.string.mock_notification_posted),
+        MockReplayOutcome.PostedTarget to stringResource(R.string.mock_notification_posted_target),
+        MockReplayOutcome.PostedLocalFallback to stringResource(R.string.mock_notification_posted_local_fallback),
         MockReplayOutcome.FailedChannelDisabled to stringResource(R.string.mock_notification_failed_channel_disabled),
         MockReplayOutcome.FailedEventNotFound to stringResource(R.string.mock_notification_failed_event_not_found),
         MockReplayOutcome.FailedPayloadMissing to stringResource(R.string.mock_notification_failed_payload_missing),
@@ -121,7 +122,9 @@ internal fun EventDetailsDialog(
                                         XLog.tagged("EventListPage").d {
                                             "Replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName} outcome=$outcome"
                                         }
-                                        val isSuccess = outcome == MockReplayOutcome.Posted || outcome == MockReplayOutcome.Dispatched
+                                        val isSuccess = outcome == MockReplayOutcome.PostedTarget ||
+                                            outcome == MockReplayOutcome.PostedLocalFallback ||
+                                            outcome == MockReplayOutcome.Dispatched
                                         Utils.makeText(
                                             context,
                                             replayFeedback.getValue(outcome),
@@ -381,7 +384,8 @@ private fun JsonLeafRow(
 internal fun MockReplayOutcome.feedbackStringRes(): Int = when (this) {
     MockReplayOutcome.BlockedByPermission -> R.string.mock_notification_blocked_by_permission
     MockReplayOutcome.Dispatched -> R.string.mock_notification_dispatched
-    MockReplayOutcome.Posted -> R.string.mock_notification_posted
+    MockReplayOutcome.PostedTarget -> R.string.mock_notification_posted_target
+    MockReplayOutcome.PostedLocalFallback -> R.string.mock_notification_posted_local_fallback
     MockReplayOutcome.FailedChannelDisabled -> R.string.mock_notification_failed_channel_disabled
     MockReplayOutcome.FailedEventNotFound -> R.string.mock_notification_failed_event_not_found
     MockReplayOutcome.FailedPayloadMissing -> R.string.mock_notification_failed_payload_missing

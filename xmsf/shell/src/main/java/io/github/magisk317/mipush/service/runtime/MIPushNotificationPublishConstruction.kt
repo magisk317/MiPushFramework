@@ -213,7 +213,8 @@ private fun MIPushNotificationPublishHelper.Companion.finishNotificationDispatch
 internal fun MIPushNotificationPublishHelper.Companion.mapPublishResult(
     result: NotificationController.PublishResult,
 ): MockReplayOutcome = when (result) {
-    NotificationController.PublishResult.Posted -> MockReplayOutcome.Posted
+    NotificationController.PublishResult.PostedTarget -> MockReplayOutcome.PostedTarget
+    NotificationController.PublishResult.PostedLocalFallback -> MockReplayOutcome.PostedLocalFallback
     NotificationController.PublishResult.ChannelDisabled -> MockReplayOutcome.FailedChannelDisabled
     NotificationController.PublishResult.SuppressedByPolicy -> MockReplayOutcome.Dispatched
     NotificationController.PublishResult.Failed -> MockReplayOutcome.Failed

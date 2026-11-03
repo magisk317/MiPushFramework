@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.wizard.permission.AccessibilityPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.AlertWindowPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.LiveUpdatePermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.RequestIgnoreBatteryOptimizationsPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
@@ -57,6 +59,7 @@ import io.github.magisk317.mipush.main.viewmodel.GrantLogEntry
 import io.github.magisk317.mipush.main.viewmodel.GrantOutcome
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerRootAccessSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerRootAccessState
 import io.github.magisk317.mipush.manager.application.ManagerRootTarget
@@ -76,6 +79,9 @@ import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.appColor
 import io.github.magisk317.uikit.theme.currentUiKitStyle
 import org.koin.android.ext.android.inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private val TAG = "WizardPermission"
@@ -119,8 +125,19 @@ fun PermissionMainActivity(
     onFinishWizard: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val permissionGateway: ManagerPermissionGateway = koinInject()
     val permissionViewModel: RequestPermissionViewModel = koinViewModel()
-    val permissionInfos = remember { getPermissionInfos(context) }
+    var permissionInfos by remember { mutableStateOf(getPermissionInfos(context)) }
+    LaunchedEffect(permissionGateway) {
+        val liveUpdateSupported = withContext(Dispatchers.IO) {
+            try {
+                permissionGateway.isLiveUpdatePermissionSupported()
+            } catch (_: Exception) {
+                false
+            }
+        }
+        permissionInfos = getPermissionInfos(context, liveUpdateSupported)
+    }
     val permissionStates by permissionViewModel.permissionStates.collectAsState()
     val rootAccessSnapshot by permissionViewModel.rootAccessSnapshot.collectAsState()
     val grantLog by permissionViewModel.grantLog.collectAsState()
@@ -143,7 +160,7 @@ fun PermissionMainActivity(
     }
 
     // First composition and every ON_RESUME only refresh state: no system page pops up.
-    LaunchedEffect(checkTrigger) {
+    LaunchedEffect(checkTrigger, permissionInfos) {
         permissionViewModel.evaluatePermissions(permissionInfos)
     }
 
@@ -295,9 +312,10 @@ private fun PermissionSinglePage(
             )
     }
     val rootRows = listOf(rootAccessSnapshot.runtime, rootAccessSnapshot.manager)
+    val requiredPermissionIndices = permissionInfos.indices.filter { permissionInfos[it].isRequired }
     val grantedCount = rootRows.count { it.isGranted } +
-        permissionInfos.indices.count { isPermissionRequirementSatisfied(it, permissionInfos, permissionStates) }
-    val totalCount = rootRows.size + permissionInfos.size
+        requiredPermissionIndices.count { isPermissionRequirementSatisfied(it, permissionInfos, permissionStates) }
+    val totalCount = rootRows.size + requiredPermissionIndices.size
     val outstandingCount = totalCount - grantedCount
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -447,7 +465,10 @@ private fun showToast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
-internal fun getPermissionInfos(context: Context): List<PermissionInfo> {
+internal fun getPermissionInfos(
+    context: Context,
+    liveUpdateSupported: Boolean = true,
+): List<PermissionInfo> {
     val pages = mutableListOf<PermissionInfo>().apply {
         add(UsageStatsPermissionInfo(context))
         add(AccessibilityPermissionInfo(context))
@@ -456,9 +477,15 @@ internal fun getPermissionInfos(context: Context): List<PermissionInfo> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(NotificationPermissionInfo(context))
         }
+        if (liveUpdateSupported && supportsLiveUpdatePermission(Build.VERSION.SDK_INT_FULL)) {
+            add(LiveUpdatePermissionInfo(context))
+        }
     }
     return pages
 }
+
+internal fun supportsLiveUpdatePermission(sdkIntFull: Int): Boolean =
+    sdkIntFull >= Build.VERSION_CODES_FULL.BAKLAVA_1
 
 internal fun isPermissionRequirementSatisfied(
     index: Int,

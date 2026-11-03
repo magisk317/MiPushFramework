@@ -175,6 +175,8 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_QUERY_DUAL_APP -> queryDualApp(request)
             ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS -> grantSilentPermissions(request)
             ManagerProtocol.WRITE_OP_QUERY_USAGE_STATS -> queryUsageStats(request)
+            ManagerProtocol.WRITE_OP_QUERY_LIVE_UPDATE_PERMISSION -> queryLiveUpdatePermission(request)
+            ManagerProtocol.WRITE_OP_GRANT_LIVE_UPDATE_PERMISSION -> grantLiveUpdatePermission(request)
             ManagerProtocol.WRITE_OP_QUERY_ROOT -> queryRoot(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN -> setRuntimeBoolean(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_INT -> setRuntimeInt(request)
@@ -452,6 +454,46 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
+    private fun queryLiveUpdatePermission(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val granted = io.github.magisk317.mipush.platform.support.PermissionUtils
+            .hasLiveUpdatePublisherPermission(context)
+        return success(
+            requestId = request.requestId,
+            details = if (granted) {
+                ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_GRANTED
+            } else {
+                ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_MISSING
+            },
+            resultLong = if (granted) 1L else 0L,
+        )
+    }
+
+    private suspend fun grantLiveUpdatePermission(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        if (!permissionGateway.refreshRootAccessIfGranted()) {
+            return failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_ROOT_MISSING,
+            )
+        }
+        val granted = io.github.magisk317.mipush.platform.support.PermissionUtils
+            .grantLiveUpdatePublisherPermission(
+                context = context,
+                userId = request.userId,
+            )
+        return if (granted) {
+            success(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_GRANTED,
+                resultLong = 1L,
+            )
+        } else {
+            failed(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_LIVE_UPDATE_PERMISSION_MISSING,
+            )
+        }
+    }
+
     private suspend fun queryRoot(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val available = resolveRootAccess(
             requestAuthorization = request.booleanArgument,
@@ -503,9 +545,14 @@ class ManagerWriteRuntimeExecutor(
             ),
         )
         return when (outcome) {
-            MockReplayOutcome.Posted -> success(
+            MockReplayOutcome.PostedTarget -> success(
                 request.requestId,
-                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED_TARGET,
+                resultLong = eventId,
+            )
+            MockReplayOutcome.PostedLocalFallback -> success(
+                request.requestId,
+                ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED_LOCAL_FALLBACK,
                 resultLong = eventId,
             )
             MockReplayOutcome.Dispatched -> success(

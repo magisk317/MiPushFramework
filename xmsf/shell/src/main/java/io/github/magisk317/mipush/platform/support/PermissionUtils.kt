@@ -23,6 +23,8 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 object PermissionUtils {
     const val USER_PRIMARY = 0
     const val USER_XSPACE = 999
+    const val LIVE_UPDATE_CALLER_PERMISSION = "android.permission.UPDATE_APP_OPS_STATS"
+    const val LIVE_UPDATE_TARGET_PERMISSION = "android.permission.POST_PROMOTED_NOTIFICATIONS"
     /** intArgument sentinel: grant for primary and dual-space (if installed). */
     const val USER_AUTO = -1
 
@@ -30,6 +32,27 @@ object PermissionUtils {
         Constants.SERVICE_APP_NAME,
         Constants.MANAGER_APP_NAME,
     )
+
+    data class PermissionGrantTarget(
+        val packageName: String,
+        val operation: String,
+    )
+
+    data class LiveUpdateGrantResult(
+        val callerPermissionGranted: Boolean,
+        val targetAppOpAllowed: Boolean,
+    ) {
+        // Target identity is still useful when promotion is unavailable. The platform simply
+        // renders the ProgressStyle notification as a normal ongoing notification in that case.
+        val canRetryTargetPost: Boolean
+            get() = callerPermissionGranted
+    }
+
+    internal fun liveUpdatePermissionGrantTargets(targetPackage: String): List<PermissionGrantTarget> =
+        listOf(
+            PermissionGrantTarget(Constants.SERVICE_APP_NAME, LIVE_UPDATE_CALLER_PERMISSION),
+            PermissionGrantTarget(targetPackage, LIVE_UPDATE_TARGET_PERMISSION),
+        )
 
     /** AppOps that Magisk/root can typically force-allow without interactive Settings. */
     private val SILENT_APPOPS = listOf(
@@ -134,9 +157,6 @@ object PermissionUtils {
         }
         val privilegedPmGrants = listOf(
             "android.permission.POST_NOTIFICATIONS",
-            // Live Updates / ProgressStyle notifyAsPackage on Android 16+ checks this.
-            "android.permission.UPDATE_APP_OPS_STATS",
-            "android.permission.POST_PROMOTED_NOTIFICATIONS",
         )
         for (permission in privilegedPmGrants) {
             val grant = AppRootAccessFacade.runRootCommand(
@@ -155,6 +175,157 @@ object PermissionUtils {
             extra = mapOf("target_package" to packageName),
         )
         return anySuccess
+    }
+
+    @JvmStatic
+    fun supportsLiveUpdatePermission(): Boolean =
+        supportsLiveUpdatePermission(Build.VERSION.SDK_INT_FULL)
+
+    internal fun supportsLiveUpdatePermission(sdkIntFull: Int): Boolean =
+        sdkIntFull >= Build.VERSION_CODES_FULL.BAKLAVA_1
+
+    @JvmStatic
+    fun hasLiveUpdatePublisherPermission(context: Context): Boolean {
+        if (!supportsLiveUpdatePermission()) return true
+        return ContextCompat.checkSelfPermission(
+            context,
+            LIVE_UPDATE_CALLER_PERMISSION,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    @JvmStatic
+    fun grantLiveUpdatePublisherPermission(
+        context: Context,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
+    ): Boolean {
+        if (!supportsLiveUpdatePermission()) return true
+        if (hasLiveUpdatePublisherPermission(context)) return true
+        if (!hasExistingRootAccess()) {
+            emitPermission(
+                result = "skip",
+                reason = "live_update_no_root",
+                statusOk = false,
+                extra = mapOf("target_package" to Constants.SERVICE_APP_NAME),
+            )
+            return false
+        }
+        val granted = grantPackagePermission(
+            context = context,
+            packageName = Constants.SERVICE_APP_NAME,
+            permission = LIVE_UPDATE_CALLER_PERMISSION,
+            userId = userId,
+        )
+        emitPermission(
+            result = if (granted) "ok" else "error",
+            reason = if (granted) "live_update_caller_granted" else "live_update_caller_failed",
+            statusOk = granted,
+            extra = mapOf(
+                "target_package" to Constants.SERVICE_APP_NAME,
+                "operation" to LIVE_UPDATE_CALLER_PERMISSION,
+            ),
+        )
+        return granted
+    }
+
+    @JvmStatic
+    fun grantLiveUpdatePermissions(
+        context: Context,
+        targetPackage: String,
+        userId: Int = Utils.requireValidUserId(Utils.myUserId()),
+    ): LiveUpdateGrantResult {
+        if (!supportsLiveUpdatePermission()) {
+            return LiveUpdateGrantResult(
+                callerPermissionGranted = true,
+                targetAppOpAllowed = true,
+            )
+        }
+        val (callerTarget, targetTarget) = liveUpdatePermissionGrantTargets(targetPackage)
+        val callerGranted = grantLiveUpdatePublisherPermission(context, userId)
+        val targetAppOpAllowed = hasLiveUpdateAppOpAllowed(
+            packageName = targetTarget.packageName,
+            userId = userId,
+        ) || (
+            hasExistingRootAccess() &&
+                allowPermission(
+                    permission = targetTarget.operation,
+                    packageName = targetTarget.packageName,
+                    userId = userId,
+                ) && hasLiveUpdateAppOpAllowed(
+                    packageName = targetTarget.packageName,
+                    userId = userId,
+                )
+            )
+        emitPermission(
+            result = if (callerGranted) "ok" else "error",
+            reason = when {
+                !callerGranted -> "live_update_caller_missing"
+                !targetAppOpAllowed -> "live_update_target_appop_unavailable"
+                else -> "live_update_permissions_granted"
+            },
+            statusOk = callerGranted,
+            extra = mapOf(
+                "target_package" to targetTarget.packageName,
+                "caller_package" to callerTarget.packageName,
+                "caller_permission_granted" to callerGranted.toString(),
+                "target_appop_allowed" to targetAppOpAllowed.toString(),
+            ),
+        )
+        return LiveUpdateGrantResult(
+            callerPermissionGranted = callerGranted,
+            targetAppOpAllowed = targetAppOpAllowed,
+        )
+    }
+
+    private fun hasLiveUpdateAppOpAllowed(
+        packageName: String,
+        userId: Int,
+    ): Boolean {
+        if (!hasExistingRootAccess()) return false
+        val commands = listOf(
+            "cmd appops get --user $userId $packageName $LIVE_UPDATE_TARGET_PERMISSION",
+            "appops get --user $userId $packageName $LIVE_UPDATE_TARGET_PERMISSION",
+            "cmd appops get $packageName $LIVE_UPDATE_TARGET_PERMISSION",
+        )
+        return commands.any { command ->
+            val result = AppRootAccessFacade.runRootCommand(command)
+            isLiveUpdateAppOpAllowed(buildString {
+                append(result.stdoutText)
+                if (result.stderrText.isNotBlank()) {
+                    append('\n')
+                    append(result.stderrText)
+                }
+            })
+        }
+    }
+
+    internal fun isLiveUpdateAppOpAllowed(output: String): Boolean {
+        val fullName = LIVE_UPDATE_TARGET_PERMISSION.lowercase()
+        val shortName = fullName.substringAfterLast('.')
+        return output.lineSequence().any { line ->
+            val normalized = line.trim().lowercase()
+            normalized.startsWith("$fullName: allow") ||
+                normalized.startsWith("$shortName: allow")
+        }
+    }
+
+    private fun hasPackagePermission(
+        context: Context,
+        packageName: String,
+        permission: String,
+    ): Boolean = context.packageManager.checkPermission(permission, packageName) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun grantPackagePermission(
+        context: Context,
+        packageName: String,
+        permission: String,
+        userId: Int,
+    ): Boolean {
+        if (hasPackagePermission(context, packageName, permission)) return true
+        val result = AppRootAccessFacade.runRootCommand(
+            "pm grant --user $userId $packageName $permission",
+        )
+        return result.isSuccess && hasPackagePermission(context, packageName, permission)
     }
 
     /**

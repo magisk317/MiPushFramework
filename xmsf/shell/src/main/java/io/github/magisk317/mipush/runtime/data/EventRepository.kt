@@ -418,7 +418,8 @@ class EventRepository constructor(
         val action = when (outcome) {
             MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
             MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
-            MockReplayOutcome.Posted -> "mock_replay_posted"
+            MockReplayOutcome.PostedTarget -> "mock_replay_posted_target"
+            MockReplayOutcome.PostedLocalFallback -> "mock_replay_posted_local_fallback"
             MockReplayOutcome.FailedChannelDisabled -> "mock_replay_failed_channel_disabled"
             MockReplayOutcome.FailedEventNotFound -> "mock_replay_failed_event_not_found"
             MockReplayOutcome.FailedPayloadMissing -> "mock_replay_failed_payload_missing"
@@ -429,7 +430,9 @@ class EventRepository constructor(
             MockReplayOutcome.Failed -> "mock_replay_failed"
         }
         PushRuntime.observeNotificationEvent(packageName, action, "EventRepository.mockMessage")
-        val statusOk = outcome == MockReplayOutcome.Dispatched || outcome == MockReplayOutcome.Posted
+        val statusOk = outcome == MockReplayOutcome.Dispatched ||
+            outcome == MockReplayOutcome.PostedTarget ||
+            outcome == MockReplayOutcome.PostedLocalFallback
         emitMockReplay(
             packageName = packageName,
             result = if (statusOk) "ok" else if (outcome == MockReplayOutcome.BlockedByPermission) "skip" else "error",

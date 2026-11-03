@@ -104,6 +104,9 @@ interface ManagerPermissionGateway {
     suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean
     suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean
     suspend fun grantNotificationPermission(context: Context): Boolean
+    suspend fun isLiveUpdatePermissionSupported(): Boolean
+    suspend fun isLiveUpdatePermissionGranted(context: Context): Boolean
+    suspend fun grantLiveUpdatePermission(context: Context): Boolean
 }
 
 sealed interface ManagerDualAppInstallationResult {
