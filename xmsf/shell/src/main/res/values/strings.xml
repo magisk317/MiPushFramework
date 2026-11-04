@@ -374,7 +374,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_chart_registered_label">Registered</string>
     <string name="overview_chart_unregistered_label">Not registered</string>
     <string name="overview_version_format">Version %1$s</string>
-    <string name="overview_version_code_label">Version code</string>
     <string name="overview_project_github_title">GitHub project</string>
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>

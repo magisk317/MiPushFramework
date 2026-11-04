@@ -51,7 +51,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.content.pm.PackageInfoCompat
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.uikit.theme.spacing
@@ -87,7 +86,7 @@ internal data class OverviewUiState(
     val appStats: ApplicationStats,
     val runtimeVersionName: String?,
     val appVersionName: String?,
-    val appVersionCode: String,
+    val commitInfo: String,
     /**
      * Raw runtime connection state (`ManagerProtocol.CONNECTION_STATE_*`). The Miuix status card is
      * driven by this rather than by the hook flag: hook state is a diagnostic detail and now lives
@@ -194,15 +193,15 @@ fun Overview(
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val appVersionName = packageInfo.versionName
         ?: context.getString(UiKitR.string.unknown)
-    val appVersionCode = CommonBuildConfig.GIT_COMMIT
+    val commitInfo = CommonBuildConfig.GIT_COMMIT
         .takeIf { it.isNotBlank() && it != "unknown" }
-        ?: PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+        ?: context.getString(UiKitR.string.unknown)
 
     val state = OverviewUiState(
         appStats = appStats,
         runtimeVersionName = runtimeVersionName,
         appVersionName = appVersionName,
-        appVersionCode = appVersionCode,
+        commitInfo = commitInfo,
         connectionState = connectionSnapshot?.connectionState,
     )
     val actions = OverviewActions(

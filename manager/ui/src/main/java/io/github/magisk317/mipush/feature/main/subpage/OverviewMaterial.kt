@@ -102,8 +102,7 @@ internal fun OverviewMaterial(
                         ?: stringResource(UiKitR.string.unknown),
                     runtimeVersionName = state.runtimeVersionName
                         ?: stringResource(UiKitR.string.unknown),
-                    appVersionCode = state.appVersionCode,
-                    appVersionCodeLabel = stringResource(R.string.commit_info),
+                    commitInfo = state.commitInfo,
                     onVersionClick = actions.onManagerVersionClick,
                     onRuntimeVersionClick = actions.onRuntimeVersionClick,
                     managerValueState = managerValueState,

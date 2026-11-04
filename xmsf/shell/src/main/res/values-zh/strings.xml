@@ -356,7 +356,6 @@
     <string name="overview_chart_registered_label">已注册</string>
     <string name="overview_chart_unregistered_label">未注册</string>
     <string name="overview_version_format">版本 %1$s</string>
-    <string name="overview_version_code_label">版本号</string>
     <string name="overview_project_github_title">GitHub 项目</string>
     <string name="overview_project_github_summary">查看源码、发布页和后续迭代进展。</string>
     <string name="overview_project_about_summary">查看当前版本、构建类型和基本信息。</string>
