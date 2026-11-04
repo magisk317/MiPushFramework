@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "79de939a806727792aeebc92d54b16a839ba4268"
+    ref: "457630762e41329cb2d09687d7abdb603b65788d"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -58,7 +58,7 @@ variables:
   # response with a bash regex instead; af0295f additionally writes the
   # allocated code to .magisk-version-code so after_script can stage it
   # (an export made in script does not survive into after_script).
-  MAGISK_CI_TOOLKIT_REF: "79de939a806727792aeebc92d54b16a839ba4268"
+  MAGISK_CI_TOOLKIT_REF: "457630762e41329cb2d09687d7abdb603b65788d"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
