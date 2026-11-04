@@ -144,7 +144,7 @@ internal fun OverviewMiuix(
                             onClick = actions.onRuntimeVersionClick,
                             valueState = runtimeValueState,
                         )
-                        MiuixInfoRow(R.string.commit_info, state.appVersionCode)
+                        MiuixInfoRow(UiKitR.string.uikit_commit_info, state.commitInfo)
                     }
                 }
 
