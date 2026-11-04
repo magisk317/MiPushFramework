@@ -557,7 +557,8 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Coverage gate runs on ARM after Beta publishing.
+  # Wait for automatic Renovate delivery when present; the optional manual
+  # Play action on human beta pipelines does not block this quality gate.
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
@@ -806,9 +807,9 @@ android:ci:aab:
   tags:
     - $MIPUSH_BUNDLE_RUNNER_TAG
   # The release build is self-contained (keystore and google-services.json
-  # come from CI variables, assets from the repository), so the publish chain
-  # must not wait for the build/package stages: Play publishing keeps
-  # priority over the quality stage.
+  # come from CI variables, assets from the repository), so beta bundle
+  # production must not wait for other build/package jobs. Packaging, followed
+  # by Renovate's automatic delivery when applicable, keeps priority over quality.
   needs: []
   variables:
     MAGISK_IS_CI_BUILD: "true"
