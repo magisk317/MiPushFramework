@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -77,6 +78,7 @@ class VendorPushHookHelperTest {
             assertFalse(value.contains("abcdef1234567890"))
             assertFalse(value.contains("2882303761517999999"))
             assertFalse(value.contains("user@example.com"))
+            assertTrue(value.length <= DefaultLogSanitizer.LOG_MAX_LENGTH)
         } finally {
             LogSanitizerConfig.setEnabled(false)
         }

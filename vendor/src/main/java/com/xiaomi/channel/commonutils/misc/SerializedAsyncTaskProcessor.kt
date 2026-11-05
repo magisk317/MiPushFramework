@@ -35,7 +35,7 @@ class SerializedAsyncTaskProcessor @JvmOverloads constructor(
             try {
                 mTasks.add(task)
             } catch (e: Exception) {
-                e.printStackTrace()
+                MyLog.e(e)
             }
         }
 

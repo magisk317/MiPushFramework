@@ -1,5 +1,6 @@
 package com.xiaomi.network
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import android.content.Context
 import android.net.Uri
 import com.xiaomi.channel.commonutils.network.NameValuePair
@@ -138,12 +139,12 @@ abstract class HttpUtils {
                     } catch (e: IOException) {
                         val traffic = getTraffic(processor, targetUrl, currentParams, response).toLong()
                         fallbackByURL?.failedUrl(targetUrl, System.currentTimeMillis() - startTime, traffic, e)
-                        e.printStackTrace()
+                        MyLog.e(e)
                     }
                 }
                 return response
             } catch (e: MalformedURLException) {
-                e.printStackTrace()
+                MyLog.e(e)
                 return null
             }
         }

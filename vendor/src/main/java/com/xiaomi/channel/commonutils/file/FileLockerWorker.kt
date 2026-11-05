@@ -1,5 +1,6 @@
 package com.xiaomi.channel.commonutils.file
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import android.content.Context
 import android.text.TextUtils
 import java.io.File
@@ -51,7 +52,7 @@ abstract class FileLockerWorker : Runnable {
             mRunnable?.run()
             doWork(mContext)
         } catch (e: IOException) {
-            e.printStackTrace()
+            MyLog.e(e)
         } catch (th: Throwable) {
             fileLocker?.unlock()
             throw th

@@ -6,6 +6,7 @@ import android.os.HandlerThread
 import com.xiaomi.channel.commonutils.file.SDCardUtils
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
+import com.xiaomi.xmsf.vendor.runtime.BuildConfig
 import java.io.*
 import java.nio.channels.FileLock
 import java.text.SimpleDateFormat
@@ -29,6 +30,7 @@ class MIPushLog2File(context: Context) : LoggerInterface {
     }
 
     private fun writeLog2File() {
+        if (!loggingEnabled()) return
         var randomAccessFile: RandomAccessFile? = null
         var fileLock: FileLock? = null
         var bufferedWriter: BufferedWriter? = null
@@ -55,9 +57,9 @@ class MIPushLog2File(context: Context) : LoggerInterface {
                 val pair = logs.removeAt(0)
                 var logLine = pair.first
                 if (pair.second != null) {
-                    logLine += "\n" + pair.second?.stackTraceToString()
+                    logLine += " exception=${pair.second?.javaClass?.simpleName}"
                 }
-                bufferedWriter.write(logLine)
+                bufferedWriter.write(boundForLog(logLine))
                 bufferedWriter.write("\n")
             }
             bufferedWriter.flush()
@@ -110,6 +112,7 @@ class MIPushLog2File(context: Context) : LoggerInterface {
     }
 
     override fun log(str: String) {
+        if (!loggingEnabled()) return
         mHandler.post {
             logs.add(
                 Pair(
@@ -122,6 +125,7 @@ class MIPushLog2File(context: Context) : LoggerInterface {
     }
 
     override fun log(str: String, th: Throwable) {
+        if (!loggingEnabled()) return
         mHandler.post {
             logs.add(
                 Pair(
@@ -137,10 +141,22 @@ class MIPushLog2File(context: Context) : LoggerInterface {
         mTag = str
     }
 
+    /** Mirrors the kit's shared `DefaultLogSanitizer.LOG_MAX_LENGTH` budget (pinned by tests). */
+    private fun boundForLog(value: String): String =
+        if (value.length <= MAX_LOG_LINE_CHARS) value else value.take(MAX_LOG_LINE_CHARS)
+
+    /**
+     * Public releases must not construct or feed this writer at all. The shared log policy is
+     * enforced one level up (kit `XLog` / `MyLog` short-circuit before any output), so vendor
+     * only needs its own build channel here -- vendor may not import the product layer.
+     */
+    private fun loggingEnabled(): Boolean = BuildConfig.DEBUG || BuildConfig.IS_CI_BUILD
+
     companion object {
         private const val FILE_MAX_SIZE = 1048576L
         private const val LOCK_FILE = "log.lock"
         private const val LOGS_MAX_LINE = 20000
+        private const val MAX_LOG_LINE_CHARS = 80
         private const val NEW_FILE_NAME = "log1.txt"
         private const val OLD_FILE_NAME = "log0.txt"
         private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss aaa", Locale.US)

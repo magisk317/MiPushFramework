@@ -57,7 +57,7 @@ object IOUtils {
                 false
             }
         } catch (t: Throwable) {
-            t.printStackTrace()
+            MyLog.e(t)
             false
         }
     }
@@ -177,7 +177,7 @@ object IOUtils {
             }
             byteArrayOutputStream.toByteArray()
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
             null
         } finally {
             closeQuietly(inputStream)

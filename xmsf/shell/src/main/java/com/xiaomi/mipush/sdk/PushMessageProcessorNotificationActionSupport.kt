@@ -212,7 +212,7 @@ internal class PushMessageProcessorNotificationActionSupport(
                     try {
                         value!!.toInt()
                     } catch (e: NumberFormatException) {
-                        e.printStackTrace()
+                        MyLog.e(e)
                         -2
                     }
                 }

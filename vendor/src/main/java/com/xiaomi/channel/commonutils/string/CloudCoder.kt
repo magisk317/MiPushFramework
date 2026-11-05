@@ -1,5 +1,6 @@
 package com.xiaomi.channel.commonutils.string
 
+import com.xiaomi.channel.commonutils.logger.MyLog
 import android.net.Uri
 import com.xiaomi.channel.commonutils.logger.KermitLoggerCompat
 import java.security.InvalidParameterException
@@ -70,7 +71,7 @@ object CloudCoder {
             cipher.init(mode, secretKeySpec, IvParameterSpec("0102030405060708".toByteArray()))
             cipher
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
             null
         }
     }
@@ -83,7 +84,7 @@ object CloudCoder {
             cipher.init(mode, secretKeySpec)
             cipher
         } catch (e: Exception) {
-            e.printStackTrace()
+            MyLog.e(e)
             null
         }
     }

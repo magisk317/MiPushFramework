@@ -820,6 +820,8 @@ xmsf:runtime:publish:
   # by Renovate's automatic delivery when applicable, keeps priority over quality.
 #   needs: []
 #   variables:
+#     # Play requires a signed, non-debuggable AAB. This internal diagnostic artifact
+#     # deliberately uses bundlePlayRelease while keeping the CI log channel.
 #     MAGISK_IS_CI_BUILD: "true"
 #   script:
 #     - |
