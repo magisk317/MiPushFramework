@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class IconConfigurationsTest {
-    private val configurations = IconConfigurations(mockk<ConfigCenter>())
+    private val configurations = IconConfigurations()
 
     @Test
     fun `parse indexes valid configurations by package name`() {

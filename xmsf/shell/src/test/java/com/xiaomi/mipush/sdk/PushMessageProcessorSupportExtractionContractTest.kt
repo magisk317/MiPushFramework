@@ -61,7 +61,7 @@ class PushMessageProcessorSupportExtractionContractTest {
         assertTrue(intentFactory.contains("PackageManager.MATCH_DEFAULT_ONLY"))
 
         val notificationIntent = source(
-            "xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime/" +
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/" +
                 "MIPushNotificationIntentSupport.kt",
         )
         assertTrue(notificationIntent.contains("ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS)"))

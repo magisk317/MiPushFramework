@@ -1,0 +1,277 @@
+package io.github.magisk317.mipush.utils
+
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
+import android.content.Context
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
+import io.github.magisk317.xposed.logging.XLog
+import io.github.magisk317.mipush.common.configurations.ConfigJson
+import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
+import io.github.magisk317.mipush.common.configurations.ConfigJsonException
+import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.util.regex.Pattern
+
+class ConfigurationsLoader {
+
+    private val lock = Any()
+    private var version: String? = null
+    @Volatile private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
+
+    @Volatile private var mContext: Context? = null
+    @Volatile private var mTreeUri: Uri? = null
+    @Volatile private var mDocumentFile: DocumentFile? = null
+    @Volatile private var mLastLoadTime: Long = 0
+
+    /**
+     * The live configuration table.
+     *
+     * Read paths take the value and use it immediately, which is safe because every mutation
+     * replaces [packageConfigs] by reference (copy-on-write). Write paths that must be able to roll
+     * back to an exact previous state use [snapshotConfigs] instead of copying this reference.
+     */
+    fun getConfigs(): MutableMap<String, MutableList<Any>> = packageConfigs
+
+    /**
+     * Deep copy of the live table, taken under [lock].
+     *
+     * The copy is independent: mutating it never affects the live state, and a later
+     * [replaceConfigs] does not retroactively change what was copied.
+     */
+    fun snapshotConfigs(): MutableMap<String, MutableList<Any>> = synchronized(lock) {
+        packageConfigs.mapValuesTo(mutableMapOf()) { (_, value) -> value.toMutableList() }
+    }
+
+    /**
+     * Replaces the live table by reference, under [lock].
+     *
+     * This is the only sanctioned way to roll a failed write back. It keeps the copy-on-write
+     * contract that [init] and [load] already follow, so a concurrent reader either sees the whole
+     * old table or the whole new one -- never a half-applied one, which is what an in-place
+     * `clear()` + `putAll()` on the live map would expose.
+     */
+    fun replaceConfigs(next: Map<String, MutableList<Any>>) {
+        synchronized(lock) {
+            packageConfigs = HashMap(next)
+        }
+    }
+
+    fun init(context: Context?, treeUri: Uri?, configurations: Configurations): Boolean {
+        synchronized(lock) {
+            mLastLoadTime = System.currentTimeMillis()
+            val newConfigs = hashMapOf<String, MutableList<Any>>()
+            var loaded = false
+            if (context != null && treeUri != null) {
+                val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
+                parseDirectory(context, treeUri, exceptions, configurations, newConfigs)
+                if (exceptions.isNotEmpty()) {
+                    for (pair in exceptions) {
+                        val errmsg = getJsonExceptionMessage(context, pair)
+                        logE(errmsg.toString())
+                    }
+                } else {
+                    loaded = true
+                }
+            }
+            // Manager-uploaded snapshots overlay SAF content and survive process restarts.
+            if (context != null) {
+                ActiveConfigurationSnapshotStore.applyTo(context, configurations, newConfigs)
+            }
+            packageConfigs = newConfigs
+            return loaded
+        }
+    }
+
+    private fun parseDirectory(
+        context: Context,
+        treeUri: Uri,
+        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
+        configurations: Configurations,
+        target: MutableMap<String, MutableList<Any>> = packageConfigs
+    ): Boolean {
+        val documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
+        mContext = context
+        mTreeUri = treeUri
+        mDocumentFile = documentFile
+        logD("parseDirectory uri: [${treeUri.path}]")
+        val files = documentFile.listFiles()
+        for (file in files) {
+            logD("file: [${file.name}], type: [${file.type}]")
+            val name = file.name ?: continue
+            if (!name.lowercase().endsWith(".json")) {
+                continue
+            }
+            val json = readTextFromUri(context, file.uri)
+            try {
+                parse(json, configurations, target)
+            } catch (e: ConfigJsonException) {
+                exceptions.add(Pair(file, e))
+            }
+        }
+        return false
+    }
+
+    @Throws(ConfigJsonException::class)
+    fun load(json: String, configurations: Configurations) {
+        synchronized(lock) {
+            val newConfigs = HashMap(packageConfigs)
+            parse(json, configurations, newConfigs)
+            packageConfigs = newConfigs
+        }
+    }
+
+    /**
+     * Parse [json] into [target] without replacing the live packageConfigs map.
+     * Used by manager-upload overlays and tests that merge into a staging map.
+     */
+    @Throws(ConfigJsonException::class)
+    fun loadInto(
+        json: String,
+        configurations: Configurations,
+        target: MutableMap<String, MutableList<Any>>,
+    ) {
+        parse(json, configurations, target)
+    }
+
+    @Throws(ConfigJsonException::class)
+    private fun parse(json: String, configurations: Configurations, target: MutableMap<String, MutableList<Any>>) {
+        val jsonObject = ConfigJson.parseObject(json)
+        version = jsonObject.getString("version")
+        val packageConfigsObj = jsonObject.getJSONObject("configs")
+        val packageNames = packageConfigsObj.keys()
+        while (packageNames.hasNext()) {
+            val packageName = packageNames.next()
+            val configsObj = packageConfigsObj.getJSONArray(packageName)
+            target[packageName] = parseConfigs(configsObj, configurations)
+        }
+    }
+
+    @Throws(ConfigJsonException::class)
+    private fun parseConfigs(configsObj: ConfigJsonArray, configurations: Configurations): MutableList<Any> {
+        val configs = mutableListOf<Any>()
+        for (i in 0 until configsObj.length()) {
+            val config = configsObj.get(i)
+            when (config) {
+                is ConfigJsonArray -> configs.add(config)
+                is String -> configs.add(config)
+                else -> configs.add(parseConfig(configsObj.getJSONObject(i), configurations))
+            }
+        }
+        return configs
+    }
+
+    @Throws(ConfigJsonException::class)
+    fun parseConfig(configObj: ConfigJsonObject, configurations: Configurations): PackageConfig {
+        val config = PackageConfig(configurations)
+        if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
+            val obj = ConfigJsonObject()
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_META_INFO))
+            config.cfgMatch = obj
+        }
+        if (!configObj.isNull(PackageConfig.KEY_NEW_META_INFO)) {
+            val obj = ConfigJsonObject()
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO))
+            config.cfgReplace = obj
+        }
+        if (!configObj.isNull(PackageConfig.KEY_MATCH)) {
+            config.cfgMatch = configObj.getJSONObject(PackageConfig.KEY_MATCH)
+        }
+        if (!configObj.isNull(PackageConfig.KEY_REPLACE)) {
+            config.cfgReplace = configObj.getJSONObject(PackageConfig.KEY_REPLACE)
+        }
+        if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
+            val operations = configObj.getString(PackageConfig.KEY_OPERATION)
+            config.operation = operations.split("[\\s|]+".toRegex()).toMutableSet()
+        }
+        if (!configObj.isNull(PackageConfig.KEY_STOP)) {
+            config.stop = configObj.getBoolean(PackageConfig.KEY_STOP)
+        }
+        return config
+    }
+
+    fun reInitIfDirectoryUpdated(configurations: Configurations) {
+        val context = mContext ?: return
+        val treeUri = mTreeUri ?: return
+        val documentFile = mDocumentFile ?: return
+        if (documentFile.lastModified() > mLastLoadTime) {
+            synchronized(lock) {
+                // Double-check after acquiring lock
+                if (documentFile.lastModified() > mLastLoadTime) {
+                    init(context, treeUri, configurations)
+                }
+            }
+        }
+    }
+
+    companion object {
+        private val TAG = ConfigurationsLoader::class.java.simpleName
+
+        @JvmStatic
+        fun getJsonExceptionMessage(
+            context: Context,
+            pair: Pair<DocumentFile, ConfigJsonException>
+        ): StringBuilder {
+            val file = pair.first
+            val e = pair.second
+            XLog.tagged(TAG).e(e) { "JSON parse error in ${file.name}" }
+
+            var errmsg = StringBuilder(e.toString())
+            val pattern = Pattern.compile(" character (\\d+) of ")
+            val matcher = pattern.matcher(errmsg.toString())
+            if (matcher.find()) {
+                val pos = matcher.group(1)?.toIntOrNull() ?: 0
+                val json = readTextFromUri(context, file.uri)
+                val beforeErr = json.substring(0, pos).split("\n")
+                val errorLine = beforeErr.size
+                val errorColumn = beforeErr[beforeErr.size - 1].length
+                val exceptionMessage = errmsg.substring(0, matcher.start())
+                    .replace("ConfigJsonException: ", "")
+                    .replaceFirst("(after )(.*)( at)".toRegex(), "$1\"$2\"$3")
+                errmsg = StringBuilder("$exceptionMessage line $errorLine column $errorColumn")
+
+                val jsonLine = json.split("\n").toMutableList()
+                jsonLine[errorLine - 1] =
+                    jsonLine[errorLine - 1].substring(0, errorColumn - 1) +
+                    "┋" +
+                    jsonLine[errorLine - 1].substring(errorColumn - 1)
+                for (i in maxOf(0, errorLine - 2)..minOf(jsonLine.size - 1, errorLine)) {
+                    errmsg.append('\n')
+                    errmsg.append(i + 1)
+                    errmsg.append(": ")
+                    errmsg.append(jsonLine[i])
+                }
+            }
+            errmsg.insert(0, "${file.name}\n")
+            return errmsg
+        }
+
+        @JvmStatic
+        fun readTextFromUri(context: Context, uri: Uri): String {
+            val stringBuilder = StringBuilder()
+            try {
+                context.contentResolver.openInputStream(uri).use { inputStream ->
+                    val safeInputStream = inputStream ?: return@use
+                    BufferedReader(InputStreamReader(safeInputStream)).use { reader ->
+                        val buffer = CharArray(1024)
+                        while (true) {
+                            val len = reader.read(buffer)
+                            if (len == -1) {
+                                break
+                            }
+                            stringBuilder.append(buffer, 0, len)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                XLog.tagged(TAG).e(e) { "readTextFromUri failed" }
+            }
+            return stringBuilder.toString()
+        }
+    }
+}

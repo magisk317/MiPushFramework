@@ -5,11 +5,9 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
+import io.github.magisk317.mipush.utils.ConfigValueConverter
 import io.github.magisk317.mipush.utils.PackageConfig
-import io.github.magisk317.mipush.platform.support.Global
-import io.mockk.every
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
+import io.github.magisk317.mipush.platform.support.PlatformRuntimeLocator
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -18,13 +16,15 @@ import org.junit.jupiter.api.Test
 class ConfigurationRuntimeContractTest {
     @org.junit.jupiter.api.BeforeEach
     fun installPureJvmConverter() {
-        mockkStatic(Global::class)
-        every { Global.configValueConverter() } returns io.github.magisk317.mipush.utils.ConfigValueConverter()
+        PlatformRuntimeLocator.resolver = { type ->
+            if (type == ConfigValueConverter::class) ConfigValueConverter()
+            else error("Unexpected platform runtime dependency: ${type.qualifiedName}")
+        }
     }
 
     @org.junit.jupiter.api.AfterEach
     fun removePureJvmConverter() {
-        unmockkStatic(Global::class)
+        PlatformRuntimeLocator.resolver = null
     }
 
     @Test

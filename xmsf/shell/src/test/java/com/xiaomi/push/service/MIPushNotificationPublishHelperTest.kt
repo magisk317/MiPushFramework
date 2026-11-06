@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
 
 class MIPushNotificationPublishHelperTest {
     @BeforeEach
@@ -342,7 +343,7 @@ class MIPushNotificationPublishHelperTest {
         val regularId = MIPushNotificationPublishHelper.getNotificationId(container)
 
         MockMessageRegistry.mark(container)
-        container.metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
+        container.metaInfo.putToExtra(MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
 
         val firstReplayId = MIPushNotificationPublishHelper.getNotificationId(container)
         val secondReplayId = MIPushNotificationPublishHelper.getNotificationId(container)
@@ -430,7 +431,7 @@ class MIPushNotificationPublishHelperTest {
 
         val replaySource = orderContainer("job-replay", "order-a")
         MockMessageRegistry.mark(replaySource)
-        replaySource.metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
+        replaySource.metaInfo.putToExtra(MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
         assertEquals(
             "com.ruanmei.ithome_mock_replay:job-replay".hashCode(),
             MIPushNotificationPublishHelper.getNotificationId(replaySource),

@@ -15,7 +15,7 @@ import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventRow
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowType
 import io.github.magisk317.mipush.runtime.store.adapter.container
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationIntentSupport
+import io.github.magisk317.mipush.notification.MIPushNotificationIntentSupport
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull

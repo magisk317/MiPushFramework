@@ -270,7 +270,10 @@ allowed = {
     "vendor/build.gradle.kts": {
         ":common", ":core", ":pinned", ":xmsf:runtime:store", ":magisk-xposed-kit:logging",
     },
-    "xmsf/platform/build.gradle.kts": {":common"},
+    "xmsf/platform/build.gradle.kts": {
+        ":common", ":core", ":pinned", ":vendor", ":xmsf:runtime:store",
+        ":magisk-xposed-kit:logging",
+    },
     "xmsf/runtime/store/build.gradle.kts": {":core"},
     "manager/contract/build.gradle.kts": {":core"},
     "manager/application/build.gradle.kts": {":core", ":manager:port"},
@@ -339,6 +342,15 @@ expected = {
     "xmsf/platform/build.gradle.kts": {
         "androidMain": {
             'implementation(project(":common"))',
+            'implementation(project(":core"))',
+            'implementation(project(":pinned"))',
+            'implementation(project(":vendor"))',
+            'implementation(project(":xmsf:runtime:store"))',
+            'implementation(project(":magisk-xposed-kit:logging"))',
+            "implementation(libs.anip.sdk)",
+            "implementation(libs.androidx.documentfile)",
+            "implementation(libs.kotlinx.coroutines.core)",
+            "implementation(libs.kotlinx.serialization.json)",
             "implementation(libs.libsu.core)",
             "implementation(libs.palette)",
         },

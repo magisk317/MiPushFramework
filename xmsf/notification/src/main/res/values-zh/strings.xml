@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="debug_test_title">这是一条%1$s测试</string>
+    <string name="debug_test_content">这是%1$s测试内容</string>
+    <string name="mock_channel_name">模拟通知测试</string>
+    <string name="mock_bigtext_summary">大文本摘要</string>
+    <string name="mock_bigpicture_summary">大图片摘要</string>
+</resources>

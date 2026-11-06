@@ -97,7 +97,7 @@ class NotificationClickDispatchContractTest {
     }
 
     private fun resolveSource(relativePath: String): File =
-        listOf(File(relativePath), File("xmsf/shell/$relativePath"))
+        listOf(File(relativePath), File("xmsf/shell/$relativePath"), File("../platform/src/androidMain/kotlin/${relativePath.removePrefix("src/main/java/")}"))
             .firstOrNull { it.exists() }
             ?: error("source not found: $relativePath")
 }

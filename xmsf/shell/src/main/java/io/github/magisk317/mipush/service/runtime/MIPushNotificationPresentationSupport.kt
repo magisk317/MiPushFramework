@@ -18,6 +18,10 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import io.github.magisk317.mipush.notification.MIPushNotificationStyleSupport
+import io.github.magisk317.mipush.notification.MIPushNotificationIntentSupport
+import io.github.magisk317.mipush.notification.carryPendingIntentForTemporarilyWhitelisted
+import io.github.magisk317.mipush.notification.addStyleActions
 
 internal object MIPushNotificationPresentationSupport {
     internal data class NotificationInfo(
