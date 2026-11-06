@@ -8,9 +8,9 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationIntentSupport
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPresentationSupport
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.describeClickResolution
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -31,7 +31,7 @@ internal object EventDebugEnrichment {
     fun enrich(context: Context, container: XmPushActionContainer, base: JsonObject): JsonObject {
         val sections: Map<String, JsonElement> = mapOf(
             section("clickResolution") {
-                MIPushNotificationIntentSupport.describeClickResolution(
+                describeClickResolution(
                     context,
                     container,
                     MIPushNotificationHelper.getTargetPackage(container),

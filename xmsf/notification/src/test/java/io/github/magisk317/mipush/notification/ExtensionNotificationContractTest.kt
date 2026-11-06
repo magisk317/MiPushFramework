@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import com.xiaomi.mipush.sdk.aidl.RemoteNotificationContent
 import com.xiaomi.xmpush.thrift.ActionType

@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -63,9 +63,10 @@ class ExtensionNotificationBase64GoldenTest {
     }
 
     @Test
-    fun `decoding rejects illegal characters without crash`() {
-        val result = runCatching { ExtensionNotificationBase64.decode("!!!invalid!!!") }
-        // MIME decoder either returns empty or throws IllegalArgumentException; both are acceptable
-        assertTrue(result.isSuccess || result.isFailure)
+    fun `decoding accepts MIME separators without changing the payload`() {
+        assertArrayEquals(
+            "Hi".toByteArray(),
+            ExtensionNotificationBase64.decode("S G k =\r\n"),
+        )
     }
 }

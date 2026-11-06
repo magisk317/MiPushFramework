@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import android.content.ComponentName
 import android.content.Context
@@ -43,7 +43,7 @@ internal object ExtensionNotificationBase64 {
     fun decode(value: String): ByteArray = decoder.decode(value)
 }
 
-internal object ExtensionNotificationContract {
+object ExtensionNotificationContract {
     const val SERVICE_ACTION = "com.xiaomi.push.sdk.action.receive_extension_message"
     const val PROCESS_SUFFIX = ":pushExtensionService"
     const val HYPER_TYPE = "hyper_type"
@@ -292,7 +292,7 @@ internal class ExtensionPendingRegistry(
  * immediately and again at 8 seconds, then restored the original notification at 10 seconds. The
  * old MiPushFramework path posted immediately and never bound the target service.
  */
-internal object ExtensionNotificationCoordinator {
+object ExtensionNotificationCoordinator {
     private const val TAG = "ExtensionNotification"
     // Stock 7.4.67-C `extensionnotifaction.a.e()` passes the legacy GET_SERVICES value (4).
     // The first implementation requested metadata even though eligibility only reads processName.

@@ -29,7 +29,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.push.service.MIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationIntentSupport
+import io.github.magisk317.mipush.notification.MIPushNotificationIntentSupport
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.PushRuntime

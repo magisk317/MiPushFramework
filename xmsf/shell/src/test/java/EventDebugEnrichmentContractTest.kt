@@ -41,7 +41,7 @@ class EventDebugEnrichmentContractTest {
     @Test
     fun `click resolution mirrors the publish time route order`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         val routeIndexes = listOf(

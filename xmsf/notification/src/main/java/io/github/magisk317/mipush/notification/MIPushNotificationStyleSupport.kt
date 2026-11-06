@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -18,21 +18,15 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.MIPushNotificationViewSupport
-import io.github.magisk317.mipush.notification.SweetTagHandler
-import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.cache.IconCache
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.notification.NotificationController
-import io.github.magisk317.mipush.notification.getBitmapFromUri
-import io.github.magisk317.mipush.notification.getLargeIcon
-import io.github.magisk317.mipush.notification.roundLargeIconIfConfigured
 import java.util.LinkedHashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
 
-internal object MIPushNotificationStyleSupport {
+object MIPushNotificationStyleSupport {
     private const val TAG = "MyNotificationStyle"
     
     private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
@@ -195,7 +189,7 @@ internal object MIPushNotificationStyleSupport {
     ): Bitmap? {
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         val bigPicUri = preferredUri ?: configuration.notificationBigPicUri(null)
-        return Global.iconCache().getBitmap(
+        return IconCache.getBitmap(
             context,
             bigPicUri,
             object : io.github.magisk317.mipush.common.cache.IconCache.Converter<String, Bitmap> {
@@ -326,7 +320,13 @@ internal object MIPushNotificationStyleSupport {
                     return activeStyle.messages
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: SecurityException) {
+            logE("Failed to read active messaging notification", e)
+        } catch (e: android.os.BadParcelableException) {
+            logE("Failed to read active messaging notification", e)
+        } catch (e: IllegalArgumentException) {
+            logE("Failed to read active messaging notification", e)
+        } catch (e: ClassCastException) {
             logE("Failed to read active messaging notification", e)
         }
         return emptyList()
@@ -507,7 +507,7 @@ internal object MIPushNotificationStyleSupport {
 
     private fun getAppLogo(context: Context, metaInfo: PushMetaInfo, packageName: String): Bitmap? {
         return runCatching {
-            val logo = Global.iconCache().getRawIconBitmap(context, packageName)
+            val logo = IconCache.getRawIconBitmap(context, packageName)
                 ?.takeUnless { it.isRecycled }
                 ?: return@runCatching null
             NotificationController.roundLargeIconIfConfigured(metaInfo, logo)
@@ -535,7 +535,13 @@ internal object MIPushNotificationStyleSupport {
             MIPushNotificationViewSupport.determineTitleAndDespByDIP(context, pushMetaInfo).let { values ->
                 arrayOf(values.getOrNull(0).orEmpty(), values.getOrNull(1).orEmpty())
             }
-        } catch (e: Exception) {
+        } catch (e: SecurityException) {
+            logE("Error in determineTitleAndDespByDIP", e)
+            arrayOf(pushMetaInfo.title.orEmpty(), pushMetaInfo.description.orEmpty())
+        } catch (e: IllegalArgumentException) {
+            logE("Error in determineTitleAndDespByDIP", e)
+            arrayOf(pushMetaInfo.title.orEmpty(), pushMetaInfo.description.orEmpty())
+        } catch (e: IllegalStateException) {
             logE("Error in determineTitleAndDespByDIP", e)
             arrayOf(pushMetaInfo.title.orEmpty(), pushMetaInfo.description.orEmpty())
         }

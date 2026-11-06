@@ -4,6 +4,11 @@ plugins {
 
 android {
     namespace = "io.github.magisk317.mipush.xmsf.notification"
+
+    buildFeatures {
+        // The extension-notification wire model lives here, so the module owns its AIDL too.
+        aidl = true
+    }
 }
 
 dependencies {

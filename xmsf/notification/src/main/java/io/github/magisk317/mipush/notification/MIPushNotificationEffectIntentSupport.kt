@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.utils.logE
@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.text.TextUtils
 import androidx.core.app.NotificationCompat
-import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.push.service.PushConstants
 import java.net.MalformedURLException
@@ -61,7 +60,7 @@ internal data class StyleActionKeys(
     val webUri: String
 )
 
-internal fun MIPushNotificationIntentSupport.addStyleActions(
+fun MIPushNotificationIntentSupport.addStyleActions(
     builder: NotificationCompat.Builder,
     context: Context,
     pkgName: String,
@@ -78,13 +77,13 @@ internal fun MIPushNotificationIntentSupport.addStyleActions(
     }
 }
 
-internal fun MIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
+fun MIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
     context: Context,
     container: XmPushActionContainer,
     notificationId: Int,
     builder: NotificationCompat.Builder
 ) {
-    val targetIntent = MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras(
+    val targetIntent = buildTargetIntentWithoutExtras(
         container.packageName,
         container.metaInfo
     ).apply {
@@ -99,7 +98,7 @@ internal fun MIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhi
     builder.extras.putParcelable("mipush.target", pendingIntent)
 }
 
-internal fun MIPushNotificationIntentSupport.getSdkIntent(
+fun MIPushNotificationIntentSupport.getSdkIntent(
     context: Context,
     container: XmPushActionContainer,
     reportAvailability: Boolean = true,
@@ -127,7 +126,7 @@ internal fun MIPushNotificationIntentSupport.getSdkIntent(
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
     if (reportAvailability) {
-        ExplicitHookBridge.onIntentAvailabilityChecked(
+        NotificationShellBridge.onIntentAvailabilityChecked(
             intent,
             resolveInfo != null,
             "MIPushNotificationIntentSupport.getSdkIntent"
@@ -181,7 +180,10 @@ private fun MIPushNotificationIntentSupport.buildIntentFromEffect(
 internal fun MIPushNotificationIntentSupport.getLaunchIntent(context: Context, pkgName: String): Intent? {
     return try {
         context.packageManager.getLaunchIntentForPackage(pkgName)
-    } catch (e: Exception) {
+    } catch (e: SecurityException) {
+        logE("Failed to get launch intent: ${e.message}", e)
+        null
+    } catch (e: IllegalArgumentException) {
         logE("Failed to get launch intent: ${e.message}", e)
         null
     }

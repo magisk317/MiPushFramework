@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageHelper
@@ -29,6 +28,7 @@ import com.xiaomi.push.service.PushConstants
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import io.github.magisk317.mipush.common.Constants
 
 /**
  * Click-routing facade for MiPush notification intents: the publish-time route
@@ -41,11 +41,25 @@ import kotlinx.serialization.json.put
  * functions on this object, so call sites keep the
  * `MIPushNotificationIntentSupport.foo(...)` syntax.
  */
-internal object MIPushNotificationIntentSupport {
-    internal const val TAG = "MyNotificationIntent"
-    internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
 
-    internal fun shouldUseLauncherFallback(packageName: String?): Boolean {
+/**
+ * Click target for a push notification: the stock new-message action addressed at the target
+ * app's own push message handler. The build trace goes through the shell bridge so the slice
+ * stays free of the push hook surface.
+ */
+internal fun buildTargetIntentWithoutExtras(pkg: String, metaInfo: PushMetaInfo): Intent {
+    val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
+        .addCategory(metaInfo.notifyId.toString())
+        .setClassName(pkg, Constants.PUSH_MESSAGE_HANDLER_CLASS)
+    NotificationShellBridge.onBuildIntent(intent, "buildTargetIntentWithoutExtras")
+    return intent
+}
+
+object MIPushNotificationIntentSupport {
+    internal const val TAG = "MyNotificationIntent"
+    const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
+
+    fun shouldUseLauncherFallback(packageName: String?): Boolean {
         val pkg = packageName?.takeIf(String::isNotBlank) ?: return false
         // Per-app fallback lives in the runtime store (REGISTERED_APPLICATION.click_fallback_enabled,
         // default off). A store failure must never break click routing, so it degrades to the
@@ -82,14 +96,14 @@ internal object MIPushNotificationIntentSupport {
      * through the captured active notification so Android can carry the notification's temporary
      * background-start authorization into the target service.
      */
-    internal fun cloneTargetPendingIntentForBackgroundActivityStart(
+    fun cloneTargetPendingIntentForBackgroundActivityStart(
         context: Context,
         container: XmPushActionContainer,
         notificationId: Int,
     ): PendingIntent? {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) return null
         val metaInfo = container.metaInfo ?: return null
-        val targetIntent = MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras(
+        val targetIntent = buildTargetIntentWithoutExtras(
             container.packageName,
             metaInfo,
         ).apply {
@@ -101,7 +115,7 @@ internal object MIPushNotificationIntentSupport {
             targetIntent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         ) ?: return null
-        return BackgroundActivityStartEnabler.clonePendingIntentForBackgroundActivityStart(pendingIntent)
+        return NotificationShellBridge.clonePendingIntentForBackgroundActivityStart(pendingIntent)
     }
 
     fun buildClickedPendingIntent(
@@ -448,13 +462,16 @@ internal object MIPushNotificationIntentSupport {
                 } else {
                     resolveInfo != null
                 }
-            ExplicitHookBridge.onIntentAvailabilityChecked(
+            NotificationShellBridge.onIntentAvailabilityChecked(
                 intent,
                 inPackage,
                 "MIPushNotificationIntentSupport.isClickIntentResolvable",
             )
             inPackage
-        } catch (e: Exception) {
+        } catch (e: SecurityException) {
+            logE("Failed to resolve sdk click intent: ${e.message}", e)
+            false
+        } catch (e: IllegalArgumentException) {
             logE("Failed to resolve sdk click intent: ${e.message}", e)
             false
         }
@@ -602,7 +619,7 @@ internal object MIPushNotificationIntentSupport {
      * path is not simulated, so the reported route may differ from the actual click route if
      * app state changed since publish.
      */
-    internal fun describeClickResolution(
+    fun describeClickResolution(
         context: Context,
         container: XmPushActionContainer,
         targetPackageName: String,
@@ -780,7 +797,7 @@ internal object MIPushNotificationIntentSupport {
         try {
             val resolveInfo: ResolveInfo? =
                 context.packageManager.resolveActivity(intent, Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            ExplicitHookBridge.onIntentAvailabilityChecked(
+            NotificationShellBridge.onIntentAvailabilityChecked(
                 intent,
                 resolveInfo != null,
                 "MIPushNotificationIntentSupport.getPendingIntentFromExtra"
@@ -788,7 +805,9 @@ internal object MIPushNotificationIntentSupport {
             if (resolveInfo != null) {
                 return intent
             }
-        } catch (e: Exception) {
+        } catch (e: SecurityException) {
+            logE("Failed to resolve activity: ${e.message}", e)
+        } catch (e: IllegalArgumentException) {
             logE("Failed to resolve activity: ${e.message}", e)
         }
         return null

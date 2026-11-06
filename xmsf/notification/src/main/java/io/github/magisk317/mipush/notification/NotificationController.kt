@@ -244,7 +244,7 @@ object NotificationController {
             // Stock 7.4.67-C t0 gives the extension callback's in-memory `temp_large_icon`
             // precedence over the original URI. The old product builder ignored this stock key,
             // so app-supplied extension artwork was lost even after restoring the Binder path.
-            NotificationShellBridge.decodeTemporaryLargeIcon(metaInfo)
+            ExtensionNotificationContract.decodeTemporaryLargeIcon(metaInfo)
                 ?: getLargeIcon(context, metaInfo, iconUri)
         } else {
             null
@@ -524,7 +524,7 @@ object NotificationController {
         notificationId: Int,
         userId: Int,
     ) {
-        NotificationShellBridge.clearConversationHistory(packageName, notificationId, userId)
+        MIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
         NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
         TopNotificationCoordinator.cancelNotification(
             context = context,

@@ -16,12 +16,12 @@ class BackgroundActivityStartContractTest {
     @Test
     fun `notification target pending intent is recovered and cloned`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         assertTrue(source.contains("cloneTargetPendingIntentForBackgroundActivityStart"))
         assertTrue(source.contains("PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE"))
-        assertTrue(source.contains("BackgroundActivityStartEnabler.clonePendingIntentForBackgroundActivityStart"))
+        assertTrue(source.contains("NotificationShellBridge.clonePendingIntentForBackgroundActivityStart"))
     }
 
     @Test
@@ -36,8 +36,17 @@ class BackgroundActivityStartContractTest {
         assertTrue(source.contains("launchApp = true"))
     }
 
-    private fun resolveSource(relativePath: String): File =
-        listOf(File(relativePath), File("xmsf/shell/$relativePath"))
+    private fun resolveSource(relativePath: String): File {
+        val workingDirectory = System.getProperty("user.dir") ?: "."
+        return generateSequence(File(workingDirectory)) { it.parentFile }
+            .take(6)
+            .flatMap { root ->
+                sequenceOf(
+                    root.resolve(relativePath),
+                    root.resolve("xmsf/shell/$relativePath"),
+                )
+            }
             .firstOrNull(File::isFile)
-            ?: error("Source not found: $relativePath")
+            ?: error("source not found: $relativePath from $workingDirectory")
+    }
 }
