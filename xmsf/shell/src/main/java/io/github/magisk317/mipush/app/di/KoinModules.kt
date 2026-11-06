@@ -33,6 +33,7 @@ import io.github.magisk317.mipush.utils.ConfigValueConverter
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
 import io.github.magisk317.mipush.platform.support.PermissionUtils
+import io.github.magisk317.mipush.platform.support.PlatformRuntimeLocator
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.xposed.logging.MagiskOtel
 import org.koin.android.ext.koin.androidContext
@@ -94,6 +95,7 @@ val xmsfCoreKoinModule = module {
 
 object AppDependencies {
     init {
+        PlatformRuntimeLocator.resolver = { AppDependencies.get(it) }
         PermissionUtils.failureToastTextProvider = { ctx ->
             ctx.getString(com.xiaomi.xmsf.R.string.fail)
         }

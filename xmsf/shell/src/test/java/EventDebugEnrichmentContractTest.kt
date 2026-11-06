@@ -69,8 +69,18 @@ class EventDebugEnrichmentContractTest {
         assertTrue(source.contains("runCatching(block)"))
     }
 
-    private fun resolveSource(relativePath: String): File =
-        listOf(File(relativePath), File("xmsf/shell/$relativePath"))
-            .firstOrNull { it.exists() }
+    private fun resolveSource(relativePath: String): File {
+        val platformPath = relativePath.removePrefix("src/main/java/")
+        val roots = generateSequence(File(System.getProperty("user.dir") ?: ".").absoluteFile) { it.parentFile }
+        return roots
+            .flatMap { root ->
+                sequenceOf(
+                    File(root, relativePath),
+                    File(root, "xmsf/shell/$relativePath"),
+                    File(root, "xmsf/platform/src/androidMain/kotlin/$platformPath"),
+                )
+            }
+            .firstOrNull { it.isFile }
             ?: error("source not found: $relativePath")
+    }
 }

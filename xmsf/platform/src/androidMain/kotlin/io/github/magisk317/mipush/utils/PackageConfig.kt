@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import android.os.Build
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.PlatformRuntimeLocator
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
@@ -50,7 +50,7 @@ class PackageConfig(private val configurations: Configurations) {
         const val OPERATION_NOTIFY = "notify"
         const val OPERATION_WAKE = "wake"
 
-        internal fun replacePlaceholders(value: String, matchGroup: Map<String, String>?): String =
+        fun replacePlaceholders(value: String, matchGroup: Map<String, String>?): String =
             ConfigRulePlans.replacePlaceholders(value, matchGroup)
 
         private fun match(data: TBase<*, *>?, cfgMatch: ConfigJsonObject?): MutableMap<String, String>? {
@@ -75,7 +75,7 @@ class PackageConfig(private val configurations: Configurations) {
                     else -> null
                 }
                 traversed += key
-                current = Global.configValueConverter().convert(
+                current = PlatformRuntimeLocator.get(ConfigValueConverter::class).convert(
                     root,
                     traversed.toTypedArray(),
                     raw,

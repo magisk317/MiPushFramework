@@ -411,7 +411,7 @@ class IconConfigurations constructor(
         coerceInputValues = true
     }
 
-    internal fun parse(json: String): Map<String, IconConfig> =
+    fun parse(json: String): Map<String, IconConfig> =
         jsonFormat.decodeFromString<List<IconConfig>>(json)
             .mapNotNull { config ->
                 config.packageName?.takeIf { it.isNotBlank() }?.let { it to config }

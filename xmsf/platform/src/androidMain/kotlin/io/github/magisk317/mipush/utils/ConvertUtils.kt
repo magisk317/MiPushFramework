@@ -176,7 +176,7 @@ object ConvertUtils {
      * readable in the event-detail debug output instead of showing as escaped strings.
      * Depth-capped to survive pathological self-nesting input.
      */
-    internal fun expandEmbeddedJson(element: JsonElement, depth: Int = 0): JsonElement {
+    fun expandEmbeddedJson(element: JsonElement, depth: Int = 0): JsonElement {
         return when (element) {
             is JsonObject -> buildJsonObject {
                 element.forEach { (key, value) -> put(key, expandEmbeddedJson(value, depth)) }
@@ -348,7 +348,7 @@ object ConvertUtils {
         return null
     }
 
-    internal fun formatCandidateSummary(packageName: String?, candidates: Collection<String>): String =
+    fun formatCandidateSummary(packageName: String?, candidates: Collection<String>): String =
         "resolvePushActionBytes: pkg=$packageName candidateCount=${candidates.size}"
 
     private fun persistResolvedRegSec(packageName: String?, regSec: String?, userId: Int) {

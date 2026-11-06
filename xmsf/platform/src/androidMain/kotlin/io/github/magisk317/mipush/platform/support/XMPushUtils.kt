@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.platform.support
 
-import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -53,7 +52,7 @@ object XMPushUtils {
             return null
         }
         val container = MIPushEventProcessor.buildContainer(payload)
-        HookTraceCompat.onBuildContainer(payload.size, container)
+        BuildContainerTrace.onBuildContainer(payload.size, container)
         return container
     }
 
@@ -85,7 +84,7 @@ object XMPushUtils {
             setEncryptAction(false)
             appid = appId
         }
-        HookTraceCompat.onBuildContainer(0, container)
+        BuildContainerTrace.onBuildContainer(0, container)
         return container
     }
 

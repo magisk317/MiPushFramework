@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import io.github.magisk317.mipush.common.utils.logD
-import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.platform.support.PlatformRuntimeLocator
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
@@ -15,7 +15,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 
 class Configurations constructor(
-    internal var loader: ConfigurationsLoader
+    var loader: ConfigurationsLoader
 ) {
     init {
         injectedInstance = this
@@ -222,7 +222,7 @@ class Configurations constructor(
                 injected.loader.reInitIfDirectoryUpdated(injected)
                 return injected
             }
-            val instance = AppDependencies.get(Configurations::class)
+            val instance = PlatformRuntimeLocator.get(Configurations::class)
             instance.loader.reInitIfDirectoryUpdated(instance)
             return instance
         }

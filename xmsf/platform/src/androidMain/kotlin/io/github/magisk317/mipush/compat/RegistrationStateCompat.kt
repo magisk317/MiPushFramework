@@ -194,7 +194,7 @@ object RegistrationStateCompat {
         return markers.hasKevaValid && markers.hasKevaRegId && markers.hasKevaAppToken
     }
 
-    internal data class LocalRegistrationProbeOutcome(
+    data class LocalRegistrationProbeOutcome(
         val registeredPackages: Set<String>,
         val checkedPackages: Set<String>,
     )
@@ -203,7 +203,7 @@ object RegistrationStateCompat {
     fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> =
         findPackagesWithValidLocalRegistrationOutcome(packages).registeredPackages
 
-    internal fun findPackagesWithValidLocalRegistrationOutcome(
+    fun findPackagesWithValidLocalRegistrationOutcome(
         packages: Collection<String>,
     ): LocalRegistrationProbeOutcome {
         val userId = Utils.requireValidUserId(Utils.myUserId())
@@ -266,10 +266,10 @@ object RegistrationStateCompat {
         return LocalRegistrationProbeOutcome(result, checked)
     }
 
-    internal fun batchProbeChunks(packages: Collection<String>): List<List<String>> =
+    fun batchProbeChunks(packages: Collection<String>): List<List<String>> =
         packages.distinct().chunked(BATCH_PROBE_CHUNK_SIZE)
 
-    internal fun buildBatchProbeScript(packages: Collection<String>, userId: Int): String {
+    fun buildBatchProbeScript(packages: Collection<String>, userId: Int): String {
         val safePackages = packages.filter { it.matches(SAFE_PACKAGE_NAME) }
         val bases = registrationBasePathsForUser(userId)
         if (safePackages.isEmpty() || bases.isEmpty()) return ""
@@ -344,7 +344,7 @@ object RegistrationStateCompat {
         }
     }
 
-    internal fun extractRegSecFromRegistrationXml(content: String): String? {
+    fun extractRegSecFromRegistrationXml(content: String): String? {
         val values = parseRegistrationXml(content) ?: return null
         return values["regSec"]
             ?.takeIf { value ->
@@ -466,7 +466,7 @@ object RegistrationStateCompat {
         return registrationArtifactPathsForUser(packageName, Utils.requireValidUserId(Utils.myUserId()))
     }
 
-    internal fun registrationArtifactPathsForUser(packageName: String, userId: Int): List<String> {
+    fun registrationArtifactPathsForUser(packageName: String, userId: Int): List<String> {
         if (!packageName.matches(SAFE_PACKAGE_NAME)) return emptyList()
         return registrationBasePathsForUser(userId).flatMap { base ->
             listOf(

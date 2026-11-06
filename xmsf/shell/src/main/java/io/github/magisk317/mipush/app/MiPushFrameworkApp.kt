@@ -52,6 +52,7 @@ import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
 import io.github.magisk317.mipush.notification.clearIconPackCache
+import io.github.magisk317.mipush.platform.support.BuildContainerTrace
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
@@ -69,6 +70,7 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.push.bridge.DefaultPushShellBridge
 import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
+import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.catch
@@ -102,6 +104,9 @@ open class MiPushFrameworkApp : Application() {
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)
         PushShellBridgeHolder.install(DefaultPushShellBridge)
+        BuildContainerTrace.trace = { size, container ->
+            HookTraceCompat.onBuildContainer(size, container)
+        }
         Utils.regSecRecoveryListener = RegSecRecoveryHealer
         if (!isAppMainProc(this)) {
             initBasicLogger()
