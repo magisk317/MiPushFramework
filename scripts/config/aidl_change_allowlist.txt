@@ -1,3 +1,10 @@
 # Reviewed external SDK compatibility protocols. Keep each entry covered by a focused ABI test.
 xmsf/shell/src/main/aidl/com/xiaomi/xms/subscribe_remind/IResultCallback.aidl
 xmsf/shell/src/main/aidl/com/xiaomi/xms/subscribe_remind/ISubscribeRemind.aidl
+# Extension-notification wire model moved from xmsf/shell into the notification slice
+# (2026-11-06, tranche 3). Bytes unchanged; covered by ExtensionNotificationContractTest
+# and ExtensionNotificationBase64GoldenTest, which moved with them.
+xmsf/notification/src/main/aidl/com/xiaomi/mipush/sdk/aidl/IExtensionCallback.aidl
+xmsf/notification/src/main/aidl/com/xiaomi/mipush/sdk/aidl/IExtensionInterface.aidl
+xmsf/notification/src/main/aidl/com/xiaomi/mipush/sdk/aidl/RemoteNotificationContent.aidl
+xmsf/notification/src/main/aidl/com/xiaomi/mipush/sdk/aidl/RemoteNotificationInfo.aidl

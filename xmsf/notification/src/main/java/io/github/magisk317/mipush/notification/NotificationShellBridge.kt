@@ -2,6 +2,8 @@ package io.github.magisk317.mipush.notification
 
 import android.app.Notification
 import android.service.notification.StatusBarNotification
+import com.xiaomi.xmpush.thrift.PushMetaInfo
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
 data class NotificationPostResult(
@@ -113,6 +115,54 @@ object NotificationShellBridge {
         cancelNotification?.invoke(packageName, tag, id, userId)
     }
 
+
+    @Volatile
+    private var notificationTagByContainer: ((XmPushActionContainer) -> String?)? = null
+
+    @Volatile
+    private var onIntentAvailabilityChecked: ((android.content.Intent?, Boolean, String) -> Unit)? = null
+
+    @Volatile
+    private var onBuildIntent: ((android.content.Intent?, String) -> Unit)? = null
+
+    @Volatile
+    private var clonePendingIntentForBackgroundActivityStart:
+        ((android.app.PendingIntent) -> android.app.PendingIntent?)? = null
+
+    /**
+     * Operations the shell owns because they read the stock XMSF push surface: the
+     * container-keyed notification tag, intent diagnostics, and background-start
+     * PendingIntent handling. All callbacks are optional — an uninstalled bridge only drops
+     * those shell-specific behaviours.
+     */
+    @JvmStatic
+    fun installNotificationRuntimeOperations(
+        notificationTagByContainer: (XmPushActionContainer) -> String?,
+        onIntentAvailabilityChecked: (android.content.Intent?, Boolean, String) -> Unit,
+        onBuildIntent: (android.content.Intent?, String) -> Unit,
+        clonePendingIntentForBackgroundActivityStart: (android.app.PendingIntent) -> android.app.PendingIntent?,
+    ) {
+        this.notificationTagByContainer = notificationTagByContainer
+        this.onIntentAvailabilityChecked = onIntentAvailabilityChecked
+        this.onBuildIntent = onBuildIntent
+        this.clonePendingIntentForBackgroundActivityStart =
+            clonePendingIntentForBackgroundActivityStart
+    }
+
+    fun getNotificationTag(container: XmPushActionContainer): String? =
+        notificationTagByContainer?.invoke(container)
+
+    fun onIntentAvailabilityChecked(intent: android.content.Intent?, available: Boolean, source: String) {
+        onIntentAvailabilityChecked?.invoke(intent, available, source)
+    }
+
+    fun onBuildIntent(intent: android.content.Intent?, source: String) {
+        onBuildIntent?.invoke(intent, source)
+    }
+
+    fun clonePendingIntentForBackgroundActivityStart(
+        pi: android.app.PendingIntent,
+    ): android.app.PendingIntent? = clonePendingIntentForBackgroundActivityStart?.invoke(pi)
 
     @JvmStatic
     fun triggerStatusBarRefresh() {

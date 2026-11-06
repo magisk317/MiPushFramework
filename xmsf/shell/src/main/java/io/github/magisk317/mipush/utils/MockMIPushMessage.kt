@@ -20,6 +20,7 @@ import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.atomic.AtomicLong
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
 
 object MockMIPushMessage {
     private val TAG = MockMIPushMessage::class.java.simpleName
@@ -149,8 +150,8 @@ object MockMIPushMessage {
         metaInfo.id = replayId
         metaInfo.setMessageTs(nowMs)
         metaInfo.putToExtra(PushConstants.EXTRA_JOB_KEY, replayId)
-        metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY, "true")
-        metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, sourceId)
+        metaInfo.putToExtra(MockReplayContract.EXTRA_MOCK_REPLAY, "true")
+        metaInfo.putToExtra(MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID, sourceId)
         logD("prepared mock replay sourceId=$sourceId replayId=$replayId")
         return container
     }

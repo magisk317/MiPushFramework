@@ -9,10 +9,9 @@ import io.github.magisk317.mipush.common.utils.logW
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import java.security.MessageDigest
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
 
 object MockMessageRegistry {
-    const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
-    const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private const val MARK_TTL_MS = 30_000L
     const val MAX_MARKED_MESSAGES = 256
     private val lock = Any()
@@ -115,8 +114,8 @@ object MockMessageRegistry {
         // the per-replay ID (which includes a timestamp+sequence and is always
         // unique, defeating the dedup entirely).
         val extra = container.metaInfo?.extra
-        if (extra?.get(EXTRA_MOCK_REPLAY) == "true") {
-            val sourceId = extra[EXTRA_MOCK_REPLAY_SOURCE_ID]
+        if (extra?.get(MockReplayContract.EXTRA_MOCK_REPLAY) == "true") {
+            val sourceId = extra[MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID]
             if (!sourceId.isNullOrBlank()) return sourceId
         }
         MessageIdentity.fromContainer(container)?.let { return it }

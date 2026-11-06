@@ -15,7 +15,7 @@ class SdkActivityStartabilityContractTest {
     @Test
     fun `click route keeps falling through to bridge and xmsf service dispatch when sdk activity is unusable`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         // The sdk_activity route is only taken when an intent survives the gate; the app-side
@@ -29,7 +29,7 @@ class SdkActivityStartabilityContractTest {
     @Test
     fun `sdk click intent is re-resolved after the tracking identity is applied`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         // The mipush-action:// identity data breaks filter matching for payload activities whose
@@ -62,7 +62,7 @@ class SdkActivityStartabilityContractTest {
     @Test
     fun `client data jump url is only tried once the sdk activity route is unusable`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         // Some clients (QQ) keep the landing address in client_data.url while intent_uri only
@@ -84,16 +84,25 @@ class SdkActivityStartabilityContractTest {
     @Test
     fun `qq jump activity is classified as a receiver built click target`() {
         val source = resolveSource(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
         ).readText()
 
         assertTrue(source.contains("\"com.tencent.mobileqq.activity.JumpActivity\""))
     }
 
-    private fun resolveSource(relativePath: String): File =
-        listOf(File(relativePath), File("xmsf/shell/$relativePath"))
-            .firstOrNull { it.exists() }
-            ?: error("source not found: $relativePath")
+    private fun resolveSource(relativePath: String): File {
+        val workingDirectory = System.getProperty("user.dir") ?: "."
+        return generateSequence(File(workingDirectory)) { it.parentFile }
+            .take(6)
+            .flatMap { root ->
+                sequenceOf(
+                    root.resolve(relativePath),
+                    root.resolve("xmsf/shell/$relativePath"),
+                )
+            }
+            .firstOrNull(File::isFile)
+            ?: error("source not found: $relativePath from $workingDirectory")
+    }
 
     /**
      * Reads both halves of the split support object: the click-routing facade
@@ -104,7 +113,7 @@ class SdkActivityStartabilityContractTest {
      */
     private fun resolveIntentSupportSources(): String =
         listOf(
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationIntentSupport.kt",
-            "src/main/java/io/github/magisk317/mipush/service/runtime/MIPushNotificationEffectIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationIntentSupport.kt",
+            "xmsf/notification/src/main/java/io/github/magisk317/mipush/notification/MIPushNotificationEffectIntentSupport.kt",
         ).joinToString("\n") { resolveSource(it).readText() }
 }

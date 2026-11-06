@@ -33,6 +33,8 @@ import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
+import io.github.magisk317.mipush.service.runtime.BackgroundActivityStartEnabler
 import io.github.magisk317.mipush.service.runtime.getNotificationTag
 import io.github.magisk317.mipush.service.runtime.RegSecRecoveryHealer
 import io.github.magisk317.mipush.notification.NotificationManagerEx
@@ -52,6 +54,7 @@ import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
 import io.github.magisk317.mipush.notification.clearIconPackCache
+import io.github.magisk317.mipush.platform.support.BuildContainerTrace
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
@@ -69,6 +72,7 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.push.bridge.DefaultPushShellBridge
 import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
+import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.catch
@@ -102,6 +106,9 @@ open class MiPushFrameworkApp : Application() {
         TelemetryDisabler.disableAll(this)
         Utils.setApplicationContext(this)
         PushShellBridgeHolder.install(DefaultPushShellBridge)
+        BuildContainerTrace.trace = { size, container ->
+            HookTraceCompat.onBuildContainer(size, container)
+        }
         Utils.regSecRecoveryListener = RegSecRecoveryHealer
         if (!isAppMainProc(this)) {
             initBasicLogger()
@@ -155,6 +162,20 @@ open class MiPushFrameworkApp : Application() {
             getNotificationTag = { packageName -> MIPushNotificationPublishHelper.getNotificationTag(packageName) },
             getActiveNotifications = NotificationManagerEx::getActiveNotifications,
             cancel = NotificationManagerEx::cancel,
+        )
+        NotificationShellBridge.installNotificationRuntimeOperations(
+            notificationTagByContainer = { container ->
+                MIPushNotificationPublishHelper.getNotificationTag(container)
+            },
+            onIntentAvailabilityChecked = { intent, available, source ->
+                ExplicitHookBridge.onIntentAvailabilityChecked(intent, available, source)
+            },
+            onBuildIntent = { intent, source ->
+                ExplicitHookBridge.onBuildIntent(intent, source)
+            },
+            clonePendingIntentForBackgroundActivityStart = { pi ->
+                BackgroundActivityStartEnabler.clonePendingIntentForBackgroundActivityStart(pi)
+            },
         )
         NotificationShellBridge.installPublishOperations(
             postDetailed = { packageName, tag, id, notification, userId ->

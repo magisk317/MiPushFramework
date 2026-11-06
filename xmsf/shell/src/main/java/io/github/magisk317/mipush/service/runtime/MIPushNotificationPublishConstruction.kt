@@ -22,6 +22,11 @@ import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
+import io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator
+import io.github.magisk317.mipush.notification.MIPushNotificationIntentSupport
+import io.github.magisk317.mipush.notification.getSdkIntent
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Notification construction and publish-identity seams of
@@ -258,7 +263,7 @@ fun MIPushNotificationPublishHelper.Companion.getNotificationId(container: XmPus
     val messageId = MessageIdentity.fromContainer(container)
     val isMockReplay = MockMessageRegistry.isMarked(container)
     if (isMockReplay && metaInfo != null) {
-        val sourceId = metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID)
+        val sourceId = metaInfo.extra?.get(MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID)
             ?.takeIf { it.isNotBlank() }
             ?: messageId?.takeIf { it.isNotBlank() }
             ?: metaInfo.id?.takeIf { it.isNotBlank() }
@@ -341,14 +346,17 @@ private fun MIPushNotificationPublishHelper.Companion.getSourceGroup(metaInfo: P
         ?.takeIf { it.isNotBlank() }
 }
 
-fun MIPushNotificationPublishHelper.Companion.buildTargetIntentWithoutExtras(pkg: String, metaInfo: PushMetaInfo): Intent {
-    val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
-        .addCategory(metaInfo.notifyId.toString())
-        .setClassName(pkg, CLASS_NAME_PUSH_MESSAGE_HANDLER)
-    ExplicitHookBridge.onBuildIntent(intent, "MIPushNotificationPublishHelper.buildTargetIntentWithoutExtras")
-    return intent
-}
-
 fun MIPushNotificationPublishHelper.Companion.getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
     return MIPushNotificationIntentSupport.getSdkIntent(context, container)
 }
+
+/**
+ * Click-route diagnostics for the event-detail panel. The resolution itself lives in the
+ * notification slice; the runtime data layer reaches it through this shell facade so it never
+ * imports the notification implementation directly.
+ */
+fun describeClickResolution(
+    context: Context,
+    container: XmPushActionContainer,
+    targetPackageName: String,
+): JsonObject = MIPushNotificationIntentSupport.describeClickResolution(context, container, targetPackageName)

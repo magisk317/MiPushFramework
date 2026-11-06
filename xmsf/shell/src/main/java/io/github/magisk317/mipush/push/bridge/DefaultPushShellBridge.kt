@@ -126,13 +126,13 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
                 },
                 "conversation_history" to {
-                    io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                    io.github.magisk317.mipush.notification.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
                 },
                 "media_sessions" to {
                     io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
                 },
                 "extension_notification_state" to {
-                    io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
                     io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
@@ -169,13 +169,13 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.VoipNotificationHelper.clearPackageState(packageName, userId)
                 },
                 "conversation_history" to {
-                    io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+                    io.github.magisk317.mipush.notification.MIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
                 },
                 "media_sessions" to {
                     io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
                 },
                 "extension_notification_state" to {
-                    io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
                     io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
