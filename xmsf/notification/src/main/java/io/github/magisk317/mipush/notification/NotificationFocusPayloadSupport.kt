@@ -7,7 +7,7 @@ import android.os.Bundle
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 
 /** Shell-local Focus notification payload construction. */
-internal object NotificationFocusPayloadSupport {
+object NotificationFocusPayloadSupport {
     private const val FOCUS_PARAM = "miui.focus.param"
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val PIC_ICON = "miui.focus.pic_mipush_icon"
@@ -43,7 +43,7 @@ internal fun buildFocusBundle(
     return focusBundle
 }
 
-internal fun buildConfiguredFocusBundle(
+fun buildConfiguredFocusBundle(
     context: Context,
     packageName: String,
     largeIcon: Bitmap?,

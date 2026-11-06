@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 
@@ -26,7 +27,6 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -605,7 +605,7 @@ object NotificationController {
             return
         }
         if (localText == null) {
-            localText = Global.applicationNameCache().getAppName(context, packageName)
+            localText = ApplicationNameCache.getAppName(context, packageName)
         }
         if (color == Notification.COLOR_DEFAULT) {
             localBuilder.setSubText(localText)

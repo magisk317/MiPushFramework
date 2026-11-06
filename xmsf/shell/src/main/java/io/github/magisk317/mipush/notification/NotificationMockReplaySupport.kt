@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.R as CommonR
 
 import android.annotation.SuppressLint
@@ -13,7 +14,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -100,7 +100,7 @@ internal object NotificationMockReplaySupport {
         }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         ensureReceiptChannel(manager, packageName)
-        val appName = Global.applicationNameCache().getAppName(context, packageName)
+        val appName = ApplicationNameCache.getAppName(context, packageName)
         val title = NotificationContentSupport.firstText(
             source.extras,
             Notification.EXTRA_TITLE,

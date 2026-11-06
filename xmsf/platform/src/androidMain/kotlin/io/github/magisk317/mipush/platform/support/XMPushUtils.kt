@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import io.github.magisk317.mipush.notification.NotificationManagerEx
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
@@ -21,6 +20,11 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * 提供推送容器的打包和解析功能
  */
 object XMPushUtils {
+
+    /** Installed by NotificationManagerEx so the hook state stays owned there. */
+    @Volatile
+    var notificationHookedProbe: () -> Boolean = { false }
+
     @JvmStatic
     fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration {
         return getConfiguration(container?.metaInfo)
@@ -33,7 +37,7 @@ object XMPushUtils {
 
     @JvmStatic
     fun getPackageContext(context: Context, packageName: String, flags: Int = 0): Context {
-        if (!NotificationManagerEx.isHooked) {
+        if (!notificationHookedProbe()) {
             return context
         }
         return try {
@@ -295,7 +299,7 @@ object XMPushUtils {
         )
     }.dispatched
 
-    internal fun genericBroadcastResult(
+    fun genericBroadcastResult(
         hasPotentialReceiver: Boolean,
         sendAccepted: Boolean,
         serviceStartError: Throwable?,

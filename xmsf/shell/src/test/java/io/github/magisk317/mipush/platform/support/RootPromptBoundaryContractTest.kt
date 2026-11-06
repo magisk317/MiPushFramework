@@ -33,6 +33,7 @@ class RootPromptBoundaryContractTest {
     private fun readSource(relativePath: String): String {
         val candidates = listOf(
             File("src/main/java/$relativePath"),
+            File("../platform/src/androidMain/kotlin/${relativePath.removePrefix("src/main/java/")}"),
             File("../runtime/src/main/java/$relativePath"),
         )
         return candidates.firstOrNull(File::isFile)?.readText()

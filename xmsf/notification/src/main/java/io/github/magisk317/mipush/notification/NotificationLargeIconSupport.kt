@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 
 /** Shell-local payload large-icon download and presentation adaptation. */
-internal object NotificationLargeIconSupport {
+object NotificationLargeIconSupport {
     private const val KIB = 1024
 
     fun getLargeIcon(context: Context, metaInfo: PushMetaInfo, iconUri: String?): Bitmap? {

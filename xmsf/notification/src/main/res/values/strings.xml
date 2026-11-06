@@ -4,4 +4,9 @@
     <string name="mock_media_prev">Prev</string>
     <string name="mock_media_pause">Pause</string>
     <string name="mock_media_next">Next</string>
+    <string name="debug_test_title">%1$s Test</string>
+    <string name="debug_test_content">%1$s test content</string>
+    <string name="mock_channel_name">Mock Notification Test</string>
+    <string name="mock_bigtext_summary">BigText summary</string>
+    <string name="mock_bigpicture_summary">BigPicture summary</string>
 </resources>

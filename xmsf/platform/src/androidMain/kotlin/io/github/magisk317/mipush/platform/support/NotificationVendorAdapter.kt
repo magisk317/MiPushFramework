@@ -14,7 +14,7 @@ import com.xiaomi.push.service.NotificationManagerPlatformSupport
  * vendor implementations remain the stock/fallback route; this adapter owns the translation to
  * product-facing types and strategy names.
  */
-internal object NotificationVendorAdapter {
+object NotificationVendorAdapter {
     enum class IdentityStrategy {
         FRAMEWORK,
         DELEGATED,

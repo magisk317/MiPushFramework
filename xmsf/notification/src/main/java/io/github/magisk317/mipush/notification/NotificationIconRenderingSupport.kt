@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.cache.IconCache
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.Context
@@ -18,12 +19,11 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.utils.ColorUtil
 
 /** Keeps package/icon resolution out of the notification publication coordinator. */
-internal object NotificationIconRenderingSupport {
+object NotificationIconRenderingSupport {
     private const val TAG = "NotificationIconRendering"
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
@@ -31,7 +31,7 @@ internal object NotificationIconRenderingSupport {
     private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
     private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
 
-    fun getIconColor(context: Context, packageName: String): Int = Global.iconCache().getAppColor(
+    fun getIconColor(context: Context, packageName: String): Int = IconCache.getAppColor(
         context,
         packageName,
         object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, Int> {
@@ -82,7 +82,7 @@ internal object NotificationIconRenderingSupport {
         //     return color
         // }
         // [旧单色处理,已停用保留] getIconCache 内部固定做白色剪影转换,彩色模式不得再产出白色图标。
-        // Global.iconCache().getIconCache(
+        // IconCache.getIconCache(
         //     context,
         //     packageName,
         //     object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
@@ -153,7 +153,7 @@ internal object NotificationIconRenderingSupport {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
     ): Boolean {
-        val bitmap = Global.iconCache().getRawIconBitmap(context, packageName) ?: return false
+        val bitmap = IconCache.getRawIconBitmap(context, packageName) ?: return false
         notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(bitmap))
         return true
     }

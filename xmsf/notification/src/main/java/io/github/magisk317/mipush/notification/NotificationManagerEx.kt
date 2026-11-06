@@ -31,6 +31,12 @@ import io.github.magisk317.mipush.platform.support.PermissionUtils
 import java.util.LinkedHashMap
 
 object NotificationManagerEx {
+
+    init {
+        // The hook state lives here; the platform utils only see a probe.
+        XMPushUtils.notificationHookedProbe = { isHooked }
+    }
+
     private const val TAG = "NotificationManagerEx"
     private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
     private const val EXTRA_XMSF_TARGET_PACKAGE = "xmsf_target_package"
@@ -542,7 +548,7 @@ object NotificationManagerEx {
     internal fun canCancelForUser(requestedUserId: Int, currentUserId: Int): Boolean =
         NotificationOwnershipPolicy.canAccessUser(requestedUserId, currentUserId)
 
-    internal fun canNotifyForUser(requestedUserId: Int, currentUserId: Int): Boolean =
+    fun canNotifyForUser(requestedUserId: Int, currentUserId: Int): Boolean =
         NotificationOwnershipPolicy.canAccessUser(requestedUserId, currentUserId)
 
     private fun channelRegistry(): NotificationChannelRegistrySupport =

@@ -15,7 +15,6 @@ import com.highcapable.anip.sdk.config.RemoteSource
 import com.highcapable.anip.sdk.entity.NotificationIcon
 import com.highcapable.anip.sdk.type.IconCategory
 import com.highcapable.anip.sdk.type.SystemVariant
-import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
@@ -32,7 +31,6 @@ import io.github.magisk317.mipush.common.logging.StableLogTag
  */
 @StableLogTag
 class IconConfigurations constructor(
-    @Suppress("unused") configCenter: ConfigCenter? = null
 ) {
     @Volatile
     private var legacyIconConfigs: Map<String, IconConfig> = emptyMap()

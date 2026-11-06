@@ -15,6 +15,11 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(project(":common"))
+            implementation(project(":core"))
+            implementation(project(":pinned"))
+            implementation(project(":vendor"))
+            implementation(project(":xmsf:push"))
+            implementation(project(":magisk-xposed-kit:logging"))
             implementation(libs.libsu.core)
             implementation(libs.palette)
         }

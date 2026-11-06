@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 
 /** Shell-local channel lookup and stock-compatible provisioning policy. */
-internal object NotificationChannelResolutionSupport {
+object NotificationChannelResolutionSupport {
     fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
         findExistingChannelId(context, metaInfo, packageName)?.let { return it }
 

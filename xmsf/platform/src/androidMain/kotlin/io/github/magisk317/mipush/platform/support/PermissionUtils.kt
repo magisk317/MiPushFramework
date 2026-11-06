@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logI
@@ -21,6 +20,11 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * clones often cannot be toggled in the main-user overlay list — root appops is the reliable path.
  */
 object PermissionUtils {
+
+    /** Installed by the shell so permission failures keep the localized toast text. */
+    @Volatile
+    var failureToastTextProvider: ((android.content.Context) -> String?)? = null
+
     const val USER_PRIMARY = 0
     const val USER_XSPACE = 999
     const val LIVE_UPDATE_CALLER_PERMISSION = "android.permission.UPDATE_APP_OPS_STATS"
@@ -48,7 +52,7 @@ object PermissionUtils {
             get() = callerPermissionGranted
     }
 
-    internal fun liveUpdatePermissionGrantTargets(targetPackage: String): List<PermissionGrantTarget> =
+    fun liveUpdatePermissionGrantTargets(targetPackage: String): List<PermissionGrantTarget> =
         listOf(
             PermissionGrantTarget(Constants.SERVICE_APP_NAME, LIVE_UPDATE_CALLER_PERMISSION),
             PermissionGrantTarget(targetPackage, LIVE_UPDATE_TARGET_PERMISSION),
@@ -298,7 +302,7 @@ object PermissionUtils {
         }
     }
 
-    internal fun isLiveUpdateAppOpAllowed(output: String): Boolean {
+    fun isLiveUpdateAppOpAllowed(output: String): Boolean {
         val fullName = LIVE_UPDATE_TARGET_PERMISSION.lowercase()
         val shortName = fullName.substringAfterLast('.')
         return output.lineSequence().any { line ->
@@ -378,7 +382,9 @@ object PermissionUtils {
                 }
             }
             if (granted) return true
-            Toast.makeText(context, R.string.fail, Toast.LENGTH_SHORT).show()
+            failureToastTextProvider?.invoke(context)?.let { failText ->
+                Toast.makeText(context, failText, Toast.LENGTH_SHORT).show()
+            }
         }
 
         if (Utils.isAppOpsInstalled()) {

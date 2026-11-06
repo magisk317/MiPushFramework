@@ -8,6 +8,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(libs.hiddenapibypass)
     implementation(project(":core"))
     implementation(project(":xmsf:platform"))
     implementation(project(":pinned"))

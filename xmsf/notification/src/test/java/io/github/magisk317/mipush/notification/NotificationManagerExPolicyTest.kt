@@ -173,8 +173,10 @@ class NotificationManagerExPolicyTest {
     private fun resolveNotificationControllerSource(): File {
         val relativePath =
             "src/main/java/io/github/magisk317/mipush/notification/NotificationController.kt"
-        return listOf(File(relativePath), File("xmsf/shell/$relativePath"))
+        return generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+            .take(6)
+            .map { it.resolve("xmsf/shell/$relativePath") }
             .firstOrNull(File::isFile)
-            ?: error("NotificationController.kt not found")
+            ?: error("NotificationController.kt not found from ${System.getProperty("user.dir")}")
     }
 }

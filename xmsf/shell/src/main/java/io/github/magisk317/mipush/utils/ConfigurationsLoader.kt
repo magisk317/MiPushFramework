@@ -10,8 +10,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import io.github.magisk317.xposed.logging.XLog
-import io.github.magisk317.mipush.platform.support.Global
-import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJson
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
@@ -20,13 +18,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.regex.Pattern
 
-class ConfigurationsLoader private constructor(
-    @Suppress("unused") configCenter: ConfigCenter?,
-    @Suppress("unused") private val jsonOnly: Boolean,
-) {
-    constructor(configCenter: ConfigCenter) : this(configCenter, false)
-
-    internal constructor() : this(null, true)
+class ConfigurationsLoader {
 
     private val lock = Any()
     private var version: String? = null

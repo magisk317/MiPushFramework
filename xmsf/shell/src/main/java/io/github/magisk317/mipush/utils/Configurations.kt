@@ -1,13 +1,12 @@
 package io.github.magisk317.mipush.utils
 
 import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import io.github.magisk317.mipush.app.di.AppDependencies
-import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.configurations.ConfigJsonObject

@@ -32,6 +32,7 @@ import io.github.magisk317.mipush.push.hook.ModernHookHandler
 import io.github.magisk317.mipush.utils.ConfigValueConverter
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.xposed.logging.MagiskOtel
 import org.koin.android.ext.koin.androidContext
@@ -56,9 +57,9 @@ val xmsfCoreKoinModule = module {
     single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
     single<ManagerLogGateway> { XmsfManagerLogGateway() }
     single<ManagerPermissionGateway> { XmsfManagerPermissionGateway() }
-    single { ConfigurationsLoader(get()) }
+    single { ConfigurationsLoader() }
     single { Configurations(get()) }
-    single { IconConfigurations(get()) }
+    single { IconConfigurations() }
     single { ConfigValueConverter() }
     single { ModernHookHandler() }
     single { MiPushEventListener() }
@@ -92,6 +93,12 @@ val xmsfCoreKoinModule = module {
 }
 
 object AppDependencies {
+    init {
+        PermissionUtils.failureToastTextProvider = { ctx ->
+            ctx.getString(com.xiaomi.xmsf.R.string.fail)
+        }
+    }
+
     @Synchronized
     fun start(context: android.content.Context) {
         if (GlobalContext.getOrNull() != null) {

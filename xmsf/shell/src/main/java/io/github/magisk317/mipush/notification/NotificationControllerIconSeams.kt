@@ -1,5 +1,8 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.utils.IconConfigurations
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.cache.IconCache
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
 import android.app.Notification
@@ -13,7 +16,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.utils.ImgUtils
 
@@ -137,7 +139,7 @@ internal fun NotificationController.processMonochromeStatusBarIcon(
     // smallIcon 交给系统单色 tint 着色。
     // Prefer package white-alpha silhouette. Never seed Material bell first — that seed became
     // the status-bar icon for WeWork/xinyi when IconCache missed.
-    // val whiteStatusBarIcon = Global.iconCache().getIconCache(
+    // val whiteStatusBarIcon = IconCache.getIconCache(
     //     context,
     //     packageName,
     //     object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
@@ -148,7 +150,7 @@ internal fun NotificationController.processMonochromeStatusBarIcon(
     //     notificationBuilder.setSmallIcon(whiteStatusBarIcon)
     //     return color
     // }
-    // val rawIcon = Global.iconCache().getRawIconBitmap(context, packageName)
+    // val rawIcon = IconCache.getRawIconBitmap(context, packageName)
     // if (rawIcon != null) {
     //     val white = ImgUtils.convertToTransparentAndWhite(rawIcon)
     //     notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(white))
@@ -172,7 +174,7 @@ internal fun NotificationController.processMonochromeStatusBarIcon(
             return color
         }
     }
-    Global.iconCache().getRawIconBitmap(context, packageName)?.let { originalIcon ->
+    IconCache.getRawIconBitmap(context, packageName)?.let { originalIcon ->
         val silhouette = runCatching { createMonochromeSilhouette(context, packageName, originalIcon) }
             .onFailure {
                 logW("processMonochromeStatusBarIcon: silhouette rework failed for $packageName", it)

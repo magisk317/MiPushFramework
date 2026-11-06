@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import android.annotation.TargetApi
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -12,7 +13,6 @@ import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getChannelIdByPkg
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getGroupIdByPkg
@@ -116,7 +116,7 @@ object NotificationChannelManager {
         metaInfo: PushMetaInfo,
         packageName: String
     ): NotificationChannel? {
-        val appName = Global.applicationNameCache().getAppName(context, packageName) ?: return null
+        val appName = ApplicationNameCache.getAppName(context, packageName) ?: return null
         return createNotificationChannel(context, metaInfo, packageName, appName)
     }
 
