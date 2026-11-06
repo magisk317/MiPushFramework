@@ -1,7 +1,10 @@
 package io.github.magisk317.mipush.notification
 
 import android.app.Notification
+import android.graphics.Bitmap
 import android.service.notification.StatusBarNotification
+import com.xiaomi.xmpush.thrift.PushMetaInfo
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
 data class NotificationPostResult(
@@ -113,6 +116,41 @@ object NotificationShellBridge {
         cancelNotification?.invoke(packageName, tag, id, userId)
     }
 
+
+    @Volatile
+    private var notificationTagByContainer: ((XmPushActionContainer) -> String?)? = null
+
+    @Volatile
+    private var decodeTemporaryLargeIcon: ((PushMetaInfo) -> Bitmap?)? = null
+
+    @Volatile
+    private var clearConversationHistory: ((String, Int, Int) -> Unit)? = null
+
+    /**
+     * Operations the shell owns because they read the stock XMSF push surface: the
+     * container-keyed notification tag, the temporary large-icon decode and the conversation
+     * history reset. All three are optional — an uninstalled bridge only drops that behaviour.
+     */
+    @JvmStatic
+    fun installNotificationRuntimeOperations(
+        notificationTagByContainer: (XmPushActionContainer) -> String?,
+        decodeTemporaryLargeIcon: (PushMetaInfo) -> Bitmap?,
+        clearConversationHistory: (String, Int, Int) -> Unit,
+    ) {
+        this.notificationTagByContainer = notificationTagByContainer
+        this.decodeTemporaryLargeIcon = decodeTemporaryLargeIcon
+        this.clearConversationHistory = clearConversationHistory
+    }
+
+    fun getNotificationTag(container: XmPushActionContainer): String? =
+        notificationTagByContainer?.invoke(container)
+
+    fun decodeTemporaryLargeIcon(metaInfo: PushMetaInfo): Bitmap? =
+        decodeTemporaryLargeIcon?.invoke(metaInfo)
+
+    fun clearConversationHistory(packageName: String, notificationId: Int, userId: Int) {
+        clearConversationHistory?.invoke(packageName, notificationId, userId)
+    }
 
     @JvmStatic
     fun triggerStatusBarRefresh() {

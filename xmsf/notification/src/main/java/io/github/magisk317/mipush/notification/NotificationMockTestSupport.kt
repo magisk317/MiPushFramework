@@ -27,9 +27,6 @@ import androidx.core.graphics.drawable.IconCompat
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport
-import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.NotificationGroupHelper
@@ -37,13 +34,10 @@ import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
+import io.github.magisk317.mipush.xmsf.notification.R
 import io.github.magisk317.mipush.notification.policy.NotificationStyle
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
-import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.notification.policy.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils

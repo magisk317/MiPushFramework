@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.utils.IconConfigurations
-import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.PlatformRuntimeLocator
 import io.github.magisk317.mipush.common.cache.IconCache
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
@@ -37,7 +37,7 @@ private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
 fun NotificationController.getLargeIcon(context: Context, metaInfo: PushMetaInfo, iconUri: String?): Bitmap? =
     NotificationLargeIconSupport.getLargeIcon(context, metaInfo, iconUri)
 
-internal fun NotificationController.clearIconPackCache() {
+fun NotificationController.clearIconPackCache() {
     iconPackResolver.clearCache()
 }
 
@@ -115,7 +115,7 @@ internal fun NotificationController.processMonochromeStatusBarIcon(
     // --- ANIP / configured icon takes top priority in monochrome mode ---
     // The ANIP icon library is single-color by design, so the bitmap is applied as-is:
     // 打开单色 = 使用图标包,不再做二次单色加工。
-    val iconConfig = runCatching { Global.iconConfigurations().get(packageName) }.getOrNull()
+    val iconConfig = runCatching { PlatformRuntimeLocator.get(IconConfigurations::class).get(packageName) }.getOrNull()
     val configuredBitmap = iconConfig?.bitmap()
     if (iconConfig?.isEnabled == true && configuredBitmap != null && !configuredBitmap.isRecycled) {
         // [旧单色处理,已停用保留] The transparent-and-white rework dates from the colorful

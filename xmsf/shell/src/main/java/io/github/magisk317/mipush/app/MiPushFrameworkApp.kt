@@ -33,6 +33,8 @@ import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
+import io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport
+import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import io.github.magisk317.mipush.service.runtime.getNotificationTag
 import io.github.magisk317.mipush.service.runtime.RegSecRecoveryHealer
 import io.github.magisk317.mipush.notification.NotificationManagerEx
@@ -160,6 +162,15 @@ open class MiPushFrameworkApp : Application() {
             getNotificationTag = { packageName -> MIPushNotificationPublishHelper.getNotificationTag(packageName) },
             getActiveNotifications = NotificationManagerEx::getActiveNotifications,
             cancel = NotificationManagerEx::cancel,
+        )
+        NotificationShellBridge.installNotificationRuntimeOperations(
+            notificationTagByContainer = { container ->
+                MIPushNotificationPublishHelper.getNotificationTag(container)
+            },
+            decodeTemporaryLargeIcon = ExtensionNotificationContract::decodeTemporaryLargeIcon,
+            clearConversationHistory = { packageName, notificationId, userId ->
+                MIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
+            },
         )
         NotificationShellBridge.installPublishOperations(
             postDetailed = { packageName, tag, id, notification, userId ->

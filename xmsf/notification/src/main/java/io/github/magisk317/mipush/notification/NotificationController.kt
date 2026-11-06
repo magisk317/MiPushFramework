@@ -15,16 +15,11 @@ import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.notification.NotificationManagerEx
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
-import io.github.magisk317.mipush.service.runtime.getNotificationTag
-import io.github.magisk317.mipush.service.runtime.MIPushNotificationStyleSupport
-import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.NotificationGroupHelper
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -169,7 +164,7 @@ object NotificationController {
         }
         XLog.tagged(TAG).d {
             "publish posted pkg=$packageName id=$notificationId group=${notification.group} " +
-                "tag=${MIPushNotificationPublishHelper.getNotificationTag(packageName)}"
+                "tag=${NotificationShellBridge.getNotificationTag(packageName)}"
         }
         if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context) && !metaInfo.isMockReplay()) {
             NotificationGroupHelper.getInstance().onNotificationNotify(
@@ -199,7 +194,7 @@ object NotificationController {
         NotificationChannelResolutionSupport.getExistsChannelId(context, metaInfo, packageName)
 
     /** Lookup-only channel resolution for read paths; never creates groups or channels. */
-    internal fun findExistingChannelId(
+    fun findExistingChannelId(
         context: Context,
         metaInfo: PushMetaInfo,
         packageName: String,
@@ -249,7 +244,7 @@ object NotificationController {
             // Stock 7.4.67-C t0 gives the extension callback's in-memory `temp_large_icon`
             // precedence over the original URI. The old product builder ignored this stock key,
             // so app-supplied extension artwork was lost even after restoring the Binder path.
-            ExtensionNotificationContract.decodeTemporaryLargeIcon(metaInfo)
+            NotificationShellBridge.decodeTemporaryLargeIcon(metaInfo)
                 ?: getLargeIcon(context, metaInfo, iconUri)
         } else {
             null
@@ -328,7 +323,7 @@ object NotificationController {
                 "source=$focusPayloadSource reason=${focusPlan.reason}",
         )
 
-        val tag = MIPushNotificationPublishHelper.getNotificationTag(packageName)
+        val tag = NotificationShellBridge.getNotificationTag(packageName)
         val nativeFeature = NativeNotificationFeatureBuilder.apply(
             context = context,
             builder = notificationBuilder,
@@ -529,7 +524,7 @@ object NotificationController {
         notificationId: Int,
         userId: Int,
     ) {
-        MIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId, userId)
+        NotificationShellBridge.clearConversationHistory(packageName, notificationId, userId)
         NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag, userId)
         TopNotificationCoordinator.cancelNotification(
             context = context,
@@ -571,7 +566,7 @@ object NotificationController {
     ) {
         val packageName = MIPushNotificationHelper.getTargetPackage(container)
         val userId = resolveNotificationUserId(context, packageName)
-        val tag = MIPushNotificationPublishHelper.getNotificationTag(container)
+        val tag = NotificationShellBridge.getNotificationTag(container)
         cancelNotificationSlot(context, packageName, tag, notificationId, userId)
         // [PRODUCT-OWNED DEVIATION — see FocusOrderIdentityPolicy] A live-session card posts under
         // the order-derived id, so a cancel container that repeats the focus param must also
@@ -584,7 +579,7 @@ object NotificationController {
         if (clearGroup) {
             getNotificationManagerEx().cancel(
                 packageName,
-                MIPushNotificationPublishHelper.getNotificationTag(container),
+                NotificationShellBridge.getNotificationTag(container),
                 notificationGroup?.let { ("GroupSummary" + packageName + it).hashCode() } ?: 0,
                 userId = userId,
             )
@@ -633,7 +628,7 @@ object NotificationController {
         applyStatusBarIcon = ::applyStatusBarIcon,
     )
 
-    internal fun resolveNotificationUserId(context: Context, packageName: String): Int {
+    fun resolveNotificationUserId(context: Context, packageName: String): Int {
         return runCatching {
             val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getApplicationInfo(

@@ -173,10 +173,19 @@ class NotificationManagerExPolicyTest {
     private fun resolveNotificationControllerSource(): File {
         val relativePath =
             "src/main/java/io/github/magisk317/mipush/notification/NotificationController.kt"
-        return generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+        val workingDirectory = System.getProperty("user.dir") ?: "."
+        // The controller moved into this module, so the module-local copy is the primary
+        // candidate; the shell path stays for callers that still resolve from there.
+        return generateSequence(File(workingDirectory)) { it.parentFile }
             .take(6)
-            .map { it.resolve("xmsf/shell/$relativePath") }
+            .flatMap { root ->
+                sequenceOf(
+                    root.resolve(relativePath),
+                    root.resolve("xmsf/notification/$relativePath"),
+                    root.resolve("xmsf/shell/$relativePath"),
+                )
+            }
             .firstOrNull(File::isFile)
-            ?: error("NotificationController.kt not found from ${System.getProperty("user.dir")}")
+            ?: error("NotificationController.kt not found from $workingDirectory")
     }
 }

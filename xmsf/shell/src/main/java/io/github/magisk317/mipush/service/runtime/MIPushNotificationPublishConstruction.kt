@@ -22,6 +22,7 @@ import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.manager.application.MockReplayOutcome
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
 
 /**
  * Notification construction and publish-identity seams of
@@ -258,7 +259,7 @@ fun MIPushNotificationPublishHelper.Companion.getNotificationId(container: XmPus
     val messageId = MessageIdentity.fromContainer(container)
     val isMockReplay = MockMessageRegistry.isMarked(container)
     if (isMockReplay && metaInfo != null) {
-        val sourceId = metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID)
+        val sourceId = metaInfo.extra?.get(MockReplayContract.EXTRA_MOCK_REPLAY_SOURCE_ID)
             ?.takeIf { it.isNotBlank() }
             ?: messageId?.takeIf { it.isNotBlank() }
             ?: metaInfo.id?.takeIf { it.isNotBlank() }

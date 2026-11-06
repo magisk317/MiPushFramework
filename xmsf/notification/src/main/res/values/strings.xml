@@ -9,4 +9,17 @@
     <string name="mock_channel_name">Mock Notification Test</string>
     <string name="mock_bigtext_summary">BigText summary</string>
     <string name="mock_bigpicture_summary">BigPicture summary</string>
+    <string name="mock_inbox_line1">Line 1: %1$s</string>
+    <string name="mock_inbox_line2">Line 2: Another message</string>
+    <string name="mock_inbox_line3">Line 3: Third message</string>
+    <string name="mock_inbox_summary">+3 messages</string>
+    <string name="mock_live_update_delivery_desc">骑手已取餐，预计15分钟送达</string>
+    <string name="mock_live_update_delivery_title">外卖配送中</string>
+    <string name="mock_messaging_conversation">Test Conversation</string>
+    <string name="mock_messaging_reply">Reply message</string>
+    <string name="mock_messaging_user">Test User</string>
+    <string name="mock_progress_downloading">Downloading…</string>
+    <string name="mock_voip_accept">Accept</string>
+    <string name="mock_voip_decline">Decline</string>
+    <string name="mock_voip_title">Incoming Call</string>
 </resources>

@@ -14,9 +14,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
-import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmpush.thrift.PushMetaInfo
+import io.github.magisk317.mipush.notification.policy.MockReplayContract
 
 /** Shell-local mock replay visibility and receipt publishing, including Xiaomi hooked posting. */
 internal object NotificationMockReplaySupport {
@@ -25,7 +25,7 @@ internal object NotificationMockReplaySupport {
     private const val RECEIPT_TAG_PREFIX = "mipush_mock_replay_receipt:"
 
     fun isMockReplay(metaInfo: PushMetaInfo): Boolean =
-        metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY)
+        metaInfo.extra?.get(MockReplayContract.EXTRA_MOCK_REPLAY)
             ?.equals("true", ignoreCase = true) == true
 
     fun applyVisibility(

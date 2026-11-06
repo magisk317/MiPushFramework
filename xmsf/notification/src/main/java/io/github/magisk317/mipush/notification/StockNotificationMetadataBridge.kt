@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf.stock
+package io.github.magisk317.mipush.notification
 
 import android.os.Bundle
 import com.xiaomi.channel.commonutils.android.MIUIUtils
