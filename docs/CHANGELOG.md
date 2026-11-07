@@ -3,9 +3,13 @@
 本日志记录了项目近期的主要变更。
 
 ---
-## [v1.1.3] - 2026-11-01
+## [v1.1.3] - 2026-11-07
 - 版本：`versionCode 22` / `versionName 1.1.3`。
-- 下一轮开发占位，发布前补充具体变更。
+- `[refactor]` 通知、平台与诊断切片整理。
+- `[fix]` 修复 Live Update 发布与运行时迁移。
+- `[log]` 日志策略按构建通道区分。
+- `[ci]` 发布链与 toolkit pin 对齐。
+- `[deps]` 升级 AGP 9.5.1、Gradle 9.9.0。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.2...v1.1.3
 
