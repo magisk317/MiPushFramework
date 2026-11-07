@@ -58,7 +58,7 @@ variables:
   # response with a bash regex instead; af0295f additionally writes the
   # allocated code to .magisk-version-code so after_script can stage it
   # (an export made in script does not survive into after_script).
-  MAGISK_CI_TOOLKIT_REF: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+  MAGISK_CI_TOOLKIT_REF: "97089a373188a09c82477feb5663bc94e4bb599a"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
