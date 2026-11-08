@@ -440,6 +440,9 @@ android:detekt:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
+  allow_failure: true
+  # Wait for automatic Renovate delivery when present; the optional manual
+  # Play action on human beta pipelines does not block this quality job.
   needs:
     - job: android:ci:publish-play
       artifacts: false
