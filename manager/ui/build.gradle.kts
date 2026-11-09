@@ -26,7 +26,8 @@ val navigationPerformancePropertyTests = tasks.register("navigationPerformancePr
     group = "verification"
     description = "Runs Manager and manager:client unit/property tests for navigation performance."
     dependsOn(
-        ":manager:ui:testPlayDebugUnitTest",
+        // Play paused 2026-11-05: re-enable alongside flavor("play") in the root build.gradle.kts.
+        // ":manager:ui:testPlayDebugUnitTest",
         ":manager:ui:testGithubDebugUnitTest",
         ":manager:client:testDebugUnitTest",
     )

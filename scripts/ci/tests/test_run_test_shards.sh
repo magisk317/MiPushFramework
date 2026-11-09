@@ -17,7 +17,7 @@ export SHARD_LOG="$tmp_dir/gradle.log"
 MAGISK_CI_TOOLKIT_DIR="$tmp_dir/toolkit" bash "$runner" "${ANDROID_TEST_SHARDS[@]}"
 grep -F ':xmsf:compileNormalDebugKotlin' "$SHARD_LOG" >/dev/null
 grep -F ':mipush:compileGithubDebugKotlin' "$SHARD_LOG" >/dev/null
-grep -F ':mipush:compilePlayDebugKotlin' "$SHARD_LOG" >/dev/null
+# grep -F ':mipush:compilePlayDebugKotlin' "$SHARD_LOG" >/dev/null # Play paused 2026-11-05
 grep -F ':core:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':magisk-xposed-kit:keepalive:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':configuration:jvmTest' "$SHARD_LOG" >/dev/null

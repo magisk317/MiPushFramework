@@ -444,9 +444,8 @@ android:detekt:
   # Wait for automatic Renovate delivery when present; the optional manual
   # Play action on human beta pipelines does not block this quality job.
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
@@ -481,9 +480,8 @@ android:test:pure-modules:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   variables:
     MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
@@ -515,9 +513,8 @@ android:test:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   script:
     - |
@@ -547,9 +544,8 @@ android:module-boundaries:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   variables:
     MAGISK_LINUX_APT_PACKAGES: "ripgrep"
   script:
@@ -565,9 +561,8 @@ android:shared-compat:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   before_script:
     - !reference [.magisk_android_base, before_script]

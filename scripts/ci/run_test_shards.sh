@@ -31,8 +31,7 @@ run_shard() {
     xmsf-compile) run_test :xmsf:compileNormalDebugKotlin ;;
     mipush-compile)
       run_test \
-        :mipush:compileGithubDebugKotlin \
-        :mipush:compilePlayDebugKotlin
+        :mipush:compileGithubDebugKotlin
       ;;
     android-pure-modules)
       run_test :build-logic:test
@@ -48,8 +47,8 @@ run_shard() {
         :mipush:testGithubDebugUnitTest \
         :core:jvmTest \
         :xmsf:runtime:store:testAndroidHostTest \
-        :manager:ui:testGithubDebugUnitTest :manager:ui:testPlayDebugUnitTest \
-        :manager:xmsfDelivery:testGithubDebugUnitTest :manager:xmsfDelivery:testPlayDebugUnitTest
+        :manager:ui:testGithubDebugUnitTest \
+        :manager:xmsfDelivery:testGithubDebugUnitTest
       run_test :configuration:jvmTest
       run_test :manager:port:test
       run_test :manager:contract:testDebugUnitTest

@@ -68,9 +68,10 @@ plugins {
 // distribution stays a documented state instead of becoming a flavor that was
 // quietly dropped.
 magiskDistribution {
-    flavor("play") {
-        buildConfigBoolean("HAS_BILLING", true)
-    }
+    // Play paused 2026-11-05: re-enable the flavor below to restore Play distribution.
+    // flavor("play") {
+    //     buildConfigBoolean("HAS_BILLING", true)
+    // }
     flavor("github") {
         buildConfigBoolean("HAS_BILLING", false)
     }
