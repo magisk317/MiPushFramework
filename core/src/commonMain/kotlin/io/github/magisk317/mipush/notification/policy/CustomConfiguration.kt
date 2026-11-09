@@ -29,6 +29,7 @@ class CustomConfiguration(extra: Map<String, String>?) {
         private const val NOTIFICATION_GROUP = "notification_group"
         private const val NOTIFICATION_BIGPIC_URI = "notification_bigPic_uri"
         private const val FOCUS_PARAM = "miui.focus.param"
+        private const val FOCUS_PARAM_CUSTOM = "miui.focus.param.custom"
 
         private fun getExtraField(
             extra: Map<String, String>?,
@@ -85,6 +86,12 @@ class CustomConfiguration(extra: Map<String, String>?) {
     fun borrowChannelId(defaultValue: String?): String? = get(BORROW_CHANNEL_ID, defaultValue)
 
     fun focusParam(defaultValue: String?): String? = get(FOCUS_PARAM, defaultValue)
+
+    /**
+     * HyperOS' custom focus renderer consumes a second JSON parameter carried in
+     * `miui.focus.param.custom`, distinct from the public [focusParam] payload.
+     */
+    fun focusParamCustom(defaultValue: String?): String? = get(FOCUS_PARAM_CUSTOM, defaultValue)
 
     fun textIcon(defaultValue: String?): String? = get(TEXT_ICON, defaultValue)
 
