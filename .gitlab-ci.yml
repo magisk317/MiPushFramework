@@ -56,8 +56,8 @@ variables:
   # MAGISK_VERSION_SCOPE set died on "ERROR: jq is required" before Gradle ran
   # (pipeline 2981953416, job 17421971941, 35.6s). dff8a0e reads the allocator
   # response with a bash regex instead; af0295f additionally writes the
-  # allocated code to .magisk-version-code so after_script can stage it
-  # (an export made in script does not survive into after_script).
+  # allocated code to .magisk-version-code as a durable handoff for staging;
+  # the stager also prefers MAGISK_VERSION_CODE when the export is present.
   MAGISK_CI_TOOLKIT_REF: "311ae8fa45adbbfbf2625aa42f975fa8d302db00"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
@@ -198,7 +198,7 @@ android:build:
     - $MIPUSH_BUILD_RUNNER_TAG
   # The packaging contract is dex-presence only, so it applies verbatim to the
   # R8-minified debug APKs this job ships (-PminifyDebug): a keep-rule regression
-  # fails the build before the after_script stages the APK into the update
+  # fails the build before the blocking script stages the APK into the update
   # channel. mipush outputs are out of scope -- that APK bundles neither libsu nor
   # the xmsf @StableLogTag classes the contract pins.
   script:
@@ -220,7 +220,12 @@ android:build:
         echo "verify_release_artifact: $apk"
         bash scripts/checks/verify_release_artifact.sh "$apk" || status=1
       done
-      exit "$status"
+      if ((status != 0)); then
+        exit "$status"
+      fi
+    # Staging is blocking: do not publish a green build without complete
+    # version-keyed manifests and checksum sidecars.
+    - bash scripts/ci/stage_ci_dist.sh
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_IS_CI_BUILD: "true"
@@ -260,7 +265,7 @@ android:build:
       - ci-dist/com.xiaomi.xmsf/**
       - ci-dist/com.xiaomi.xmsf-vc105/**
   # A job-level after_script replaces the one inherited from
-  # .magisk_android_base, so the otel export is restated here before staging.
+  # .magisk_android_base, so keep its OTEL export restated here.
   after_script:
     - |
       set +e
@@ -269,13 +274,6 @@ android:build:
       else
         echo "otel: helper missing, skip"
       fi
-    # The universal APK name embeds the build timestamp, while the in-app
-    # update probes can only fetch artifacts by exact path (no glob), so
-    # stage a version-keyed copy of both packages plus the sidecars the
-    # probes verify (version.txt, .sha256, manifest). Kept in a script
-    # because a top-level heredoc terminator cannot live inside a YAML
-    # block scalar.
-    - bash scripts/ci/stage_ci_dist.sh
 
 android:check:
   extends: .magisk_android_build
@@ -491,9 +489,10 @@ android:test:pure-modules:
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       bash scripts/ci/tests/test_run_test_shards.sh
-      # Guards the after_script staging path: a lost allocated versionCode
+      # Guards the blocking staging path: a lost allocated versionCode
       # used to vanish silently instead of failing the job.
       bash scripts/ci/tests/test_stage_ci_dist.sh
+      bash scripts/ci/tests/test_gitlab_ci_config.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"

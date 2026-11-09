@@ -23,16 +23,15 @@
 # pipeline iid any more: the in-app updater judges a build by this manifest's
 # versionCode, and the iid is no longer that number.
 #
-# GitLab runs after_script in its own shell, so the export made in script does
-# not reach here. The toolkit writes the number to .magisk-version-code instead,
-# and ci/allocated_version_code.sh reads it back (preferring MAGISK_VERSION_CODE
-# when it is set) and fails loudly naming both sources when neither is there —
-# the alternative being a green build whose manifest silently disappears and an
-# updater that falls back to the pipeline iid.
+# The toolkit writes the allocated number to .magisk-version-code and exports
+# MAGISK_VERSION_CODE for the build script. Staging prefers that exported value
+# and falls back to ci/allocated_version_code.sh reading the workspace handoff;
+# it fails loudly when neither is available instead of silently omitting the
+# manifest or falling back to the pipeline iid.
 #
-# Called from android:build's after_script; kept out of the YAML so the
-# heredocs below stay valid shell (YAML block scalars cannot host a
-# top-level heredoc terminator).
+# Called by android:build's blocking script after the inherited build and
+# artifact verification; kept out of the YAML so the heredocs below stay valid
+# shell (YAML block scalars cannot host a top-level heredoc terminator).
 set -euo pipefail
 
 cd "$CI_PROJECT_DIR"
@@ -107,8 +106,8 @@ EOF
 #
 # The runtime builds under its own "version" flavor dimension (normal/vc105) and
 # CI assembles every flavor, so each variant is read from its own output
-# directory instead of guessing. after_script failures cannot fail the job, so a
-# missing normal APK exits loudly (it is the channel the release pipeline
+# directory instead of guessing. Because this runs in the blocking build script,
+# a missing normal APK fails the job (it is the channel the release pipeline
 # publishes) while a missing vc105 APK only skips its own root.
 # ---------------------------------------------------------------------------
 stage_runtime_variant() {

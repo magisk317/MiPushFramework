@@ -134,10 +134,11 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/tests/test_run_test_shards.sh
-          # Guards the after_script staging path, same as GitLab's
+          # Guards the blocking staging path, same as GitLab's
           # android:test:pure-modules: a lost allocated versionCode used to vanish
           # silently instead of failing the job.
           bash scripts/ci/tests/test_stage_ci_dist.sh
+          bash scripts/ci/tests/test_gitlab_ci_config.sh
           # Fails when the selector config drifts from the shards run_test_shards.sh
           # implements, or from the single shard GitLab runs on a full selection.
           bash scripts/ci/tests/test_android_test_tasks_config.sh
