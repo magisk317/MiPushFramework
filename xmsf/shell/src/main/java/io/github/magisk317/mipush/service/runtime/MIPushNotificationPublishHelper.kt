@@ -754,11 +754,18 @@ class MIPushNotificationPublishHelper {
                 return
             }
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val fullWakeLock = powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
+            // The zero-deprecation baseline (86de11672) mechanically downgraded this to
+            // PARTIAL_WAKE_LOCK, which wakes the CPU but never lights the screen - the whole
+            // point of the wake plan action. The modern replacements (setTurnScreenOn,
+            // full-screen intents) require an Activity, which this service-side path does
+            // not have, so the deprecated bright wake lock stays as the only way to honor
+            // the wake contract.
+            @Suppress("DEPRECATION")
+            val screenWakeLock = powerManager.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "xmsf: configurations of $sourcePackage"
             )
-            fullWakeLock.acquire(10000)
+            screenWakeLock.acquire(10000)
         }
 
     }
