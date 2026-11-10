@@ -6,7 +6,7 @@ import com.xiaomi.push.service.IPushRuntimeObserver
 import com.xiaomi.push.service.MIPushAccount
 import com.xiaomi.push.service.MIPushAccountUtils
 import io.github.magisk317.mipush.runtime.PushRuntime
-import io.github.magisk317.mipush.service.runtime.MIPushAccountUtilsRuntime
+import io.github.magisk317.mipush.runtime.service.MIPushAccountUtilsRuntime
 import java.io.IOException
 
 internal class MiPushRuntimeAccountExecutionAdapter(

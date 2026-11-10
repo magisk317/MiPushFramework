@@ -28,7 +28,7 @@ import io.github.magisk317.mipush.runtime.core.registration.RegistrationComponen
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.kmp.EventRowResultType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
-import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
+import io.github.magisk317.mipush.runtime.service.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.runtime.android.observeRegistrationRequest
 import io.github.magisk317.mipush.common.logging.StableLogTag

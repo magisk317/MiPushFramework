@@ -1,7 +1,7 @@
 package com.xiaomi.push.service
 
 import android.content.pm.ServiceInfo
-import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
+import io.github.magisk317.mipush.runtime.service.PushSlimStreamRuntime
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test

@@ -3,8 +3,8 @@ package com.xiaomi.push.service
 import com.xiaomi.slim.Blob
 import io.github.magisk317.mipush.runtime.core.PushChannelState
 import io.github.magisk317.mipush.runtime.core.PushConnectionState
-import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
-import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
+import io.github.magisk317.mipush.runtime.service.PushChannelOpenRuntime
+import io.github.magisk317.mipush.runtime.service.PushSlimConnectionRuntime
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

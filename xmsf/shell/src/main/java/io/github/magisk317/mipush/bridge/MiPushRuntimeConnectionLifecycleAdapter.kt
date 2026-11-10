@@ -18,9 +18,9 @@ import io.github.magisk317.mipush.runtime.core.PushRuntimeObservationSink
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.service.ForegroundHelper
 import io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper
-import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
-import io.github.magisk317.mipush.service.runtime.PushClientsStateSupport
-import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
+import io.github.magisk317.mipush.runtime.service.NetworkCheckupRuntime
+import io.github.magisk317.mipush.runtime.service.PushClientsStateSupport
+import io.github.magisk317.mipush.runtime.service.PushServiceConnectionRuntime
 
 internal class MiPushRuntimeConnectionLifecycleAdapter(
     private val context: Context,

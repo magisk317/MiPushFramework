@@ -107,13 +107,13 @@ object DefaultPushShellBridge : PushShellBridge {
             userId = userId,
             steps = listOf(
                 "registration_record_deduper" to {
-                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.RegistrationRecordDeduper.reset(packageName, userId)
                 },
                 "profile_ids" to {
                     com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
                 },
                 "payload_deduplication" to {
-                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
                     io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
@@ -135,7 +135,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
-                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
                 },
             ),
         )
@@ -147,7 +147,7 @@ object DefaultPushShellBridge : PushShellBridge {
             userId = userId,
             steps = listOf(
                 "registration_record_deduper" to {
-                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.RegistrationRecordDeduper.reset(packageName, userId)
                 },
                 "profile_ids" to {
                     com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
@@ -156,7 +156,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     com.xiaomi.push.service.MIPushNotificationHelper.clearNotification(context, packageName)
                 },
                 "payload_deduplication" to {
-                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
                     io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
@@ -178,7 +178,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
-                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
                 },
             ),
         )

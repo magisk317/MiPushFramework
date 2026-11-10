@@ -96,6 +96,14 @@ graph.
 
 ## Layering Rules
 
+- `:xmsf:runtime` exclusively owns `io.github.magisk317.mipush.runtime.service` for reusable
+  service execution (connection, keepalive, registration repair, and deduplication).
+  `:xmsf:shell` exclusively owns `io.github.magisk317.mipush.service.runtime` for product
+  configuration, lifecycle bindings, and notification dispatch. Neither module declares the other
+  package or its subpackages; `verify_module_boundaries.sh` enforces this with isolated positive
+  and negative fixtures. Preserve the existing shell → runtime dependency direction and internal
+  visibility; this separation introduces no compatibility aliases or additional bridge APIs.
+
 - Product UI/settings code should depend on `core`, `common`, and explicit xmsf adapters, not deep
   vendor/pinned packages.
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime` and

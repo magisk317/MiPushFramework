@@ -487,9 +487,9 @@ Key source:
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockChannelSupport.kt`
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/stock/StockNotificationMetadataBridge.kt`
 - `xmsf/shell/src/main/java/com/xiaomi/xmsf/provider/MiCloudSettingsProvider.kt`
-- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt`
-- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveEnvironment.kt`
-- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/service/runtime/ProcessObserverCompat.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/service/KeepAliveRuntimeAdapter.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/service/KeepAliveEnvironment.kt`
+- `xmsf/runtime/src/main/java/io/github/magisk317/mipush/runtime/service/ProcessObserverCompat.kt`
 - `xmsf/shell/src/main/java/io/github/magisk317/mipush/telemetry/TelemetryDisabler.kt`
 - `vendor/src/main/java/com/xiaomi/smack/util/TrafficUtils.kt`
 
@@ -540,6 +540,14 @@ When porting stock XMSF behavior, first classify the feature into one of these s
 Only bypass `PushRuntime` when the stock feature is strictly self-contained and does not participate in routing, lifecycle, or shared compatibility state.
 
 ## Adapter Boundary
+
+Reusable service execution lives in `:xmsf:runtime`, under
+`io.github.magisk317.mipush.runtime.service`. This package owns connection execution, keepalive,
+registration payload repair, and deduplication without depending on shell configuration or assembly.
+The `io.github.magisk317.mipush.service.runtime` package belongs to `:xmsf:shell` and owns settings
+adaptation, lifecycle bindings, and notification dispatch that require shell collaborators. Keep
+these namespaces distinct; moving code between them requires reviewing its dependencies, not just
+renaming its package. The module boundary gate checks both ownership directions, including subpackages.
 
 `xmsf/shell/src/main/java/io/github/magisk317/mipush/service/runtime` and
 `xmsf/shell/src/main/java/io/github/magisk317/mipush/bridge` are the allowed product-owned adapters

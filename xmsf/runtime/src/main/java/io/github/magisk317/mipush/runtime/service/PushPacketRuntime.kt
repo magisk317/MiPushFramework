@@ -1,0 +1,127 @@
+package io.github.magisk317.mipush.runtime.service
+import com.xiaomi.push.service.*
+import com.xiaomi.slim.Blob
+import com.xiaomi.smack.packet.Packet
+
+import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.xposed.logging.MagiskOtel
+
+object PushPacketRuntime {
+    @JvmStatic
+    fun preparePacket(
+        packet: Packet,
+        packageName: String,
+        session: String?,
+        pushClientsManager: PushClientsManager,
+        connected: Boolean
+    ): PushPacketPreparationResult {
+        val packageChannels = pushClientsManager.queryChannelIdByPackage(packageName)
+        if (packageChannels.isEmpty()) {
+            safeWarn("open channel should be called first before sending a packet, pkg=$packageName")
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropNoChannel,
+                    packet = null,
+                    client = null,
+                    reason = "no_channel"
+                ),
+            )
+        }
+
+        packet.packageName = packageName
+        val resolvedChannelId = packet.channelId?.takeIf { it.isNotBlank() } ?: packageChannels.first().also {
+            packet.channelId = it
+        }
+        val client = pushClientsManager.getClientLoginInfoByChidAndUserId(resolvedChannelId, packet.from)
+        if (!connected) {
+            safeWarn("drop a packet as the channel is not connected, chid=$resolvedChannelId")
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropDisconnected,
+                    packet = null,
+                    client = client,
+                    reason = "channel_not_connected"
+                ),
+            )
+        }
+        if (client == null || client.status != PushClientsManager.ClientStatus.binded) {
+            safeWarn("drop a packet as the channel is not opened, chid=$resolvedChannelId")
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropUnbound,
+                    packet = null,
+                    client = client,
+                    reason = "channel_not_opened"
+                ),
+            )
+        }
+        if (session != client.session) {
+            safeWarn("invalid session. $session")
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropInvalidSession,
+                    packet = null,
+                    client = client,
+                    reason = "invalid_session"
+                ),
+            )
+        }
+        return emitPacketResult(
+            packageName = packageName,
+            result = PushPacketPreparationResult(
+                action = PushPacketRouteAction.Ready,
+                packet = packet,
+                client = client,
+                reason = "ready"
+            ),
+        )
+    }
+
+    private fun emitPacketResult(
+        packageName: String,
+        result: PushPacketPreparationResult,
+    ): PushPacketPreparationResult {
+        val ok = result.action == PushPacketRouteAction.Ready
+        MagiskOtel.event(
+            name = "push.receive",
+            attributes = mapOf(
+                "result" to if (ok) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "packet_prepare",
+                "reason" to result.reason,
+                "target_package" to packageName,
+            ),
+            statusOk = true,
+        )
+        return result
+    }
+
+    @JvmStatic
+    fun buildBlobForPacket(
+        packet: Packet,
+        packageName: String,
+        session: String?,
+        pushClientsManager: PushClientsManager,
+        connected: Boolean
+    ): Blob? {
+        val prepared = preparePacket(packet, packageName, session, pushClientsManager, connected)
+        if (prepared.action != PushPacketRouteAction.Ready) {
+            return null
+        }
+        val resolvedPacket = prepared.packet ?: return null
+        val client = prepared.client ?: return null
+        @Suppress("DEPRECATION")
+        return Blob.from(resolvedPacket, client.security)
+    }
+
+    private fun safeWarn(message: String) {
+        runCatching { logW(message) }.onFailure {
+            // ignored here: no logger is reachable from this file and the failure has no remedy at this point
+        }
+    }
+}

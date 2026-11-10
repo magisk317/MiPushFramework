@@ -19,8 +19,8 @@ import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
 import io.github.magisk317.mipush.runtime.core.RegistrationThrottle
-import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
-import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
+import io.github.magisk317.mipush.runtime.service.PushServiceIntentRuntime
+import io.github.magisk317.mipush.runtime.service.RegistrationPayloadRepair
 
 internal class MiPushRuntimeRegistrationExecutionAdapter(
     private val appContext: Context,
