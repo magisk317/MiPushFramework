@@ -7,7 +7,7 @@ data class ManagerApplication(
     val id: Long? = null,
     val userId: Int = 0,
     val packageName: String = "",
-    val type: Int = Type.ASK,
+    val type: Int = Type.ALLOW,
     val notificationOnRegister: Boolean = false,
     val blocked: Boolean = false,
     val islandEnabled: Boolean = true,
@@ -20,6 +20,7 @@ data class ManagerApplication(
     val appName: String = "",
     val appNamePinYin: String = "",
     val lastReceiveTimeMs: Long = 0L,
+    val registrationPending: Boolean = false,
 ) {
     object Type {
         const val ASK = 0

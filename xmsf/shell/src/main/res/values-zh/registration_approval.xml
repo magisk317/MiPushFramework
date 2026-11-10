@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="registration_policy_invalid">注册方式无效</string>
+    <string name="registration_policy_saved">注册方式已保存</string>
+    <string name="registration_policy_failed">无法保存注册方式</string>
+    <string name="registration_request_missing">当前没有待审批的注册请求</string>
+    <string name="registration_dispatch_failed">无法继续注册，请求仍保留在待审批列表中。</string>
+    <string name="registration_request_approved">已允许并提交注册请求，等待服务器结果。</string>
+    <string name="registration_approval_channel">注册审批</string>
+    <string name="registration_approval_title">%1$s 请求注册 MiPush</string>
+    <string name="registration_approval_message">打开管理器，允许或拒绝这次注册请求。</string>
+</resources>

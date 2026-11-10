@@ -22,6 +22,7 @@ data class ManagerApplicationDetailDto(
     val appNamePinYin: String = "",
     val lastReceiveTimeMs: Long = 0L,
     val userId: Int = 0,
+    val registrationPending: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -44,6 +45,7 @@ data class ManagerApplicationDetailDto(
             writeWireBoolean(clickFallbackEnabled)
             writeWireBoolean(suppressWhenDisabled)
             writeWireBoolean(countLimitExempt)
+            writeWireBoolean(registrationPending)
         }
     }
 
@@ -72,6 +74,7 @@ data class ManagerApplicationDetailDto(
                         clickFallbackEnabled = readBoolean(),
                         suppressWhenDisabled = readBoolean(),
                         countLimitExempt = readBoolean(),
+                        registrationPending = readBoolean(),
                     )
                 }
 

@@ -287,6 +287,10 @@
     <string name="force_register_confirmed">已确认应用注册成功</string>
     <string name="force_register_timeout">已发送请求，但在超时时间内未确认注册结果</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
+    <string name="unregister_requires_root">取消注册需要 Root 权限</string>
+    <string name="unregister_not_registered">该应用当前未注册</string>
+    <string name="unregister_app_id_missing">缺少 appId，请先强制注册一次再取消注册</string>
+    <string name="unregister_completed">已禁用并提交注销请求，服务器仍可能在处理中</string>
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
     <string name="mock_notification_failed_event_not_found">重放失败：数据库中未找到该记录（可能已被清理或删除）。</string>
     <string name="mock_notification_failed_payload_missing">重放失败：该事件缺少原始推送载荷（Payload），无法重新构造通知。</string>
@@ -450,4 +454,7 @@
     <string name="mock_live_update_ride_title">司机正在前往上车点</string>
     <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
 
+    <string name="unregister_report_failed">已在本地禁用，但注销请求未能持久保存，请重试完成</string>
+    <string name="unregister_partial">已禁用并提交注销请求，但应用凭据清理失败，请重试完成</string>
+    <string name="unregister_pending">注销请求仍在离线队列中，请联网后再注册</string>
 </resources>

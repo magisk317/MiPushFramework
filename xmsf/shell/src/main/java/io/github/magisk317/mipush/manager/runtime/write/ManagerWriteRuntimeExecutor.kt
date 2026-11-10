@@ -164,6 +164,9 @@ class ManagerWriteRuntimeExecutor(
         when (request.operation) {
             ManagerProtocol.WRITE_OP_UPDATE_APPLICATION -> updateApplication(request)
             ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER -> launchTargetAppAndForceRegister(request)
+            ManagerProtocol.WRITE_OP_UNREGISTER_APPLICATION -> unregisterApplication(request)
+            ManagerProtocol.WRITE_OP_SET_REGISTRATION_POLICY -> setRegistrationPolicy(request)
+            ManagerProtocol.WRITE_OP_APPROVE_REGISTRATION -> approveRegistration(request)
             ManagerProtocol.WRITE_OP_DELETE_EVENT -> deleteEvent(request)
             ManagerProtocol.WRITE_OP_RESTORE_EVENT -> restoreEvent(request)
             ManagerProtocol.WRITE_OP_MOCK_MESSAGE -> mockMessage(request)
@@ -321,6 +324,38 @@ class ManagerWriteRuntimeExecutor(
             registeredType = request.intArgument,
         )
         val details = result.message.ifBlank { "force_register_completed" }
+            .take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
+        return if (result.succeeded) {
+            success(request.requestId, details)
+        } else {
+            failed(request.requestId, details)
+        }
+    }
+
+    private suspend fun setRegistrationPolicy(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
+        val result = applicationGateway.setRegistrationPolicy(context, packageName, request.intArgument)
+        return if (result.succeeded) success(request.requestId, result.message) else failed(request.requestId, result.message)
+    }
+
+    private suspend fun approveRegistration(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
+        val result = applicationGateway.approvePendingRegistration(context, packageName)
+        return if (result.succeeded) success(request.requestId, result.message) else failed(request.requestId, result.message)
+    }
+
+    private suspend fun unregisterApplication(
+        request: ManagerWriteRequestDto,
+    ): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
+        val result = applicationGateway.unregisterApplication(
+            context = context,
+            packageName = packageName,
+        )
+        val details = result.message.ifBlank { "unregister_completed" }
             .take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
         return if (result.succeeded) {
             success(request.requestId, details)

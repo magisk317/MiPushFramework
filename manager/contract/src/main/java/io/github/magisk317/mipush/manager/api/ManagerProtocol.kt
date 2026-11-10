@@ -50,9 +50,9 @@ object ManagerProtocol {
     const val RUNTIME_ENVIRONMENT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
-    const val APPLICATION_SUMMARY_SCHEMA_VERSION = 2
+    const val APPLICATION_SUMMARY_SCHEMA_VERSION = 3
     const val APPLICATION_STATS_SCHEMA_VERSION = 1
-    const val APPLICATION_DETAIL_SCHEMA_VERSION = 2
+    const val APPLICATION_DETAIL_SCHEMA_VERSION = 3
     const val APPLICATION_DIAGNOSTICS_SCHEMA_VERSION = 2
     const val EVENT_QUERY_SCHEMA_VERSION = 2
     const val EVENT_PAGE_SCHEMA_VERSION = 1
@@ -104,6 +104,9 @@ object ManagerProtocol {
     const val WRITE_DETAIL_DUAL_APP_NOT_INSTALLED = "dual_app_not_installed"
     const val WRITE_OP_UPDATE_APPLICATION = "update_application"
     const val WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER = "launch_target_force_register"
+    const val WRITE_OP_UNREGISTER_APPLICATION = "unregister_application"
+    const val WRITE_OP_SET_REGISTRATION_POLICY = "set_registration_policy"
+    const val WRITE_OP_APPROVE_REGISTRATION = "approve_registration"
     const val WRITE_OP_DELETE_EVENT = "delete_event"
     const val WRITE_OP_RESTORE_EVENT = "restore_event"
     const val WRITE_OP_SET_XMPP_SERVER = "set_xmpp_server"

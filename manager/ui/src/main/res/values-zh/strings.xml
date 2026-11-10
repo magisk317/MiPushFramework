@@ -634,6 +634,10 @@
     <string name="app_list_item_delivery_active">近期活跃</string>
     <string name="app_list_item_delivery_idle">等待触发</string>
     <string name="app_detail_force_register">启动并强制注册</string>
+    <string name="app_detail_unregister">取消注册</string>
+    <string name="app_detail_unregister_confirm_message">会向 MiPush 服务器报告该应用已卸载（作废其 regId）、清空应用侧 MiPush 数据并拉黑该应用。可用「启动并强制注册」恢复。</string>
+    <string name="app_detail_unregister_confirm">确认取消注册</string>
+    <string name="app_detail_unregister_cancel">取消</string>
     <string name="app_detail_open_system_settings">系统应用信息</string>
     <string name="app_detail_service_status">服务状态</string>
     <string name="app_detail_service_ready">已找到服务</string>
@@ -816,4 +820,14 @@
     <string name="wizard_log_granted">已授权：%1$s</string>
     <string name="wizard_log_denied">未授权：%1$s</string>
     <string name="wizard_descr_foreground_covered">前台检测已由其他方式覆盖。</string>
+    <string name="app_detail_registration_busy">正在处理注册操作，请稍候</string>
+    <string name="app_detail_registration_failed">操作未完成，请检查运行服务连接后重试。</string>
+    <string name="app_detail_registration_policy">注册方式</string>
+    <string name="app_detail_registration_policy_summary">自动：接收后续注册请求；询问：保留新请求，等待你批准；拒绝：拒绝注册请求。此设置与当前注册状态相互独立。</string>
+    <string name="app_detail_registration_auto">自动</string>
+    <string name="app_detail_registration_ask">询问</string>
+    <string name="app_detail_registration_deny">拒绝</string>
+    <string name="app_detail_registration_pending">收到待审批的注册请求。允许后将重放已保存的请求，无需 root。</string>
+    <string name="app_detail_registration_approve">允许并注册</string>
+    <string name="app_list_item_registration_pending">待审批</string>
 </resources>

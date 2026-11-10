@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test
 
 class RuntimeStoreMigrationFixtureTest {
     @Test
-    fun `every legacy schema version migrates to v12 and preserves runtime data`() {
+    fun `every legacy schema version migrates to v13 and preserves runtime data`() {
         for (version in 1..12) {
             val connection = createFixture(version)
             try {
                 migrateToLatest(connection, version)
 
-                assertEquals(12L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
+                assertEquals(13L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
                 assertEquals(
                     listOf("id", "pkg", "type", "date", "result", "dev_info", "payload", "reg_sec", "search_text", "user_id"),
                     columnNames(connection, "EVENT"),
@@ -75,14 +75,14 @@ class RuntimeStoreMigrationFixtureTest {
     }
 
     @Test
-    fun `v11 schema that already contains count limit exemption migrates idempotently to v12`() {
+    fun `v11 schema that already contains count limit exemption migrates idempotently to v13`() {
         val connection = createFixture(12)
         try {
             connection.execSQL("PRAGMA user_version = 11")
 
             migrateToLatest(connection, 11)
 
-            assertEquals(12L, scalarLong(connection, "PRAGMA user_version"))
+            assertEquals(13L, scalarLong(connection, "PRAGMA user_version"))
             assertEquals(1L, scalarLong(connection, "SELECT count_limit_exempt FROM REGISTERED_APPLICATION WHERE id = 1"))
             assertEquals(1, columnNames(connection, "REGISTERED_APPLICATION").count { it == "count_limit_exempt" })
         } finally {
@@ -92,11 +92,48 @@ class RuntimeStoreMigrationFixtureTest {
 
     @Test
     fun `migration registry is contiguous and ends at production schema`() {
-        assertEquals(11, RuntimeStoreMigrations.ALL.size)
+        assertEquals(12, RuntimeStoreMigrations.ALL.size)
         assertEquals(1, RuntimeStoreMigrations.ALL.first().startVersion)
-        assertEquals(12, RuntimeStoreMigrations.ALL.last().endVersion)
+        assertEquals(13, RuntimeStoreMigrations.ALL.last().endVersion)
         RuntimeStoreMigrations.ALL.toList().zipWithNext().forEach { (current, next) ->
             assertEquals(current.endVersion, next.startVersion)
+        }
+    }
+
+    @Test
+    fun `v13 maps every dormant type solely from blocked state`() {
+        for (blocked in listOf(0, 1)) for (type in listOf(0, 2, 3, -1)) {
+            val connection = createFixture(12)
+            try {
+                connection.execSQL("UPDATE REGISTERED_APPLICATION SET type = $type, blocked = $blocked")
+                RuntimeStoreMigrations.MIGRATION_12_13.migrate(connection)
+                assertEquals(if (blocked == 1) 3L else 2L, scalarLong(connection, "SELECT type FROM REGISTERED_APPLICATION WHERE id = 1"))
+                assertEquals(0L, scalarLong(connection, "SELECT COUNT(*) FROM PENDING_REGISTRATION"))
+            } finally {
+                connection.close()
+            }
+        }
+    }
+
+    @Test
+    fun `pending packets survive a database reopen and remain user scoped`() {
+        val path = java.nio.file.Files.createTempFile("pending-registration", ".db")
+        try {
+            BundledSQLiteDriver().open(path.toString()).use { connection ->
+                connection.execSQL("CREATE TABLE REGISTERED_APPLICATION(id INTEGER PRIMARY KEY, type INTEGER NOT NULL, blocked INTEGER NOT NULL)")
+                RuntimeStoreMigrations.MIGRATION_12_13.migrate(connection)
+                connection.execSQL("INSERT INTO PENDING_REGISTRATION(user_id,pkg,payload,env_changed,env_type,created_at) VALUES(7,'same.app',X'010203',0,1,123)")
+                connection.execSQL("INSERT INTO PENDING_REGISTRATION(user_id,pkg,payload,env_changed,env_type,created_at) VALUES(8,'same.app',X'0405',1,2,456)")
+            }
+            BundledSQLiteDriver().open(path.toString()).use { connection ->
+                assertEquals(2L, scalarLong(connection, "SELECT COUNT(*) FROM PENDING_REGISTRATION"))
+                assertArrayEquals(byteArrayOf(1, 2, 3), scalarBlob(connection, "SELECT payload FROM PENDING_REGISTRATION WHERE user_id = 7"))
+                assertEquals(2L, scalarLong(connection, "SELECT env_type FROM PENDING_REGISTRATION WHERE user_id = 8"))
+                connection.execSQL("DELETE FROM PENDING_REGISTRATION WHERE user_id = 7 AND pkg = 'same.app'")
+                assertEquals(1L, scalarLong(connection, "SELECT COUNT(*) FROM PENDING_REGISTRATION WHERE user_id = 8"))
+            }
+        } finally {
+            java.nio.file.Files.deleteIfExists(path)
         }
     }
 

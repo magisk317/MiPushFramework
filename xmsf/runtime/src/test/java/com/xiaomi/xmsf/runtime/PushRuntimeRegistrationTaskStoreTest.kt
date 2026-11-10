@@ -87,4 +87,31 @@ class PushRuntimeRegistrationTaskStoreTest {
             PushRuntimeRegistrationTaskStore.clear("com.example.app", -1)
         }
     }
+    @Test
+    fun `clear during failed drain prevents resurrection`() {
+        PushRuntimeRegistrationTaskStore.clearForTests()
+        PushRuntimeRegistrationTaskStore.cache("com.example.target", Intent("register"), "test", androidUserId = 0)
+        runCatching {
+            PushRuntimeRegistrationTaskStore.dispatchAll("test", androidUserId = 0, dispatcher = { _, _ ->
+                PushRuntimeRegistrationTaskStore.clear("com.example.target", 0)
+                false
+            })
+        }.onFailure { /* Failure is the simulated transport outcome. */ }
+        assertEquals(0, PushRuntimeRegistrationTaskStore.pendingCount(androidUserId = 0))
+    }
+
+    @Test
+    fun `clear cancels a drained later task before its dispatcher runs`() {
+        PushRuntimeRegistrationTaskStore.clearForTests()
+        PushRuntimeRegistrationTaskStore.cache("first", Intent("first"), "test", androidUserId = 0)
+        PushRuntimeRegistrationTaskStore.cache("revoked", Intent("revoked"), "test", androidUserId = 0)
+        val sent = mutableListOf<String>()
+        PushRuntimeRegistrationTaskStore.dispatchAll("test", androidUserId = 0, dispatcher = { pkg, _ ->
+            sent += pkg
+            if (pkg == "first") PushRuntimeRegistrationTaskStore.clear("revoked", 0)
+            true
+        })
+        assertEquals(listOf("first"), sent)
+    }
+
 }

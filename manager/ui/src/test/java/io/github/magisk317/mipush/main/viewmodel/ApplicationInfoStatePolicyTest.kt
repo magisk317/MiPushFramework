@@ -122,6 +122,20 @@ class ApplicationInfoStatePolicyTest {
         assertTrue(enabled.suppressWhenDisabled)
     }
 
+    @Test
+    fun `unregister marks unregistered and links the block`() {
+        val info = app(islandEnabled = true, islandFocusNotification = true, clickFallbackEnabled = true)
+
+        val result = ApplicationInfoStatePolicy.withUnregistered(info)
+
+        assertEquals(ManagerApplication.RegisteredType.UNREGISTERED, result.registeredType)
+        assertTrue(result.blocked)
+        assertFalse(result.islandEnabled)
+        assertFalse(result.islandFocusNotification)
+        assertFalse(result.clickFallbackEnabled)
+        assertFalse(result.suppressWhenDisabled)
+    }
+
     private fun app(
         packageName: String = "com.example.app",
         blocked: Boolean = false,

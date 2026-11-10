@@ -37,6 +37,7 @@ import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.AppCard
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import androidx.compose.material3.MaterialTheme
+import io.github.magisk317.uikit.surface.AppFilterChip
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
@@ -70,6 +71,7 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.DialogActionStyle
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.Theme
@@ -171,6 +173,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     fun SettingsScreen(snackbarHostState: AppSnackbarHostState) {
         ApplicationInfoHeader(snackbarHostState)
+        RegistrationPolicyCard(snackbarHostState)
         TipsCard()
         ActivitySectionCard(snackbarHostState)
         IslandDisplaySection(snackbarHostState)
@@ -200,12 +203,16 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: AppSnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
+        val registrationBusy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
+        val info = currentInfo ?: applicationInfo
+        var showUnregisterDialog by remember { mutableStateOf(false) }
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
             stringResource(R.string.mipush_services_not_found)
         }
-        val registrationValue = stringResource(RegistrationStateStyle.registrationLabelResOf(applicationInfo))
+        val registrationValue = stringResource(RegistrationStateStyle.registrationLabelResOf(info))
         val lastPush = formatTime(applicationInfo.lastReceiveTimeMs)
 
         AppCard(
@@ -294,7 +301,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = RegistrationStateStyle.registrationColorOf(applicationInfo)
+                            accent = RegistrationStateStyle.registrationColorOf(info)
                                 .takeIf { it != Color.Unspecified }
                                 ?: appColor(AppColorRole.Tertiary),
                         )
@@ -310,11 +317,11 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         AppPrimaryButton(
                             text = stringResource(R.string.app_detail_force_register),
+                            enabled = !registrationBusy,
                             onClick = {
                                 scope.launch {
                                     val feedback = infoViewModel.launchTargetAppAndForceRegister(
-                                        applicationInfo.packageName,
-                                        applicationInfo.registeredType,
+                                        info.packageName,
                                     )
                                     snackbarHostState.currentSnackbarData?.dismiss()
                                     snackbarHostState.showSnackbar(
@@ -325,10 +332,64 @@ open class ApplicationInfoPage : ComponentActivity() {
                             },
                             maxLines = 2,
                         )
+                        if (info.registeredType == ManagerApplication.RegisteredType.REGISTERED) {
+                            AppSecondaryButton(
+                                text = stringResource(R.string.app_detail_unregister),
+                                enabled = !registrationBusy,
+                                onClick = { showUnregisterDialog = true },
+                                maxLines = 2,
+                            )
+                        }
                         AppSecondaryButton(
                             text = stringResource(R.string.app_detail_open_system_settings),
                             onClick = { openSystemAppInfo(context) },
                             maxLines = 2,
+                        )
+                    }
+                    if (showUnregisterDialog) {
+                        AppAlertDialog(
+                            onDismissRequest = { showUnregisterDialog = false },
+                            title = {
+                                AppText(
+                                    text = stringResource(R.string.app_detail_unregister),
+                                    role = AppTextRole.Title,
+                                    color = appColor(AppColorRole.OnSurface),
+                                )
+                            },
+                            text = {
+                                AppText(
+                                    text = stringResource(R.string.app_detail_unregister_confirm_message),
+                                    color = appColor(AppColorRole.OnSurfaceVariant),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            },
+                            confirmButton = {
+                                DialogActionRow(
+                                    actions = listOf(
+                                        DialogAction(
+                                            label = stringResource(R.string.app_detail_unregister_confirm),
+                                            enabled = !registrationBusy,
+                                            style = DialogActionStyle.Danger,
+                                            onClick = {
+                                                showUnregisterDialog = false
+                                                scope.launch {
+                                                    val feedback = infoViewModel.unregisterApplication(info.packageName)
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = feedback,
+                                                        duration = AppSnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        ),
+                                        DialogAction(
+                                            label = stringResource(R.string.app_detail_unregister_cancel),
+                                            style = DialogActionStyle.Secondary,
+                                            onClick = { showUnregisterDialog = false },
+                                        ),
+                                    ),
+                                )
+                            },
                         )
                     }
                 }
@@ -390,6 +451,52 @@ open class ApplicationInfoPage : ComponentActivity() {
             summary = stringResource(R.string.app_detail_registration_tip_summary),
         ) {
             Tips(description = description)
+        }
+    }
+
+    @Composable
+    private fun RegistrationPolicyCard(snackbarHostState: AppSnackbarHostState) {
+        val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
+        val busy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
+        val info = currentInfo ?: applicationInfo
+        val scope = rememberCoroutineScope()
+        fun runAction(action: suspend () -> String) {
+            scope.launch {
+                val message = action()
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message, duration = AppSnackbarDuration.Short)
+            }
+        }
+        DetailSectionCard(
+            title = stringResource(R.string.app_detail_registration_policy),
+            summary = stringResource(R.string.app_detail_registration_policy_summary),
+        ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                listOf(
+                    ManagerApplication.Type.ALLOW to R.string.app_detail_registration_auto,
+                    ManagerApplication.Type.ASK to R.string.app_detail_registration_ask,
+                    ManagerApplication.Type.DENY to R.string.app_detail_registration_deny,
+                ).forEach { (type, label) ->
+                    AppFilterChip(
+                        label = stringResource(label), selected = info.type == type, enabled = !busy,
+                        onClick = { runAction { infoViewModel.setRegistrationPolicy(info.packageName, type) } },
+                    )
+                }
+            }
+            if (busy) AppText(stringResource(R.string.app_detail_registration_busy))
+            if (info.registrationPending) {
+                AppText(stringResource(R.string.app_detail_registration_pending))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                    AppPrimaryButton(
+                        text = stringResource(R.string.app_detail_registration_approve), enabled = !busy,
+                        onClick = { runAction { infoViewModel.approvePendingRegistration(info.packageName) } },
+                    )
+                    AppSecondaryButton(
+                        text = stringResource(R.string.app_detail_registration_deny), enabled = !busy,
+                        onClick = { runAction { infoViewModel.setRegistrationPolicy(info.packageName, ManagerApplication.Type.DENY) } },
+                    )
+                }
+            }
         }
     }
 

@@ -651,6 +651,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_list_item_delivery_active">Recently active</string>
     <string name="app_list_item_delivery_idle">Waiting to trigger</string>
     <string name="app_detail_force_register">Launch and force register</string>
+    <string name="app_detail_unregister">Unregister</string>
+    <string name="app_detail_unregister_confirm_message">Reports this app as uninstalled to the MiPush server (invalidating its regId), clears its MiPush data, and blocks it. Use Launch and force register to restore.</string>
+    <string name="app_detail_unregister_confirm">Unregister</string>
+    <string name="app_detail_unregister_cancel">Cancel</string>
     <string name="app_detail_open_system_settings">System app info</string>
     <string name="app_detail_service_status">Service status</string>
     <string name="app_detail_service_ready">Services ready</string>
@@ -828,4 +832,14 @@ This could be the application doing a reverse registration, or the registration 
     <string name="wizard_log_granted">Granted: %1$s</string>
     <string name="wizard_log_denied">Not granted: %1$s</string>
     <string name="wizard_descr_foreground_covered">Foreground detection is already covered by another mode.</string>
+    <string name="app_detail_registration_busy">A registration operation is already in progress</string>
+    <string name="app_detail_registration_failed">Could not complete the operation. Check the runtime connection and try again.</string>
+    <string name="app_detail_registration_policy">Registration policy</string>
+    <string name="app_detail_registration_policy_summary">Automatic accepts future registration requests. Ask holds each new request for your approval. Deny rejects requests. This is separate from the current registration status.</string>
+    <string name="app_detail_registration_auto">Automatic</string>
+    <string name="app_detail_registration_ask">Ask</string>
+    <string name="app_detail_registration_deny">Deny</string>
+    <string name="app_detail_registration_pending">A registration request is waiting for approval. Approval replays the saved request without root.</string>
+    <string name="app_detail_registration_approve">Allow and register</string>
+    <string name="app_list_item_registration_pending">Awaiting approval</string>
 </resources>

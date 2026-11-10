@@ -16,6 +16,7 @@ class ManagerApplicationUserScopeTest {
         )
 
         assertEquals(999, application.userId)
+        assertEquals(io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType.ALLOW, application.type)
     }
 
     @Test

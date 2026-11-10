@@ -11,8 +11,9 @@ import androidx.room.RoomDatabaseConstructor
         RuntimeEventRow::class,
         RuntimeDeletedEventRow::class,
         RuntimeRegisteredApplicationRow::class,
+        RuntimePendingRegistrationRow::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @ConstructedBy(RuntimeStoreDatabaseConstructor::class)
@@ -22,6 +23,8 @@ abstract class RuntimeStoreDatabase : RoomDatabase() {
     abstract fun deletedEventDao(): RuntimeDeletedEventDao
 
     abstract fun registeredApplicationDao(): RuntimeRegisteredApplicationDao
+
+    abstract fun pendingRegistrationDao(): RuntimePendingRegistrationDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

@@ -6,6 +6,8 @@ import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnost
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerApplications
 import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
+import io.github.magisk317.mipush.manager.application.ManagerRegistrationResult
+import io.github.magisk317.mipush.manager.application.ManagerUnregisterResult
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
@@ -111,11 +113,56 @@ class RemoteManagerApplicationGateway(
             intArgument = registeredType,
         )
         if (result == null) {
-            throw IllegalStateException("${ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER}:null_response")
+            throw RuntimeWriteUnavailableException(status = "runtime_unavailable", operation = ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER)
         }
         return ManagerForceRegisterResult(
             succeeded = RemoteWriteSupport.isSuccess(result),
             message = result.details.ifBlank { "force_register_completed" },
         )
     }
+
+    override suspend fun unregisterApplication(
+        context: Context,
+        packageName: String,
+    ): ManagerUnregisterResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_UNREGISTER_APPLICATION,
+            packageName = packageName,
+        )
+        if (result == null) {
+            throw RuntimeWriteUnavailableException(status = "runtime_unavailable", operation = ManagerProtocol.WRITE_OP_UNREGISTER_APPLICATION)
+        }
+        return ManagerUnregisterResult(
+            succeeded = RemoteWriteSupport.isSuccess(result),
+            message = result.details.ifBlank { "unregister_completed" },
+        )
+    }
+    override suspend fun setRegistrationPolicy(
+        context: Context,
+        packageName: String,
+        type: Int,
+    ): ManagerRegistrationResult = registrationWrite(
+        ManagerProtocol.WRITE_OP_SET_REGISTRATION_POLICY, packageName, type,
+    )
+
+    override suspend fun approvePendingRegistration(
+        context: Context,
+        packageName: String,
+    ): ManagerRegistrationResult = registrationWrite(ManagerProtocol.WRITE_OP_APPROVE_REGISTRATION, packageName)
+
+    private suspend fun registrationWrite(
+        operation: String,
+        packageName: String,
+        type: Int = 0,
+    ): ManagerRegistrationResult {
+        val result = RemoteWriteSupport.execute(
+            client = client, operation = operation, packageName = packageName, intArgument = type,
+        ) ?: throw RuntimeWriteUnavailableException(status = "runtime_unavailable", operation = operation)
+        return ManagerRegistrationResult(
+            succeeded = RemoteWriteSupport.isSuccess(result),
+            message = result.details.ifBlank { operation },
+        )
+    }
+
 }

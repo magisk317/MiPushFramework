@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.platform.support
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
@@ -20,7 +21,10 @@ object ManagerUiEntryPoints {
 
     private fun hasLocalManagerUi(context: Context): Boolean {
         return runCatching {
-            Class.forName(ManagerComponentNames.MAIN_ACTIVITY, false, context.classLoader)
+            context.packageManager.getActivityInfo(
+                ComponentName.createRelative(context.packageName, ManagerComponentNames.MAIN_ACTIVITY),
+                0,
+            )
             true
         }.getOrDefault(false)
     }

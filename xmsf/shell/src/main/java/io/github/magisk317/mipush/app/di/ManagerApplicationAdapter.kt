@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
+import io.github.magisk317.mipush.manager.application.ManagerUnregisterResult
 import io.github.magisk317.mipush.manager.application.ManagerApplications
 import io.github.magisk317.mipush.manager.application.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
@@ -50,12 +51,17 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
+import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
+import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
+import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
@@ -69,6 +75,7 @@ import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
+import io.github.magisk317.mipush.runtime.store.event.type.UnknownType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
 import io.github.magisk317.mipush.manager.runtime.read.InstalledApplicationSnapshot
@@ -104,6 +111,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         includeSystemApps: Boolean,
     ): ManagerApplications {
         val timer = ElapsedTimer()
+        val pendingPackages = RegisteredApplicationDb.getPendingRegistrations().map { it.packageName }.toSet()
         var registered = RegisteredApplicationDb.getList(null)
             .filter { includeSystemApps || Utils.isUserApplication(it.packageName) }
             .associateBy { it.packageName }
@@ -152,7 +160,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     locallyRegistered = false,
                     fallbackToInstalledName = false,
                     deriveAppNamePinYin = true,
-                )
+                ).copy(registrationPending = enriched.row.packageName in pendingPackages)
             }
             .filter { ManagerApplicationReadPolicy.matchesQuery(it, query) }
             .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
@@ -173,7 +181,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     locallyRegistered = false,
                     fallbackToInstalledName = false,
                     deriveAppNamePinYin = true,
-                )
+                ).copy(registrationPending = app.packageName in pendingPackages)
             },
             items = apps,
             totalPkg = catalog.totalCandidatePackages,
@@ -236,11 +244,16 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             locallyRegistered = false,
             fallbackToInstalledName = false,
             deriveAppNamePinYin = false,
-        )
+        ).copy(registrationPending = RegisteredApplicationDb.getPendingRegistration(packageName, application.userId) != null)
     }
 
     override suspend fun updateApplication(application: ManagerApplication) {
-        RegisteredApplicationDb.update(application.toRegisteredApplicationRow())
+        PackageRegistrationGuard.withPackage(application.packageName, application.userId) {
+            val latest = RegisteredApplicationDb.getRegisteredApplication(application.packageName) ?: return@withPackage
+            // Legacy transport still carries type/blocked/status; only the policy operation may
+            // change admission. A settings snapshot must not undo a concurrent manual revocation.
+            RegisteredApplicationDb.update(mergeEditableApplicationSettings(latest, application))
+        }
     }
 
     override suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
@@ -273,6 +286,109 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             ),
             userId = userId,
         )
+    }
+
+    override suspend fun setRegistrationPolicy(context: Context, packageName: String, type: Int) =
+        io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.setPolicy(context, packageName, type)
+
+    override suspend fun approvePendingRegistration(context: Context, packageName: String) =
+        io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.approve(context, packageName)
+
+    override suspend fun unregisterApplication(
+        context: Context,
+        packageName: String,
+    ): ManagerUnregisterResult {
+        // The app-side MiPush data wipe runs as root, so elevation is mandatory.
+        if (!PermissionUtils.requestRootAccess()) {
+            logW("unregister aborted for $packageName: root not granted")
+            recordUnregisterEvent(packageName, "unregister_abort_root_denied", EventRowResultType.DENY_USER)
+            return ManagerUnregisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.unregister_requires_root),
+            )
+        }
+        val userId = Utils.requireValidUserId(Utils.myUserId())
+        return PackageRegistrationGuard.withPackage(packageName, userId) {
+            unregisterLocked(context, packageName, userId)
+        }
+    }
+
+    private fun unregisterLocked(context: Context, packageName: String, userId: Int): ManagerUnregisterResult {
+        val application = RegisteredApplicationDb.getRegisteredApplication(packageName)
+            ?: return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_not_registered))
+        val registration = PushShellBridgeHolder.registration()
+        val appId = registration.rememberedAppId(context, packageName)
+        // Block first. Retried local cleanup remains available after a partial revocation.
+        RegisteredApplicationDb.update(application.copy(
+            blocked = true,
+            type = 3, // DENY; retained legacy registration-policy wire value.
+        ))
+        PackageRegistrationGuard.recordPolicyMutation(packageName, userId)
+        if (!appId.isNullOrBlank()) {
+            val accepted = runCatching {
+                registration.reportAppAbsent(context, packageName, appId, "manager_unregister")
+            }.getOrDefault(false)
+            if (!accepted) {
+                return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_report_failed))
+            }
+        } else if (application.registeredType == RegisteredAppRegisteredType.Registered || !application.blocked) {
+            return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_app_id_missing))
+        }
+        RegisteredApplicationDb.clearPendingRegistration(packageName, userId)
+        registration.forgetRegisteredPackage(context, packageName)
+        registration.forgetPendingRegistration(context, packageName)
+        registration.markPackageUnregistered(context, packageName)
+        RegistrationStateStore.updateIfChanged(
+            application = RegisteredApplicationDb.getRegisteredApplication(packageName) ?: application,
+            nextType = RegisteredAppRegisteredType.Unregistered,
+            source = RegistrationStateStore.Source.MANUAL,
+        )
+        // Link the block: registration/notification gates ignore this app and dependent switches
+        // clear, mirroring ApplicationInfoStatePolicy.withBlocked on the manager side.
+        RegisteredApplicationDb.getRegisteredApplication(packageName)?.let { current ->
+            RegisteredApplicationDb.update(
+                current.copy(
+                    blocked = true,
+                    islandEnabled = false,
+                    islandFocusNotification = false,
+                    clickFallbackEnabled = false,
+                    suppressWhenDisabled = false,
+                    countLimitExempt = false,
+                )
+            )
+        }
+        // Drop cached offline registration payloads/tasks so the next bind cannot resurrect the regId.
+        PushRuntimePendingPacketStore.discardPackage(packageName, userId)
+        PushRuntimeRegistrationTaskStore.clear(packageName, userId)
+        Utils.removeRegSec(packageName, userId)
+        Utils.removeLastReceiveTime(packageName, userId)
+        PushRuntime.clearPackageTransientState(packageName, userId)
+        PushRuntime.observeUnregistration(
+            packageName = packageName,
+            source = "XmsfManagerApplicationGateway.unregisterApplication",
+            reason = "manual_unregister",
+            androidUserId = userId,
+        )
+        PushShellBridgeHolder.packageState().clearPackageDataShellState(context, packageName, userId)
+        MiPushRuntimeBridge.clearPackageTransientState(packageName, userId)
+        val wiped = runCatching { RegistrationHelper(context, packageName).removeMiPushData(userId) }
+            .getOrDefault(false)
+        logI("unregister: wiped app-side MiPush data for $packageName user=$userId success=$wiped")
+        recordUnregisterEvent(packageName, "unregister_submitted wiped=$wiped", if (wiped) EventRowResultType.OK else EventRowResultType.DENY_DISABLED)
+        return ManagerUnregisterResult(
+            succeeded = wiped,
+            message = context.getString(if (wiped) com.xiaomi.xmsf.R.string.unregister_completed else com.xiaomi.xmsf.R.string.unregister_partial),
+        )
+    }
+
+    private fun recordUnregisterEvent(packageName: String, info: String, result: Int) {
+        runCatching {
+            runBlocking {
+                EventDb.insertEventAsync(result, UnknownType(EventRowType.UnRegistration, info, packageName, null))
+            }
+        }.onFailure {
+            logW("unregister event write failed for $packageName info=$info error=${it.message}")
+        }
     }
 
     override suspend fun launchTargetAppAndForceRegister(
@@ -322,11 +438,34 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
             )
         }
+        val forceUserId = Utils.requireValidUserId(Utils.myUserId())
+        val admission = PackageRegistrationGuard.withPackage(packageName, forceUserId) {
+            if (!PushShellBridgeHolder.registration().flushAppAbsentBeforeRegister(context, packageName)) {
+                null
+            } else {
+                prepareForceRegistrationAdmission(packageName, forceUserId)
+            }
+        } ?: return ManagerForceRegisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_pending))
+        return withRegistrationRollback(
+            isConfirmed = { it.succeeded },
+            rollback = { restoreForceRegistrationAdmission(admission) },
+        ) {
+            executeForceRegister(context, packageName, registeredType)
+        }
+    }
+
+    private suspend fun executeForceRegister(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult {
         // Root's ActivityManager path first. This gateway runs inside the background xmsf
         // process, so Context.startActivity() is subject to Android's background-launch policy
         // even though the Manager UI initiated the call; `am start -W` is not, and it reports
         // whether the launch actually happened. Never force-stop: a stopped app has no live
         // process, so every dispatch channel fails — that was the "已拒绝" (DENY_DISABLED) case.
+        // Toggle symmetry with manual unregister (which links blocked=true): clear the block
+        // before launching, or every registration gate ignores this app and the result times out.
         recordForceRegisterStage(packageName, "force_register_relaunch")
         val rootLaunched = withContext(Dispatchers.IO) {
             launchTargetAppViaRoot(context, packageName)
@@ -339,6 +478,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     RegistrationHelper.launchAppForForceRegister(context, packageName)
                 }
             }.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
                 logW("force register: SDK pull up failed for $packageName: ${it.localizedMessage}")
                 recordForceRegisterStage(packageName, "force_register_relaunch_failed")
             }
@@ -495,8 +635,21 @@ internal fun transientRegisteredApplication(
     id = null,
     packageName = packageName,
     userId = Utils.requireValidUserId(userId),
-    type = RegisteredAppType.ASK,
+    type = RegisteredAppType.ALLOW,
     notificationOnRegister = true,
     registeredType = RegisteredAppRegisteredType.NotRegistered,
     appName = appName,
+)
+
+/** Applies presentation options while preserving fresh runtime and admission state. */
+internal fun mergeEditableApplicationSettings(
+    latest: RuntimeRegisteredApplicationRow,
+    submitted: ManagerApplication,
+): RuntimeRegisteredApplicationRow = latest.copy(
+    notificationOnRegister = submitted.notificationOnRegister,
+    islandEnabled = !latest.blocked && submitted.islandEnabled,
+    islandFocusNotification = !latest.blocked && submitted.islandFocusNotification,
+    clickFallbackEnabled = !latest.blocked && submitted.clickFallbackEnabled,
+    suppressWhenDisabled = !latest.blocked && submitted.suppressWhenDisabled,
+    countLimitExempt = !latest.blocked && submitted.countLimitExempt,
 )

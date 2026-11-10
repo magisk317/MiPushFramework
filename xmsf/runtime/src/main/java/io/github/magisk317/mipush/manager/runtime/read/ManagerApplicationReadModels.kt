@@ -18,6 +18,7 @@ data class StoredApplicationSnapshot(
     val countLimitExempt: Boolean = false,
     val registeredType: Int,
     val appName: String,
+    val registrationPending: Boolean = false,
 )
 
 /** Package-manager data used to enrich a persisted row without changing storage. */
@@ -138,6 +139,7 @@ fun StoredApplicationSnapshot.toManagerApplication(
         userId = userId,
         packageName = packageName,
         type = type,
+        registrationPending = registrationPending,
         notificationOnRegister = notificationOnRegister,
         blocked = blocked,
         islandEnabled = islandEnabled,

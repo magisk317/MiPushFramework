@@ -53,6 +53,10 @@ interface PushShellRegistrationBridge {
     fun forgetRegisteredPackage(context: Context, packageName: String)
     fun rememberRegisteredPackage(context: Context, packageName: String, appId: String)
     fun setRegSec(context: Context, packageName: String, regSecret: String)
+    fun rememberedAppId(context: Context, packageName: String): String?
+    fun reportAppAbsent(context: Context, packageName: String, appId: String, source: String): Boolean
+    fun flushAppAbsentBeforeRegister(context: Context, packageName: String): Boolean
+    fun markPackageUnregistered(context: Context, packageName: String)
 }
 
 interface PushShellPolicyBridge {

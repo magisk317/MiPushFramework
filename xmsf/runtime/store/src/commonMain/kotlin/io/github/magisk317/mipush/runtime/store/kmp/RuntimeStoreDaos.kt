@@ -257,8 +257,11 @@ interface RuntimeRegisteredApplicationDao {
     @Delete
     suspend fun delete(application: RuntimeRegisteredApplicationRow)
 
-    @Query("UPDATE REGISTERED_APPLICATION SET blocked = :blocked WHERE id = :id AND user_id = :userId")
+    @Query("UPDATE REGISTERED_APPLICATION SET blocked = :blocked, type = CASE WHEN :blocked THEN 3 ELSE 2 END WHERE id = :id AND user_id = :userId")
     suspend fun updateBlocked(id: Long, blocked: Boolean, userId: Int): Int
+
+    @Query("UPDATE REGISTERED_APPLICATION SET type = :type, blocked = :blocked WHERE pkg = :pkg AND user_id = :userId")
+    suspend fun updateRegistrationPolicy(pkg: String, userId: Int, type: Int, blocked: Boolean): Int
 
     @Query("SELECT blocked FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
     suspend fun isBlocked(pkg: String, userId: Int): Boolean?

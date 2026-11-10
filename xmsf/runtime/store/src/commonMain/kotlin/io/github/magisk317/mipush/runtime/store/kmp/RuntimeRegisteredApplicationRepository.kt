@@ -60,7 +60,7 @@ class RuntimeRegisteredApplicationRepository(
         val created = RuntimeRegisteredApplicationRow(
             packageName = packageName,
             userId = userId,
-            type = RegisteredAppType.ASK,
+            type = RegisteredAppType.ALLOW,
             notificationOnRegister = true,
             registeredType = RegisteredAppRegisteredType.NotRegistered,
             appName = appNameForPackage(packageName),

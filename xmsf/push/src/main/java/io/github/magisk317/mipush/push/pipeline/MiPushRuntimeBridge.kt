@@ -6,6 +6,9 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
+import io.github.magisk317.mipush.runtime.core.registration.RegistrationPolicyGate
+import io.github.magisk317.mipush.runtime.core.registration.RegistrationPolicyDecision
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.push.service.PushConstants
@@ -471,44 +474,49 @@ object MiPushRuntimeBridge {
         container: XmPushActionContainer,
         application: RuntimeRegisteredApplicationRow
     ) {
-        val registrationOutcome = resolveRegistrationResultOutcome(container)
-        if (registrationOutcome != null) {
-            PushShellBridgeHolder.registration().forgetPendingRegistration(context, application.packageName)
-            if (!registrationOutcome.success) {
-                PushRuntime.observeRegistrationResult(
-                    packageName = application.packageName,
-                    success = false,
-                    source = "server_result:${container.action}",
-                    reason = "registration_error",
-                )
-                return
+        PackageRegistrationGuard.withPackage(application.packageName, application.userId) {
+            val latest = RegisteredApplicationDb.getRegisteredApplication(application.packageName) ?: application
+            if (RegistrationPolicyGate.decide(latest.type, latest.blocked) != RegistrationPolicyDecision.Allow) return@withPackage
+
+            val registrationOutcome = resolveRegistrationResultOutcome(container)
+            if (registrationOutcome != null) {
+                PushShellBridgeHolder.registration().forgetPendingRegistration(context, latest.packageName)
+                if (!registrationOutcome.success) {
+                    PushRuntime.observeRegistrationResult(
+                        packageName = latest.packageName,
+                        success = false,
+                        source = "server_result:${container.action}",
+                        reason = "registration_error",
+                    )
+                    return@withPackage
+                }
             }
-        }
-        val transition = resolveConfirmedRegistrationTransition(container) ?: return
-        val nextType = transition.registeredType
-        PushShellBridgeHolder.registration().updateRegistrationState(application, nextType)
-        when (nextType) {
-            RegisteredAppRegisteredType.Registered -> {
-                MIPushAppInfo.getInstance(context).removeUnRegisteredPkg(application.packageName)
-                PushRuntime.observeRegistrationResult(
-                    packageName = application.packageName,
-                    success = true,
-                    source = "server_result:${container.action}"
-                )
-            }
-            RegisteredAppRegisteredType.Unregistered -> {
-                MIPushAppInfo.getInstance(context).addUnRegisteredPkg(application.packageName)
-                PushRuntime.observeUnregistration(
-                    packageName = application.packageName,
-                    source = "server_result:${container.action}"
-                )
-            }
-            else -> {
-                PushRuntime.observeRegistrationState(
-                    packageName = application.packageName,
-                    state = PushRegistrationState.NotRegistered,
-                    source = "server_result:${container.action}"
-                )
+            val transition = resolveConfirmedRegistrationTransition(container) ?: return@withPackage
+            val nextType = transition.registeredType
+            PushShellBridgeHolder.registration().updateRegistrationState(latest, nextType)
+            when (nextType) {
+                RegisteredAppRegisteredType.Registered -> {
+                    MIPushAppInfo.getInstance(context).removeUnRegisteredPkg(latest.packageName)
+                    PushRuntime.observeRegistrationResult(
+                        packageName = latest.packageName,
+                        success = true,
+                        source = "server_result:${container.action}"
+                    )
+                }
+                RegisteredAppRegisteredType.Unregistered -> {
+                    MIPushAppInfo.getInstance(context).addUnRegisteredPkg(latest.packageName)
+                    PushRuntime.observeUnregistration(
+                        packageName = latest.packageName,
+                        source = "server_result:${container.action}"
+                    )
+                }
+                else -> {
+                    PushRuntime.observeRegistrationState(
+                        packageName = latest.packageName,
+                        state = PushRegistrationState.NotRegistered,
+                        source = "server_result:${container.action}"
+                    )
+                }
             }
         }
     }
@@ -619,20 +627,25 @@ object MiPushRuntimeBridge {
         packageName: String,
         transition: ConfirmedRegistrationTransition,
     ) {
-        when (transition.registeredType) {
-            RegisteredAppRegisteredType.Registered -> {
-                // Dual-store invariant (Requirements 3.6/12.1/12.2, Property 5): the app-id
-                // map and the regSecret store are written only as one atomic pair. A relaxed
-                // id-only confirmation flips the registration row via updateRegistrationState
-                // above but stores nothing here; the missing half is supplied later by a full
-                // registration response or by the getRegSecs recovery healer.
-                val appId = transition.appId ?: return
-                val regSecret = transition.regSecret ?: return
-                PushShellBridgeHolder.registration().rememberRegisteredPackage(context, packageName, appId)
-                PushShellBridgeHolder.registration().setRegSec(context, packageName, regSecret)
+        PackageRegistrationGuard.withPackage(packageName, Utils.requireValidUserId(Utils.myUserId())) {
+            val latest = RegisteredApplicationDb.getRegisteredApplication(packageName)
+            if (latest != null && RegistrationPolicyGate.decide(latest.type, latest.blocked) != RegistrationPolicyDecision.Allow) return@withPackage
+
+            when (transition.registeredType) {
+                RegisteredAppRegisteredType.Registered -> {
+                    // Dual-store invariant (Requirements 3.6/12.1/12.2, Property 5): the app-id
+                    // map and the regSecret store are written only as one atomic pair. A relaxed
+                    // id-only confirmation flips the registration row via updateRegistrationState
+                    // above but stores nothing here; the missing half is supplied later by a full
+                    // registration response or by the getRegSecs recovery healer.
+                    val appId = transition.appId ?: return@withPackage
+                    val regSecret = transition.regSecret ?: return@withPackage
+                    PushShellBridgeHolder.registration().rememberRegisteredPackage(context, packageName, appId)
+                    PushShellBridgeHolder.registration().setRegSec(context, packageName, regSecret)
+                }
+                RegisteredAppRegisteredType.Unregistered ->
+                    PushShellBridgeHolder.registration().forgetRegisteredPackage(context, packageName)
             }
-            RegisteredAppRegisteredType.Unregistered ->
-                PushShellBridgeHolder.registration().forgetRegisteredPackage(context, packageName)
         }
     }
 

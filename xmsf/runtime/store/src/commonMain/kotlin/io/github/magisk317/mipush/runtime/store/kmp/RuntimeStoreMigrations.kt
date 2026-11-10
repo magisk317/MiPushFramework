@@ -191,6 +191,18 @@ object RuntimeStoreMigrations {
         }
     }
 
+    /** Activate explicit registration policy without turning historical default ASK rows into prompts. */
+    val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("UPDATE REGISTERED_APPLICATION SET type = CASE WHEN blocked != 0 THEN 3 ELSE 2 END")
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS PENDING_REGISTRATION (user_id INTEGER NOT NULL, pkg TEXT NOT NULL, " +
+                    "payload BLOB NOT NULL, env_changed INTEGER NOT NULL, env_type INTEGER NOT NULL, created_at INTEGER NOT NULL, " +
+                    "PRIMARY KEY(user_id, pkg))"
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -203,6 +215,7 @@ object RuntimeStoreMigrations {
         MIGRATION_9_10,
         MIGRATION_10_11,
         MIGRATION_11_12,
+        MIGRATION_12_13,
     )
 
     private fun SQLiteConnection.hasColumn(tableName: String, columnName: String): Boolean =

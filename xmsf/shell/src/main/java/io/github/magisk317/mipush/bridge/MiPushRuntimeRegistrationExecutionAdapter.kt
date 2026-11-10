@@ -1,5 +1,9 @@
 package io.github.magisk317.mipush.bridge
 
+import io.github.magisk317.mipush.runtime.core.registration.RegistrationPolicyGate
+import io.github.magisk317.mipush.runtime.core.registration.RegistrationPolicyDecision
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.push.service.IPendingPacketErrorNotifier
@@ -107,11 +111,15 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
     }
 
     fun dispatchRegistrationTasks(source: String, dispatcher: Any?) {
-        PushRuntimeRegistrationTaskStore.dispatchAll(source, dispatcher = { _, intent ->
-            runCatching {
-                appContext.startService(Intent(intent))
-                true
-            }.getOrDefault(false)
+        PushRuntimeRegistrationTaskStore.dispatchAll(source, dispatcher = { packageName, intent ->
+            PackageRegistrationGuard.withPackage(packageName, currentUserId()) {
+                if (!registrationAllowed(packageName)) {
+                    PushRuntimeRegistrationTaskStore.clear(packageName, currentUserId())
+                    true
+                } else runCatching {
+                    appContext.startService(Intent(intent)) != null
+                }.getOrDefault(false)
+            }
         })
     }
 
@@ -139,8 +147,19 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
     fun processPendingRegistrationRequests(source: String, sender: IPendingPacketSender) {
         val pushAction = XMPushServiceProxy.get() ?: return
         PushRuntimePendingPacketStore.processPendingRegistrationRequests(source, sender = { packageName, payload ->
-            com.xiaomi.push.service.MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
+            PackageRegistrationGuard.withPackage(packageName, currentUserId()) {
+                if (registrationAllowed(packageName)) {
+                    com.xiaomi.push.service.MIPushHelper.sendPacket(pushAction, appContext, packageName, payload)
+                } else {
+                    PushRuntimePendingPacketStore.discardPackage(packageName, currentUserId())
+                }
+            }
         })
+    }
+
+    private fun registrationAllowed(packageName: String): Boolean {
+        val row = RegisteredApplicationDb.getRegisteredApplication(packageName) ?: return true
+        return RegistrationPolicyGate.decide(row.type, row.blocked) == RegistrationPolicyDecision.Allow
     }
 
     fun resolveRegisterAppPlan(
@@ -150,6 +169,11 @@ internal class MiPushRuntimeRegistrationExecutionAdapter(
         envType: Int,
         servicePackageName: String,
     ): PushServiceRegisterAppPlan {
+        if (io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.intercept(
+                appContext, packageName, payload, envChanged, envType,
+            )) {
+            return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
+        }
         if (packageName != null && io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb.isBlocked(packageName)) {
             return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
         }

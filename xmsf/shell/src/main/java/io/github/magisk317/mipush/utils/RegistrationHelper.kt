@@ -39,26 +39,19 @@ class RegistrationHelper(
     private val context: Context,
     private val packageName: String
 ) {
-    fun removeMiPushData(): Boolean {
+    fun removeMiPushData(userId: Int = 0): Boolean {
+        val paths = listOf(
+            "/data/user/$userId/$packageName/shared_prefs/mipush*.xml",
+            "/data_mirror/data_ce/null/$userId/$packageName/shared_prefs/mipush*.xml",
+            "/data/user/$userId/$packageName/files/keva/repo/mipush",
+            "/data/user/$userId/$packageName/files/keva/repo/mipush*",
+            "/data_mirror/data_ce/null/$userId/$packageName/files/keva/repo/mipush",
+            "/data_mirror/data_ce/null/$userId/$packageName/files/keva/repo/mipush*",
+        ).joinToString(" ")
         val result = AppRootAccessFacade.runRootCommand(
-            String.format(
-                "rm -rf $(ls -1" +
-                    " /data/user/0/%s/shared_prefs/mipush*.xml" +
-                    " /data_mirror/data_ce/null/0/%s/shared_prefs/mipush*.xml" +
-                    " /data/user/0/%s/files/keva/repo/mipush" +
-                    " /data/user/0/%s/files/keva/repo/mipush*" +
-                    " /data_mirror/data_ce/null/0/%s/files/keva/repo/mipush" +
-                    " /data_mirror/data_ce/null/0/%s/files/keva/repo/mipush*" +
-                    " 2> /dev/null)",
-                packageName,
-                packageName,
-                packageName,
-                packageName,
-                packageName,
-                packageName
-            )
+            "rm -rf $(ls -1 $paths 2> /dev/null)"
         )
-        logI("remove mipush data for $packageName success=${result.isSuccess}")
+        logI("remove mipush data for $packageName user=$userId success=${result.isSuccess}")
         return result.isSuccess
     }
 

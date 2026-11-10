@@ -12,8 +12,8 @@ import io.github.magisk317.mipush.manager.notification.NotificationChannelReadSt
 import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
-import io.github.magisk317.mipush.manager.remote.RuntimeWriteRejectedException
-import io.github.magisk317.mipush.manager.remote.RuntimeWriteUnavailableException
+import io.github.magisk317.mipush.manager.R
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
@@ -58,6 +58,12 @@ internal object ApplicationInfoStatePolicy {
         } else {
             info.copy(blocked = false)
         }
+
+    fun withUnregistered(info: ManagerApplication): ManagerApplication =
+        withBlocked(
+            info.copy(registeredType = ManagerApplication.RegisteredType.UNREGISTERED),
+            blocked = true,
+        )
 
     fun withIslandEnabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
         if (!controls(info).islandEnabled) return null
@@ -154,19 +160,25 @@ class ApplicationInfoViewModel constructor(
     private var notificationChannelsJob: Job? = null
     private val applicationWriteMutex = Mutex()
 
-    private fun persistApplication(previous: ManagerApplication, updated: ManagerApplication) {
+    private val _registrationBusy = MutableStateFlow(false)
+    val registrationBusy: StateFlow<Boolean> = _registrationBusy.asStateFlow()
+
+    private fun updateApplication(transform: (ManagerApplication) -> ManagerApplication?) {
+        if (_registrationBusy.value) return
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                applicationWriteMutex.withLock {
+            applicationWriteMutex.withLock {
+                // A queued setting must never overwrite a registration operation's new state.
+                if (_registrationBusy.value) return@withLock
+                val previous = _applicationInfo.value ?: return@withLock
+                val updated = transform(previous) ?: return@withLock
+                _applicationInfo.value = updated
+                try {
                     applicationGateway.updateApplication(updated)
-                }
-            } catch (_: RuntimeWriteUnavailableException) {
-                if (_applicationInfo.value == updated) {
-                    _applicationInfo.value = previous
-                }
-            } catch (_: RuntimeWriteRejectedException) {
-                if (_applicationInfo.value == updated) {
-                    _applicationInfo.value = previous
+                } catch (error: CancellationException) {
+                    if (_applicationInfo.value == updated) _applicationInfo.value = previous
+                    throw error
+                } catch (_: Exception) {
+                    if (_applicationInfo.value == updated) _applicationInfo.value = previous
                 }
             }
         }
@@ -194,59 +206,83 @@ class ApplicationInfoViewModel constructor(
     }
 
     fun updateBlocked(blocked: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withBlocked(current, blocked)
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-
-    fun updateIslandEnabled(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withIslandEnabled(current, enabled) ?: return
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-
-    fun updateIslandFocusEnabled(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withIslandFocusEnabled(current, enabled) ?: return
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-
-    fun updateClickFallbackEnabled(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withClickFallbackEnabled(current, enabled) ?: return
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-
-    fun updateSuppressWhenDisabled(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withSuppressWhenDisabled(current, enabled) ?: return
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-
-    fun updateCountLimitExempt(enabled: Boolean) {
-        val current = _applicationInfo.value ?: return
-        val updated = ApplicationInfoStatePolicy.withCountLimitExempt(current, enabled) ?: return
-        _applicationInfo.value = updated
-        persistApplication(current, updated)
-    }
-    suspend fun launchTargetAppAndForceRegister(
-        packageName: String,
-        registeredType: Int,
-    ): String {
-        return withContext(Dispatchers.IO) {
-            applicationGateway.launchTargetAppAndForceRegister(
-                context = context,
-                packageName = packageName,
-                registeredType = registeredType,
-            ).message
+        if (_registrationBusy.value) return
+        val packageName = _applicationInfo.value?.packageName ?: return
+        viewModelScope.launch {
+            setRegistrationPolicy(
+                packageName,
+                if (blocked) ManagerApplication.Type.DENY else ManagerApplication.Type.ALLOW,
+            )
         }
     }
 
+    fun updateIslandEnabled(enabled: Boolean) = updateApplication {
+        ApplicationInfoStatePolicy.withIslandEnabled(it, enabled)
+    }
+
+    fun updateIslandFocusEnabled(enabled: Boolean) = updateApplication {
+        ApplicationInfoStatePolicy.withIslandFocusEnabled(it, enabled)
+    }
+
+    fun updateClickFallbackEnabled(enabled: Boolean) = updateApplication {
+        ApplicationInfoStatePolicy.withClickFallbackEnabled(it, enabled)
+    }
+
+    fun updateSuppressWhenDisabled(enabled: Boolean) = updateApplication {
+        ApplicationInfoStatePolicy.withSuppressWhenDisabled(it, enabled)
+    }
+
+    fun updateCountLimitExempt(enabled: Boolean) = updateApplication {
+        ApplicationInfoStatePolicy.withCountLimitExempt(it, enabled)
+    }
+
+    suspend fun launchTargetAppAndForceRegister(packageName: String): String = registrationOperation(packageName) { current ->
+        applicationGateway.launchTargetAppAndForceRegister(context, packageName, current.registeredType).message
+    }
+
+    suspend fun unregisterApplication(packageName: String): String = registrationOperation(packageName) {
+        applicationGateway.unregisterApplication(context, packageName).message
+    }
+
+    suspend fun setRegistrationPolicy(packageName: String, type: Int): String = registrationOperation(packageName) {
+        applicationGateway.setRegistrationPolicy(context, packageName, type).message
+    }
+
+    suspend fun approvePendingRegistration(packageName: String): String = registrationOperation(packageName) {
+        applicationGateway.approvePendingRegistration(context, packageName).message
+    }
+
+    private suspend fun registrationOperation(
+        packageName: String,
+        action: suspend (ManagerApplication) -> String,
+    ): String {
+        if (!_registrationBusy.compareAndSet(expect = false, update = true)) {
+            return context.getString(R.string.app_detail_registration_busy)
+        }
+        try {
+            return withContext(Dispatchers.IO) {
+                applicationWriteMutex.withLock {
+                    val current = _applicationInfo.value?.takeIf { it.packageName == packageName }
+                        ?: return@withLock context.getString(R.string.app_detail_registration_failed)
+                    val message = action(current)
+                    // Read the runtime's committed state on both success and a reported failure;
+                    // an accepted request is not evidence that server registration completed.
+                    val refreshed = applicationGateway.getApplication(context, packageName, false)
+                    if (_applicationInfo.value?.packageName == packageName && refreshed?.packageName == packageName) {
+                        _applicationInfo.value = refreshed
+                        loadDiagnostics(packageName, refreshed.registeredType)
+                    }
+                    message
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            return context.getString(R.string.app_detail_registration_failed)
+        } finally {
+            _registrationBusy.value = false
+        }
+    }
 
     fun deleteNotificationChannel(channelId: String, onResult: (Boolean) -> Unit = {}) {
         val packageName = _applicationInfo.value?.packageName ?: run {
