@@ -284,7 +284,13 @@ object DefaultPushShellBridge : PushShellBridge {
         return true // Durable acceptance only; a socket write is not a server acknowledgement.
     }
 
+    override fun hasPendingAppAbsent(context: Context, packageName: String): Boolean =
+        context.getSharedPreferences(PENDING_APP_ABSENT_PREFS, 0).contains(packageName)
+
     override fun flushAppAbsentBeforeRegister(context: Context, packageName: String): Boolean {
+        if (io.github.magisk317.mipush.service.RegistrationRevocationJournal.hasPending(
+                context, packageName, Utils.requireValidUserId(Utils.myUserId()),
+            )) return false
         val pending = context.getSharedPreferences(PENDING_APP_ABSENT_PREFS, 0)
         if (!pending.contains(packageName)) return true
         val service = XMPushServiceLifecycleBridge.peekService() ?: return false

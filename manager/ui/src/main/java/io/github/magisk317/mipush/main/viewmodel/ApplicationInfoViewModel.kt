@@ -46,18 +46,7 @@ internal object ApplicationInfoStatePolicy {
         )
 
     fun withBlocked(info: ManagerApplication, blocked: Boolean): ManagerApplication =
-        if (blocked) {
-            info.copy(
-                blocked = true,
-                islandEnabled = false,
-                islandFocusNotification = false,
-                clickFallbackEnabled = false,
-                suppressWhenDisabled = false,
-                countLimitExempt = false,
-            )
-        } else {
-            info.copy(blocked = false)
-        }
+        info.copy(blocked = blocked)
 
     fun withUnregistered(info: ManagerApplication): ManagerApplication =
         withBlocked(

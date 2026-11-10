@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.compat
 import android.content.Context
 import android.content.SharedPreferences
 import io.github.magisk317.mipush.push.bridge.DefaultPushShellBridge
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.mockk.every
 import io.mockk.mockk
@@ -39,7 +40,11 @@ class AppAbsentSubmissionBehaviorTest {
         val context = mockk<Context>()
         val prefs = mockk<SharedPreferences>()
         every { context.getSharedPreferences("pref_pending_app_absent", 0) } returns prefs
+        every { context.getSharedPreferences("pref_pending_registration_revocation", 0) } returns mockk(relaxed = true)
         every { prefs.contains("app.pkg") } returns true
+        mockkStatic(Utils::class)
+        every { Utils.myUserId() } returns 0
+        every { Utils.requireValidUserId(0) } returns 0
         mockkStatic(XMPushServiceLifecycleBridge::class)
         every { XMPushServiceLifecycleBridge.peekService() } returns null
 

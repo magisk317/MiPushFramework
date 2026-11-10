@@ -5,7 +5,7 @@ import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RegistrationSettingsMergeTest {
@@ -20,6 +20,11 @@ class RegistrationSettingsMergeTest {
             notificationOnRegister = false,
             registeredType = RegisteredAppRegisteredType.Unregistered,
             appName = "App",
+            islandEnabled = true,
+            islandFocusNotification = true,
+            clickFallbackEnabled = true,
+            suppressWhenDisabled = true,
+            countLimitExempt = true,
         )
         val stale = ManagerApplication(
             id = 7L,
@@ -27,10 +32,11 @@ class RegistrationSettingsMergeTest {
             type = 2,
             blocked = false,
             registeredType = ManagerApplication.RegisteredType.REGISTERED,
-            islandEnabled = true,
-            islandFocusNotification = true,
-            clickFallbackEnabled = true,
-            countLimitExempt = true,
+            islandEnabled = false,
+            islandFocusNotification = false,
+            clickFallbackEnabled = false,
+            suppressWhenDisabled = false,
+            countLimitExempt = false,
             notificationOnRegister = true,
         )
 
@@ -40,9 +46,10 @@ class RegistrationSettingsMergeTest {
         assertEquals(true, saved.blocked)
         assertEquals(RegisteredAppRegisteredType.Unregistered, saved.registeredType)
         assertEquals(true, saved.notificationOnRegister)
-        assertFalse(saved.islandEnabled)
-        assertFalse(saved.islandFocusNotification)
-        assertFalse(saved.clickFallbackEnabled)
-        assertFalse(saved.countLimitExempt)
+        assertTrue(saved.islandEnabled)
+        assertTrue(saved.islandFocusNotification)
+        assertTrue(saved.clickFallbackEnabled)
+        assertTrue(saved.countLimitExempt)
+        assertTrue(saved.suppressWhenDisabled)
     }
 }

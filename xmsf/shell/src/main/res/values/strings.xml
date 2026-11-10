@@ -305,10 +305,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="force_register_confirmed">Application registration confirmed</string>
     <string name="force_register_timeout">Request sent, but no registration result was confirmed before timeout</string>
     <string name="force_register_failed">Force-register failed, check logs</string>
-    <string name="unregister_requires_root">Unregister requires root access</string>
+    <string name="unregister_requires_root">Denied and unregistration queued, but app credential cleanup needs root. Retry Deny after granting root.</string>
     <string name="unregister_not_registered">This app is not currently registered</string>
-    <string name="unregister_app_id_missing">Missing appId; force register once before unregistering</string>
-    <string name="unregister_completed">Disabled and unregistration request submitted; the server may still be processing it</string>
+    <string name="unregister_app_id_missing">Valid registration information is missing, so unregistration could not finish. Register again, then select Deny to retry.</string>
+    <string name="unregister_completed">Denied and local registration cleared. The unregistration request was submitted; the server may still be processing it.</string>
     <string name="mock_notification_missing_regsec">Cannot replay this encrypted push message: register secret is missing. Re-register the app and try again.</string>
     <string name="mock_notification_failed_event_not_found">Replay failed: event record not found in database (may have been pruned or deleted).</string>
     <string name="mock_notification_failed_payload_missing">Replay failed: missing original push payload to reconstruct notification.</string>
@@ -462,7 +462,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_voip_accept">Accept</string>
     <string name="mock_voip_decline">Decline</string>
 
-    <string name="unregister_report_failed">Disabled locally, but the unregistration request could not be saved. Retry to finish</string>
-    <string name="unregister_partial">Disabled and unregistration submitted; app credential cleanup failed. Retry to finish</string>
+    <string name="unregister_report_failed">Denied locally, but the unregistration request could not be saved. Select Deny again to retry.</string>
+    <string name="unregister_partial">Denied and unregistration submitted, but app credential cleanup failed. Select Deny again to retry.</string>
     <string name="unregister_pending">Unregistration is still queued offline. Reconnect before registering again</string>
+    <string name="registration_denied">Denied. Future registration requests are blocked.</string>
+    <string name="unregister_journal_failed">Denied, but revocation could not be saved safely. Select Deny again to retry.</string>
+    <string name="unregister_local_cleanup_failed">Denied, but local revocation is incomplete. Select Deny again to retry.</string>
+    <string name="unregister_cleanup_pending">Unregistration is incomplete. Select Deny again to finish before allowing registration.</string>
+    <string name="unregister_queued">Denied and local registration cleared. The unregistration request is queued until the connection recovers.</string>
 </resources>

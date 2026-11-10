@@ -23,22 +23,6 @@ class ManagerUnregisterWriteContractTest {
     }
 
     @Test
-    fun `unregister reports app absent links the block and drops offline registration`() {
-        val adapter = readSource("io/github/magisk317/mipush/app/di/ManagerApplicationAdapter.kt")
-        val body = adapter.section(
-            "override suspend fun unregisterApplication(",
-            "private fun recordUnregisterEvent(",
-        )
-        assertTrue(body.contains("registration.reportAppAbsent("))
-        assertTrue(body.contains("registration.markPackageUnregistered("))
-        assertTrue(body.contains("RegistrationStateStore.Source.MANUAL"))
-        assertTrue(body.contains("blocked = true"))
-        assertTrue(body.contains("PushRuntimePendingPacketStore.discardPackage(packageName, userId)"))
-        assertTrue(body.contains("PushRuntimeRegistrationTaskStore.clear(packageName, userId)"))
-        assertTrue(body.contains("removeMiPushData(userId)"))
-    }
-
-    @Test
     fun `force register clears the block before relaunching the app`() {
         val adapter = readSource("io/github/magisk317/mipush/app/di/ManagerApplicationAdapter.kt")
         val body = adapter.section(

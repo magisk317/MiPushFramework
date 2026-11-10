@@ -54,11 +54,15 @@ object RegistrationApprovalCoordinator {
     }
 
     fun setPolicy(context: Context, packageName: String, type: Int): ManagerRegistrationResult {
+        if (type == RegisteredAppType.DENY) return RegistrationRevocationCoordinator.deny(context, packageName)
         if (type !in setOf(RegisteredAppType.ASK, RegisteredAppType.ALLOW, RegisteredAppType.DENY)) {
             return ManagerRegistrationResult(false, context.getString(R.string.registration_policy_invalid))
         }
         val userId = Utils.requireValidUserId(Utils.myUserId())
         return PackageRegistrationGuard.withPackage(packageName, userId) {
+            if (RegistrationRevocationJournal.hasPending(context, packageName, userId)) {
+                return@withPackage ManagerRegistrationResult(false, context.getString(R.string.unregister_cleanup_pending))
+            }
             RegisteredApplicationDb.getRegisteredApplication(packageName)
                 ?: RegisteredApplicationDb.registerApplication(packageName)
             if (type == RegisteredAppType.ALLOW && RegisteredApplicationDb.getPendingRegistration(packageName, userId) != null) {
@@ -84,6 +88,9 @@ object RegistrationApprovalCoordinator {
     }
 
     private fun approveLocked(context: Context, packageName: String, userId: Int): ManagerRegistrationResult {
+        if (RegistrationRevocationJournal.hasPending(context, packageName, userId)) {
+            return ManagerRegistrationResult(false, context.getString(R.string.unregister_cleanup_pending))
+        }
         val pending = RegisteredApplicationDb.getPendingRegistration(packageName, userId)
             ?: return ManagerRegistrationResult(false, context.getString(R.string.registration_request_missing))
         if (!PushShellBridgeHolder.registration().flushAppAbsentBeforeRegister(context, packageName)) {
@@ -130,7 +137,7 @@ object RegistrationApprovalCoordinator {
         }.onFailure { XLog.w("RegistrationApproval: prompt unavailable; request remains in manager", it) }
     }
 
-    private fun dismissPrompt(context: Context, packageName: String) {
+    internal fun dismissPrompt(context: Context, packageName: String) {
         runCatching { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(packageName, NOTIFICATION_ID) }
             .onFailure { XLog.w("RegistrationApproval: dismiss prompt failed", it) }
     }

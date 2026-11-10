@@ -52,16 +52,12 @@ import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
-import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
-import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
-import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
-import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
@@ -75,7 +71,6 @@ import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.adapter.container
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
-import io.github.magisk317.mipush.runtime.store.event.type.UnknownType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
 import io.github.magisk317.mipush.manager.runtime.read.InstalledApplicationSnapshot
@@ -298,97 +293,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         context: Context,
         packageName: String,
     ): ManagerUnregisterResult {
-        // The app-side MiPush data wipe runs as root, so elevation is mandatory.
-        if (!PermissionUtils.requestRootAccess()) {
-            logW("unregister aborted for $packageName: root not granted")
-            recordUnregisterEvent(packageName, "unregister_abort_root_denied", EventRowResultType.DENY_USER)
-            return ManagerUnregisterResult(
-                succeeded = false,
-                message = context.getString(com.xiaomi.xmsf.R.string.unregister_requires_root),
-            )
-        }
-        val userId = Utils.requireValidUserId(Utils.myUserId())
-        return PackageRegistrationGuard.withPackage(packageName, userId) {
-            unregisterLocked(context, packageName, userId)
-        }
-    }
-
-    private fun unregisterLocked(context: Context, packageName: String, userId: Int): ManagerUnregisterResult {
-        val application = RegisteredApplicationDb.getRegisteredApplication(packageName)
-            ?: return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_not_registered))
-        val registration = PushShellBridgeHolder.registration()
-        val appId = registration.rememberedAppId(context, packageName)
-        // Block first. Retried local cleanup remains available after a partial revocation.
-        RegisteredApplicationDb.update(application.copy(
-            blocked = true,
-            type = 3, // DENY; retained legacy registration-policy wire value.
-        ))
-        PackageRegistrationGuard.recordPolicyMutation(packageName, userId)
-        if (!appId.isNullOrBlank()) {
-            val accepted = runCatching {
-                registration.reportAppAbsent(context, packageName, appId, "manager_unregister")
-            }.getOrDefault(false)
-            if (!accepted) {
-                return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_report_failed))
-            }
-        } else if (application.registeredType == RegisteredAppRegisteredType.Registered || !application.blocked) {
-            return ManagerUnregisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_app_id_missing))
-        }
-        RegisteredApplicationDb.clearPendingRegistration(packageName, userId)
-        registration.forgetRegisteredPackage(context, packageName)
-        registration.forgetPendingRegistration(context, packageName)
-        registration.markPackageUnregistered(context, packageName)
-        RegistrationStateStore.updateIfChanged(
-            application = RegisteredApplicationDb.getRegisteredApplication(packageName) ?: application,
-            nextType = RegisteredAppRegisteredType.Unregistered,
-            source = RegistrationStateStore.Source.MANUAL,
+        val result = io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.setPolicy(
+            context, packageName, RegisteredAppType.DENY,
         )
-        // Link the block: registration/notification gates ignore this app and dependent switches
-        // clear, mirroring ApplicationInfoStatePolicy.withBlocked on the manager side.
-        RegisteredApplicationDb.getRegisteredApplication(packageName)?.let { current ->
-            RegisteredApplicationDb.update(
-                current.copy(
-                    blocked = true,
-                    islandEnabled = false,
-                    islandFocusNotification = false,
-                    clickFallbackEnabled = false,
-                    suppressWhenDisabled = false,
-                    countLimitExempt = false,
-                )
-            )
-        }
-        // Drop cached offline registration payloads/tasks so the next bind cannot resurrect the regId.
-        PushRuntimePendingPacketStore.discardPackage(packageName, userId)
-        PushRuntimeRegistrationTaskStore.clear(packageName, userId)
-        Utils.removeRegSec(packageName, userId)
-        Utils.removeLastReceiveTime(packageName, userId)
-        PushRuntime.clearPackageTransientState(packageName, userId)
-        PushRuntime.observeUnregistration(
-            packageName = packageName,
-            source = "XmsfManagerApplicationGateway.unregisterApplication",
-            reason = "manual_unregister",
-            androidUserId = userId,
-        )
-        PushShellBridgeHolder.packageState().clearPackageDataShellState(context, packageName, userId)
-        MiPushRuntimeBridge.clearPackageTransientState(packageName, userId)
-        val wiped = runCatching { RegistrationHelper(context, packageName).removeMiPushData(userId) }
-            .getOrDefault(false)
-        logI("unregister: wiped app-side MiPush data for $packageName user=$userId success=$wiped")
-        recordUnregisterEvent(packageName, "unregister_submitted wiped=$wiped", if (wiped) EventRowResultType.OK else EventRowResultType.DENY_DISABLED)
-        return ManagerUnregisterResult(
-            succeeded = wiped,
-            message = context.getString(if (wiped) com.xiaomi.xmsf.R.string.unregister_completed else com.xiaomi.xmsf.R.string.unregister_partial),
-        )
-    }
-
-    private fun recordUnregisterEvent(packageName: String, info: String, result: Int) {
-        runCatching {
-            runBlocking {
-                EventDb.insertEventAsync(result, UnknownType(EventRowType.UnRegistration, info, packageName, null))
-            }
-        }.onFailure {
-            logW("unregister event write failed for $packageName info=$info error=${it.message}")
-        }
+        return ManagerUnregisterResult(result.succeeded, result.message)
     }
 
     override suspend fun launchTargetAppAndForceRegister(
@@ -647,9 +555,9 @@ internal fun mergeEditableApplicationSettings(
     submitted: ManagerApplication,
 ): RuntimeRegisteredApplicationRow = latest.copy(
     notificationOnRegister = submitted.notificationOnRegister,
-    islandEnabled = !latest.blocked && submitted.islandEnabled,
-    islandFocusNotification = !latest.blocked && submitted.islandFocusNotification,
-    clickFallbackEnabled = !latest.blocked && submitted.clickFallbackEnabled,
-    suppressWhenDisabled = !latest.blocked && submitted.suppressWhenDisabled,
-    countLimitExempt = !latest.blocked && submitted.countLimitExempt,
+    islandEnabled = if (latest.blocked) latest.islandEnabled else submitted.islandEnabled,
+    islandFocusNotification = if (latest.blocked) latest.islandFocusNotification else submitted.islandFocusNotification,
+    clickFallbackEnabled = if (latest.blocked) latest.clickFallbackEnabled else submitted.clickFallbackEnabled,
+    suppressWhenDisabled = if (latest.blocked) latest.suppressWhenDisabled else submitted.suppressWhenDisabled,
+    countLimitExempt = if (latest.blocked) latest.countLimitExempt else submitted.countLimitExempt,
 )

@@ -55,6 +55,7 @@ interface PushShellRegistrationBridge {
     fun setRegSec(context: Context, packageName: String, regSecret: String)
     fun rememberedAppId(context: Context, packageName: String): String?
     fun reportAppAbsent(context: Context, packageName: String, appId: String, source: String): Boolean
+    fun hasPendingAppAbsent(context: Context, packageName: String): Boolean
     fun flushAppAbsentBeforeRegister(context: Context, packageName: String): Boolean
     fun markPackageUnregistered(context: Context, packageName: String)
 }
