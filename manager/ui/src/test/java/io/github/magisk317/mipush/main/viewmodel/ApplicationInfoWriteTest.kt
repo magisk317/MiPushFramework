@@ -1,6 +1,8 @@
 package io.github.magisk317.mipush.main.viewmodel
 
 import android.app.Application
+import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerRegistrationResult
@@ -61,12 +63,15 @@ class ApplicationInfoWriteTest {
         coEvery { gateway.getApplication(any(), any(), any()) } returns denied
         vm.updateBlocked(true)
         withTimeout(5_000) { vm.applicationInfo.first { it == denied } }
+        assertEquals(R.string.app_registration_denied, RegistrationStateStyle.registrationLabelResOf(requireNotNull(vm.applicationInfo.value)))
+        assertEquals(ManagerApplication.RegisteredType.REGISTERED, vm.applicationInfo.value?.registeredType)
         // Wait for the operation's finally block before starting the second toggle.
         withTimeout(5_000) { vm.registrationBusy.first { !it } }
         coEvery { gateway.setRegistrationPolicy(context, "test.app", ManagerApplication.Type.ALLOW) } returns ManagerRegistrationResult(true, "Allowed")
         coEvery { gateway.getApplication(any(), any(), any()) } returns original
         vm.updateBlocked(false)
         withTimeout(5_000) { vm.applicationInfo.first { it == original } }
+        assertEquals(R.string.app_registered, RegistrationStateStyle.registrationLabelResOf(requireNotNull(vm.applicationInfo.value)))
         withTimeout(5_000) { vm.registrationBusy.first { !it } }
         coVerify(exactly = 1) { gateway.setRegistrationPolicy(context, "test.app", ManagerApplication.Type.DENY) }
         coVerify(exactly = 1) { gateway.setRegistrationPolicy(context, "test.app", ManagerApplication.Type.ALLOW) }

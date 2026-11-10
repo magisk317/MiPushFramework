@@ -835,11 +835,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_registration_busy">A registration operation is already in progress</string>
     <string name="app_detail_registration_failed">Could not complete the operation. Check the runtime connection and try again.</string>
     <string name="app_detail_registration_policy">Registration policy</string>
-    <string name="app_detail_registration_policy_summary">Automatic accepts future registration requests. Ask holds each new request for your approval. Deny rejects requests. This is separate from the current registration status.</string>
+    <string name="app_detail_registration_policy_summary">Automatic accepts future registration requests. Ask holds each new request for your approval. Deny blocks future requests and appears as Denied. Denying does not cancel an existing registration.</string>
     <string name="app_detail_registration_auto">Automatic</string>
     <string name="app_detail_registration_ask">Ask</string>
     <string name="app_detail_registration_deny">Deny</string>
     <string name="app_detail_registration_pending">A registration request is waiting for approval. Approval replays the saved request without root.</string>
     <string name="app_detail_registration_approve">Allow and register</string>
-    <string name="app_list_item_registration_pending">Awaiting approval</string>
+    <string name="app_registration_denied">Denied</string>
+    <string name="app_registration_pending">Awaiting approval</string>
 </resources>

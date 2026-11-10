@@ -454,13 +454,6 @@ private fun ApplicationItem(
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
             )
-            if (item.registrationPending) {
-                AppListBadge(
-                    text = stringResource(R.string.app_list_item_registration_pending),
-                    containerColor = appColor(AppColorRole.TertiaryContainer),
-                    contentColor = appColor(AppColorRole.OnTertiaryContainer),
-                )
-            }
             if (info.isZygiskEnabled == true) {
                 AppListBadge(
                     text = "Zygisk",
