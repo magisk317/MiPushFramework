@@ -41,6 +41,10 @@ run_shard() {
         :magisk-ui-kit:billing:testDebugUnitTest \
         :magisk-ui-kit:update:testGithubDebugUnitTest \
         :magisk-xposed-kit:testDebugUnitTest \
+        :magisk-xposed-kit:contract:test \
+        :magisk-xposed-kit:capability:testDebugUnitTest \
+        :magisk-xposed-kit:runtime:testDebugUnitTest \
+        :magisk-xposed-kit:permission:testDebugUnitTest \
         :magisk-xposed-kit:keepalive:jvmTest \
         :magisk-xposed-kit:diagnostics:testDebugUnitTest \
         :magisk-xposed-kit:logging:jvmTest \

@@ -22,9 +22,27 @@ grep -F ':core:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':magisk-xposed-kit:keepalive:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':configuration:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':magisk-ui-kit:update:testGithubDebugUnitTest' "$SHARD_LOG" >/dev/null
+# Each shared consumer task must actually reach the Gradle runner exactly once.
+# Count tokens rather than substrings so contract:test cannot match a different variant.
+for task in \
+  :magisk-xposed-kit:contract:test \
+  :magisk-xposed-kit:capability:testDebugUnitTest \
+  :magisk-xposed-kit:runtime:testDebugUnitTest \
+  :magisk-xposed-kit:permission:testDebugUnitTest; do
+  count=$(awk -v expected="$task" '{for (i = 1; i <= NF; i++) if ($i == expected) count++} END {print count + 0}' "$SHARD_LOG")
+  if [[ "$count" != 1 ]]; then
+    echo "shared consumer task must run exactly once: $task (got $count)" >&2
+    exit 1
+  fi
+done
 grep -F ':manager:port:test' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:platform:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:runtime:store:testAndroidHostTest' "$SHARD_LOG" >/dev/null
+# MiPush enables Github only; shared distribution variants follow the parent channels.
+if grep -F ':magisk-ui-kit:update:testPlayDebugUnitTest' "$SHARD_LOG" >/dev/null; then
+  echo 'runner invokes a Play variant excluded by the MiPush consumer' >&2
+  exit 1
+fi
 if grep -F ':mipush:compileDebugKotlin' "$SHARD_LOG" >/dev/null; then
   echo 'runner still invokes ambiguous mipush Debug compile task' >&2
   exit 1
