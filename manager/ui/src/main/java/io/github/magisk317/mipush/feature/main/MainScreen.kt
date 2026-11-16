@@ -434,6 +434,9 @@ fun MainScreen(
                     onNavigateToConfigurations = {
                         context.startActivity(Intent(context, ConfigurationsPage::class.java))
                     },
+                    onNavigateToCloudBackup = {
+                        navController.navigate(AppDestinations.CloudBackup.ROUTE)
+                    },
                     isActive = pageIsSettled,
                     scrollChromeState = activePageScrollChromeState,
                 )
@@ -535,6 +538,9 @@ fun MainScreen(
                         },
                         onNavigateToConfigurations = {
                             context.startActivity(Intent(context, ConfigurationsPage::class.java))
+                        },
+                        onNavigateToCloudBackup = {
+                            navController.navigate(AppDestinations.CloudBackup.ROUTE)
                         },
                         scrollChromeState = pageScrollChromeState,
                     )

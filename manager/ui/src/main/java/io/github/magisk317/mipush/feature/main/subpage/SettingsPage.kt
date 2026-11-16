@@ -55,6 +55,7 @@ fun Settings(
     onNavigateToStatusBarIconSettings: () -> Unit = {},
     onNavigateToThemeSettings: () -> Unit = {},
     onNavigateToConfigurations: () -> Unit = {},
+    onNavigateToCloudBackup: () -> Unit = {},
     isActive: Boolean = true,
     scrollChromeState: ScrollChromeState? = null,
 ) {
@@ -74,6 +75,7 @@ fun Settings(
             onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
             onNavigateToThemeSettings = onNavigateToThemeSettings,
             onNavigateToConfigurations = onNavigateToConfigurations,
+            onNavigateToCloudBackup = onNavigateToCloudBackup,
             isActive = isActive,
             snackbarHostState = snackbarHostState,
         )
@@ -112,6 +114,7 @@ private fun SettingsBody(
     onNavigateToStatusBarIconSettings: () -> Unit,
     onNavigateToThemeSettings: () -> Unit,
     onNavigateToConfigurations: () -> Unit,
+    onNavigateToCloudBackup: () -> Unit,
     isActive: Boolean,
     snackbarHostState: AppSnackbarHostState,
 ) {
@@ -195,6 +198,15 @@ private fun SettingsBody(
         ) {
             XmsfDeliveryBlock(snackbarHostState)
             DiagnosticsBlock(viewModel, snackbarHostState)
+        }
+
+        SettingsSectionCard(
+            title = stringResource(R.string.settings_home_backup_title),
+            summary = stringResource(R.string.settings_home_backup_summary),
+            expanded = sectionExpanded[SettingsViewModel.SectionId.BACKUP],
+            onExpandedChange = { toggleSection(SettingsViewModel.SectionId.BACKUP) },
+        ) {
+            CloudBackupBlock(onNavigateToCloudBackup)
         }
 
     }

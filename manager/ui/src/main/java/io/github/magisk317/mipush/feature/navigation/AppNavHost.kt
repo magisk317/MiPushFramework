@@ -55,7 +55,8 @@ fun AppNavHostContent(
             route.startsWith(AppDestinations.Settings.ROUTE) ||
                 route.startsWith(AppDestinations.ConnectionStatus.ROUTE) ||
                 route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) ||
-                    route.startsWith(AppDestinations.ThemeSettings.ROUTE) -> 3
+                    route.startsWith(AppDestinations.ThemeSettings.ROUTE) ||
+                route.startsWith(AppDestinations.CloudBackup.ROUTE) -> 3
 
             else -> 0
         }
@@ -172,6 +173,17 @@ fun AppNavHostContent(
             val viewModel: io.github.magisk317.mipush.main.viewmodel.SettingsViewModel =
                 org.koin.androidx.compose.koinViewModel()
             io.github.magisk317.mipush.feature.main.subpage.StatusBarIconSettingsPage(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = AppDestinations.CloudBackup.ROUTE,
+        ) {
+            val viewModel: io.github.magisk317.mipush.main.viewmodel.CloudBackupViewModel =
+                org.koin.androidx.compose.koinViewModel()
+            io.github.magisk317.mipush.feature.main.subpage.CloudBackupPage(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )

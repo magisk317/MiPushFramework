@@ -111,6 +111,14 @@ object AppDestinations {
         const val ROUTE = "status_bar_icon_settings"
     }
 
+    /**
+     * 云备份设置页
+     */
+    @Serializable
+    data object CloudBackup {
+        const val ROUTE = "cloud_backup"
+    }
+
     private fun encodeRouteArg(value: String): String {
         return URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
     }

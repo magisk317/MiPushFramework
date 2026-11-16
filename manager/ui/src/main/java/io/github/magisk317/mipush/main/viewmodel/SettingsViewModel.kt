@@ -670,6 +670,7 @@ class SettingsViewModel constructor(
         val appearance: Boolean = false,
         val integrations: Boolean = false,
         val diagnostics: Boolean = false,
+        val backup: Boolean = false,
     ) {
         fun toggle(id: SectionId): SectionExpandState = when (id) {
             SectionId.SERVICE -> copy(service = !service)
@@ -677,6 +678,7 @@ class SettingsViewModel constructor(
             SectionId.APPEARANCE -> copy(appearance = !appearance)
             SectionId.INTEGRATIONS -> copy(integrations = !integrations)
             SectionId.DIAGNOSTICS -> copy(diagnostics = !diagnostics)
+            SectionId.BACKUP -> copy(backup = !backup)
         }
 
         operator fun get(id: SectionId): Boolean = when (id) {
@@ -685,10 +687,11 @@ class SettingsViewModel constructor(
             SectionId.APPEARANCE -> appearance
             SectionId.INTEGRATIONS -> integrations
             SectionId.DIAGNOSTICS -> diagnostics
+            SectionId.BACKUP -> backup
         }
     }
 
     enum class SectionId {
-        SERVICE, NOTIFICATIONS, APPEARANCE, INTEGRATIONS, DIAGNOSTICS,
+        SERVICE, NOTIFICATIONS, APPEARANCE, INTEGRATIONS, DIAGNOSTICS, BACKUP,
     }
 }

@@ -14,6 +14,7 @@ import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.TelemetryRemoteGate
+import io.github.magisk317.mipush.manager.backup.MiPushCloudBackupPayloadSource
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
@@ -26,6 +27,7 @@ import io.github.magisk317.mipush.main.viewmodel.RemoteIconResourcesUpdateReques
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.feature.main.subpage.VersionUpdateCoordinator
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
+import io.github.magisk317.mipush.main.viewmodel.CloudBackupViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
@@ -52,6 +54,8 @@ import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 import io.github.magisk317.mipush.manager.remote.PageRemoteCallAdapter
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
+import io.github.magisk317.xposed.backup.BackupPayloadSource
+import io.github.magisk317.xposed.backup.webdav.WebDavCloudBackupAccess
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.uikit.shell.AppInitializer
 import io.github.magisk317.uikit.update.AppUpdateChecker
@@ -79,6 +83,7 @@ import org.koin.dsl.module
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
+import io.github.magisk317.mipush.common.SUPPRESSED_RESULT_COUNTERS_ENABLED
 import io.github.magisk317.xposed.logging.publishSwitch
 import io.github.magisk317.xposed.logging.configureForInstallation
 
@@ -164,6 +169,12 @@ val managerKoinModule = module {
         )
     }
     viewModel {
+        CloudBackupViewModel(
+            androidApplication(),
+            get<WebDavCloudBackupAccess>(),
+        )
+    }
+    viewModel {
         ApplicationListViewModel(
             get<RemoteApplicationListSource>(),
             get<SettingsManager>(),
@@ -207,6 +218,17 @@ val managerKoinModule = module {
             },
         )
     }
+    single {
+        MiPushCloudBackupPayloadSource(get<PreferenceRepository>())
+    }
+    single<BackupPayloadSource> { get<MiPushCloudBackupPayloadSource>() }
+    single {
+        WebDavCloudBackupAccess(
+            payloadSource = get<BackupPayloadSource>(),
+            defaultRemotePath = MIPUSH_CLOUD_REMOTE_PATH,
+        )
+    }
+
     single {
         val preferences = get<PreferenceRepository>()
         VersionUpdateCoordinator(
@@ -383,7 +405,11 @@ object ManagerDependencies {
                 environment = if (BuildConfig.DEBUG) "debug" else if (BuildConfig.IS_CI_BUILD) "ci" else "release",
                 suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
                 suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,
+                suppressedResultCounters = SUPPRESSED_RESULT_COUNTERS_ENABLED,
             ),
         )
     }
 }
+
+/** Default remote folder for MiPush cloud backups on the WebDAV server. */
+private const val MIPUSH_CLOUD_REMOTE_PATH = "/mipush-framework/backups/"

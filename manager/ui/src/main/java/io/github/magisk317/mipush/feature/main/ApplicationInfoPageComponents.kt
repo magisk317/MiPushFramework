@@ -292,50 +292,16 @@ internal fun SettingSwitchRow(
     onClickWhenDisabled: (() -> Unit)? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (!enabled && onClickWhenDisabled != null) {
-                    Modifier.clickable { onClickWhenDisabled() }
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = MaterialTheme.spacing.large, vertical = MaterialTheme.spacing.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            AppText(
-                text = title,
-                role = AppTextRole.Body,
-                color = if (enabled) appColor(AppColorRole.OnSurface) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
-            )
-            AppText(
-                text = summary,
-                role = AppTextRole.BodySmall,
-                color = if (enabled) appColor(AppColorRole.OnSurfaceVariant) else appColor(AppColorRole.OnSurface).copy(alpha = 0.38f),
-            )
-        }
-        Spacer(Modifier.width(MaterialTheme.spacing.medium))
-        val switchModifier = if (!enabled && onClickWhenDisabled != null) {
-            Modifier.clickable(onClick = onClickWhenDisabled)
-        } else {
-            Modifier
-        }
-        Box(modifier = switchModifier) {
-            AppSwitch(
-                checked = checked,
-                onCheckedChange = if (enabled) onCheckedChange else null,
-                enabled = enabled,
-            )
-        }
-    }
-    if (showDivider) {
-        DetailDivider()
-    }
+    io.github.magisk317.uikit.preference.StateSwitchItem(
+        title = title,
+        summary = summary,
+        checked = checked,
+        enabled = enabled,
+        showDivider = showDivider,
+        onClickWhenDisabled = onClickWhenDisabled,
+        onCheckedChange = onCheckedChange,
+    )
 }
-
 @Composable
 internal fun HeaderMetricCard(
     label: String,

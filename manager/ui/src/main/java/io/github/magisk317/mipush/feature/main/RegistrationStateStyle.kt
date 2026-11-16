@@ -23,29 +23,33 @@ object RegistrationStateStyle {
         return Pair(registrationLabelResOf(app), colorOf(app))
     }
 
-    @StringRes
-    fun registrationLabelResOf(app: ManagerApplication): Int {
-        return when (app.registeredType) {
-            ManagerApplication.RegisteredType.REGISTERED -> R.string.app_registered
-            else -> {
-                if (hasObservedActivity(app)) {
-                    R.string.app_registration_observed
-                } else if (app.registeredType == ManagerApplication.RegisteredType.UNREGISTERED) {
-                    R.string.app_registered_error
-                } else {
-                    R.string.status_app_not_registered
-                }
-            }
-        }
+    private enum class DisplayState { Denied, Pending, Registered, Observed, Unregistered, NotRegistered }
+
+    // Admission overrides the badge without rewriting the independent server registration result.
+    private fun displayStateOf(app: ManagerApplication): DisplayState = when {
+        app.blocked || app.type == ManagerApplication.Type.DENY -> DisplayState.Denied
+        app.type == ManagerApplication.Type.ASK && app.registrationPending -> DisplayState.Pending
+        isConfirmedRegistered(app) -> DisplayState.Registered
+        hasObservedActivity(app) -> DisplayState.Observed
+        app.registeredType == ManagerApplication.RegisteredType.UNREGISTERED -> DisplayState.Unregistered
+        else -> DisplayState.NotRegistered
     }
 
-    fun registrationColorOf(app: ManagerApplication): Color {
-        return if (hasObservedActivity(app) && !isConfirmedRegistered(app)) YellowColor
-        else when (app.registeredType) {
-            ManagerApplication.RegisteredType.REGISTERED -> GreenColor
-            ManagerApplication.RegisteredType.UNREGISTERED -> YellowColor
-            else -> Color.Unspecified
-        }
+    @StringRes
+    fun registrationLabelResOf(app: ManagerApplication): Int = when (displayStateOf(app)) {
+        DisplayState.Denied -> R.string.app_registration_denied
+        DisplayState.Pending -> R.string.app_registration_pending
+        DisplayState.Registered -> R.string.app_registered
+        DisplayState.Observed -> R.string.app_registration_observed
+        DisplayState.Unregistered -> R.string.app_registered_error
+        DisplayState.NotRegistered -> R.string.status_app_not_registered
+    }
+
+    fun registrationColorOf(app: ManagerApplication): Color = when (displayStateOf(app)) {
+        DisplayState.Denied -> ErrorColor
+        DisplayState.Pending, DisplayState.Observed, DisplayState.Unregistered -> YellowColor
+        DisplayState.Registered -> GreenColor
+        DisplayState.NotRegistered -> Color.Unspecified
     }
 
     fun colorOf(app: ManagerApplication): Color {

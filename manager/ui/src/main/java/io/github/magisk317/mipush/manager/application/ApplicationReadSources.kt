@@ -309,6 +309,7 @@ private fun ManagerApplicationSummaryDto.toManagerApplication(): ManagerApplicat
     appName = appName,
     appNamePinYin = appNamePinYin,
     lastReceiveTimeMs = lastReceiveTimeMs,
+    registrationPending = registrationPending,
 )
 
 private fun ManagerApplicationDetailDto.toManagerApplication(): ManagerApplication = ManagerApplication(
@@ -328,6 +329,7 @@ private fun ManagerApplicationDetailDto.toManagerApplication(): ManagerApplicati
     appName = appName,
     appNamePinYin = appNamePinYin,
     lastReceiveTimeMs = lastReceiveTimeMs,
+    registrationPending = registrationPending,
 )
 
 private fun ManagerApplicationDiagnosticsDto.toManagerApplicationDiagnostics(): ManagerApplicationDiagnostics =

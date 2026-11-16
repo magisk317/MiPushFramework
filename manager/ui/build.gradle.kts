@@ -26,7 +26,8 @@ val navigationPerformancePropertyTests = tasks.register("navigationPerformancePr
     group = "verification"
     description = "Runs Manager and manager:client unit/property tests for navigation performance."
     dependsOn(
-        ":manager:ui:testPlayDebugUnitTest",
+        // Play paused 2026-11-05: re-enable alongside flavor("play") in the root build.gradle.kts.
+        // ":manager:ui:testPlayDebugUnitTest",
         ":manager:ui:testGithubDebugUnitTest",
         ":manager:client:testDebugUnitTest",
     )
@@ -67,6 +68,7 @@ dependencies {
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
     implementation(project(":magisk-ui-kit:update"))
+    implementation(project(":magisk-ui-kit:backup"))
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)
@@ -79,6 +81,7 @@ dependencies {
     implementation(libs.libsu.core)
     implementation(project(":magisk-xposed-kit:logging"))
     implementation(project(":magisk-xposed-kit:permission"))
+    implementation(project(":magisk-xposed-kit:backup-webdav"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)
 

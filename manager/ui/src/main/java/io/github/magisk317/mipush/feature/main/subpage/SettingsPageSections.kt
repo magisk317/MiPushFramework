@@ -165,6 +165,17 @@ internal fun AppearanceBlock(
 }
 
 @Composable
+internal fun CloudBackupBlock(
+    onNavigateToCloudBackup: () -> Unit,
+) {
+    SettingsItem(
+        title = stringResource(R.string.cloud_backup_title),
+        summary = stringResource(R.string.cloud_backup_summary),
+        onClick = { onNavigateToCloudBackup() },
+    )
+}
+
+@Composable
 internal fun IntegrationsBlock(
     viewModel: SettingsViewModel,
     snackbarHostState: AppSnackbarHostState,
