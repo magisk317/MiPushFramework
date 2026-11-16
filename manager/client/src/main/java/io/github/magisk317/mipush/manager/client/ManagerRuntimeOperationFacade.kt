@@ -163,11 +163,16 @@ internal class ManagerRuntimeOperationFacade(
 
     suspend fun executeWrite(
         request: ManagerWriteRequestDto,
-    ): ManagerRuntimeResult<ManagerWriteResultDto> = caller.callCapability(
-        capability = ManagerProtocol.CAPABILITY_WRITE_COMMANDS,
-        requestValidator = { ManagerProtocol.validateWriteRequest(request) },
-        validator = { result, _ -> ManagerProtocol.validateWriteResult(result) },
-    ) { it.executeWrite(request) }
+    ): ManagerRuntimeResult<ManagerWriteResultDto> =
+        ManagerRuntimeClientPolicy.writeCallPolicy(request).let { operationPolicy ->
+            caller.callCapability(
+                capability = ManagerProtocol.CAPABILITY_WRITE_COMMANDS,
+                callTimeoutMillis = operationPolicy.timeoutMillis,
+                releaseSessionOnTimeout = operationPolicy.releaseSessionOnTimeout,
+                requestValidator = { ManagerProtocol.validateWriteRequest(request) },
+                validator = { result, _ -> ManagerProtocol.validateWriteResult(result) },
+            ) { it.executeWrite(request) }
+        }
 }
 
 internal const val USE_CLIENT_CALL_TIMEOUT_MILLIS = Long.MIN_VALUE

@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.manager.client
 
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.ManagerClientPolicyCore
 import io.github.magisk317.mipush.manager.ManagerHandshakeAvailabilityDecision
 
@@ -26,6 +27,27 @@ internal object ManagerRuntimeClientPolicy {
             timeoutMillis = ManagerRuntimeClient.LOG_EXPORT_CALL_TIMEOUT_MS,
             releaseSessionOnTimeout = true,
         )
+
+    // Root authorization may use 10s, its probe 3s, and credential cleanup 8s.
+    // Force registration also runs two 5s launches, refresh probes, and a 6s result wait.
+    private const val REVOCATION_CALL_TIMEOUT_MS = 30_000L
+    private const val FORCE_REGISTRATION_CALL_TIMEOUT_MS = 60_000L
+    private const val REGISTRATION_POLICY_DENY = 3
+
+    fun writeCallPolicy(request: ManagerWriteRequestDto): ManagerRuntimeCallPolicy {
+        val extendedTimeout = when {
+            request.operation == ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER -> FORCE_REGISTRATION_CALL_TIMEOUT_MS
+            request.operation == ManagerProtocol.WRITE_OP_UNREGISTER_APPLICATION -> REVOCATION_CALL_TIMEOUT_MS
+            request.operation == ManagerProtocol.WRITE_OP_SET_REGISTRATION_POLICY &&
+                request.intArgument == REGISTRATION_POLICY_DENY -> REVOCATION_CALL_TIMEOUT_MS
+            else -> null
+        }
+        return ManagerRuntimeCallPolicy(
+            timeoutMillis = extendedTimeout ?: USE_CLIENT_CALL_TIMEOUT_MILLIS,
+            // A slow user root prompt is local to this operation, not a broken Binder session.
+            releaseSessionOnTimeout = extendedTimeout == null,
+        )
+    }
 
     fun classifyHandshake(handshake: ManagerHandshake): ManagerRuntimeAvailability {
         val compatibility = ManagerProtocol.evaluateCompatibility(

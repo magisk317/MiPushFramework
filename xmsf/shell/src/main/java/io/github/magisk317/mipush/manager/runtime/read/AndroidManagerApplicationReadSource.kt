@@ -29,7 +29,10 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
 
     override suspend fun readStoredApplications(): List<StoredApplicationSnapshot> {
         val userId = currentUserId()
-        return registeredApplicationDao.getAll(userId).map { it.toStoredApplicationSnapshot() }
+        val pending = database.pendingRegistrationDao().getAll(userId).map { it.packageName }.toSet()
+        return registeredApplicationDao.getAll(userId).map {
+            it.toStoredApplicationSnapshot().copy(registrationPending = it.packageName in pending)
+        }
     }
 
     override suspend fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot {

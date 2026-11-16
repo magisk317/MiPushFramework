@@ -19,9 +19,22 @@ interface ManagerApplicationGateway {
         packageName: String,
         registeredType: Int,
     ): ManagerForceRegisterResult
+    suspend fun setRegistrationPolicy(context: Context, packageName: String, type: Int): ManagerRegistrationResult
+    suspend fun approvePendingRegistration(context: Context, packageName: String): ManagerRegistrationResult
+    suspend fun unregisterApplication(
+        context: Context,
+        packageName: String,
+    ): ManagerUnregisterResult
 }
 
 data class ManagerForceRegisterResult(
+    val succeeded: Boolean,
+    val message: String,
+)
+
+data class ManagerRegistrationResult(val succeeded: Boolean, val message: String)
+
+data class ManagerUnregisterResult(
     val succeeded: Boolean,
     val message: String,
 )

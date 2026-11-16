@@ -21,6 +21,7 @@ data class ManagerApplicationSummaryDto(
     val appNamePinYin: String = "",
     val lastReceiveTimeMs: Long = 0L,
     val userId: Int = 0,
+    val registrationPending: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -42,6 +43,7 @@ data class ManagerApplicationSummaryDto(
             // not-yet-reloaded module dex on the runtime side) readable without the new field.
             writeWireBoolean(clickFallbackEnabled)
             writeWireBoolean(suppressWhenDisabled)
+            writeWireBoolean(registrationPending)
         }
     }
 
@@ -69,6 +71,7 @@ data class ManagerApplicationSummaryDto(
                         userId = readInt(-1),
                         clickFallbackEnabled = readBoolean(),
                         suppressWhenDisabled = readBoolean(),
+                        registrationPending = readBoolean(),
                     )
                 }
 

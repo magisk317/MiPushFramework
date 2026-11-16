@@ -516,6 +516,7 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         appName = appName,
         appNamePinYin = appNamePinYin,
         lastReceiveTimeMs = lastReceiveTimeMs,
+        registrationPending = registrationPending,
     )
 
 private fun io.github.magisk317.mipush.manager.application.ManagerApplication.toDetailDto(): ManagerApplicationDetailDto =
@@ -536,6 +537,7 @@ private fun io.github.magisk317.mipush.manager.application.ManagerApplication.to
         appName = appName,
         appNamePinYin = appNamePinYin,
         lastReceiveTimeMs = lastReceiveTimeMs,
+        registrationPending = registrationPending,
     )
 
 private fun ManagerApplicationReadDiagnostics.toWireDto(): ManagerApplicationDiagnosticsDto =
