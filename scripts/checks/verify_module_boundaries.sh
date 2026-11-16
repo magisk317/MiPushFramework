@@ -138,6 +138,44 @@ require_scan_roots() {
 require_scan_roots "${required_deep_xiaomi_scan_roots[@]}"
 require_scan_roots "${required_manager_app_scan_roots[@]}"
 
+# Runtime owns reusable service execution; shell owns product assembly and notification dispatch.
+# These two namespaces must not silently become split packages again. Other package families
+# have separate compatibility ownership and are intentionally outside this narrow check.
+bash scripts/ci/tests/test_service_package_ownership.sh
+python3 - <<'SERVICE_PACKAGE_OWNERSHIP'
+from pathlib import Path
+import re
+import sys
+
+owners = {
+    "io.github.magisk317.mipush.runtime.service": "runtime",
+    "io.github.magisk317.mipush.service.runtime": "shell",
+}
+package_declaration = re.compile(r"^\s*package\s+([\w.]+)", re.MULTILINE)
+comments = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+violations = []
+for module in ("runtime", "shell"):
+    root = Path("xmsf") / module / "src/main"
+    if not root.is_dir():
+        violations.append(f"{root}|missing service package scan root")
+        continue
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in {".kt", ".java"} or not path.is_file():
+            continue
+        code = comments.sub("", path.read_text(encoding="utf-8"))
+        declaration = package_declaration.search(code)
+        if declaration is None:
+            continue
+        package = declaration.group(1)
+        for namespace, owner in owners.items():
+            if (package == namespace or package.startswith(namespace + ".")) and module != owner:
+                violations.append(f"{path}|{package} must be owned by :xmsf:{owner}")
+if violations:
+    print("Service package ownership check failed.", file=sys.stderr)
+    print("\n".join(violations), file=sys.stderr)
+    sys.exit(1)
+SERVICE_PACKAGE_OWNERSHIP
+
 {
   for root in "${required_deep_xiaomi_scan_roots[@]}"; do
     rg -n "$deep_xiaomi_pattern" "$root" || true

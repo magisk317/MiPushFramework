@@ -53,7 +53,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.koin.android)
     implementation(libs.androidx.datastore.preferences)
-    add("playImplementation", project(":magisk-ui-kit:billing"))
+    // Play paused 2026-11-05: re-enable alongside flavor("play") in the root build.gradle.kts.
+    // add("playImplementation", project(":magisk-ui-kit:billing"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

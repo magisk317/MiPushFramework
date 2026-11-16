@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -56,9 +56,9 @@ variables:
   # MAGISK_VERSION_SCOPE set died on "ERROR: jq is required" before Gradle ran
   # (pipeline 2981953416, job 17421971941, 35.6s). dff8a0e reads the allocator
   # response with a bash regex instead; af0295f additionally writes the
-  # allocated code to .magisk-version-code so after_script can stage it
-  # (an export made in script does not survive into after_script).
-  MAGISK_CI_TOOLKIT_REF: "c4e65ee5763361e415ecf36d6e919345b6f6bba5"
+  # allocated code to .magisk-version-code as a durable handoff for staging;
+  # the stager also prefers MAGISK_VERSION_CODE when the export is present.
+  MAGISK_CI_TOOLKIT_REF: "ae9df2649ee47934c35f676439e1ffd9528db604"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -107,7 +107,7 @@ variables:
   # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
   # here fails the fetch outright. Bump it together with the MiPushZygisk release
   # (module.prop version/versionCode must stay in sync with libs.versions.toml).
-  MIPUSH_ZYGISK_REF: "ef5e1c7105da70d32a098b304cfe5bf77ac4a576"
+  MIPUSH_ZYGISK_REF: "1758688318050b84afac820d9a30fe12c1f25627"
   MIPUSH_ZYGISK_NDK_VERSION: "r30"
   MIPUSH_ZYGISK_NDK_REVISION: "30.0.16248370"
   MIPUSH_ZYGISK_NDK_HOME: "/opt/android-sdk/ndk/30.0.16248370"
@@ -198,7 +198,7 @@ android:build:
     - $MIPUSH_BUILD_RUNNER_TAG
   # The packaging contract is dex-presence only, so it applies verbatim to the
   # R8-minified debug APKs this job ships (-PminifyDebug): a keep-rule regression
-  # fails the build before the after_script stages the APK into the update
+  # fails the build before the blocking script stages the APK into the update
   # channel. mipush outputs are out of scope -- that APK bundles neither libsu nor
   # the xmsf @StableLogTag classes the contract pins.
   script:
@@ -220,7 +220,12 @@ android:build:
         echo "verify_release_artifact: $apk"
         bash scripts/checks/verify_release_artifact.sh "$apk" || status=1
       done
-      exit "$status"
+      if ((status != 0)); then
+        exit "$status"
+      fi
+    # Staging is blocking: do not publish a green build without complete
+    # version-keyed manifests and checksum sidecars.
+    - bash scripts/ci/stage_ci_dist.sh
   variables:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_IS_CI_BUILD: "true"
@@ -260,7 +265,7 @@ android:build:
       - ci-dist/com.xiaomi.xmsf/**
       - ci-dist/com.xiaomi.xmsf-vc105/**
   # A job-level after_script replaces the one inherited from
-  # .magisk_android_base, so the otel export is restated here before staging.
+  # .magisk_android_base, so keep its OTEL export restated here.
   after_script:
     - |
       set +e
@@ -269,13 +274,6 @@ android:build:
       else
         echo "otel: helper missing, skip"
       fi
-    # The universal APK name embeds the build timestamp, while the in-app
-    # update probes can only fetch artifacts by exact path (no glob), so
-    # stage a version-keyed copy of both packages plus the sidecars the
-    # probes verify (version.txt, .sha256, manifest). Kept in a script
-    # because a top-level heredoc terminator cannot live inside a YAML
-    # block scalar.
-    - bash scripts/ci/stage_ci_dist.sh
 
 android:check:
   extends: .magisk_android_build
@@ -291,9 +289,21 @@ android:check:
       :mipush:compileGithubDebugKotlin
       -Pkotlin.incremental=false
 
+uikit:duplicates:
+  extends:
+    - .magisk_utility_base
+    - .mipush_android_rules
+  stage: quality
+  tags:
+    - $MIPUSH_QUALITY_RUNNER_TAG
+  before_script:
+    - apk add --no-cache bash ca-certificates curl git python3
+  script:
+    - python3 magisk-ui-kit/tools/uikit_governance.py check-app "$CI_PROJECT_DIR" --name MiPushFramework --kit "$CI_PROJECT_DIR/magisk-ui-kit"
+
 .mipush_zygisk_build:
   extends: .mipush_package_rules
-  image: "rust:1.99.1-trixie"
+  image: "registry.gitlab.com/magisk3171/shared/magisk-ci-toolkit/zygisk-rust:1.99.1"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -328,47 +338,13 @@ android:check:
         exit "$resolve_status"
       fi
 
-      export DEBIAN_FRONTEND=noninteractive
-      # The runner injects an overseas proxy into every job, and apt ignores
-      # the no_proxy environment, so the domestic Debian mirrors must opt out
-      # at the apt layer: through the proxy their downloads cross the Pacific
-      # and stall (observed 60 kB/s then frozen on 2026-11-07).
-      printf '%s\n' \
-        'Acquire::http::Proxy::mirrors.tuna.tsinghua.edu.cn "DIRECT";' \
-        'Acquire::https::Proxy::mirrors.tuna.tsinghua.edu.cn "DIRECT";' \
-        'Acquire::http::Proxy::mirrors.ustc.edu.cn "DIRECT";' \
-        'Acquire::https::Proxy::mirrors.ustc.edu.cn "DIRECT";' \
-        > /etc/apt/apt.conf.d/95-domestic-mirrors-direct
-      # rustup's downloader is not apt: it honors the proxy environment and
-      # NO_PROXY directly, so point it at the domestic mirrors explicitly.
-      export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.tuna.tsinghua.edu.cn,.ustc.edu.cn"
-      export no_proxy="$NO_PROXY"
-      use_mirror="${MAGISK_LINUX_USE_MIRROR:-true}"
-      if [[ "$use_mirror" == "true" ]]; then
-        sed -i \
-          -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-          -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-          -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
-          -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-          -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-          /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-      fi
-      if [[ "$use_mirror" == "true" ]]; then
-        if ! apt-get update; then
-          echo "Mirror apt-get update failed, falling back to official sources" >&2
-          sed -i \
-            -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian-security#http://deb.debian.org/debian-security#g' \
-            -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian#http://deb.debian.org/debian#g' \
-            -e 's#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
-            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-          apt-get update
-        fi
-      else
-        apt-get update
-      fi
-    - apt-get install -y --no-install-recommends ca-certificates clang curl git lld unzip zip
-    - |
+      # Toolchain note: clang, lld, zip, unzip, ca-certificates and the
+      # Android rust targets are pre-baked into the zygisk-rust CI image
+      # (toolkit docker/ci/Dockerfile, keep ANDROID_RUST_TARGETS in sync).
+      # No apt or rustup traffic at job time; only the crates mirror below
+      # needs runtime setup.
       set -euo pipefail
+      use_mirror="${MAGISK_LINUX_USE_MIRROR:-true}"
       mkdir -p "$CARGO_HOME"
       cat > "$CARGO_HOME/config.toml" <<'EOF'
       [net]
@@ -383,21 +359,6 @@ android:check:
       [source.tuna]
       registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
       EOF
-      fi
-    - |
-      set -euo pipefail
-      if [[ "$use_mirror" == "true" ]]; then
-        export RUSTUP_DIST_SERVER="https://mirrors.tuna.tsinghua.edu.cn/rustup"
-        export RUSTUP_UPDATE_ROOT="https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
-      else
-        export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
-        export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
-      fi
-      if ! rustup target add $MIPUSH_ZYGISK_RUST_TARGETS; then
-        echo "Rustup mirror failed, falling back to official server" >&2
-        export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
-        export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
-        rustup target add $MIPUSH_ZYGISK_RUST_TARGETS
       fi
     - scripts/ci/ensure_android_ndk.sh
   script:
@@ -439,7 +400,6 @@ zygisk:build:arm:
   variables:
     MIPUSH_ZYGISK_RUNNER_GROUP: "arm"
     MIPUSH_ZYGISK_BUILD_ABIS: "arm64-v8a"
-    MIPUSH_ZYGISK_RUST_TARGETS: "aarch64-linux-android"
 
 # The ARM host cannot build the x86/x86_64 Zygisk variants. Formal releases
 # need all four ABI ZIPs plus the auto-generated universal ZIP, so build them
@@ -454,7 +414,6 @@ zygisk:build:release:
   variables:
     MIPUSH_ZYGISK_RUNNER_GROUP: "release"
     MIPUSH_ZYGISK_BUILD_ABIS: "arm64-v8a armeabi-v7a x86 x86_64"
-    MIPUSH_ZYGISK_RUST_TARGETS: "aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android"
 
 telegram:ci:
   extends:
@@ -491,10 +450,12 @@ android:detekt:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
+  allow_failure: true
+  # Wait for automatic Renovate delivery when present; the optional manual
+  # Play action on human beta pipelines does not block this quality job.
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
@@ -529,9 +490,8 @@ android:test:pure-modules:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   variables:
     MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
@@ -541,9 +501,10 @@ android:test:pure-modules:
       : "${MAGISK_ANDROID_TEST_SHARDS:?MAGISK_ANDROID_TEST_SHARDS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       bash scripts/ci/tests/test_run_test_shards.sh
-      # Guards the after_script staging path: a lost allocated versionCode
+      # Guards the blocking staging path: a lost allocated versionCode
       # used to vanish silently instead of failing the job.
       bash scripts/ci/tests/test_stage_ci_dist.sh
+      bash scripts/ci/tests/test_gitlab_ci_config.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
     name: "MiPushFramework-pure-modules-$CI_COMMIT_REF_SLUG"
@@ -563,9 +524,8 @@ android:test:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   script:
     - |
@@ -595,9 +555,8 @@ android:module-boundaries:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   variables:
     MAGISK_LINUX_APT_PACKAGES: "ripgrep"
   script:
@@ -613,9 +572,8 @@ android:shared-compat:
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
   needs:
-    - job: android:ci:publish-play
+    - job: android:build
       artifacts: false
-      optional: true
   cache: []
   before_script:
     - !reference [.magisk_android_base, before_script]

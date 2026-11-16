@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # Regression test for the ci-dist staging script.
 #
-# The bug this pins down: stage_ci_dist.sh runs in after_script, and GitLab runs
-# after_script in its own shell. The first wiring read only MAGISK_VERSION_CODE,
-# exported by the build script, and an export does not cross into after_script --
-# every staged manifest vanished while the job reported success. The stager now
-# prefers the env var when a runner happens to carry it and otherwise falls back
-# to the toolkit helper reading the workspace file, so this test runs the stager
-# the way CI does (no inherited environment) and asserts the manifest carries the
-# allocated code that came through that file.
+# The toolkit build step exports MAGISK_VERSION_CODE and also writes it to
+# .magisk-version-code. Staging runs in android:build's blocking script, prefers
+# the export when available, and falls back to the toolkit helper reading the
+# workspace file. This test runs the stager without an inherited export and
+# asserts the manifest carries the allocated code from that file.
 set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$script_dir/../../.." && pwd)"
@@ -133,8 +130,8 @@ mv "$tmp_dir/normal-apk.bak" \
   "$tmp_dir/work/xmsf/build/outputs/apk/normal/debug/universal_xiaomi_xmsf_v1.2.3-20261027_070707_debug.apk"
 
 # --- precedence path: an exported code wins over the workspace file -------------
-# after_script normally sees neither, but when a runner does carry the export the
-# stager must use it instead of a file left over from an earlier attempt.
+# When MAGISK_VERSION_CODE is available, the stager must use it instead of a
+# file left over from an earlier attempt.
 rm -rf "$tmp_dir/work/ci-dist"
 printf '1623\n' > "$tmp_dir/work/.magisk-version-code"
 env -u MAGISK_VERSION_CODE_FILE \

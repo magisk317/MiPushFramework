@@ -44,6 +44,7 @@ include(
     ":magisk-ui-kit",
     ":magisk-ui-kit:billing",
     ":magisk-ui-kit:update",
+    ":magisk-ui-kit:backup",
     ":magisk-xposed-kit",
     ":magisk-xposed-kit:contract",
     ":magisk-xposed-kit:logging",
@@ -52,6 +53,8 @@ include(
     ":magisk-xposed-kit:runtime",
     ":magisk-xposed-kit:permission",
     ":magisk-xposed-kit:keepalive",
+    ":magisk-xposed-kit:backup",
+    ":magisk-xposed-kit:backup-webdav",
 )
 
 include(
@@ -82,6 +85,7 @@ include(
 project(":xmsf:runtime").projectDir = file("xmsf/runtime")
 project(":magisk-ui-kit:billing").projectDir = file("magisk-ui-kit/billing")
 project(":magisk-ui-kit:update").projectDir = file("magisk-ui-kit/update")
+project(":magisk-ui-kit:backup").projectDir = file("magisk-ui-kit/backup")
 project(":magisk-xposed-kit:contract").projectDir = file("magisk-xposed-kit/contract")
 project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
 project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")
@@ -89,6 +93,8 @@ project(":magisk-xposed-kit:capability").projectDir = file("magisk-xposed-kit/ca
 project(":magisk-xposed-kit:runtime").projectDir = file("magisk-xposed-kit/runtime")
 project(":magisk-xposed-kit:permission").projectDir = file("magisk-xposed-kit/permission")
 project(":magisk-xposed-kit:keepalive").projectDir = file("magisk-xposed-kit/keepalive")
+project(":magisk-xposed-kit:backup").projectDir = file("magisk-xposed-kit/backup")
+project(":magisk-xposed-kit:backup-webdav").projectDir = file("magisk-xposed-kit/backup-webdav")
 project(":manager:ui").projectDir = file("manager/ui")
 project(":manager:xmsfDelivery").projectDir = file("manager/xmsfDelivery")
 project(":manager:port").projectDir = file("manager/port")
