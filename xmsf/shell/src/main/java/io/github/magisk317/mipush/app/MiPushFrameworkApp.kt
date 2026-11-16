@@ -85,6 +85,7 @@ import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_EVENT_NAMES
 import io.github.magisk317.mipush.common.SUPPRESSED_OTEL_RESULT_VALUES
+import io.github.magisk317.mipush.common.SUPPRESSED_RESULT_COUNTERS_ENABLED
 import io.github.magisk317.xposed.logging.publishSwitch
 import io.github.magisk317.xposed.logging.configureForInstallation
 
@@ -249,6 +250,7 @@ open class MiPushFrameworkApp : Application() {
                 environment = if (BuildConfig.DEBUG) "debug" else if (BuildConfig.IS_CI_BUILD) "ci" else "release",
                 suppressedEventNames = SUPPRESSED_OTEL_EVENT_NAMES,
                 suppressedResultValues = SUPPRESSED_OTEL_RESULT_VALUES,
+                suppressedResultCounters = SUPPRESSED_RESULT_COUNTERS_ENABLED,
             ),
         )
     }

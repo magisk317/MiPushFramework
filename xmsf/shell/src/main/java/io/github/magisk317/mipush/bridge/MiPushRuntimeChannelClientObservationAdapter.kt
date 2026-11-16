@@ -5,7 +5,7 @@ import com.xiaomi.push.service.PushClientsManager
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationChannelObservationSink
-import io.github.magisk317.mipush.service.runtime.PushClientStatusSupport
+import io.github.magisk317.mipush.runtime.service.PushClientStatusSupport
 
 internal class MiPushRuntimeChannelClientObservationAdapter(
     private val observationSink: PushRuntimeRegistrationChannelObservationSink,

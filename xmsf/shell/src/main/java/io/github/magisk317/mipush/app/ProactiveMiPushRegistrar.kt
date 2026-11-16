@@ -13,7 +13,7 @@ import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.service.PushServiceStarter
-import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
+import io.github.magisk317.mipush.runtime.service.RegistrationPayloadRepair
 import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

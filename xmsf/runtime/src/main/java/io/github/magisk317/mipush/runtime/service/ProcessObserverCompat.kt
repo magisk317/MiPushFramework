@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import android.annotation.SuppressLint
 import android.os.Binder

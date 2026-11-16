@@ -33,15 +33,15 @@ import com.xiaomi.push.service.PushSocketFailurePlan
 import com.xiaomi.push.service.PushSocketHostSelectionPlan
 import io.github.magisk317.mipush.runtime.core.PushHostPlanFactory
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
-import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
-import io.github.magisk317.mipush.service.runtime.PushHostRuntime
-import io.github.magisk317.mipush.service.runtime.PushReconnectRuntime
-import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
-import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
-import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
-import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
-import io.github.magisk317.mipush.service.runtime.PushSocketConnectionRuntime
-import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
+import io.github.magisk317.mipush.runtime.service.PushChannelOpenRuntime
+import io.github.magisk317.mipush.runtime.service.PushHostRuntime
+import io.github.magisk317.mipush.runtime.service.PushReconnectRuntime
+import io.github.magisk317.mipush.runtime.service.PushServiceConnectionRuntime
+import io.github.magisk317.mipush.runtime.service.PushServiceIntentRuntime
+import io.github.magisk317.mipush.runtime.service.PushSlimConnectionRuntime
+import io.github.magisk317.mipush.runtime.service.PushSlimStreamRuntime
+import io.github.magisk317.mipush.runtime.service.PushSocketConnectionRuntime
+import io.github.magisk317.mipush.runtime.service.PushPacketSyncRuntime
 
 internal object MiPushRuntimePolicyExecutionAdapter {
     fun resolveKick(kickType: String?, kickReason: String?): PushKickPlan =

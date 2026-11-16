@@ -19,9 +19,11 @@ object PushRuntimeRegistrationTaskStore {
         val source: String,
         val reason: String?,
         val userId: Int,
+        val generation: Long = 0L,
     )
 
     private val lock = Any()
+    private val generations = HashMap<String, Long>()
     private val pendingTasks = LinkedHashMap<String, PendingRegisterTask>()
 
     @JvmStatic
@@ -50,7 +52,7 @@ object PushRuntimeRegistrationTaskStore {
                     pendingTasks.remove(oldestKey)
                 }
             }
-            pendingTasks[key] = task
+            pendingTasks[key] = task.copy(generation = generations[key] ?: 0L)
         }
         AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
@@ -106,20 +108,25 @@ object PushRuntimeRegistrationTaskStore {
         val failed = ArrayList<PendingRegisterTask>()
         var dispatched = 0
         snapshot.forEach { task ->
-            val success = runCatching {
-                dispatcher.dispatch(task.packageName, Intent(task.intent))
-            }.getOrDefault(false)
-            if (success) {
-                dispatched += 1
-                AndroidPushRuntime.observeRegistrationState(
-                    packageName = task.packageName,
-                    state = PushRegistrationState.Registering,
-                    source = source,
-                    reason = task.reason ?: "dispatched_cached_register_task",
-                    androidUserId = userId,
-                )
-            } else {
-                failed += task.copy(source = source)
+            val success = PackageRegistrationGuard.withPackage(task.packageName, task.userId) {
+                val current = synchronized(lock) { task.generation == (generations[taskKey(task.userId, task.packageName)] ?: 0L) }
+                if (!current) null else runCatching { dispatcher.dispatch(task.packageName, Intent(task.intent)) }.getOrDefault(false)
+            }
+            if (success == null) return@forEach
+            PackageRegistrationGuard.withPackage(task.packageName, task.userId) {
+                if (synchronized(lock) { task.generation != (generations[taskKey(task.userId, task.packageName)] ?: 0L) }) return@withPackage
+                if (success) {
+                    dispatched += 1
+                    AndroidPushRuntime.observeRegistrationState(
+                        packageName = task.packageName,
+                        state = PushRegistrationState.Registering,
+                        source = source,
+                        reason = task.reason ?: "dispatched_cached_register_task",
+                        androidUserId = userId,
+                    )
+                } else {
+                    failed += task.copy(source = source)
+                }
             }
         }
 
@@ -127,6 +134,7 @@ object PushRuntimeRegistrationTaskStore {
             synchronized(lock) {
                 failed.forEach { task ->
                     val key = taskKey(task.userId, task.packageName)
+                    if (task.generation != (generations[key] ?: 0L)) return@forEach
                     if (!pendingTasks.containsKey(key) &&
                         pendingTasks.keys.count { it.startsWith("${task.userId}:") } >= MAX_PENDING_REGISTER_TASKS
                     ) {
@@ -135,7 +143,7 @@ object PushRuntimeRegistrationTaskStore {
                             pendingTasks.remove(oldestKey)
                         }
                     }
-                    pendingTasks[key] = task
+                    pendingTasks.putIfAbsent(key, task)
                 }
             }
         }
@@ -163,13 +171,18 @@ object PushRuntimeRegistrationTaskStore {
     @JvmStatic
     fun clear(packageName: String, userId: Int) {
         synchronized(lock) {
-            pendingTasks.remove(taskKey(requireValidUserId(userId), packageName))
+            val key = taskKey(requireValidUserId(userId), packageName)
+            generations[key] = (generations[key] ?: 0L) + 1L
+            pendingTasks.remove(key)
         }
     }
 
     @JvmStatic
     fun clearForTests() {
-        synchronized(lock) { pendingTasks.clear() }
+        synchronized(lock) {
+            pendingTasks.clear()
+            generations.clear()
+        }
     }
 
     @JvmStatic

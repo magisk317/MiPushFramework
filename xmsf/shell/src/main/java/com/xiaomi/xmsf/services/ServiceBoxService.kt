@@ -3,7 +3,7 @@ package com.xiaomi.xmsf.services
 import android.app.Service
 import android.os.IBinder
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
-import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
+import io.github.magisk317.mipush.runtime.service.KeepAliveRuntimeAdapter
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 class ServiceBoxService : Service() {

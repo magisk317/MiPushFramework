@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.manager.application.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.application.ManagerForceRegisterResult
+import io.github.magisk317.mipush.manager.application.ManagerUnregisterResult
 import io.github.magisk317.mipush.manager.application.ManagerApplications
 import io.github.magisk317.mipush.manager.application.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
@@ -50,12 +51,13 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
+import io.github.magisk317.mipush.push.bridge.PushShellBridgeHolder
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
-import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
@@ -104,6 +106,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         includeSystemApps: Boolean,
     ): ManagerApplications {
         val timer = ElapsedTimer()
+        val pendingPackages = RegisteredApplicationDb.getPendingRegistrations().map { it.packageName }.toSet()
         var registered = RegisteredApplicationDb.getList(null)
             .filter { includeSystemApps || Utils.isUserApplication(it.packageName) }
             .associateBy { it.packageName }
@@ -152,7 +155,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     locallyRegistered = false,
                     fallbackToInstalledName = false,
                     deriveAppNamePinYin = true,
-                )
+                ).copy(registrationPending = enriched.row.packageName in pendingPackages)
             }
             .filter { ManagerApplicationReadPolicy.matchesQuery(it, query) }
             .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
@@ -173,7 +176,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     locallyRegistered = false,
                     fallbackToInstalledName = false,
                     deriveAppNamePinYin = true,
-                )
+                ).copy(registrationPending = app.packageName in pendingPackages)
             },
             items = apps,
             totalPkg = catalog.totalCandidatePackages,
@@ -236,11 +239,16 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             locallyRegistered = false,
             fallbackToInstalledName = false,
             deriveAppNamePinYin = false,
-        )
+        ).copy(registrationPending = RegisteredApplicationDb.getPendingRegistration(packageName, application.userId) != null)
     }
 
     override suspend fun updateApplication(application: ManagerApplication) {
-        RegisteredApplicationDb.update(application.toRegisteredApplicationRow())
+        PackageRegistrationGuard.withPackage(application.packageName, application.userId) {
+            val latest = RegisteredApplicationDb.getRegisteredApplication(application.packageName) ?: return@withPackage
+            // Legacy transport still carries type/blocked/status; only the policy operation may
+            // change admission. A settings snapshot must not undo a concurrent manual revocation.
+            RegisteredApplicationDb.update(mergeEditableApplicationSettings(latest, application))
+        }
     }
 
     override suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
@@ -273,6 +281,22 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             ),
             userId = userId,
         )
+    }
+
+    override suspend fun setRegistrationPolicy(context: Context, packageName: String, type: Int) =
+        io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.setPolicy(context, packageName, type)
+
+    override suspend fun approvePendingRegistration(context: Context, packageName: String) =
+        io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.approve(context, packageName)
+
+    override suspend fun unregisterApplication(
+        context: Context,
+        packageName: String,
+    ): ManagerUnregisterResult {
+        val result = io.github.magisk317.mipush.service.RegistrationApprovalCoordinator.setPolicy(
+            context, packageName, RegisteredAppType.DENY,
+        )
+        return ManagerUnregisterResult(result.succeeded, result.message)
     }
 
     override suspend fun launchTargetAppAndForceRegister(
@@ -322,11 +346,34 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
             )
         }
+        val forceUserId = Utils.requireValidUserId(Utils.myUserId())
+        val admission = PackageRegistrationGuard.withPackage(packageName, forceUserId) {
+            if (!PushShellBridgeHolder.registration().flushAppAbsentBeforeRegister(context, packageName)) {
+                null
+            } else {
+                prepareForceRegistrationAdmission(packageName, forceUserId)
+            }
+        } ?: return ManagerForceRegisterResult(false, context.getString(com.xiaomi.xmsf.R.string.unregister_pending))
+        return withRegistrationRollback(
+            isConfirmed = { it.succeeded },
+            rollback = { restoreForceRegistrationAdmission(admission) },
+        ) {
+            executeForceRegister(context, packageName, registeredType)
+        }
+    }
+
+    private suspend fun executeForceRegister(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult {
         // Root's ActivityManager path first. This gateway runs inside the background xmsf
         // process, so Context.startActivity() is subject to Android's background-launch policy
         // even though the Manager UI initiated the call; `am start -W` is not, and it reports
         // whether the launch actually happened. Never force-stop: a stopped app has no live
         // process, so every dispatch channel fails — that was the "已拒绝" (DENY_DISABLED) case.
+        // Toggle symmetry with manual unregister (which links blocked=true): clear the block
+        // before launching, or every registration gate ignores this app and the result times out.
         recordForceRegisterStage(packageName, "force_register_relaunch")
         val rootLaunched = withContext(Dispatchers.IO) {
             launchTargetAppViaRoot(context, packageName)
@@ -339,6 +386,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                     RegistrationHelper.launchAppForForceRegister(context, packageName)
                 }
             }.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
                 logW("force register: SDK pull up failed for $packageName: ${it.localizedMessage}")
                 recordForceRegisterStage(packageName, "force_register_relaunch_failed")
             }
@@ -495,8 +543,21 @@ internal fun transientRegisteredApplication(
     id = null,
     packageName = packageName,
     userId = Utils.requireValidUserId(userId),
-    type = RegisteredAppType.ASK,
+    type = RegisteredAppType.ALLOW,
     notificationOnRegister = true,
     registeredType = RegisteredAppRegisteredType.NotRegistered,
     appName = appName,
+)
+
+/** Applies presentation options while preserving fresh runtime and admission state. */
+internal fun mergeEditableApplicationSettings(
+    latest: RuntimeRegisteredApplicationRow,
+    submitted: ManagerApplication,
+): RuntimeRegisteredApplicationRow = latest.copy(
+    notificationOnRegister = submitted.notificationOnRegister,
+    islandEnabled = if (latest.blocked) latest.islandEnabled else submitted.islandEnabled,
+    islandFocusNotification = if (latest.blocked) latest.islandFocusNotification else submitted.islandFocusNotification,
+    clickFallbackEnabled = if (latest.blocked) latest.clickFallbackEnabled else submitted.clickFallbackEnabled,
+    suppressWhenDisabled = if (latest.blocked) latest.suppressWhenDisabled else submitted.suppressWhenDisabled,
+    countLimitExempt = if (latest.blocked) latest.countLimitExempt else submitted.countLimitExempt,
 )

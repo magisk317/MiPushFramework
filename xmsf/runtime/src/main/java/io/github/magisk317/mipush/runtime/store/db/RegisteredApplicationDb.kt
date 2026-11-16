@@ -11,7 +11,12 @@ import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplication
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationStore
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeUnregistrationResult
 import io.github.magisk317.xposed.logging.MagiskOtel
+import androidx.room.immediateTransaction
+import androidx.room.useWriterConnection
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimePendingRegistrationRow
+import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppType
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
 
 /**
  * Android facade for the commonMain REGISTERED_APPLICATION aggregate repository.
@@ -136,6 +141,63 @@ object RegisteredApplicationDb {
             statusOk = result != RuntimeUnregistrationResult.UpdateFailed,
         )
         return updated
+    }
+
+    /** Saves the original packet durably before the registration gate reports Ask. */
+    @JvmStatic
+    fun savePendingRegistration(request: RuntimePendingRegistrationRow) {
+        requireValidUserId(request.userId)
+        require(request.packageName.isNotBlank()) { "Empty registration package" }
+        require(request.payload.isNotEmpty()) { "Empty registration payload" }
+        runBlocking { DatabaseUtils.pendingRegistrationDao.save(request.copy(payload = request.payload.copyOf())) }
+    }
+
+    @JvmStatic
+    fun getPendingRegistration(pkg: String, requestedUserId: Int? = null): RuntimePendingRegistrationRow? {
+        require(pkg.isNotBlank())
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        return runBlocking { DatabaseUtils.pendingRegistrationDao.get(pkg, userId) }
+    }
+
+    @JvmStatic
+    fun getPendingRegistrations(requestedUserId: Int? = null): List<RuntimePendingRegistrationRow> {
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        return runBlocking { DatabaseUtils.pendingRegistrationDao.getAll(userId) }
+    }
+
+    @JvmStatic
+    fun clearPendingRegistration(pkg: String, requestedUserId: Int? = null): Int {
+        require(pkg.isNotBlank())
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        return runBlocking { DatabaseUtils.pendingRegistrationDao.clear(pkg, userId) }
+    }
+
+    /** ASK retains a real pending packet. ALLOW/DENY resolve it in the same transaction. */
+    @JvmStatic
+    fun setRegistrationPolicy(
+        pkg: String,
+        type: Int,
+        requestedUserId: Int? = null,
+        clearPending: Boolean = true,
+    ): Boolean {
+        require(pkg.isNotBlank())
+        require(type == RegisteredAppType.ASK || type == RegisteredAppType.ALLOW || type == RegisteredAppType.DENY)
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        return PackageRegistrationGuard.withPackage(pkg, userId) {
+            val updated = runBlocking {
+                DatabaseUtils.requireDatabase().useWriterConnection { connection ->
+                    connection.immediateTransaction {
+                        val changed = DatabaseUtils.registeredApplicationDao.updateRegistrationPolicy(
+                            pkg, userId, type, type == RegisteredAppType.DENY,
+                        ) > 0
+                        if (changed && type != RegisteredAppType.ASK && clearPending) DatabaseUtils.pendingRegistrationDao.clear(pkg, userId)
+                        changed
+                    }
+                }
+            }
+            if (updated) PackageRegistrationGuard.recordPolicyMutation(pkg, userId)
+            updated
+        }
     }
 
     private fun repository(userId: Int = currentUserId()): RuntimeRegisteredApplicationRepository =

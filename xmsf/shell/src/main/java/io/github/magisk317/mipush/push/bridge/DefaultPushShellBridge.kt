@@ -15,6 +15,7 @@ import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
+import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.utils.RegSecUtils
@@ -107,13 +108,13 @@ object DefaultPushShellBridge : PushShellBridge {
             userId = userId,
             steps = listOf(
                 "registration_record_deduper" to {
-                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.RegistrationRecordDeduper.reset(packageName, userId)
                 },
                 "profile_ids" to {
                     com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
                 },
                 "payload_deduplication" to {
-                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
                     io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
@@ -135,7 +136,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
-                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
                 },
             ),
         )
@@ -147,7 +148,7 @@ object DefaultPushShellBridge : PushShellBridge {
             userId = userId,
             steps = listOf(
                 "registration_record_deduper" to {
-                    io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper.reset(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.RegistrationRecordDeduper.reset(packageName, userId)
                 },
                 "profile_ids" to {
                     com.xiaomi.xmsf.stock.StockProfileIdStore.clear(context, packageName)
@@ -156,7 +157,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     com.xiaomi.push.service.MIPushNotificationHelper.clearNotification(context, packageName)
                 },
                 "payload_deduplication" to {
-                    io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
                     io.github.magisk317.mipush.service.runtime.MIPushNotificationPublishHelper.clearPackageTransientState(packageName, userId)
                 },
                 "top_notification_state" to {
@@ -178,7 +179,7 @@ object DefaultPushShellBridge : PushShellBridge {
                     io.github.magisk317.mipush.notification.ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
                 },
                 "keep_alive_state" to {
-                    io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
+                    io.github.magisk317.mipush.runtime.service.KeepAliveRuntimeAdapter.clearPackageState(context, packageName, userId)
                 },
             ),
         )
@@ -259,6 +260,52 @@ object DefaultPushShellBridge : PushShellBridge {
 
     override fun setRegSec(context: Context, packageName: String, regSecret: String) {
         Utils.setRegSec(context, packageName, regSecret)
+    }
+
+    override fun rememberedAppId(context: Context, packageName: String): String? =
+        com.xiaomi.push.service.MIPushAppAbsentManager.getRememberedAppId(context, packageName)
+
+    // This is the vendor's existing durable outbox, deliberately shared rather than duplicated.
+    private const val PENDING_APP_ABSENT_PREFS = "pref_pending_app_absent"
+
+    override fun reportAppAbsent(context: Context, packageName: String, appId: String, source: String): Boolean {
+        val pending = context.getSharedPreferences(PENDING_APP_ABSENT_PREFS, 0)
+        if (!pending.edit().putString(packageName, appId).commit()) return false
+        val service = XMPushServiceLifecycleBridge.peekService()
+        if (service != null) {
+            runCatching {
+                com.xiaomi.push.service.MIPushAppAbsentManager.flushPending(service, context, source)
+            }.onFailure { io.github.magisk317.xposed.logging.XLog.w("app-absent flush deferred: %s", it) }
+        } else {
+            runCatching {
+                PushServiceStarter.start(context, Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java))
+            }.onFailure { io.github.magisk317.xposed.logging.XLog.w("app-absent service start deferred: %s", it) }
+        }
+        return true // Durable acceptance only; a socket write is not a server acknowledgement.
+    }
+
+    override fun hasPendingAppAbsent(context: Context, packageName: String): Boolean =
+        context.getSharedPreferences(PENDING_APP_ABSENT_PREFS, 0).contains(packageName)
+
+    override fun flushAppAbsentBeforeRegister(context: Context, packageName: String): Boolean {
+        if (io.github.magisk317.mipush.service.RegistrationRevocationJournal.hasPending(
+                context, packageName, Utils.requireValidUserId(Utils.myUserId()),
+            )) return false
+        val pending = context.getSharedPreferences(PENDING_APP_ABSENT_PREFS, 0)
+        if (!pending.contains(packageName)) return true
+        val service = XMPushServiceLifecycleBridge.peekService() ?: return false
+        if (!service.isConnected) return false
+        return runCatching {
+            com.xiaomi.push.service.MIPushAppAbsentManager.flushPending(service, context, "manual_reregister")
+            !pending.contains(packageName)
+        }.getOrDefault(false)
+    }
+
+    override fun markPackageUnregistered(context: Context, packageName: String) {
+        com.xiaomi.push.service.MIPushAppInfo.getInstance(context).addUnRegisteredPkg(packageName)
+        if (com.xiaomi.push.service.MIPushNotificationHelper.hasLocalNotifyType(context, packageName)) {
+            com.xiaomi.push.service.MIPushNotificationHelper.clearLocalNotifyType(context, packageName)
+        }
     }
 
     override fun applyConfigurations(packageName: String, container: XmPushActionContainer) {

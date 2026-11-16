@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="registration_policy_invalid">Invalid registration policy</string>
+    <string name="registration_policy_saved">Registration policy saved</string>
+    <string name="registration_policy_failed">Unable to save registration policy</string>
+    <string name="registration_request_missing">No registration request is awaiting approval</string>
+    <string name="registration_dispatch_failed">Could not resume registration. The request is still awaiting approval.</string>
+    <string name="registration_request_approved">Allowed. Registration request submitted; waiting for the server.</string>
+    <string name="registration_approval_channel">Registration approval</string>
+    <string name="registration_approval_title">%1$s requests MiPush registration</string>
+    <string name="registration_approval_message">Open the manager to allow or refuse this request.</string>
+</resources>

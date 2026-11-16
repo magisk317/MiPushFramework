@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull

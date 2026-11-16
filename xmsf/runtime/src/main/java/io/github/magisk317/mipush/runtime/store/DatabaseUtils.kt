@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.runtime.store
 import android.annotation.SuppressLint
 import android.content.Context
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.kmp.RuntimePendingRegistrationDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeEventDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationDao
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeStoreDatabase
@@ -26,6 +27,12 @@ object DatabaseUtils {
 
     val registeredApplicationDao: RuntimeRegisteredApplicationDao
         get() = requireNotNull(database) { "DatabaseUtils.init(context) must be called first" }.registeredApplicationDao()
+
+    val pendingRegistrationDao: RuntimePendingRegistrationDao
+        get() = requireNotNull(database) { "DatabaseUtils.init(context) must be called first" }.pendingRegistrationDao()
+
+    fun requireDatabase(): RuntimeStoreDatabase =
+        requireNotNull(database) { "DatabaseUtils.init(context) must be called first" }
 
     @JvmStatic
     fun init(context: Context) {

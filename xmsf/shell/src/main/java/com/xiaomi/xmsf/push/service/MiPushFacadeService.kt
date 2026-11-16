@@ -33,7 +33,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
-import io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper
+import io.github.magisk317.mipush.runtime.service.StockMiPushPayloadDeduper
 import io.github.magisk317.mipush.utils.ConvertUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants

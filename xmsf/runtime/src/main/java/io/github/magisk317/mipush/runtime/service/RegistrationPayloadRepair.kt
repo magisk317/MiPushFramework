@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import android.content.Context
 import com.xiaomi.channel.commonutils.android.AppInfoUtils

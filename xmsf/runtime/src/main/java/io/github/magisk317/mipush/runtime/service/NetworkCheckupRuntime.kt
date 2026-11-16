@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 import com.xiaomi.push.service.*
 import com.xiaomi.smack.packet.*
 import com.xiaomi.smack.*
