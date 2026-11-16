@@ -16,7 +16,6 @@
     "impact",
     "log/*",
     "art/*",
-    "fastlane/*",
     ".gitlab-ci.yml",
     ".github/workflows/*",
     "docs/*",

@@ -105,9 +105,9 @@ on:
         type: boolean
         default: true
       publish_play:
-        description: 'Submit the Play bundle to Google Play'
+        description: 'Submit the Play bundle to Google Play (suspended 2026-11-05; opt-in only)'
         type: boolean
-        default: true
+        default: false
       publish_modules_repo:
         description: 'Publish the channel tag to Xposed-Modules-Repo'
         type: boolean

@@ -1,3 +1,0 @@
-- Restore background notification arrived callbacks.
-- Optimize reconnect flow and runtime observation.
-- Polish connection status page and navigation interactions.

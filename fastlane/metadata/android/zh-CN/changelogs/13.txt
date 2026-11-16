@@ -1,5 +1,0 @@
-- 新增冻结应用点通知自动解冻，支持回冻策略。
-- 修复 Samsung Android 16 系统钩子探测失败。
-- 本地通知 fallback 注入目标应用图标。
-- 同步持久化注册状态，修复重启后丢失。
-- 默认启用 framework self-registration。

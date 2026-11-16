@@ -3,6 +3,15 @@
 本日志记录了项目近期的主要变更。
 
 ---
+## [v1.1.4] - 2026-11-16
+- 版本：`versionCode 23` / `versionName 1.1.4`。
+- `[feat]` 增加单应用注册审批与撤销管理。#146
+- `[fix]` 改进注册状态同步和通知分组图标显示。
+- `[deps]` 升级 Kotlin 2.5.0 RC、Gradle 9.9.1 与相关依赖。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.3...v1.1.4
+
+---
 ## [v1.1.3] - 2026-11-07
 - 版本：`versionCode 22` / `versionName 1.1.3`。
 - `[refactor]` 通知、平台与诊断切片整理。
