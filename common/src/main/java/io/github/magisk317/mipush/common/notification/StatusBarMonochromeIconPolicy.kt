@@ -33,6 +33,7 @@ object StatusBarMonochromeIconPolicy {
     private const val SILHOUETTE_LOG_TAG = "MiPushSilhouette"
     private const val ICON_PACK_LOG_TAG = "MiPushIconPack"
     private const val FULLY_OPAQUE_ALPHA = 0xFF
+    private const val MAX_STATUS_GLYPH_INSPECTION_PIXELS = 512L * 512L
 
     private val silhouetteLogger = XLog.tagged(SILHOUETTE_LOG_TAG)
     private val iconPackLogger = XLog.tagged(ICON_PACK_LOG_TAG)
@@ -191,6 +192,70 @@ object StatusBarMonochromeIconPolicy {
             icon
         }
     }
+
+    /**
+     * Tri-state check for whether a glyph has transparent status-bar margins.
+     *
+     * `null` means the drawable could not be inspected; callers must keep native rendering rather
+     * than treating an unknown glyph as safe. Non-bitmap drawables are rasterized from intrinsic
+     * dimensions, with a pixel cap to keep inspection bounded.
+     */
+    @JvmStatic
+    fun isStatusSafeGlyph(context: Context?, icon: Icon): Boolean? {
+        val bitmap = statusGlyphBitmapForInspection(context, icon) ?: return null
+        val pixels = statusGlyphPixels(bitmap) ?: return null
+        return isStatusSafeGlyphPixels(bitmap.width, bitmap.height, pixels)
+    }
+
+    /**
+     * Returns a glyph that can be tinted without filling the whole status-bar slot.
+     * Opaque icons are converted to a white-alpha silhouette; undecodable or still full-bleed
+     * icons return null so the caller can preserve SystemUI's native behavior.
+     */
+    @JvmStatic
+    fun verifiedStatusSafeGlyphOrNull(context: Context?, icon: Icon): Icon? {
+        val bitmap = statusGlyphBitmapForInspection(context, icon) ?: return null
+        val pixels = statusGlyphPixels(bitmap) ?: return null
+        return when (isStatusSafeGlyphPixels(bitmap.width, bitmap.height, pixels)) {
+            true -> icon
+            false -> whiteGlyphFrom(bitmap)
+            null -> null
+        }
+    }
+
+    internal fun isStatusSafeGlyphPixels(width: Int, height: Int, pixels: IntArray): Boolean? {
+        if (width <= 0 || height <= 0) return null
+        val pixelCount = width.toLong() * height
+        if (pixelCount > Int.MAX_VALUE || pixels.size < pixelCount) return null
+        return !hasOpaqueBackingPixels(width, height, pixels)
+    }
+
+    private fun statusGlyphBitmapForInspection(context: Context?, icon: Icon): Bitmap? {
+        val drawable = runCatching { icon.loadDrawable(context) }.getOrNull() ?: return null
+        val expectedWidth = drawable.intrinsicWidth.takeIf { it > 0 } ?: 1
+        val expectedHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: 1
+        if (expectedWidth.toLong() * expectedHeight > MAX_STATUS_GLYPH_INSPECTION_PIXELS) return null
+        val bitmap = runCatching { ImgUtils.drawableToBitmap(drawable) }.getOrNull() ?: return null
+        val pixelCount = bitmap.width.toLong() * bitmap.height
+        if (bitmap.width <= 0 || bitmap.height <= 0 || pixelCount > MAX_STATUS_GLYPH_INSPECTION_PIXELS) {
+            return null
+        }
+        return if (bitmap.config == Bitmap.Config.HARDWARE) {
+            runCatching { bitmap.copy(Bitmap.Config.ARGB_8888, false) }.getOrNull()
+        } else {
+            bitmap
+        }
+    }
+
+    private fun statusGlyphPixels(bitmap: Bitmap): IntArray? = runCatching {
+        val pixelCount = bitmap.width.toLong() * bitmap.height
+        if (pixelCount <= 0 || pixelCount > MAX_STATUS_GLYPH_INSPECTION_PIXELS) {
+            return@runCatching null
+        }
+        IntArray(pixelCount.toInt()).also {
+            bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        }
+    }.getOrNull()
 
     private fun hasOpaqueBacking(bitmap: Bitmap): Boolean {
         val width = bitmap.width
