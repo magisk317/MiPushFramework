@@ -189,6 +189,28 @@ class StatusBarMonochromeIconPolicyTest {
     }
 
     @Test
+    fun `status glyph safety distinguishes opaque transparent and unknown margins`() {
+        val width = 4
+        val height = 4
+        val opaque = 0xFF000000.toInt()
+        val block = IntArray(width * height) { opaque }
+        assertFalse(StatusBarMonochromeIconPolicy.isStatusSafeGlyphPixels(width, height, block) ?: true)
+
+        val glyph = block.copyOf()
+        for (x in 0 until width) {
+            glyph[x] = 0
+            glyph[(height - 1) * width + x] = 0
+        }
+        for (y in 0 until height) {
+            glyph[y * width] = 0
+            glyph[y * width + width - 1] = 0
+        }
+        assertTrue(StatusBarMonochromeIconPolicy.isStatusSafeGlyphPixels(width, height, glyph) ?: false)
+        assertNull(StatusBarMonochromeIconPolicy.isStatusSafeGlyphPixels(0, 0, IntArray(0)))
+        assertNull(StatusBarMonochromeIconPolicy.isStatusSafeGlyphPixels(2, 2, IntArray(3)))
+    }
+
+    @Test
     fun `cache decision covers miss stale negative and fresh states`() {
         val icon = mockk<Icon>()
         val now = 1_000_000L

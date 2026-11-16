@@ -4,8 +4,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class ManagerApplicationSerializationTest {
@@ -30,6 +33,7 @@ class ManagerApplicationSerializationTest {
             appName = "Example",
             appNamePinYin = "Example",
             lastReceiveTimeMs = 1234L,
+            registrationPending = true,
         )
 
         val encoded = json.encodeToJsonElement(application)
@@ -37,10 +41,21 @@ class ManagerApplicationSerializationTest {
 
         assertEquals(application, decoded)
         assertTrue(encoded.jsonObject.containsKey("userId"))
+        assertTrue(encoded.jsonObject.getValue("registrationPending").jsonPrimitive.boolean)
     }
 
     @Test
-    fun `new fields remain readable by older port consumers`() {
+    fun `explicit legacy ask and deny values survive decoding without being replaced by the default`() {
+        for (type in listOf(ManagerApplication.Type.ASK, ManagerApplication.Type.DENY)) {
+            val encoded = json.parseToJsonElement("""{"packageName":"com.example.client","type":$type}""")
+            val decoded = json.decodeFromJsonElement<ManagerApplication>(encoded)
+            assertEquals(type, decoded.type)
+            assertFalse(decoded.registrationPending)
+        }
+    }
+
+    @Test
+    fun `missing policy keeps automatic behavior and missing pending flag stays false`() {
         val encoded = json.parseToJsonElement(
             """
             {
@@ -53,6 +68,7 @@ class ManagerApplicationSerializationTest {
         val decoded = json.decodeFromJsonElement<ManagerApplication>(encoded)
 
         assertEquals("com.example.client", decoded.packageName)
-        assertEquals(ManagerApplication.Type.ASK, decoded.type)
+        assertEquals(ManagerApplication.Type.ALLOW, decoded.type)
+        assertFalse(decoded.registrationPending)
     }
 }

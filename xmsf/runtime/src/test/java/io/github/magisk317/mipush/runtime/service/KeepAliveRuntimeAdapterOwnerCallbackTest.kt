@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import java.io.File
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -15,7 +15,7 @@ class KeepAliveRuntimeAdapterOwnerCallbackTest {
 
     @Test
     fun `foreground exit filters target callback cancellation by trigger owner`() {
-        val source = File("src/main/java/io/github/magisk317/mipush/service/runtime/KeepAliveRuntimeAdapter.kt")
+        val source = File("src/main/java/io/github/magisk317/mipush/runtime/service/KeepAliveRuntimeAdapter.kt")
             .readText()
         val scheduleUnbind = source.substringAfter("private fun scheduleUnbind")
             .substringBefore("private fun attemptBind")

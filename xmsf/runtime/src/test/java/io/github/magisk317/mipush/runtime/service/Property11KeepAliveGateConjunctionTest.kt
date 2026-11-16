@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.bind

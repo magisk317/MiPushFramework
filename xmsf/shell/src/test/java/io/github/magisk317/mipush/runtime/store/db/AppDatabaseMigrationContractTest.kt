@@ -10,7 +10,7 @@ import java.io.File
 class RuntimeStoreMigrationContractTest {
     @Test
     fun `migration registry covers every production schema version`() {
-        assertEquals(11, RuntimeStoreMigrations.ALL.size)
+        assertEquals(12, RuntimeStoreMigrations.ALL.size)
         RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
             assertEquals(index + 1, migration.startVersion)
             assertEquals(index + 2, migration.endVersion)
@@ -18,18 +18,19 @@ class RuntimeStoreMigrationContractTest {
     }
 
     @Test
-    fun `runtime store database declares the production v12 entities`() {
+    fun `runtime store database declares the production v13 entities`() {
         val source = readSource(
             "../runtime/store/src/commonMain/kotlin/" +
                 "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
 
         assertTrue(source.contains("@Database("))
-        assertTrue(source.contains("version = 12"))
+        assertTrue(source.contains("version = 13"))
         listOf(
             "RuntimeEventRow::class",
             "RuntimeDeletedEventRow::class",
             "RuntimeRegisteredApplicationRow::class",
+            "RuntimePendingRegistrationRow::class",
         ).forEach { entity ->
             assertTrue(source.contains(entity), "Missing production entity: $entity")
         }
@@ -69,6 +70,8 @@ class RuntimeStoreMigrationContractTest {
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN click_fallback_enabled",
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN suppress_when_disabled",
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt",
+            "UPDATE REGISTERED_APPLICATION SET type = CASE WHEN blocked != 0 THEN 3 ELSE 2 END",
+            "CREATE TABLE IF NOT EXISTS PENDING_REGISTRATION",
         ).forEach { sqlFragment ->
             assertTrue(source.contains(sqlFragment), "Missing migration SQL: $sqlFragment")
         }
@@ -123,7 +126,7 @@ class RuntimeStoreMigrationContractTest {
             "WHERE pkg = :pkg AND user_id = :userId",
             "WHERE pkg = :pkg AND user_id = :userId LIMIT 1",
             "WHERE user_id = :userId ORDER BY pkg",
-            "SET blocked = :blocked WHERE id = :id AND user_id = :userId",
+            "SET blocked = :blocked, type = CASE WHEN :blocked THEN 3 ELSE 2 END WHERE id = :id AND user_id = :userId",
             "SET click_fallback_enabled = :enabled WHERE id = :id AND user_id = :userId",
         ).forEach { queryFragment ->
             assertTrue(dao.contains(queryFragment), "Missing user-scoped DAO query: $queryFragment")

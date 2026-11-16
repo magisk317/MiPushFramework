@@ -150,6 +150,26 @@ class ApplicationReadSourcesTest {
     }
 
     @Test
+    fun `remote list preserves registration policy and real pending flag independently of registration status`() = runBlocking {
+        val summaries = listOf(
+            summary("ask").copy(type = ManagerApplication.Type.ASK, registrationPending = true),
+            summary("automatic").copy(type = ManagerApplication.Type.ALLOW, registrationPending = false),
+            summary("denied", registered = true).copy(type = ManagerApplication.Type.DENY, registrationPending = false),
+        )
+        val source = RemoteApplicationListSource(
+            pageLoader = { ManagerRuntimeResult.Success(ManagerApplicationPageDto(items = summaries, stats = stats(3, 3, 1))) },
+            pageSizeProvider = { 3 },
+            userIdProvider = { 0 },
+        )
+        val result = source.load(ApplicationListRequest()) as ApplicationReadResult.Available
+        assertEquals(
+            listOf(app("ask").copy(type = ManagerApplication.Type.ASK, registrationPending = true),
+                app("automatic"), app("denied", registered = true).copy(type = ManagerApplication.Type.DENY)),
+            result.value.applications.items,
+        )
+    }
+
+    @Test
     fun `remote list rejects a page from another user`() = runBlocking {
         val source = RemoteApplicationListSource(
             pageLoader = {
@@ -296,6 +316,7 @@ class ApplicationReadSourcesTest {
     private fun summary(packageName: String, registered: Boolean = false) = ManagerApplicationSummaryDto(
         id = packageName.hashCode().toLong(),
         packageName = packageName,
+        type = ManagerApplication.Type.ALLOW,
         registeredType = if (registered) 1 else 0,
         appName = packageName,
         appNamePinYin = packageName,
@@ -305,6 +326,7 @@ class ApplicationReadSourcesTest {
         io.github.magisk317.mipush.manager.application.ManagerApplication(
             id = packageName.hashCode().toLong(),
             packageName = packageName,
+            type = ManagerApplication.Type.ALLOW,
             registeredType = if (registered) 1 else 0,
             appName = packageName,
             appNamePinYin = packageName,

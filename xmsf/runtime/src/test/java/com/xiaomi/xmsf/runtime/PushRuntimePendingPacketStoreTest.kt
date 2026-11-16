@@ -105,4 +105,30 @@ class PushRuntimePendingPacketStoreTest {
             PushRuntimePendingPacketStore.discardPackage("com.example.target", -1)
         }
     }
+    @Test
+    fun `clear during failed drain prevents resurrection`() {
+        PushRuntimePendingPacketStore.clearForTests()
+        PushRuntimePendingPacketStore.cacheRegistrationRequest("com.example.target", byteArrayOf(1), androidUserId = 0)
+        runCatching {
+            PushRuntimePendingPacketStore.processPendingRegistrationRequests("test", androidUserId = 0, sender = { _, _ ->
+                PushRuntimePendingPacketStore.discardPackage("com.example.target", 0)
+                throw IllegalStateException("send failed")
+            })
+        }.onFailure { /* Failure is the simulated transport outcome. */ }
+        assertEquals(0, PushRuntimePendingPacketStore.pendingRegistrationCount(androidUserId = 0))
+    }
+
+    @Test
+    fun `clearing a later registration while an earlier send runs skips its drained snapshot`() {
+        PushRuntimePendingPacketStore.clearForTests()
+        PushRuntimePendingPacketStore.cacheRegistrationRequest("first", byteArrayOf(1), androidUserId = 0)
+        PushRuntimePendingPacketStore.cacheRegistrationRequest("revoked", byteArrayOf(2), androidUserId = 0)
+        val sent = mutableListOf<String>()
+        PushRuntimePendingPacketStore.processPendingRegistrationRequests("test", androidUserId = 0, sender = { pkg, _ ->
+            sent += pkg
+            if (pkg == "first") PushRuntimePendingPacketStore.discardPackage("revoked", 0)
+        })
+        assertEquals(listOf("first"), sent)
+    }
+
 }

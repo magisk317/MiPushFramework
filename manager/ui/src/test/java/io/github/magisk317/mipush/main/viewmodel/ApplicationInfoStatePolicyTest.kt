@@ -25,7 +25,7 @@ class ApplicationInfoStatePolicyTest {
     }
 
     @Test
-    fun `blocked app disables every control except the block toggle`() {
+    fun `blocked app disables every notification control`() {
         val info = app(
             blocked = true,
             islandEnabled = true,
@@ -46,23 +46,25 @@ class ApplicationInfoStatePolicyTest {
     }
 
     @Test
-    fun `blocking clears island switches and unblocking does not silently restore them`() {
+    fun `blocking suspends controls and unblocking preserves notification preferences`() {
         val enabled = app(
             islandEnabled = true,
             islandFocusNotification = true,
-        )
+            clickFallbackEnabled = true,
+            suppressWhenDisabled = true,
+        ).copy(countLimitExempt = true)
 
         val blocked = ApplicationInfoStatePolicy.withBlocked(enabled, blocked = true)
         val unblocked = ApplicationInfoStatePolicy.withBlocked(blocked, blocked = false)
 
         assertTrue(blocked.blocked)
-        assertFalse(blocked.islandEnabled)
-        assertFalse(blocked.islandFocusNotification)
-        assertFalse(blocked.clickFallbackEnabled)
-        assertFalse(blocked.suppressWhenDisabled)
-        assertFalse(unblocked.blocked)
-        assertFalse(unblocked.islandEnabled)
-        assertFalse(unblocked.islandFocusNotification)
+        assertTrue(blocked.islandEnabled)
+        assertTrue(blocked.islandFocusNotification)
+        assertTrue(blocked.clickFallbackEnabled)
+        assertTrue(blocked.suppressWhenDisabled)
+        assertTrue(blocked.countLimitExempt)
+        assertFalse(ApplicationInfoStatePolicy.controls(blocked).islandEnabled)
+        assertEquals(enabled, unblocked)
     }
 
     @Test
@@ -120,6 +122,20 @@ class ApplicationInfoStatePolicyTest {
         val enabled = ApplicationInfoStatePolicy.withSuppressWhenDisabled(disabled, enabled = true)
         requireNotNull(enabled)
         assertTrue(enabled.suppressWhenDisabled)
+    }
+
+    @Test
+    fun `unregister marks unregistered and links the block`() {
+        val info = app(islandEnabled = true, islandFocusNotification = true, clickFallbackEnabled = true)
+
+        val result = ApplicationInfoStatePolicy.withUnregistered(info)
+
+        assertEquals(ManagerApplication.RegisteredType.UNREGISTERED, result.registeredType)
+        assertTrue(result.blocked)
+        assertTrue(result.islandEnabled)
+        assertTrue(result.islandFocusNotification)
+        assertTrue(result.clickFallbackEnabled)
+        assertFalse(result.suppressWhenDisabled)
     }
 
     private fun app(

@@ -154,6 +154,132 @@ class SystemUiNotificationPolicyTest {
     }
 
     @Test
+    fun `unmanaged summary inherits any monochrome child only when both sides are known and safe`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = true,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+            "An already safe monochrome summary must keep its posted glyph.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = false,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+            "An uninspectable summary glyph must stay on the native path.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = false,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+            "An unknown child relationship must stay on the native path.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = false,
+                safeReplacementAvailable = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = false,
+            ),
+            "A cache miss must not block native rendering until a safe glyph is ready.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = false,
+                isMiPushManagedSummary = false,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                isSyntheticAutogroupSummary = true,
+                isMiPushManagedSummary = true,
+                summaryGlyphStateKnown = true,
+                summaryHasSafeOwnMonochromeGlyph = false,
+                childStateKnown = true,
+                hasMonochromeChild = true,
+                safeReplacementAvailable = true,
+            ),
+            "Managed summaries keep the existing managed fallback chain.",
+        )
+    }
+
+    @Test
+    fun `an applied child summary glyph blocks native substitution only for that synthetic summary`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+                monochromeAutogroupSummaryOverrideApplied = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = true,
+                monochromeAutogroupSummaryOverrideApplied = false,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                isMiPushManaged = false,
+                iconPackHit = false,
+                isSyntheticAutogroupSummary = false,
+                monochromeAutogroupSummaryOverrideApplied = true,
+            ),
+            "The per-summary override must not change ordinary unmanaged notifications.",
+        )
+    }
+
+    @Test
     fun `both app classes are inspected for a self-supplied monochrome glyph`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(

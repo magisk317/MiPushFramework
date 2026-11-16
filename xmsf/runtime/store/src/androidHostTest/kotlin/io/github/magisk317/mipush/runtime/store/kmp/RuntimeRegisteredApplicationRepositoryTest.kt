@@ -19,7 +19,7 @@ class RuntimeRegisteredApplicationRepositoryTest {
         assertTrue(created.created)
         assertEquals(1, created.application.id)
         assertEquals(7, created.application.userId)
-        assertEquals(RegisteredAppType.ASK, created.application.type)
+        assertEquals(RegisteredAppType.ALLOW, created.application.type)
         assertEquals(RegisteredAppRegisteredType.NotRegistered, created.application.registeredType)
         assertEquals("Example", created.application.appName)
         assertFalse(existing.created)

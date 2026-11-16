@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.service.runtime
+package io.github.magisk317.mipush.runtime.service
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
