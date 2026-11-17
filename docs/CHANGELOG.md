@@ -2,6 +2,14 @@
 
 本日志记录了项目近期的主要变更。
 
+
+---
+## [v1.1.5] - 2026-11-17
+- 版本：`versionCode 24` / `versionName 1.1.5`。
+- 下一轮开发占位，发布前补充具体变更。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.4...v1.1.5
+
 ---
 ## [v1.1.4] - 2026-11-16
 - 版本：`versionCode 23` / `versionName 1.1.4`。
