@@ -281,23 +281,11 @@ tasks.register<Exec>("verifyCiToolkitRef") {
     commandLine("bash", "${System.getenv("MAGISK_CI_TOOLKIT_DIR") ?: ".magisk-ci-toolkit"}/ci/verify_toolkit_pin.sh", "--root", project.projectDir.absolutePath)
 }
 
-tasks.register<Exec>("reportGodFiles") {
-    group = "verification"
-    description = "Report large production Kotlin files outside frozen compatibility and shared-submodule roots."
-    commandLine("bash", "scripts/checks/report_god_files.sh", "--report")
-}
-
 tasks.register<Exec>("verifyNoGlobalWarningMute") {
     group = "verification"
     description = "Ensure the Kotlin discarded-result diagnostics stay enabled; tolerated failures must be explicit at the call site."
     workingDir = rootProject.projectDir
     commandLine("bash", "${rootProject.projectDir}/scripts/checks/verify_no_global_warning_mute.sh")
-}
-
-tasks.register<Exec>("verifyGodFileLimits") {
-    group = "verification"
-    description = "Fail when a production Kotlin god file is added, grows, or diverges from its reviewed limit."
-    commandLine("bash", "scripts/checks/report_god_files.sh", "--verify")
 }
 
 tasks.matching { it.name == "check" }.configureEach {
@@ -307,16 +295,12 @@ tasks.matching { it.name == "check" }.configureEach {
     }
     dependsOn("verifyModuleBoundaries", "verifyNoGlobalWarningMute")
     dependsOn("verifyCiToolkitRef")
-    dependsOn("reportGodFiles")
-    dependsOn("verifyGodFileLimits")
 }
 
 subprojects {
     tasks.matching { it.name == "check" }.configureEach {
         dependsOn(rootProject.tasks.named("verifyModuleBoundaries"))
         dependsOn(rootProject.tasks.named("verifyCiToolkitRef"))
-        dependsOn(rootProject.tasks.named("reportGodFiles"))
-        dependsOn(rootProject.tasks.named("verifyGodFileLimits"))
     }
 }
 

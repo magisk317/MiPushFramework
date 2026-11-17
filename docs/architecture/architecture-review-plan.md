@@ -54,7 +54,7 @@
 - `./gradlew qualityGateKoverVerify --warning-mode=all --console=plain` 通过；目标为 `common/core/xposed/xmsf:shell`，门槛分别为 10%/10%/10%/7%，不再把仅用于打包的 `:xmsf` 根应用误作为 0% 实现模块。
 - 当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleGithubDebug --warning-mode=all --console=plain`，1362 actionable tasks 全部通过；Kover 只应用于四个明确门禁模块，不让零测试的 packaging/vendor 模块污染普通 `check`。
 - `manager:port` JSON 序列化/default/未知字段兼容测试通过；CallMessage、PushCommonProvider、regSec 缺失目标偏好文件和 xmsf runtime regression tests 通过。
-- `verifyGodFileLimits`、`verifyModuleBoundaries`、ShellCheck、CI shard 脚本测试和 `git diff --check` 通过。
+- `verifyModuleBoundaries`、ShellCheck、CI shard 脚本测试和 `git diff --check` 通过。
 - `.kiro` 下的历史规格保留原始任务上下文；当前架构归属、验证命令和开放项以本文、`xmsf-decomposition-roadmap.md` 及仓库根/模块 `AGENTS.md` 为准。
 
 ## Last device evidence (2026-08-31)

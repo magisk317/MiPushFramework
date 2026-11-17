@@ -88,7 +88,7 @@ semantics remain in `:manager:contract`; they are not candidates for `:manager:p
 ```bash
 ./gradlew --no-build-cache :xmsf:runtime:testDebugUnitTest :xmsf:shell:compileNormalDebugKotlin \
   :manager:application:test :manager:port:test verifyModuleBoundaries
-./gradlew --no-build-cache reportGodFiles verifyGodFileLimits verifyModuleBoundaries
+./gradlew --no-build-cache verifyModuleBoundaries
 git diff --check
 ```
 

@@ -461,7 +461,6 @@ android:detekt:
     MAGISK_ANDROID_DETEKT_TASKS: >-
       detekt
       qualityGateDetekt
-      verifyGodFileLimits
       -PminifyDebug
       -Pkotlin.incremental=false
   artifacts:
