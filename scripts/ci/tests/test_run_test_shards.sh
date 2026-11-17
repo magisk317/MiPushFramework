@@ -21,7 +21,7 @@ grep -F ':mipush:compileGithubDebugKotlin' "$SHARD_LOG" >/dev/null
 grep -F ':core:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':magisk-xposed-kit:keepalive:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':configuration:jvmTest' "$SHARD_LOG" >/dev/null
-grep -F ':magisk-ui-kit:update:testGithubDebugUnitTest' "$SHARD_LOG" >/dev/null
+grep -F ':magisk-ui-kit:governance:testGithubDebugUnitTest' "$SHARD_LOG" >/dev/null
 # Each shared consumer task must actually reach the Gradle runner exactly once.
 # Count tokens rather than substrings so contract:test cannot match a different variant.
 for task in \
@@ -39,7 +39,7 @@ grep -F ':manager:port:test' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:platform:jvmTest' "$SHARD_LOG" >/dev/null
 grep -F ':xmsf:runtime:store:testAndroidHostTest' "$SHARD_LOG" >/dev/null
 # MiPush enables Github only; shared distribution variants follow the parent channels.
-if grep -F ':magisk-ui-kit:update:testPlayDebugUnitTest' "$SHARD_LOG" >/dev/null; then
+if grep -F ':magisk-ui-kit:governance:testPlayDebugUnitTest' "$SHARD_LOG" >/dev/null; then
   echo 'runner invokes a Play variant excluded by the MiPush consumer' >&2
   exit 1
 fi

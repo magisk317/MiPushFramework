@@ -67,7 +67,7 @@ dependencies {
     implementation(project(":manager:xmsfDelivery"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))
-    implementation(project(":magisk-ui-kit:update"))
+    implementation(project(":magisk-ui-kit:governance"))
     implementation(project(":magisk-ui-kit:backup"))
     implementation(project(":core"))
 
