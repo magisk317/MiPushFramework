@@ -15,6 +15,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+private val archiveJson = Json {
+    ignoreUnknownKeys = true
+}
+
 /**
  * MiPush data plane for the cloud backup stack: exports the manager-owned
  * preference entries as a versioned JSON archive into a cache file and applies
@@ -86,7 +90,7 @@ class MiPushCloudBackupPayloadSource(
         val raw = runCatching { backup.readText() }.getOrElse { error ->
             throw IllegalStateException("Restore failed: backup unreadable", error)
         }
-        return runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<MiPushBackupArchive>(raw) }
+        return runCatching { archiveJson.decodeFromString<MiPushBackupArchive>(raw) }
             .getOrElse { error ->
                 throw IllegalStateException("Restore failed: backup is not a MiPush backup archive", error)
             }

@@ -258,94 +258,7 @@ class HookSystemUI : BaseHook() {
                 XLog.e(TAG, "Failed to hook NotifImageUtil.getSmallIcon", e)
             }
 
-            try {
-                // CN HyperOS substitutes multi-color app logos when miuiOptimization is on.
-                // Block that substitution under monochrome so white-alpha BITMAP silhouettes stick.
-                val notifImageUtilClass =
-                    classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
-                notifImageUtilClass.hookAllMethods("shouldSubstituteSmallIcon") {
-                    doBefore {
-                        // Only override on the status-bar path (StatusBarIconView.updateIconColor).
-                        // Notification-shade header/expanded rows also call this; forcing false there
-                        // suppresses the colored app icon and turns expanded rows / group summaries
-                        // white. Whitelist the StatusBarIconView stack frame to stay status-bar only.
-                        if (!SystemUiNotificationPolicy.isStatusBarSubstitutionContext(
-                                Thread.currentThread().stackTrace.map { it.className }
-                            )
-                        ) {
-                            return@doBefore
-                        }
-                        val sbn = args.firstOrNull() as? StatusBarNotification ?: return@doBefore
-                        val isSyntheticAutogroupSummary =
-                            SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
-                                sbn.notification?.flags ?: 0,
-                            )
-                        val options = IslandPreferences.current()
-                        if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(options.colorStatusBarIcon)) {
-                            if (isSyntheticAutogroupSummary) autogroupSummaryIconResolver.clear(sbn)
-                            return@doBefore
-                        }
-                        val context = currentApplication() ?: return@doBefore
-                        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
-                            sbn.notification?.extras
-                        )
-                        val userId = notificationUserId(sbn) ?: 0
-                        val iconPackHit = isMiPushManaged || iconPackHitForStatus(
-                            context = context,
-                            owner = NotificationOwnerResolver.resolve(
-                                sbn.packageName,
-                                sbn.notification?.extras,
-                            ),
-                            postedPackage = sbn.packageName,
-                            userId = userId,
-                        )
-                        // An app that already posts a standard monochrome glyph gets to keep it:
-                        // SystemUI tints that glyph, while MIUI's substitution would put a
-                        // multi-color launcher logo in the status bar. System apps answer to their own
-                        // icon-pack switch, so a store's download notice and Play's look the same.
-                        val postedGlyphIsMonochrome = if (isSyntheticAutogroupSummary) {
-                            autogroupSummaryIconResolver.postedMonochromeGlyphSafety(context, sbn.notification?.smallIcon) == true
-                        } else {
-                            isPositivelyGrayscaleSmallIcon(context, sbn.notification?.smallIcon)
-                        }
-                        val keepsOwnMonochromeGlyph = !iconPackHit &&
-                            SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
-                                thirdPartyIconPack = options.thirdPartyIconPack,
-                                systemAppIconPack = options.systemAppIconPack,
-                                isMiPushManaged = isMiPushManaged,
-                                uid = sbn.uid,
-                                isSystemApp = isSystemApplication(context, sbn.packageName),
-                                postedPackageName = sbn.packageName,
-                            ) && postedGlyphIsMonochrome
-                        if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
-                                isMiPushManaged = isMiPushManaged,
-                                iconPackHit = iconPackHit,
-                                isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
-                                keepsOwnMonochromeGlyph = keepsOwnMonochromeGlyph,
-                                monochromeAutogroupSummaryOverrideApplied =
-                                    isSyntheticAutogroupSummary &&
-                                        autogroupSummaryIconResolver.overrideIconOrNull(sbn) != null,
-                            )
-                        ) {
-                            if (keepsOwnMonochromeGlyph) {
-                                XLog.d(TAG, "status bar glyph kept pkg=${sbn.packageName} source=posted-monochrome")
-                            }
-                            result = false
-                        }
-                        if (isSyntheticAutogroupSummary) {
-                            XLog.i(
-                                TAG,
-                                "autogroup summary substitution managed=$isMiPushManaged " +
-                                    "overrideApplied=${autogroupSummaryIconResolver.overrideIconOrNull(sbn) != null} " +
-                                    "keepsOwn=$keepsOwnMonochromeGlyph blocked=${result == false}",
-                            )
-                        }
-                    }
-                }
-                XLog.i(TAG, "hooked NotifImageUtil.shouldSubstituteSmallIcon for monochrome")
-            } catch (e: Exception) {
-                XLog.e(TAG, "Failed to hook NotifImageUtil.shouldSubstituteSmallIcon", e)
-            }
+            hookShouldSubstituteSmallIcon(classLoader)
 
             try {
                 classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
@@ -377,7 +290,7 @@ class HookSystemUI : BaseHook() {
                                     SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
                                         notification?.flags ?: 0,
                                     )
-                                if (isSyntheticAutogroupSummary && entry != null) {
+                                if (isSyntheticAutogroupSummary) {
                                     val summaryContext = iconView.context
                                     val summaryGlyphSafety = autogroupSummaryIconResolver.postedMonochromeGlyphSafety(
                                         summaryContext,
@@ -478,6 +391,103 @@ class HookSystemUI : BaseHook() {
                 }
         }
 
+    }
+
+    /**
+     * Install the CN HyperOS shouldSubstituteSmallIcon hook. Split out of
+     * onLoadPackage so the entry point stays under the cyclomatic budget.
+     */
+    private fun hookShouldSubstituteSmallIcon(classLoader: ClassLoader) {
+        try {
+            // CN HyperOS substitutes multi-color app logos when miuiOptimization is on.
+            // Block that substitution under monochrome so white-alpha BITMAP silhouettes stick.
+            val notifImageUtilClass =
+                classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
+            notifImageUtilClass.hookAllMethods("shouldSubstituteSmallIcon") {
+                doBefore {
+                    // Only override on the status-bar path (StatusBarIconView.updateIconColor).
+                    // Notification-shade header/expanded rows also call this; forcing false there
+                    // suppresses the colored app icon and turns expanded rows / group summaries
+                    // white. Whitelist the StatusBarIconView stack frame to stay status-bar only.
+                    if (!SystemUiNotificationPolicy.isStatusBarSubstitutionContext(
+                            Thread.currentThread().stackTrace.map { it.className }
+                        )
+                    ) {
+                        return@doBefore
+                    }
+                    val sbn = args.firstOrNull() as? StatusBarNotification ?: return@doBefore
+                    val isSyntheticAutogroupSummary =
+                        SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
+                            sbn.notification?.flags ?: 0,
+                        )
+                    val options = IslandPreferences.current()
+                    if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(options.colorStatusBarIcon)) {
+                        if (isSyntheticAutogroupSummary) autogroupSummaryIconResolver.clear(sbn)
+                        return@doBefore
+                    }
+                    val context = currentApplication() ?: return@doBefore
+                    val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                        sbn.notification?.extras
+                    )
+                    val userId = notificationUserId(sbn) ?: 0
+                    val iconPackHit = isMiPushManaged || iconPackHitForStatus(
+                        context = context,
+                        owner = NotificationOwnerResolver.resolve(
+                            sbn.packageName,
+                            sbn.notification?.extras,
+                        ),
+                        postedPackage = sbn.packageName,
+                        userId = userId,
+                    )
+                    // An app that already posts a standard monochrome glyph gets to keep it:
+                    // SystemUI tints that glyph, while MIUI's substitution would put a
+                    // multi-color launcher logo in the status bar. System apps answer to their own
+                    // icon-pack switch, so a store's download notice and Play's look the same.
+                    val postedGlyphIsMonochrome = if (isSyntheticAutogroupSummary) {
+                        autogroupSummaryIconResolver.postedMonochromeGlyphSafety(context, sbn.notification?.smallIcon) == true
+                    } else {
+                        isPositivelyGrayscaleSmallIcon(context, sbn.notification?.smallIcon)
+                    }
+                    val keepsOwnMonochromeGlyph = !iconPackHit &&
+                        SystemUiNotificationPolicy.shouldInspectPostedGlyphForMonochrome(
+                            thirdPartyIconPack = options.thirdPartyIconPack,
+                            systemAppIconPack = options.systemAppIconPack,
+                            isMiPushManaged = isMiPushManaged,
+                            uid = sbn.uid,
+                            isSystemApp = isSystemApplication(context, sbn.packageName),
+                            postedPackageName = sbn.packageName,
+                        ) && postedGlyphIsMonochrome
+                    if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                            isMiPushManaged = isMiPushManaged,
+                            iconPackHit = iconPackHit,
+                            isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
+                            keepsOwnMonochromeGlyph = keepsOwnMonochromeGlyph,
+                            monochromeAutogroupSummaryOverrideApplied =
+                                isSyntheticAutogroupSummary &&
+                                    autogroupSummaryIconResolver.overrideIconOrNull(sbn) != null,
+                        )
+                    ) {
+                        if (keepsOwnMonochromeGlyph) {
+                            XLog.d(TAG, "status bar glyph kept pkg=${sbn.packageName} source=posted-monochrome")
+                        }
+                        result = false
+                    }
+                    if (isSyntheticAutogroupSummary) {
+                        XLog.i(
+                            TAG,
+                            "autogroup summary substitution managed=$isMiPushManaged " +
+                                "overrideApplied=${autogroupSummaryIconResolver.overrideIconOrNull(sbn) != null} " +
+                                "keepsOwn=$keepsOwnMonochromeGlyph blocked=${result == false}",
+                        )
+                    }
+                }
+            }
+            XLog.i(TAG, "hooked NotifImageUtil.shouldSubstituteSmallIcon for monochrome")
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to hook NotifImageUtil.shouldSubstituteSmallIcon", e)
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to hook NotifImageUtil.shouldSubstituteSmallIcon", e)
+        }
     }
 
     /**

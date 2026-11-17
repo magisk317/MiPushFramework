@@ -15,6 +15,38 @@ if [[ -z "$ref" ]]; then
   exit 1
 fi
 
+# Every literal declaration of this pin must be the same commit: the GitLab
+# variable, both GitHub workflow envs and the resolver's fallback default.
+# They named three different faces of the pin before this comparison existed
+# -- GitLab moved to a new Zygisk commit while the workflows and the resolver
+# fallback still pointed at the previous one for a whole release.
+mapfile -t pin_declarations < <(
+  grep -RInE '(MIPUSH_ZYGISK_REF|default_zygisk_ref)(:[[:space:]]*"?|:-)[0-9a-fA-F]' \
+    "$ROOT_DIR/.gitlab-ci.yml" "$ROOT_DIR/.github" "$ROOT_DIR/scripts" 2>/dev/null
+)
+(( ${#pin_declarations[@]} >= 1 )) || {
+  echo "FAIL: no literal zygisk pin declarations found; the scan pattern rotted" >&2
+  exit 1
+}
+ref_lower="$(printf '%s' "$ref" | tr '[:upper:]' '[:lower:]')"
+for declaration in "${pin_declarations[@]}"; do
+  location="${declaration%%:*}"
+  hexes="$(printf '%s\n' "$declaration" | grep -oE '[0-9a-fA-F]{40}' || true)"
+  [[ -n "$hexes" ]] || {
+    echo "FAIL: zygisk pin declaration in $location is not a full 40-hex SHA: $declaration" >&2
+    exit 1
+  }
+  while read -r hex; do
+    [[ -n "$hex" ]] || continue
+    hex_lower="$(printf '%s' "$hex" | tr '[:upper:]' '[:lower:]')"
+    [[ "$hex_lower" == "$ref_lower" ]] || {
+      echo "FAIL: zygisk pin drift in $location: $hex != $ref (declared in .gitlab-ci.yml)" >&2
+      exit 1
+    }
+  done <<< "$hexes"
+done
+echo "PASS: ${#pin_declarations[@]} zygisk pin declarations agree on ${ref:0:12}"
+
 url="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
 probe="$(mktemp -d)"
 # The EXIT trap must not poison the exit status: on overlayfs the rm can
