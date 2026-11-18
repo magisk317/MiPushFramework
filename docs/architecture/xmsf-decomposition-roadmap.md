@@ -141,7 +141,7 @@ KMP source sets and targets are build/test partitions, not architecture boundari
 4. **Focus semantics — completed:** JSON parsing, inference, labels, progress extraction, semantic style, and routing planning execute in `:core`; `:xmsf:notification` only adapts Android/protocol values and capabilities.
 5. **Manager state policies — completed:** page activation/request generation, snapshot validity, and neutral read sorting live in `:core`; manager UI retains Compose/NavController and persistence adapters.
 6. **Logging core — completed:** JSONL encoding, escaping, redaction, naming, and quota deletion decisions live in `:core`; `common`, manager, and XMSF retain filesystem enumeration/deletion/write adapters.
-7. **Optional platform-specific policies — completed for reviewed keep-alive slice:** Xposed process/keepalive decisions call `KeepAlivePolicyCore`; system mutation and reflection remain in Xposed.
+7. **Optional platform-specific policies — completed for reviewed keep-alive slice:** XMSF bind/unbind timing decisions use `:core` `KeepAliveTimingPolicy`; Xposed process/keepalive decisions use `magisk-xposed-kit:keepalive` `KeepAlivePolicy`; system mutation and reflection remain in Xposed.
 
 Every slice must keep the existing Android/JVM facade or source-compatible aliases, preserve machine-readable action strings and stock/wire behavior, add direct tests for the shared implementation, and pass both the shared tests and the affected Android-module regression suite before the next slice starts. Core policy code must not import vendor, Android, Java I/O, reflection, Parcelable, or Thrift types.
 

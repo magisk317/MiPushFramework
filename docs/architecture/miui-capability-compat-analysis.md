@@ -1,97 +1,65 @@
-# MIUI 能力兼容分层分析：属性、类与谓词（2026-09-13）
+# MIUI Capability Compatibility Layering Analysis: Properties, Classes, and Predicates (2026-09-13)
 
-起因：Douyin 40.4.0 在类原生 Xiaomi ROM 上不初始化 MiPush provider（外部验证报告
-`UPSTREAM_REPORT_DOUYIN_MIUI_GATE.md`）。本报告解释为什么 Zygisk 与框架两层伪装都
-没接住它，盘点三套「已知面」的漂移，并给出防复发机制。
+Context: Douyin 40.4.0 fails to initialize the MiPush provider on a near-stock Xiaomi ROM (external verification report, not in this repository). This report explains why neither the Zygisk nor the framework spoofing layer caught it, inventories the drift across the three "known surface" lists, and gives a prevention mechanism.
 
-## 1. 结论先行：三层能力模型
+## 1. Bottom Line: The Three-Layer Capability Model
 
-第三方 SDK 判断「这是 MIUI/HyperOS」有三个互相独立的技术层，每层的伪造手段不同，
-**任何一层都不能替代另一层**：
+A third-party SDK decides "this is MIUI/HyperOS" through three independent technical layers, each with a different spoofing mechanism. **No layer can substitute for another**:
 
-| 层 | SDK 实际读取的东西 | 我们现有的伪造手段 | Douyin 案例 |
+| Layer | What the SDK actually reads | Our existing spoofing mechanism | Douyin case |
 |---|---|---|---|
-| L1 属性层 | `SystemProperties.get("ro.miui.*")`、`Build.*` 静态字段 | Zygisk（`pre_app_specialize` 改 Build 字段 + hook SystemProperties native getter）；框架 `FakeProperty`（app 进程内） | 通过——Zygisk 默认 profile 提供 90 项属性 |
-| L2 类路径层 | `Class.forName("miui.os.Build")`——类是否存在，由 ROM 是否携带 `/system_ext/framework/miui-framework.jar` 决定 | 框架 `Common.fakeClass()`（把 `miui.os.Build`/`miui.external.SdkHelper` 映射到自带 shim） | **失败**，见 §2 |
-| L3 SDK 谓词层 | app 自己的封装方法（如 `ToolUtils.isMiui()`：解析 L2 并缓存结果；不同 app 还有各自的谓词） | 此前无任何 hook 对准真实谓词 | **失败**——provider selector 卡在这层 |
+| L1 property layer | `SystemProperties.get("ro.miui.*")`, `Build.*` static fields | Zygisk (`pre_app_specialize` modifies Build fields and hooks the SystemProperties native getter); framework `FakeProperty` (inside the app process) | Pass — the default Zygisk profile supplies 90 properties |
+| L2 classpath layer | `Class.forName("miui.os.Build")` — whether the class exists, determined by whether the ROM ships `/system_ext/framework/miui-framework.jar` | Framework `Common.fakeClass()` (maps `miui.os.Build` / `miui.external.SdkHelper` to bundled shims) | **Fail**, see §2 |
+| L3 SDK predicate layer | The app's own wrapper methods (e.g. `ToolUtils.isMiui()`: parses L2 and caches the result; different apps have their own predicates) | Previously no hook targeted the real predicate | **Fail** — the provider selector is stuck at this layer |
 
-「Zygisk 不是仿冒全属性吗，怎么漏了一个字段」——**它没漏字段：`miui.os.Build` 根本不是属性**。
-它是 HyperOS framework 挂载表里的一个类（连 EEA 版 HyperOS 都带 `miui-framework.jar`，所以
-真 HyperOS 永远能解析到；类原生 ROM 则整个类不存在）。属性仿冒在机制上无法凭空造出类。
-这正是 L1 与 L2 的边界。
+"Isn't Zygisk spoofing all properties? How did it miss a field?" — **It did not miss a field: `miui.os.Build` is not a property at all.** It is a class in the HyperOS framework mount table (even the EEA build of HyperOS ships `miui-framework.jar`, so real HyperOS can always resolve it; a near-stock ROM has no such class at all). Property spoofing cannot create a class out of nothing by mechanism. This is exactly the L1/L2 boundary.
 
-## 2. 框架侧为什么也漏：三重独立失误叠加
+## 2. Why the Framework Layer Also Missed It: Three Independent Mistakes Compounded
 
-1. **guard 假设错误**（`FakeDevice.kt`）：`BRAND/MANUFACTURER==Xiaomi → 跳过全部 pipeline`。
-   该假设把「品牌是小米」当成了「MIUI 框架类存在」——类原生 Xiaomi ROM 恰好打破它；
-   更讽刺的是**非小米设备 + Zygisk 把 BRAND 改成 Xiaomi 后，也反过来触发了这个跳过**，
-   连 `fakeClass` 都没装上。两头堵死。
-2. **overload 假设错误**（`Common.fakeClass()`）：只 hook `Class.forName(String,boolean,ClassLoader)`
-   三参版本；Douyin 的 `X.0TbU.G0(String)` 走单参 `Class.forName`，在 ART 里单参版直接进
-   native `forName0`，**不经过公开三参方法**，方法级 hook 截不到。
-3. **hook 目标年代错误**（`DouYin.kt`）：挂的是 `socialbase.appdownloader.util.MIUIUtils.isMIUI*`
-   ——downloader 组件的 MIUI 判断（历史 MiPush 接入文章时代的知识沉淀），与 message SDK 的
-   provider selector（`com.ss.android.message.util.ToolUtils.isMiui`）类、调用方、职责都不同。
+1. **Incorrect guard assumption** (`FakeDevice.kt`): `BRAND/MANUFACTURER == Xiaomi → skip the whole pipeline`. This treats "brand is Xiaomi" as "MIUI framework classes exist" — a near-stock Xiaomi ROM breaks it. More ironically, a non-Xiaomi device whose BRAND is changed to Xiaomi by Zygisk also triggers the skip, so even `fakeClass` never gets installed. Both ends are blocked.
+2. **Incorrect overload assumption** (`Common.fakeClass()`): only the three-argument `Class.forName(String, boolean, ClassLoader)` is hooked. Douyin's `X.0TbU.G0(String)` uses the single-argument `Class.forName`, which in ART goes directly to the native `forName0` and **does not pass through the public three-argument method**, so the method-level hook cannot intercept it.
+3. **Outdated hook target** (`DouYin.kt`): it hooks `socialbase.appdownloader.util.MIUIUtils.isMIUI*` — the downloader component's MIUI check (knowledge from the old MiPush integration era). It differs from the message SDK's provider selector (`com.ss.android.message.util.ToolUtils.isMiui`) in class, caller, and responsibility.
 
-修复（`67e691ab6`）：新增 `DouyinMiuiGateHook`，精确签名匹配（static/0 参/primitive boolean
-`isMiui`）、`doAfter` 只改结果（原方法照跑、缓存行为不受干扰）、类/方法缺失或签名歧义时
-**fail-closed 留诊断不盲挂**；安装点放在 guard **之前**（复用 `DouyinMiuiGateHook` 的先例模式），
-`DOUYIN` pipeline 在 profile 里即生效。
+Fix (`67e691ab6`): added `DouyinMiuiGateHook` with exact signature matching (static / zero-args / primitive boolean `isMiui`), `doAfter` modifies only the result (the original method still runs and caching behavior is untouched), and fails closed with diagnostics instead of blind hooking when the class or method is missing or the signature is ambiguous. The install point is placed **before** the guard (following the `DouyinMiuiGateHook` precedent), so the `DOUYIN` pipeline takes effect directly from the profile.
 
-## 3. 「还有哪些已有、已知的面没被覆盖」——三套清单 diff 实录
+## 3. "Which Existing, Known Surfaces Are Still Uncovered?" — Three-List Diff Record
 
-数据源：`MiPushZygisk config.rs DEFAULT_SPOOF_PROPS`（131 行全量）、框架
-`FakeProperty.kt`（51 键）、rubens HyperOS dump `miui-framework/sources/miui/os/Build.java`
-（真类 88 个 public statics + 静态块实际读取的属性）。
+Data sources: `MiPushZygisk config.rs DEFAULT_SPOOF_PROPS` (all 131 lines), framework `FakeProperty.kt` (39 keys), and the rubens HyperOS dump `miui-framework/sources/miui/os/Build.java` (88 public statics on the real class plus the properties actually read by the static block).
 
-### 3.1 Zygisk 有、FakeProperty 无（27 项，节选类别）
-- 区域/locale 面：`ro.miui.build.region`、`ro.vendor.miui.region`、`ro.product.locale[.language]`、
-  `persist.sys.oppo.region`、`ro.hw.country`、`ro.csc.countryiso_code`、`gsm.vivo.countrycode` 等
-  （**区域键缺失会影响 SDK 选区**，注意我们刚给高德/支付宝排过 region 相关链路）；
-- 身份细节：`ro.product.{system,vendor}.{manufacturer,brand}`（部分 app 绕过别名读分区级属性）、
-  `ro.build.description/product`、`ro.product.property_source_order`；
-- HyperOS 特性开关：`persist.sys.miconnect.running`、`persist.sys.millet.handshake`、
-  `ro.miui.enable_cloud_verify`、`ro.mi.development`、`ro.rom.zone`、`ro.fota.oem`。
+### 3.1 Present in Zygisk, absent from FakeProperty (27 items, selected categories)
 
-### 3.2 FakeProperty 有、Zygisk 系统属性面无（2 项，但成对机制不同）
-- `ro.build.fingerprint`：Zygisk 只改 `Build.FINGERPRINT` **字段**，不写 `ro.build.fingerprint`
-  **属性**——走 `SystemProperties.get` 读 fingerprint 的 SDK 在 Zygisk-only 设备上仍见真值；
-- `ro.build.version.sdk`：Zygisk 改 `Build.VERSION.SDK_INT` 字段，同名属性未覆盖。
+- Region/locale surface: `ro.miui.build.region`, `ro.vendor.miui.region`, `ro.product.locale[.language]`, `persist.sys.oppo.region`, `ro.hw.country`, `ro.csc.countryiso_code`, `gsm.vivo.countrycode`, etc. (**missing region keys affect SDK region selection** — note that we just fixed region-related chains for AMap/Alipay);
+- Identity details: `ro.product.{system,vendor}.{manufacturer,brand}` (some apps bypass aliases and read partition-level properties), `ro.build.description/product`, `ro.product.property_source_order`;
+- HyperOS feature switches: `persist.sys.miconnect.running`, `persist.sys.millet.handshake`, `ro.miui.enable_cloud_verify`, `ro.mi.development`, `ro.rom.zone`, `ro.fota.oem`.
 
-### 3.3 真机 `miui.os.Build` 静态块读取、但两套清单都不覆盖的属性（L2 语义缺口）
-`ro.miui.cts`（→IS_CTS_BUILD）、`ro.miui.has_cust_partition`、`ro.build.characteristics`、
-`ro.debuggable`（→IS_DEBUGGABLE）、`ro.cust.test`、`ro.miui.userdata_version`、
-`persist.sys.user_mode`、`persist.sys.miui_optimization`、`ro.soc.name`、`ro.carrier.name`、
-`ro.config.low_ram.threshold_gb`、modem 系（`ro.boot.modem`/`persist.*.modem`）。
-→ 若某 SDK 不满足于「类存在」而读取这些派生字段，仍会拿到与真 HyperOS 不一致的值。
+### 3.2 Present in FakeProperty, absent from the Zygisk system-property surface (2 items, with different mechanisms)
 
-### 3.4 shim 面 vs 真类面（最大的量化缺口）
-`fakeclass/MiuiBuild.kt` 提供 5 字段 + `getRegion/getCustVariant`；真类 **88** 个 public statics
-（`IS_CTA_BUILD`、`IS_FOLD`/device-level 常量、carrier 定制位等），且真类 `extends android.os.Build`。
-当前靠「gate 只查类存在性」侥幸成立（Douyin 案例已改为直接 predicate，不依赖 shim）；
-任何走 `fakeClass` 三参路径、反射读缺失字段的 app 会撞 `NoSuchFieldError`。
-另有一处三源值漂移：`ro.miui.cust_variant` = `cn`（Zygisk）vs `cn_chinatelecom`
-（FakeProperty 与 shim.getCustVariant 一致）——同一属性两个伪造通道给出不同答案。
+- `ro.build.fingerprint`: Zygisk changes only the `Build.FINGERPRINT` **field**, not the `ro.build.fingerprint` **property** — an SDK reading the fingerprint via `SystemProperties.get` still sees the real value on Zygisk-only devices;
+- `ro.build.version.sdk`: Zygisk changes the `Build.VERSION.SDK_INT` field; the same-named property is not covered.
 
-## 4. 防复发机制
+### 3.3 Properties read by the real `miui.os.Build` static block but covered by neither list (L2 semantic gap)
 
-- **P1（已生效）**：能力兼容一律走「app 进程内精确谓词 hook + fail-closed + 诊断」模板
-  （`DouyinMiuiGateHook` 先例），属性/类 shim 只作辅助；
-  `xposed/AGENTS.md` 已加规则：*谓词/类存在性检查不允许假定为属性问题*。
-- **P2（原则）**：属性清单**不新建共享模块**（`MiPushConfigurations` 仓库是狭义的 resetprop 模板仓，
-  不承担清单收敛）；Zygisk 与 FakeProperty 各自就近维护，但漂移必须在设备回归时按 §3 清单核对，
-  改任何值都视作 wire 可见变更走真机验证。
-- **P3（建议）**：shim 契约测试——从 dump 提取真 `miui.os.Build` public 成员表为测试资源，
-  断言 shim 覆盖「常见探针对集」且缺失项有显式豁免清单；`fakeClass` 若保留，扩为同时覆盖
-  单参/三参 forName。
+`ro.miui.cts` (→ `IS_CTS_BUILD`), `ro.miui.has_cust_partition`, `ro.build.characteristics`, `ro.debuggable` (→ `IS_DEBUGGABLE`), `ro.cust.test`, `ro.miui.userdata_version`, `persist.sys.user_mode`, `persist.sys.miui_optimization`, `ro.soc.name`, `ro.carrier.name`, `ro.config.low_ram.threshold_gb`, and the modem family (`ro.boot.modem` / `persist.*.modem`). If an SDK is not satisfied with mere "class exists" and reads these derived fields, it will still get values inconsistent with real HyperOS.
 
-## 5. DouYin pipeline 历史债处置（本次执行）
+### 3.4 Shim surface vs real class surface (the largest quantified gap)
 
-| 段 | 处置 | 依据 |
+`fakeclass/MiuiBuild.kt` provides 5 fields plus `getRegion`/`getCustVariant`; the real class has **88** public statics (`IS_CTA_BUILD`, `IS_FOLD` and device-level constants, carrier customization bits, etc.) and the real class `extends android.os.Build`. Currently this works by luck because the gate only checks class existence (the Douyin case now uses the direct predicate and does not depend on the shim); any app that takes the `fakeClass` three-argument path and reflects on missing fields will hit `NoSuchFieldError`.
+
+There is also a three-source value drift: `ro.miui.cust_variant` = `cn` (Zygisk) vs `cn_chinatelecom` (FakeProperty, consistent with `shim.getCustVariant`) — the same property gets different answers from the two spoofing channels.
+
+## 4. Prevention Mechanism
+
+- **P1 (effective)**: capability compatibility always uses the "in-app precise predicate hook + fail-closed + diagnostics" template (following the `DouyinMiuiGateHook` precedent); property/class shims are auxiliary only. `xposed/AGENTS.md` now carries the rule: *predicate/class-existence checks must not be assumed to be property problems*.
+- **P2 (principle)**: do not create a new shared module for property lists (`MiPushConfigurations` is a narrow resetprop template repository and is not responsible for list convergence). Zygisk and FakeProperty maintain their lists locally, but drift must be checked against the §3 lists during device regression, and any value change is treated as a wire-visible change requiring real-device verification.
+- **P3 (recommended)**: a shim contract test — extract the real `miui.os.Build` public member table from the dump as a test resource, assert that the shim covers the "common probe set" with an explicit exemption list for missing entries; if `fakeClass` is retained, extend it to cover both the single- and three-argument `forName`.
+
+## 5. DouYin Pipeline Historical Debt Disposition (Executed This Round)
+
+| Segment | Disposition | Rationale |
 |---|---|---|
-| downloader `MIUIUtils.isMIUI/isMIUI6Later` 强制钩子 | **删除** | 报告证伪其注释假设：provider 门是 `ToolUtils.isMiui`，downloader 谓词从不参与 push 初始化；钩子只盲改下载器行为（原注释「critical for DouYin to initialize MiPush SDK」即当年误判的化石） |
-| flyme 属性四行清理块 | **删除** | 与 `Common.fakeAllBuildInProperties` 完全重复：flyme 三键在 VENDOR_CLEAR_PROPS（无条件清），display.id/user 在一切能触发该分支的非小米设备路径上本就会被处理 |
-| cloudpush `update_sender` 改写段 | **保留，待设备验证** | 与 provider 门互补的第二机制（服务端渠道名单 `allow_push_list` 里保 1=小米通道）；报告未覆盖它。死活取证不需要反编译：设备回归时看 logcat `cloudpush request|intercept update_sender` 是否出现——不出现则类已漂移，按本表流程删除（fail-fast 已有）|
-| gate hook | 新增（`67e691ab6`） | 见 §2 修复 |
+| Downloader `MIUIUtils.isMIUI/isMIUI6Later` forced hook | **Removed** | The report disproves its comment assumption: the provider gate is `ToolUtils.isMiui`, and the downloader predicate never participates in push initialization. The hook only blindly changed downloader behavior (the original comment "critical for Douyin to initialize MiPush SDK" is a fossil of the old misjudgment). |
+| Flyme four-line property cleanup block | **Removed** | Fully redundant with `Common.fakeAllBuildInProperties`: the three flyme keys are cleared unconditionally in `VENDOR_CLEAR_PROPS`, and `display.id`/`user` are already handled on every non-Xiaomi device path that can trigger the branch. |
+| cloudpush `update_sender` rewrite segment | **Retained, pending device verification** | A second mechanism complementary to the provider gate (keeps `1 = Xiaomi channel` in the server-side `allow_push_list`); not covered by the report. Evidence does not require decompilation: during device regression, check logcat for `cloudpush request|intercept update_sender` — if it does not appear, the class has drifted and this row's process applies (fail-fast already exists). |
+| Gate hook | Added (`67e691ab6`) | See the fix in §2. |
 
-类 KDoc 已记录删除理由与分工，防止后人把「经验式兼容钩子」再养回来。
+Class KDoc records the removal rationale and the division of responsibility, to prevent future "empirical compatibility hooks" from being reintroduced.

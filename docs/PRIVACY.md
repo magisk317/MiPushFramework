@@ -10,7 +10,7 @@
 
 ### 1. Scope
 
-This policy applies to **MiPush Manager** (`io.github.magisk317.mipush`), the management application distributed through Google Play. It does not cover the separately installed XMSF runtime (`com.xiaomi.xmsf`), which cannot be distributed through Google Play under that package name.
+This policy applies to **MiPush Manager** (`io.github.magisk317.mipush`), the management application distributed through the project's GitHub and GitLab releases. It does not cover the separately installed XMSF runtime (`com.xiaomi.xmsf`), which is distributed as a separate APK.
 
 MiPush Manager displays and manages the state of a compatible XMSF runtime through an authenticated local Binder interface. Without that separately installed runtime, runtime-related management features are unavailable.
 
@@ -42,17 +42,11 @@ MiPush Manager stores settings, a random per-installation identifier used for te
 
 You can delete manager-owned data by clearing MiPush Manager's app data or uninstalling it. Runtime records owned by the separate XMSF package must be cleared through the in-app record/log controls, by clearing the XMSF package data, or by uninstalling that runtime.
 
-#### 2.4 Google Play Donations
-
-The Google Play build offers optional one-time donations through Google Play Billing. Google processes the transaction and payment account information. MiPush Manager receives product information, purchase status, and a purchase token only as needed to complete and consume the donation purchase. It does not receive card or bank-account details, does not grant an account-based entitlement, and does not send purchase tokens to a project-operated server.
-
-Google handles this data under the [Google Privacy Policy](https://policies.google.com/privacy).
-
 ### 3. Permissions and Special Access
 
 Depending on Android version and the features you use, MiPush Manager may request or declare:
 
-- **Internet:** remote configuration retrieval, project links, optional technical diagnostics, and Google Play Billing in the Play build;
+- **Internet:** remote configuration retrieval, project links, and optional technical diagnostics;
 - **Notifications:** manager status, test, and diagnostic notifications;
 - **All packages access:** locating MiPush-capable applications and presenting per-app controls;
 - **Usage Access:** foreground-app and recent-usage detection for compatibility behavior;
@@ -89,10 +83,9 @@ MiPush Manager does not sell personal data and does not operate a mandatory back
 
 - GitHub or GitLab when retrieving project information or remote configuration files;
 - the GitLab observability service when technical diagnostics is enabled;
-- Google Play when you view or make an optional in-app donation;
 - websites or applications you choose to open from project links.
 
-The separate XMSF runtime connects to the XMPP host configured by you or by the runtime defaults. That connection and the push data it carries are outside the Google Play manager package covered by this policy.
+The separate XMSF runtime connects to the XMPP host configured by you or by the runtime defaults. That connection and the push data it carries are outside the MiPush Manager package covered by this policy.
 
 ### 7. Security
 
@@ -118,7 +111,7 @@ For privacy questions, contact:
 
 ### 1. 适用范围
 
-本政策适用于通过 Google Play 分发的 **MiPush 管理器**（`io.github.magisk317.mipush`），不适用于另行安装的 XMSF 运行时（`com.xiaomi.xmsf`）；后者因包名原因不通过 Google Play 分发。
+本政策适用于通过本项目 GitHub 与 GitLab Release 分发的 **MiPush 管理器**（`io.github.magisk317.mipush`），不适用于另行安装的 XMSF 运行时（`com.xiaomi.xmsf`）；后者以独立 APK 分发。
 
 MiPush 管理器通过经过身份校验的本地 Binder 接口显示和管理兼容 XMSF 运行时的状态。未另行安装运行时的情况下，与运行时相关的管理功能不可用。
 
@@ -150,17 +143,11 @@ MiPush 管理器会在自身的应用私有存储中保存设置、用于技术�
 
 你可以通过清除 MiPush 管理器的应用数据或卸载管理器删除其自有数据。由独立 XMSF 包保存的运行时记录，需要通过应用内记录/日志清理功能、清除 XMSF 应用数据或卸载该运行时删除。
 
-#### 2.4 Google Play 捐赠
-
-Google Play 版本通过 Google Play 结算提供可选的一次性捐赠。交易和付款账号信息由 Google 处理。MiPush 管理器仅会为完成并消耗该笔捐赠购买而接收商品信息、购买状态和购买 token，不会获取银行卡或银行账号信息，不会授予与账号绑定的权益，也不会把购买 token 发送到本项目运营的服务端。
-
-Google 按照其[隐私权政策](https://policies.google.com/privacy)处理相关数据。
-
 ### 3. 权限与特殊访问
 
 根据 Android 版本和你使用的功能，MiPush 管理器可能声明或申请：
 
-- **网络访问：** 获取远程配置、打开项目链接、发送可选的技术诊断数据，以及在 Play 版本中使用 Google Play 结算；
+- **网络访问：** 获取远程配置、打开项目链接、发送可选的技术诊断数据；
 - **通知权限：** 显示管理器状态、测试和诊断通知；
 - **所有应用查询权限：** 查找支持 MiPush 的应用并提供逐应用管理；
 - **使用情况访问权限：** 检测前台应用和近期使用情况以支持兼容功能；
@@ -197,10 +184,9 @@ MiPush 管理器不会出售个人数据，也不运营一个强制收集推送�
 
 - 获取项目信息或远程配置文件时访问 GitHub 或 GitLab；
 - 开启技术诊断数据时访问 GitLab 可观测性服务；
-- 查看或进行可选应用内捐赠时访问 Google Play；
 - 访问你从项目链接中主动打开的网站或应用。
 
-独立 XMSF 运行时会连接到由你配置或运行时默认指定的 XMPP 主机。该连接及其承载的推送数据不属于本政策所覆盖的 Google Play 管理器包。
+独立 XMSF 运行时会连接到由你配置或运行时默认指定的 XMPP 主机。该连接及其承载的推送数据不属于本政策所覆盖的 MiPush 管理器包。
 
 ### 7. 安全措施
 
