@@ -8,6 +8,8 @@ data class IslandOptions(
     val showNotification: Boolean = true,
     val showOriginalNotification: Boolean = true,
     val focusNotification: Boolean = false,
+    /** Per-app opt-in for the experimental third-party focus-to-Live-Update path. */
+    val nativeLiveUpdateEnabled: Boolean = false,
     val colorStatusBarIcon: Boolean = false,
     val monochromeShadeIcon: Boolean = false,
     val thirdPartyIconPack: Boolean = true,
@@ -33,6 +35,7 @@ data class IslandOptions(
         ISLAND_PREF_SHOW_NOTIFICATION to showNotification.toFlagValue(),
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to showOriginalNotification.toFlagValue(),
         ISLAND_PREF_FOCUS_NOTIF to focusNotification.toFlagValue(),
+        NATIVE_LIVE_UPDATE_ENABLED_KEY to nativeLiveUpdateEnabled.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to colorStatusBarIcon.toFlagValue(),
         MONOCHROME_SHADE_ICON_KEY to monochromeShadeIcon.toFlagValue(),
         THIRD_PARTY_ICON_PACK_KEY to thirdPartyIconPack.toFlagValue(),

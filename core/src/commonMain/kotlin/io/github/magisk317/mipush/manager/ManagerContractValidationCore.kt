@@ -540,11 +540,13 @@ object ManagerContractValidationCore {
     private val GRANT_SILENT_PERMISSION_USER_IDS = setOf(0, 999, -1)
     private val OPERATIONS_REQUIRING_PACKAGE = setOf(
         "update_application", "launch_target_force_register", "delete_event", "restore_event",
+        "set_native_live_update",
                "get_event_content", "get_event_json",
     )
     private val OPERATIONS_REQUIRING_EVENT_ID = setOf(
         "delete_event", "restore_event", "mock_message", "get_event_content", "get_event_json",
     )
-    private val OPERATIONS_REQUIRING_USER = OPERATIONS_REQUIRING_EVENT_ID
+    private val OPERATIONS_REQUIRING_USER =
+        OPERATIONS_REQUIRING_EVENT_ID + setOf("set_native_live_update", "update_application")
     private const val WRITE_OP_GRANT_SILENT_PERMISSIONS = "grant_silent_permissions"
 }
