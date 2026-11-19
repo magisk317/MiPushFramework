@@ -44,4 +44,5 @@ data class RuntimeIslandSettings(
     val enabled: Boolean,
     val focusNotification: Boolean,
     val countLimitExempt: Boolean = false,
+    val nativeLiveUpdateEnabled: Boolean = false,
 )

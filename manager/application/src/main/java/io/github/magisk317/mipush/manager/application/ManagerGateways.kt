@@ -13,6 +13,12 @@ interface ManagerApplicationGateway {
     suspend fun loadApplications(context: Context, query: String = "", filterMode: Int = 0, includeSystemApps: Boolean = false): ManagerApplications
     suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean = false): ManagerApplication?
     suspend fun updateApplication(application: ManagerApplication)
+    suspend fun updateNativeLiveUpdateEnabled(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        enabled: Boolean,
+    )
     suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics
     suspend fun launchTargetAppAndForceRegister(
         context: Context,

@@ -16,6 +16,7 @@ data class StoredApplicationSnapshot(
     val clickFallbackEnabled: Boolean,
     val suppressWhenDisabled: Boolean,
     val countLimitExempt: Boolean = false,
+    val nativeLiveUpdateEnabled: Boolean = false,
     val registeredType: Int,
     val appName: String,
     val registrationPending: Boolean = false,
@@ -147,6 +148,7 @@ fun StoredApplicationSnapshot.toManagerApplication(
         clickFallbackEnabled = clickFallbackEnabled,
         suppressWhenDisabled = suppressWhenDisabled,
         countLimitExempt = countLimitExempt,
+        nativeLiveUpdateEnabled = nativeLiveUpdateEnabled,
         registeredType = registeredType,
         existServices = installed?.hasMiPushServices == true,
         appName = displayName,
@@ -195,6 +197,7 @@ fun RuntimeRegisteredApplicationRow.toStoredApplicationSnapshot(): StoredApplica
         clickFallbackEnabled = clickFallbackEnabled,
         suppressWhenDisabled = suppressWhenDisabled,
         countLimitExempt = countLimitExempt,
+        nativeLiveUpdateEnabled = nativeLiveUpdateEnabled,
         registeredType = registeredType,
         appName = appName,
     )

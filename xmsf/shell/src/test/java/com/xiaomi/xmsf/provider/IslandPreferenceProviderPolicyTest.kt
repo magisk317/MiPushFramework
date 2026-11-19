@@ -3,6 +3,7 @@ package com.xiaomi.xmsf.provider
 import android.content.pm.ApplicationInfo
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -47,6 +48,23 @@ class IslandPreferenceProviderPolicyTest {
             listOf(ISLAND_PREF_TIMEOUT),
             provider.preferenceKeysForCaller(selectionArgs = arrayOf(ISLAND_PREF_TIMEOUT)),
         )
+        assertEquals(
+            listOf(NATIVE_LIVE_UPDATE_ENABLED_KEY),
+            provider.preferenceKeysForCaller(selectionArgs = arrayOf(NATIVE_LIVE_UPDATE_ENABLED_KEY)),
+        )
+        assertEquals(
+            emptyList<String>(),
+            provider.preferenceKeysForCaller(
+                selectionArgs = arrayOf(NATIVE_LIVE_UPDATE_ENABLED_KEY),
+                packageScoped = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `only system server uid is trusted as the native framework caller`() {
+        assertTrue(provider.isTrustedSystemServerUid(1000))
+        assertFalse(provider.isTrustedSystemServerUid(1001))
     }
 
     @Test

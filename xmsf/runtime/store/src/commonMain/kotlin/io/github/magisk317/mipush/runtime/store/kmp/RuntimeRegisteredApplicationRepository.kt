@@ -27,6 +27,10 @@ interface RuntimeRegisteredApplicationStore {
     suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
 
     suspend fun isSuppressWhenDisabled(packageName: String, userId: Int): Boolean?
+
+    suspend fun isNativeLiveUpdateEnabled(packageName: String, userId: Int): Boolean?
+
+    suspend fun updateNativeLiveUpdateEnabled(packageName: String, enabled: Boolean, userId: Int): Int
 }
 
 data class RuntimeRegisteredApplicationRegistration(
@@ -113,12 +117,19 @@ class RuntimeRegisteredApplicationRepository(
     suspend fun isSuppressWhenDisabled(packageName: String): Boolean =
         store.isSuppressWhenDisabled(packageName, userId) ?: false
 
+    suspend fun isNativeLiveUpdateEnabled(packageName: String): Boolean =
+        store.isNativeLiveUpdateEnabled(packageName, userId) ?: false
+
+    suspend fun updateNativeLiveUpdateEnabled(packageName: String, enabled: Boolean): Int =
+        store.updateNativeLiveUpdateEnabled(packageName, enabled, userId)
+
     suspend fun getIslandSettings(packageName: String): RuntimeIslandSettings? =
         store.getByPackageName(packageName, userId)?.let {
             RuntimeIslandSettings(
                 enabled = it.islandEnabled,
                 focusNotification = it.islandFocusNotification,
                 countLimitExempt = it.countLimitExempt,
+                nativeLiveUpdateEnabled = it.nativeLiveUpdateEnabled,
             )
         }
 

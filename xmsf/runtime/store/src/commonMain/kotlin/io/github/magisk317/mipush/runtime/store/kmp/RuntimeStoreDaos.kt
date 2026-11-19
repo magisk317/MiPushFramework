@@ -278,6 +278,12 @@ interface RuntimeRegisteredApplicationDao {
     @Query("SELECT suppress_when_disabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
     suspend fun isSuppressWhenDisabled(pkg: String, userId: Int): Boolean?
 
+    @Query("SELECT native_live_update_enabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg AND user_id = :userId LIMIT 1")
+    suspend fun isNativeLiveUpdateEnabled(pkg: String, userId: Int): Boolean?
+
+    @Query("UPDATE REGISTERED_APPLICATION SET native_live_update_enabled = :enabled WHERE pkg = :pkg AND user_id = :userId AND blocked = 0")
+    suspend fun updateNativeLiveUpdateEnabled(pkg: String, enabled: Boolean, userId: Int): Int
+
     @Query("UPDATE REGISTERED_APPLICATION SET click_fallback_enabled = :enabled WHERE id = :id AND user_id = :userId")
     suspend fun updateClickFallbackEnabled(id: Long, enabled: Boolean, userId: Int): Int
 

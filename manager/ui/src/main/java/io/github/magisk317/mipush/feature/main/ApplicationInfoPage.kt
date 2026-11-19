@@ -328,6 +328,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun NotificationBehaviorSection(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+        val scope = rememberCoroutineScope()
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val busy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
         val info = currentInfo ?: applicationInfo
@@ -371,12 +372,15 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun IslandDisplaySection(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+        val scope = rememberCoroutineScope()
+        val nativeLiveUpdateFailedMessage = stringResource(R.string.app_detail_native_live_update_failed)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val busy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
         val info = currentInfo ?: applicationInfo
         val blocked = info.blocked || info.type == ManagerApplication.Type.DENY
         val islandEnabled = info.islandEnabled
         val islandFocusNotification = info.islandFocusNotification
+        val nativeLiveUpdateEnabled = info.nativeLiveUpdateEnabled
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_island_controls),
@@ -403,6 +407,32 @@ open class ApplicationInfoPage : ComponentActivity() {
             ) { enabled ->
                 infoViewModel.updateIslandFocusEnabled(enabled)
                 showSwitchFeedback(islandFocusNotificationTitle, enabled)
+            }
+
+            val nativeLiveUpdateTitle = stringResource(R.string.app_detail_native_live_update)
+            SettingSwitchRow(
+                title = nativeLiveUpdateTitle,
+                summary = stringResource(R.string.app_detail_native_live_update_summary),
+                checked = nativeLiveUpdateEnabled,
+                enabled = !blocked && !busy,
+                showDivider = false,
+            ) { enabled ->
+                infoViewModel.updateNativeLiveUpdateEnabled(
+                    context = this@ApplicationInfoPage,
+                    enabled = enabled,
+                ) { success ->
+                    if (success) {
+                        showSwitchFeedback(nativeLiveUpdateTitle, enabled)
+                    } else {
+                        scope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar(
+                                message = nativeLiveUpdateFailedMessage,
+                                duration = AppSnackbarDuration.Short,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -27,6 +27,31 @@ class ManagerPhase4ParcelableTest {
     }
 
     @Test
+    fun `application row update requires an explicit user`() {
+        val request = ManagerWriteRequestDto(
+            requestId = "application-update",
+            operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
+            packageName = "com.example.app",
+            argument = "2,false,true,false,true,false,false,false",
+        )
+        assertEquals("invalid_write_user_id", ManagerProtocol.validateWriteRequest(request))
+        assertEquals(
+            null,
+            ManagerProtocol.validateWriteRequest(request.copy(userId = 10)),
+        )
+    }
+
+    @Test
+    fun `application summary DTO carries per app native live update state`() {
+        assertTrue(
+            ManagerApplicationSummaryDto(
+                packageName = "com.example.app",
+                nativeLiveUpdateEnabled = true,
+            ).nativeLiveUpdateEnabled,
+        )
+    }
+
+    @Test
     fun `grant silent permissions accepts only supported user scopes`() {
         val base = ManagerWriteRequestDto(
             requestId = "req-grant",
@@ -78,4 +103,45 @@ class ManagerPhase4ParcelableTest {
             ),
         )
     }
+
+    @Test
+    fun `native live update toggle is a user scoped application write`() {
+        val base = ManagerWriteRequestDto(
+            requestId = "native-live-update",
+            operation = ManagerProtocol.WRITE_OP_SET_NATIVE_LIVE_UPDATE,
+            packageName = "com.example.app",
+            userId = 7,
+            booleanArgument = true,
+        )
+        assertEquals(null, ManagerProtocol.validateWriteRequest(base))
+        assertEquals(
+            "invalid_write_user_id",
+            ManagerProtocol.validateWriteRequest(base.copy(userId = -1)),
+        )
+        assertEquals(
+            "write_package_name_required",
+            ManagerProtocol.validateWriteRequest(base.copy(packageName = "")),
+        )
+    }
+
+    @Test
+    fun `native live update write requires target package and user scope`() {
+        val base = ManagerWriteRequestDto(
+            requestId = "live-update",
+            operation = ManagerProtocol.WRITE_OP_SET_NATIVE_LIVE_UPDATE,
+            packageName = "com.example.app",
+            userId = 999,
+            booleanArgument = true,
+        )
+        assertEquals(null, ManagerProtocol.validateWriteRequest(base))
+        assertEquals(
+            "invalid_write_user_id",
+            ManagerProtocol.validateWriteRequest(base.copy(userId = -1)),
+        )
+        assertEquals(
+            "write_package_name_required",
+            ManagerProtocol.validateWriteRequest(base.copy(packageName = "")),
+        )
+    }
+
 }

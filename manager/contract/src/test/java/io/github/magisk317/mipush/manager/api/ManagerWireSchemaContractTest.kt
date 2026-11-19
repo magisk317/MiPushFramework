@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.manager.api
 
 import java.io.File
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -27,6 +28,28 @@ class ManagerWireSchemaContractTest {
         assertTrue(framing.contains("size > ManagerProtocol.MAX_WIRE_FRAME_BYTES"))
         assertTrue(framing.contains("if (end > dataSize())"))
         assertTrue(framing.contains("finally {\n        setDataPosition(end)"))
+    }
+
+    @Test
+    fun `native live update remains a default off append only application field`() {
+        assertEquals(4, ManagerProtocol.APPLICATION_DETAIL_SCHEMA_VERSION)
+        assertEquals(4, ManagerProtocol.APPLICATION_SUMMARY_SCHEMA_VERSION)
+        val detail = source("ManagerApplicationDetailDto.kt")
+        val summary = source("ManagerApplicationSummaryDto.kt")
+        listOf(detail, summary).forEach { dto ->
+            assertTrue(dto.contains("val nativeLiveUpdateEnabled: Boolean = false"))
+            assertInOrder(
+                dto,
+                "writeWireBoolean(registrationPending)",
+                "writeWireBoolean(nativeLiveUpdateEnabled)",
+            )
+            assertInOrder(
+                dto,
+                "registrationPending = readBoolean()",
+                "nativeLiveUpdateEnabled = readBoolean()",
+            )
+        }
+        assertTrue(source("WireParcel.kt").contains("finally {\n        setDataPosition(end)"))
     }
 
     @Test

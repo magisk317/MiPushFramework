@@ -8,6 +8,10 @@ import android.os.Process
 import com.highcapable.anip.sdk.Anip
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_KEY
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_PACKAGE
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_USER_ID
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
 import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
@@ -32,6 +36,10 @@ import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.application.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.manager.application.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.manager.application.ManagerRuntimeActions
+import io.github.magisk317.mipush.manager.runtime.read.toManagerApplication
+import io.github.magisk317.mipush.manager.runtime.read.toStoredApplicationSnapshot
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.android.PackageRegistrationGuard
 import io.github.magisk317.mipush.manager.application.ManagerLogGateway
 import io.github.magisk317.mipush.manager.application.ManagerNotificationChannelCommandGateway
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -40,6 +48,7 @@ import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.service.ForegroundHelper
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -168,6 +177,7 @@ class ManagerWriteRuntimeExecutor(
     private suspend fun dispatch(request: ManagerWriteRequestDto): ManagerWriteResultDto =
         when (request.operation) {
             ManagerProtocol.WRITE_OP_UPDATE_APPLICATION -> updateApplication(request)
+            ManagerProtocol.WRITE_OP_SET_NATIVE_LIVE_UPDATE -> setNativeLiveUpdate(request)
             ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER -> launchTargetAppAndForceRegister(request)
             ManagerProtocol.WRITE_OP_UNREGISTER_APPLICATION -> unregisterApplication(request)
             ManagerProtocol.WRITE_OP_SET_REGISTRATION_POLICY -> setRegistrationPolicy(request)
@@ -296,10 +306,22 @@ class ManagerWriteRuntimeExecutor(
     private suspend fun updateApplication(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val packageName = request.packageName
         if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
-        val current = applicationGateway.getApplication(context, packageName, ignoreNotRegistered = true)
+        val runtimeUserId = Utils.requireValidUserId(Utils.myUserId())
+        if (request.userId != runtimeUserId) {
+            return failed(request.requestId, "application_user_mismatch")
+        }
+        val current = runCatching {
+            RegisteredApplicationDb.getRegisteredApplication(packageName, runtimeUserId)
+        }.getOrNull()
             ?: return failed(request.requestId, "application_not_found")
         val parts = request.argument.split(',')
-        val updated = current.copy(
+        val updated = current.toStoredApplicationSnapshot().toManagerApplication(
+            installed = null,
+            lastReceiveTimeMs = 0L,
+            locallyRegistered = false,
+            fallbackToInstalledName = false,
+            deriveAppNamePinYin = false,
+        ).copy(
             type = parts.getOrNull(0)?.toIntOrNull() ?: current.type,
             blocked = parts.getOrNull(1)?.toBooleanStrictOrNull() ?: current.blocked,
             islandEnabled = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: current.islandEnabled,
@@ -316,6 +338,30 @@ class ManagerWriteRuntimeExecutor(
         )
         applicationGateway.updateApplication(updated)
         return success(request.requestId, "application_updated")
+    }
+
+    private suspend fun setNativeLiveUpdate(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName
+        if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
+        val runtimeUserId = Utils.requireValidUserId(Utils.myUserId())
+        if (request.userId != runtimeUserId) {
+            return failed(request.requestId, "application_user_mismatch")
+        }
+        val changed = PackageRegistrationGuard.withPackage(packageName, runtimeUserId) {
+            RegisteredApplicationDb.setNativeLiveUpdateEnabled(
+                pkg = packageName,
+                enabled = request.booleanArgument,
+                requestedUserId = runtimeUserId,
+            )
+        }
+        if (!changed) return failed(request.requestId, "application_not_found")
+        context.sendBroadcast(
+            Intent(ACTION_PREF_CHANGED)
+                .putExtra(ACTION_PREF_CHANGED_PACKAGE, packageName)
+                .putExtra(ACTION_PREF_CHANGED_USER_ID, runtimeUserId)
+                .putExtra(ACTION_PREF_CHANGED_KEY, NATIVE_LIVE_UPDATE_ENABLED_KEY),
+        )
+        return success(request.requestId, "native_live_update_updated")
     }
 
     private suspend fun launchTargetAppAndForceRegister(

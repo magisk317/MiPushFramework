@@ -91,6 +91,8 @@ data class RuntimeRegisteredApplicationRow(
     val suppressWhenDisabled: Boolean = false,
     @ColumnInfo(name = "count_limit_exempt", defaultValue = "0")
     val countLimitExempt: Boolean = false,
+    @ColumnInfo(name = "native_live_update_enabled", defaultValue = "0")
+    val nativeLiveUpdateEnabled: Boolean = false,
     @ColumnInfo(name = "registered_type")
     val registeredType: Int,
     @ColumnInfo(name = "app_name")

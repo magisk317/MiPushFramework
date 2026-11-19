@@ -10,20 +10,25 @@ import org.junit.jupiter.api.Test
 
 class RuntimeStoreMigrationFixtureTest {
     @Test
-    fun `every legacy schema version migrates to v13 and preserves runtime data`() {
-        for (version in 1..12) {
+    fun `every legacy schema version migrates to v14 and preserves runtime data`() {
+        for (version in 1..13) {
             val connection = createFixture(version)
             try {
                 migrateToLatest(connection, version)
 
-                assertEquals(13L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
+                assertEquals(14L, scalarLong(connection, "PRAGMA user_version"), "user_version for v$version")
                 assertEquals(
                     listOf("id", "pkg", "type", "date", "result", "dev_info", "payload", "reg_sec", "search_text", "user_id"),
                     columnNames(connection, "EVENT"),
                     "EVENT columns for v$version",
                 )
                 assertEquals(
-                    listOf("id", "pkg", "type", "notification_on_register", "blocked", "island_enabled", "island_focus_notification", "registered_type", "app_name", "user_id", "click_fallback_enabled", "suppress_when_disabled", "count_limit_exempt"),
+                    listOf(
+                        "id", "pkg", "type", "notification_on_register", "blocked", "island_enabled",
+                        "island_focus_notification", "registered_type", "app_name", "user_id",
+                        "click_fallback_enabled", "suppress_when_disabled", "count_limit_exempt",
+                        "native_live_update_enabled",
+                    ),
                     columnNames(connection, "REGISTERED_APPLICATION"),
                     "REGISTERED_APPLICATION columns for v$version",
                 )
@@ -51,6 +56,11 @@ class RuntimeStoreMigrationFixtureTest {
                     scalarLong(connection, "SELECT count_limit_exempt FROM REGISTERED_APPLICATION WHERE id = 1"),
                     "count_limit_exempt for v$version",
                 )
+                assertEquals(
+                    0L,
+                    scalarLong(connection, "SELECT native_live_update_enabled FROM REGISTERED_APPLICATION WHERE id = 1"),
+                    "native_live_update_enabled defaults off for v$version",
+                )
                 assertArrayEquals(
                     byteArrayOf(1, 2, 3),
                     scalarBlob(connection, "SELECT payload FROM EVENT WHERE id = 1"),
@@ -63,7 +73,6 @@ class RuntimeStoreMigrationFixtureTest {
                 } else {
                     assertEquals(0L, scalarLong(connection, "SELECT COUNT(*) FROM DELETED_EVENT"))
                 }
-
                 assertTrue(indexNames(connection, "EVENT").contains("index_EVENT_user_id_pkg"))
                 assertTrue(indexNames(connection, "EVENT").contains("index_EVENT_user_id_date"))
                 assertTrue(indexNames(connection, "REGISTERED_APPLICATION").contains("index_REGISTERED_APPLICATION_user_id_pkg"))
@@ -75,16 +84,35 @@ class RuntimeStoreMigrationFixtureTest {
     }
 
     @Test
-    fun `v11 schema that already contains count limit exemption migrates idempotently to v13`() {
+    fun `v13 to v14 migration adds opt in default without changing existing rows`() {
+        val connection = createFixture(12)
+        try {
+            RuntimeStoreMigrations.MIGRATION_12_13.migrate(connection)
+            connection.execSQL("UPDATE REGISTERED_APPLICATION SET app_name = 'Existing App' WHERE id = 1")
+            connection.execSQL("PRAGMA user_version = 13")
+
+            RuntimeStoreMigrations.MIGRATION_13_14.migrate(connection)
+
+            assertEquals(0L, scalarLong(connection, "SELECT native_live_update_enabled FROM REGISTERED_APPLICATION WHERE id = 1"))
+            assertEquals(1L, scalarLong(connection, "SELECT COUNT(*) FROM REGISTERED_APPLICATION WHERE app_name = 'Existing App'"))
+            assertEquals(1L, scalarLong(connection, "SELECT id FROM REGISTERED_APPLICATION WHERE pkg = 'com.example.app'"))
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
+    fun `v11 schema that already contains count limit exemption migrates idempotently to v14`() {
         val connection = createFixture(12)
         try {
             connection.execSQL("PRAGMA user_version = 11")
 
             migrateToLatest(connection, 11)
 
-            assertEquals(13L, scalarLong(connection, "PRAGMA user_version"))
+            assertEquals(14L, scalarLong(connection, "PRAGMA user_version"))
             assertEquals(1L, scalarLong(connection, "SELECT count_limit_exempt FROM REGISTERED_APPLICATION WHERE id = 1"))
             assertEquals(1, columnNames(connection, "REGISTERED_APPLICATION").count { it == "count_limit_exempt" })
+            assertEquals(0L, scalarLong(connection, "SELECT native_live_update_enabled FROM REGISTERED_APPLICATION WHERE id = 1"))
         } finally {
             connection.close()
         }
@@ -92,16 +120,16 @@ class RuntimeStoreMigrationFixtureTest {
 
     @Test
     fun `migration registry is contiguous and ends at production schema`() {
-        assertEquals(12, RuntimeStoreMigrations.ALL.size)
+        assertEquals(13, RuntimeStoreMigrations.ALL.size)
         assertEquals(1, RuntimeStoreMigrations.ALL.first().startVersion)
-        assertEquals(13, RuntimeStoreMigrations.ALL.last().endVersion)
+        assertEquals(14, RuntimeStoreMigrations.ALL.last().endVersion)
         RuntimeStoreMigrations.ALL.toList().zipWithNext().forEach { (current, next) ->
             assertEquals(current.endVersion, next.startVersion)
         }
     }
 
     @Test
-    fun `v13 maps every dormant type solely from blocked state`() {
+    fun `v13 migration still maps dormant type solely from blocked state`() {
         for (blocked in listOf(0, 1)) for (type in listOf(0, 2, 3, -1)) {
             val connection = createFixture(12)
             try {

@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.app.di
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Process
 import android.os.SystemClock
@@ -8,6 +9,13 @@ import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_KEY
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_PACKAGE
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_USER_ID
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_KEY
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_PACKAGE
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_USER_ID
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.manager.application.ManagerApplicationDiagnostics
@@ -203,6 +211,34 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
     }
 
+    override suspend fun updateNativeLiveUpdateEnabled(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        enabled: Boolean,
+    ) {
+        val requestedUserId = Utils.requireValidUserId(userId)
+        val currentUserId = Utils.requireValidUserId(Utils.myUserId())
+        require(requestedUserId == currentUserId) {
+            "Application update user does not match the runtime user"
+        }
+        PackageRegistrationGuard.withPackage(packageName, requestedUserId) {
+            check(
+                RegisteredApplicationDb.setNativeLiveUpdateEnabled(
+                    pkg = packageName,
+                    enabled = enabled,
+                    requestedUserId = requestedUserId,
+                ),
+            ) { "Registered application setting was not updated" }
+            context.sendBroadcast(
+                Intent(ACTION_PREF_CHANGED)
+                    .putExtra(ACTION_PREF_CHANGED_PACKAGE, packageName)
+                    .putExtra(ACTION_PREF_CHANGED_USER_ID, requestedUserId)
+                    .putExtra(ACTION_PREF_CHANGED_KEY, NATIVE_LIVE_UPDATE_ENABLED_KEY),
+            )
+        }
+    }
+
     override suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         var application = RegisteredApplicationDb.getRegisteredApplication(packageName)
         if (application == null && ignoreNotRegistered) {
@@ -243,11 +279,25 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     }
 
     override suspend fun updateApplication(application: ManagerApplication) {
+        val requestedUserId = Utils.requireValidUserId(application.userId)
+        val currentUserId = Utils.requireValidUserId(Utils.myUserId())
+        require(requestedUserId == currentUserId) {
+            "Application update user does not match the runtime user"
+        }
         PackageRegistrationGuard.withPackage(application.packageName, application.userId) {
-            val latest = RegisteredApplicationDb.getRegisteredApplication(application.packageName) ?: return@withPackage
+            val latest = RegisteredApplicationDb.getRegisteredApplication(
+                application.packageName,
+                requestedUserId,
+            ) ?: return@withPackage
             // Legacy transport still carries type/blocked/status; only the policy operation may
             // change admission. A settings snapshot must not undo a concurrent manual revocation.
             RegisteredApplicationDb.update(mergeEditableApplicationSettings(latest, application))
+            Utils.getApplication()?.sendBroadcast(
+                Intent(ACTION_PREF_CHANGED)
+                    .putExtra(ACTION_PREF_CHANGED_PACKAGE, application.packageName)
+                    .putExtra(ACTION_PREF_CHANGED_USER_ID, requestedUserId)
+                    .putExtra(ACTION_PREF_CHANGED_KEY, "*"),
+            )
         }
     }
 
@@ -557,6 +607,11 @@ internal fun mergeEditableApplicationSettings(
     notificationOnRegister = submitted.notificationOnRegister,
     islandEnabled = if (latest.blocked) latest.islandEnabled else submitted.islandEnabled,
     islandFocusNotification = if (latest.blocked) latest.islandFocusNotification else submitted.islandFocusNotification,
+    nativeLiveUpdateEnabled = if (latest.blocked) {
+        latest.nativeLiveUpdateEnabled
+    } else {
+        submitted.nativeLiveUpdateEnabled
+    },
     clickFallbackEnabled = if (latest.blocked) latest.clickFallbackEnabled else submitted.clickFallbackEnabled,
     suppressWhenDisabled = if (latest.blocked) latest.suppressWhenDisabled else submitted.suppressWhenDisabled,
     countLimitExempt = if (latest.blocked) latest.countLimitExempt else submitted.countLimitExempt,

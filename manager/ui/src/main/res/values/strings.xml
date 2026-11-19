@@ -682,6 +682,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_island_enabled_summary">Generate Super Island content for this app.</string>
     <string name="app_detail_island_focus_notification">Focus notifications</string>
     <string name="app_detail_island_focus_notification_summary">Generate focus content and allow SystemUI island display.</string>
+    <string name="app_detail_native_live_update">Native Live Update (experimental)</string>
+    <string name="app_detail_native_live_update_summary">Convert this app MIUI focus notifications into Android Live Updates and request promotion. Requires Android 16 QPR1 or later; incompatible notifications remain unchanged.</string>
+    <string name="app_detail_native_live_update_failed">Could not update Native Live Update. The runtime may need an update.</string>
     <string name="overview_app_stats_title">Application stats</string>
     <string name="overview_runtime_title">Runtime status</string>
     <string name="overview_project_title">Project actions</string>

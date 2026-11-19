@@ -10,7 +10,7 @@ import java.io.File
 class RuntimeStoreMigrationContractTest {
     @Test
     fun `migration registry covers every production schema version`() {
-        assertEquals(12, RuntimeStoreMigrations.ALL.size)
+        assertEquals(13, RuntimeStoreMigrations.ALL.size)
         RuntimeStoreMigrations.ALL.forEachIndexed { index, migration ->
             assertEquals(index + 1, migration.startVersion)
             assertEquals(index + 2, migration.endVersion)
@@ -18,14 +18,14 @@ class RuntimeStoreMigrationContractTest {
     }
 
     @Test
-    fun `runtime store database declares the production v13 entities`() {
+    fun `runtime store database declares the production v14 entities`() {
         val source = readSource(
             "../runtime/store/src/commonMain/kotlin/" +
                 "io/github/magisk317/mipush/runtime/store/kmp/RuntimeStoreDatabase.kt",
         )
 
         assertTrue(source.contains("@Database("))
-        assertTrue(source.contains("version = 13"))
+        assertTrue(source.contains("version = 14"))
         listOf(
             "RuntimeEventRow::class",
             "RuntimeDeletedEventRow::class",
@@ -44,6 +44,7 @@ class RuntimeStoreMigrationContractTest {
 
         assertTrue(source.contains("RuntimeStoreDatabase"))
         assertTrue(source.contains("configureRuntimeStoreKmp(appContext, databaseName = \"db\")"))
+        assertTrue(source.contains("DATABASE_SCHEMA_VERSION = 14"))
         assertTrue(source.contains("RuntimeEventDao"))
         assertTrue(source.contains("RuntimeRegisteredApplicationDao"))
         assertFalse(source.contains("AppDatabase"))
@@ -70,6 +71,7 @@ class RuntimeStoreMigrationContractTest {
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN click_fallback_enabled",
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN suppress_when_disabled",
             "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN count_limit_exempt",
+            "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN native_live_update_enabled",
             "UPDATE REGISTERED_APPLICATION SET type = CASE WHEN blocked != 0 THEN 3 ELSE 2 END",
             "CREATE TABLE IF NOT EXISTS PENDING_REGISTRATION",
         ).forEach { sqlFragment ->

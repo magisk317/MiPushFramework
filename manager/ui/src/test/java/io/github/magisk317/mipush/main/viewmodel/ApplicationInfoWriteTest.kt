@@ -206,4 +206,28 @@ class ApplicationInfoWriteTest {
         assertTrue(launched.isCompleted)
         assertEquals(unregistered, vm.applicationInfo.value)
     }
+
+    @Test
+    fun `native live update toggle persists as an application setting`() = runBlocking {
+        val app = original.copy(userId = 7)
+        vm.setApplicationInfo(app)
+        val result = CompletableDeferred<Boolean>()
+        vm.updateNativeLiveUpdateEnabled(context, true) { result.complete(it) }
+        assertTrue(withTimeout(5_000) { result.await() })
+        withTimeout(5_000) {
+            coVerify { gateway.updateNativeLiveUpdateEnabled(context, "test.app", 7, true) }
+        }
+        assertEquals(true, vm.applicationInfo.value?.nativeLiveUpdateEnabled)
+    }
+
+    @Test
+    fun `failed native live update setting write rolls the switch back`() = runBlocking {
+        coEvery { gateway.updateNativeLiveUpdateEnabled(any(), any(), any(), any()) } throws
+            IllegalStateException("runtime does not support native live update settings")
+        val result = CompletableDeferred<Boolean>()
+        vm.updateNativeLiveUpdateEnabled(context, true) { result.complete(it) }
+        assertFalse(withTimeout(5_000) { result.await() })
+        assertFalse(vm.applicationInfo.value?.nativeLiveUpdateEnabled ?: true)
+        coVerify { gateway.updateNativeLiveUpdateEnabled(context, "test.app", 0, true) }
+    }
 }

@@ -14,6 +14,37 @@ class IslandOptionsSnapshotReaderPolicyTest {
     }
 
     @Test
+    fun `native live update is per-app opt in and does not inherit global settings`() {
+        assertTrue(
+            IslandOptionsSnapshotReader.merge(
+                settings(),
+                appEnabled = null,
+                appFocusNotification = null,
+                appNativeLiveUpdateEnabled = true,
+                packageScoped = true,
+            ).options.nativeLiveUpdateEnabled,
+        )
+        assertFalse(
+            IslandOptionsSnapshotReader.merge(
+                settings(),
+                appEnabled = null,
+                appFocusNotification = null,
+                appNativeLiveUpdateEnabled = null,
+                packageScoped = true,
+            ).options.nativeLiveUpdateEnabled,
+        )
+        assertFalse(
+            IslandOptionsSnapshotReader.merge(
+                settings(),
+                appEnabled = null,
+                appFocusNotification = null,
+                appNativeLiveUpdateEnabled = true,
+                packageScoped = false,
+            ).options.nativeLiveUpdateEnabled,
+        )
+    }
+
+    @Test
     fun `merge preserves global options and clamps timeout`() {
         val snapshot = IslandOptionsSnapshotReader.merge(
             settings = settings(timeoutSecs = 0),
@@ -96,6 +127,7 @@ class IslandOptionsSnapshotReaderPolicyTest {
         showNotification = true,
         showOriginalNotification = showOriginalNotification,
         focusNotification = focusNotification,
+        nativeLiveUpdateEnabled = false,
         colorStatusBarIcon = false,
         monochromeShadeIcon = false,
         thirdPartyIconPack = true,

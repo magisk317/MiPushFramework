@@ -22,6 +22,7 @@ data class ManagerApplicationSummaryDto(
     val lastReceiveTimeMs: Long = 0L,
     val userId: Int = 0,
     val registrationPending: Boolean = false,
+    val nativeLiveUpdateEnabled: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -44,6 +45,7 @@ data class ManagerApplicationSummaryDto(
             writeWireBoolean(clickFallbackEnabled)
             writeWireBoolean(suppressWhenDisabled)
             writeWireBoolean(registrationPending)
+            writeWireBoolean(nativeLiveUpdateEnabled)
         }
     }
 
@@ -72,6 +74,7 @@ data class ManagerApplicationSummaryDto(
                         clickFallbackEnabled = readBoolean(),
                         suppressWhenDisabled = readBoolean(),
                         registrationPending = readBoolean(),
+                        nativeLiveUpdateEnabled = readBoolean(),
                     )
                 }
 

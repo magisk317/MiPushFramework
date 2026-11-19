@@ -12,6 +12,7 @@ data class ManagerApplication(
     val blocked: Boolean = false,
     val islandEnabled: Boolean = true,
     val islandFocusNotification: Boolean = false,
+    val nativeLiveUpdateEnabled: Boolean = false,
     val clickFallbackEnabled: Boolean = false,
     val suppressWhenDisabled: Boolean = false,
     val countLimitExempt: Boolean = false,
