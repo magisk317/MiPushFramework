@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
 import io.github.magisk317.uikit.surface.AppIcon
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
+import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -542,7 +544,10 @@ fun EventListPreview() {
         if (eventListSequence.hasNext()) eventListSequence.next() else emptyList()
     }
 
-    Page {
+    AppSurface(
+        modifier = Modifier.fillMaxSize(),
+        color = appColor(AppColorRole.Background),
+    ) {
         EventList(
             onClick = { },
             getEvents = getEvents,

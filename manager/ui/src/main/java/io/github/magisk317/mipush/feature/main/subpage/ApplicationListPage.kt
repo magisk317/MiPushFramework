@@ -75,6 +75,7 @@ import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
@@ -515,7 +516,10 @@ private fun ApplicationListPreview(
 ) {
     // Preview helper mirrors the runtime shape (bar above the list) without
     // the removed overlay-hero scaffolding.
-    Page {
+    AppSurface(
+        modifier = Modifier.fillMaxSize(),
+        color = appColor(AppColorRole.Background),
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             AppTopBar(
                 title = stringResource(R.string.app_list_hero_title),
