@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.common.logging.LogRoute
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.logging.FixedWindowLogLimiter
@@ -42,6 +43,7 @@ object NmsPermissionHooker {
             }.onFailure {
                 XLog.w(TAG, "resolving the xmsf package uid failed: ${it.message}", it)
             }
+
         }
         return xmsfUid
     }
@@ -79,6 +81,42 @@ object NmsPermissionHooker {
 
     private fun getContext(): Context = currentApplication()
         ?: throw IllegalStateException("currentApplication unavailable")
+
+    private fun rewriteNativeFocusNotification(param: MethodHookParam) {
+        val packageName = param.args.getOrNull(0) as? String ?: return
+        val opPackageName = param.args.getOrNull(1) as? String ?: return
+        val notification = param.args.getOrNull(4) as? Notification ?: return
+        val userId = param.args.getOrNull(5) as? Int ?: return
+        val callingUid = Binder.getCallingUid()
+        val context = runCatching { getContext() }.getOrNull() ?: return
+        val options = IslandPreferences.current(packageName, userId)
+        val result = NativeFocusNotificationRewriter.rewrite(
+            NativeFocusNotificationRewriter.RewriteInput(
+                packageName = packageName,
+                opPackageName = opPackageName,
+                userId = userId,
+                callingUid = callingUid,
+                notification = notification,
+                enabled = options.nativeLiveUpdateEnabled,
+                isMiui = NativeFocusNotificationRewriter.isMiuiBuild(),
+                supportsLiveUpdates = NativeFocusNotificationRewriter.supportsLiveUpdates(),
+                context = context,
+            ),
+        )
+        result.notification?.let { rewritten ->
+            param.args[4] = rewritten
+            // Rate limited: progress-style apps update the same id frequently. The message
+            // carries no package name or notification content, only the decision reason.
+            if (debugLimiter.tryAcquire("native_focus_rewritten", android.os.SystemClock.elapsedRealtime()).allowed) {
+                XLog.i(
+                    tag = "NativeFocusLiveUpdate",
+                    route = LogRoute.NMS_HOOK.id,
+                    message = "rewrote focus notification user=$userId reason=${result.reason} " +
+                        "promotionToken=${result.promotionTokenIssued}",
+                )
+            }
+        }
+    }
 
     /**
      * Whether a caller identity bypass is required for an NMS permission hook whose target
@@ -149,7 +187,8 @@ object NmsPermissionHooker {
     private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
         replace {
             var token: Long? = null
-            if (fromXmsf()) {
+            val xmsfCaller = fromXmsf()
+            if (xmsfCaller) {
                 if (preserveDelegateIdentity) {
                     // Keep the stock delegate identity. SystemUI and MIUI notification policy use
                     // opPkg=com.xiaomi.xmsf to distinguish a target-app MiPush notification from
@@ -158,6 +197,13 @@ object NmsPermissionHooker {
                 } else {
                     token = Binder.clearCallingIdentity()
                     args[1] = ANDROID_PACKAGE_NAME
+                }
+            } else {
+                // A rewrite failure must keep the caller's original notification enqueued.
+                runCatching { rewriteNativeFocusNotification(this) }.onFailure {
+                    if (debugLimiter.tryAcquire("native_focus_rewrite_failed", android.os.SystemClock.elapsedRealtime()).allowed) {
+                        XLog.w(TAG, "native focus rewrite failed; enqueuing original: ${it.javaClass.simpleName}")
+                    }
                 }
             }
             try {
@@ -263,6 +309,7 @@ object NmsPermissionHooker {
             Notification::class.java, Int::class.java,
         )
             .hook(hookNotificationEnqueue(preserveNotificationDelegateIdentity))
+        NativeFocusNotificationRewriter.installPromotionHook(classINotificationManager.classLoader)
 
         //void createNotificationChannelsForPackage(String pkg, int uid, in ParceledListSlice channelsList);
         findMethodExact(

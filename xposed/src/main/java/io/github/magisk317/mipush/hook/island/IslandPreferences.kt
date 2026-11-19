@@ -28,6 +28,10 @@ import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_PACKAGE
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_USER_ID
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED_KEY
 import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.xposed.currentApplication
 import java.util.concurrent.ConcurrentHashMap
@@ -54,6 +58,7 @@ object IslandPreferences {
         SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
         NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY,
+        NATIVE_LIVE_UPDATE_ENABLED_KEY,
     )
 
     @Volatile
@@ -92,6 +97,7 @@ object IslandPreferences {
         val normalizedUserId = userId?.takeIf { it >= 0 } ?: return options.copy(
             enabled = false,
             focusNotification = false,
+            nativeLiveUpdateEnabled = false,
         )
         val key = PackageKey(normalizedUserId, pkg)
         val cached = packageOptions[key]
@@ -258,7 +264,18 @@ object IslandPreferences {
             if (app != null) {
                 val receiver = object : BroadcastReceiver() {
                     override fun onReceive(context: Context?, intent: Intent?) {
-                        refreshNow()
+                        val changedPackage = intent?.getStringExtra(ACTION_PREF_CHANGED_PACKAGE)
+                        val changedUser = intent?.getIntExtra(ACTION_PREF_CHANGED_USER_ID, -1) ?: -1
+                        val changedKey = intent?.getStringExtra(ACTION_PREF_CHANGED_KEY)
+                        if (!changedPackage.isNullOrBlank() && changedUser >= 0) {
+                            if (changedKey == null || changedKey == "*" ||
+                                changedKey == NATIVE_LIVE_UPDATE_ENABLED_KEY
+                            ) {
+                                invalidatePackage(changedPackage, changedUser)
+                            }
+                        } else {
+                            refreshNow()
+                        }
                     }
                 }
                 val registered = runCatching {
@@ -308,6 +325,27 @@ object IslandPreferences {
 
     private fun isRefreshActive(generation: Long): Boolean =
         refreshLoopStarted && loopGeneration.get() == generation
+
+    internal fun invalidatePackage(packageName: String, userId: Int): Boolean {
+        if (packageName.isBlank() || userId < 0) return false
+        val key = PackageKey(userId, packageName)
+        packageOptions.remove(key)
+        val executor = refreshExecutor?.takeUnless { it.isShutdown } ?: return false
+        val generation = refreshGeneration.get()
+        if (!packageRefreshes.add(key)) return true
+        return runCatching {
+            executor.execute {
+                readOptions(packageName, userId).onSuccess {
+                    if (refreshGeneration.get() == generation) packageOptions[key] = it
+                }
+                packageRefreshes.remove(key)
+            }
+            true
+        }.getOrElse {
+            packageRefreshes.remove(key)
+            false
+        }
+    }
 
 
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {
@@ -384,6 +422,7 @@ object IslandPreferences {
             showOriginalNotification = !islandEnabled ||
                 values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
+            nativeLiveUpdateEnabled = values.booleanValue(NATIVE_LIVE_UPDATE_ENABLED_KEY, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
             monochromeShadeIcon = values.booleanValue(MONOCHROME_SHADE_ICON_KEY, false),
             thirdPartyIconPack = values.booleanValue(THIRD_PARTY_ICON_PACK_KEY, true),
