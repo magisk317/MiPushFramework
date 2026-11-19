@@ -83,9 +83,9 @@ class SettingsViewModel constructor(
 
     val showAllEvents: StateFlow<Boolean> = preferenceRepository.showAllEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
+//禁用统计
     val analyticsEnabled: StateFlow<Boolean> = preferenceRepository.analyticsEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val autoUpdateOnStart: StateFlow<Boolean> = preferenceRepository.autoUpdateOnStart
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -108,9 +108,9 @@ class SettingsViewModel constructor(
 
     val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
-
+//米系不需要
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val keepAliveOomAdj: StateFlow<Boolean> = preferenceRepository.keepAliveOomAdj
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -150,18 +150,19 @@ class SettingsViewModel constructor(
      * historical "color" polarity, so the inversion lives here, at the single
      * boundary between the switch and the rest of the pipeline.
      */
+     //默认不开启单色图标，使用应用原生图标
     val monochromeStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
         .map { !it }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val monochromeShadeIcon: StateFlow<Boolean> = preferenceRepository.monochromeShadeIcon
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val thirdPartyIconPack: StateFlow<Boolean> = preferenceRepository.thirdPartyIconPack
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val systemAppIconPack: StateFlow<Boolean> = preferenceRepository.systemAppIconPack
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
