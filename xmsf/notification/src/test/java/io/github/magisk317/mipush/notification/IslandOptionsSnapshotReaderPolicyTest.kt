@@ -127,7 +127,6 @@ class IslandOptionsSnapshotReaderPolicyTest {
         showNotification = true,
         showOriginalNotification = showOriginalNotification,
         focusNotification = focusNotification,
-        nativeLiveUpdateEnabled = false,
         colorStatusBarIcon = false,
         monochromeShadeIcon = false,
         thirdPartyIconPack = true,
