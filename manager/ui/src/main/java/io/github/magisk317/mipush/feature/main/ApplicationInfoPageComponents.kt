@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.magisk317.uikit.surface.AppCard
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppBadge
-import io.github.magisk317.uikit.surface.AppPrimaryButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +52,8 @@ import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 
 internal enum class NotificationChannelContentKind {
     EMPTY,
@@ -236,50 +237,9 @@ internal fun NotificationChannelBadge(
         text = text,
         containerColor = containerColor,
         contentColor = contentColor,
-        shape = RoundedCornerShape(6.dp),
+        shape = appShape(AppShapeRole.Small),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
     )
-}
-
-@Composable
-internal fun ActionSummaryRow(
-    title: String,
-    summary: String,
-    actionLabel: String,
-    enabled: Boolean = true,
-    showDivider: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MaterialTheme.spacing.large, vertical = MaterialTheme.spacing.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            AppText(
-                text = title,
-                role = AppTextRole.Body,
-                color = appColor(AppColorRole.OnSurface),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            AppText(
-                text = summary,
-                role = AppTextRole.BodySmall,
-                color = appColor(AppColorRole.OnSurfaceVariant),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        Spacer(Modifier.width(MaterialTheme.spacing.medium))
-        AppPrimaryButton(
-            text = actionLabel,
-            onClick = onClick,
-            enabled = enabled,
-        )
-    }
-    if (showDivider) {
-        DetailDivider()
-    }
 }
 
 @Composable

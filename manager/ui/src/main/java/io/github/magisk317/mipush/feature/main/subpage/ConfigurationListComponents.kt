@@ -19,9 +19,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
 import io.github.magisk317.uikit.surface.AppPrimaryButton
+import io.github.magisk317.uikit.preference.AppArrowItem
 import io.github.magisk317.uikit.surface.AppSecondaryButton
 import io.github.magisk317.uikit.surface.AppLinearProgressIndicator
-import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.surface.AppIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -269,32 +269,11 @@ internal fun SettingLinkCard(
     value: String,
     onClick: () -> Unit,
 ) {
-    AppSurface(
-        modifier = Modifier.fillMaxWidth()
-            .clickable(onClick = onClick),
-        tonalElevation = 1.dp,
-        shape = appShape(AppShapeRole.Large),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(MaterialTheme.spacing.medium),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            AppText(
-                text = title,
-                role = AppTextRole.Footnote,
-                color = appColor(AppColorRole.Primary),
-            )
-            AppText(
-                text = value,
-                role = AppTextRole.Body,
-                color = appColor(AppColorRole.OnSurface),
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
+    AppArrowItem(
+        title = title,
+        summary = value,
+        onClick = onClick,
+    )
 }
 
 /**

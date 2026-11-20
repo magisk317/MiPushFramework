@@ -53,6 +53,13 @@ import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
+internal fun connectionStatusIndicatorColor(state: String?): Color = when (state) {
+    "Connected" -> Color(0xFF4CAF50)
+    "Connecting" -> Color(0xFFFFC107)
+    "Disconnected" -> Color(0xFFF44336)
+    else -> Color.Gray
+}
+
 open class ConnectionStatusPage : ComponentActivity() {
     private val viewModel: ConnectionStatusViewModel by viewModel()
 
@@ -183,12 +190,7 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
     ) {
-        val indicatorColor = when (data.connectionState) {
-            "Connected" -> Color(0xFF4CAF50)
-            "Connecting" -> Color(0xFFFFC107)
-            "Disconnected" -> Color(0xFFF44336)
-            else -> Color.Gray
-        }
+        val indicatorColor = connectionStatusIndicatorColor(data.connectionState)
         Box(
             modifier = Modifier
                 .size(14.dp)

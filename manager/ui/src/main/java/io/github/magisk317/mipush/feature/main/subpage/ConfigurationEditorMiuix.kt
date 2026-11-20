@@ -21,7 +21,7 @@ import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 
 /**
  * Miuix chrome for the configuration editor screen. Static bar by design: the
@@ -54,6 +54,6 @@ internal fun ConfigurationEditorMiuix(
             .union(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        body(PaddingValues(top = innerPadding.calculateTopPadding()), Modifier.scrollEndHaptic())
+        body(PaddingValues(top = innerPadding.calculateTopPadding()), Modifier.uiKitScrollEndHaptic())
     }
 }

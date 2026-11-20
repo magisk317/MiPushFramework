@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 
 /**
  * Miuix chrome for the Settings tab (Architecture A): page-owned miuix Scaffold
@@ -90,7 +90,7 @@ internal fun SettingsMiuix(
         Box(modifier = Modifier.fillMaxSize().then(if (glassOn) topGlass.contentRecorder() else Modifier).nestedScroll(scrollBehavior.nestedScrollConnection)) {
             body(
                 PaddingValues(top = innerPadding.calculateTopPadding()),
-                Modifier.scrollEndHaptic(),
+                Modifier.uiKitScrollEndHaptic(),
             )
             AppSnackbarHost(
                 hostState = snackbarHostState,

@@ -46,7 +46,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 import io.github.magisk317.uikit.R as UiKitR
 
 /**
@@ -102,7 +102,7 @@ internal fun OverviewMiuix(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .scrollEndHaptic()
+                    .uiKitScrollEndHaptic()
                     .padding(
                         PaddingValues(
                             start = 12.dp,

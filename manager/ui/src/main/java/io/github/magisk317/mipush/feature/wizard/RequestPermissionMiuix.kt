@@ -15,7 +15,7 @@ import io.github.magisk317.uikit.surface.uiKitSurfaceBlur
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 
 /** Miuix chrome for the permission wizard (collapsing bar template). */
 @Composable
@@ -39,7 +39,7 @@ internal fun RequestPermissionMiuix(
         bottomBar = bottomBar,
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection)) {
-            body(innerPadding, Modifier.scrollEndHaptic())
+            body(innerPadding, Modifier.uiKitScrollEndHaptic())
         }
     }
 }

@@ -55,7 +55,6 @@ internal fun ApplicationIdentityCard(info: ManagerApplication) {
                     AppText(
                         text = info.appName,
                         role = AppTextRole.Title,
-                        fontSize = 22.sp,
                         color = appColor(AppColorRole.OnSurface),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -202,7 +201,6 @@ private fun ApplicationDetailSummary(
         AppText(
             text = label,
             role = AppTextRole.Footnote,
-            fontSize = 11.sp,
             color = appColor(AppColorRole.OnSurfaceVariant),
         )
         FlowRow(

@@ -301,12 +301,7 @@ internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
 
     val data = snapshot
     val state = data?.connectionState ?: "Idle"
-    val indicatorColor = when (state) {
-        "Connected" -> Color(0xFF4CAF50)
-        "Connecting" -> Color(0xFFFFC107)
-        "Disconnected" -> Color(0xFFF44336)
-        else -> Color.Gray
-    }
+    val indicatorColor = connectionStatusIndicatorColor(state)
 
     Row(
         modifier = Modifier
