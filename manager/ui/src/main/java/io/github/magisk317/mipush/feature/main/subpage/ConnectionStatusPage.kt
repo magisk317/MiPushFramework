@@ -53,10 +53,14 @@ import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
+private val ConnectedIndicatorColor = Color(0xFF4CAF50)
+private val ConnectingIndicatorColor = Color(0xFFFFC107)
+private val DisconnectedIndicatorColor = Color(0xFFF44336)
+
 internal fun connectionStatusIndicatorColor(state: String?): Color = when (state) {
-    "Connected" -> Color(0xFF4CAF50)
-    "Connecting" -> Color(0xFFFFC107)
-    "Disconnected" -> Color(0xFFF44336)
+    "Connected" -> ConnectedIndicatorColor
+    "Connecting" -> ConnectingIndicatorColor
+    "Disconnected" -> DisconnectedIndicatorColor
     else -> Color.Gray
 }
 
