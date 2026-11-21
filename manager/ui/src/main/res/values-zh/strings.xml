@@ -761,13 +761,9 @@
 
     <string name="settings_enable_analytics">统计数据</string>
     <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
-    <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
-    <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="dialog_acknowledge">我知道了</string>
-    <string name="runtime_warning_check_permissions">查看权限状态</string>
     <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
-    <string name="runtime_commit_mismatch_toast">模块与 xmsf 版本不匹配，通知功能可能异常</string>
 
     <string name="pref_theme_group_color">色彩</string>
     <string name="pref_theme_group_navigation">导航栏</string>
@@ -794,21 +790,6 @@
     <string name="version_hint_updating">正在更新运行时… %1$d%%</string>
     <string name="version_hint_failed">检查更新失败：%1$s</string>
     <string name="version_hint_unsupported">Play 版本请前往发布页手动检查</string>
-    <string name="xmsf_delivery_title">XMSF 运行时</string>
-    <string name="xmsf_delivery_state_not_installed">未安装</string>
-    <string name="xmsf_delivery_state_update_available">有新版本可用</string>
-    <string name="xmsf_delivery_state_signature_mismatch">签名不匹配，运行时不可信</string>
-    <string name="xmsf_delivery_state_ready">已就绪</string>
-    <string name="xmsf_delivery_connectivity_connected">Binder 已连接</string>
-    <string name="xmsf_delivery_connectivity_unavailable">Binder 不可用</string>
-    <string name="xmsf_delivery_install_action">下载并安装运行时</string>
-    <string name="xmsf_delivery_install_summary">拉取锁定的运行时，校验签名后安装</string>
-    <string name="xmsf_delivery_install_busy">正在下载并安装… %1$d%%</string>
-    <string name="xmsf_delivery_guidance_action">打开发布页手动安装</string>
-    <string name="xmsf_delivery_guidance_summary">此渠道不在应用内下载 APK</string>
-    <string name="xmsf_delivery_installed_snackbar">XMSF 运行时已安装并验证通过</string>
-    <string name="xmsf_delivery_guidance_opened_snackbar">已打开发布页，安装后请刷新状态</string>
-    <string name="xmsf_delivery_failed_snackbar">运行时下发失败：%1$s</string>
     <string name="wizard_section_required">必需</string>
     <string name="wizard_section_optional">可选</string>
     <string name="wizard_action_grant_all">全部静默授权</string>

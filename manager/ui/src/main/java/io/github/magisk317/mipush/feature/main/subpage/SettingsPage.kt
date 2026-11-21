@@ -196,7 +196,6 @@ private fun SettingsBody(
             expanded = sectionExpanded[SettingsViewModel.SectionId.DIAGNOSTICS],
             onExpandedChange = { toggleSection(SettingsViewModel.SectionId.DIAGNOSTICS) },
         ) {
-            XmsfDeliveryBlock(snackbarHostState)
             DiagnosticsBlock(viewModel, snackbarHostState)
         }
 
