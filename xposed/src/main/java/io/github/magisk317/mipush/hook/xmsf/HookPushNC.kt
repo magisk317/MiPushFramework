@@ -59,7 +59,16 @@ object HookPushNC {
     private var readyRetryTask: Runnable? = null
     private var readyRetryAttempt = 0
 
-    private val hookCheck = { HookSystemService.isSystemHookReady }
+    private var notificationManagerClassRef: Class<*>? = null
+    private var identityBridgeClassRef: Class<*>? = null
+
+    private val hookCheck = {
+        val ready = HookSystemService.isSystemHookReady
+        if (ready) {
+            ensureIdentityBridgeMarked()
+        }
+        ready
+    }
 
     fun canHook(classLoader: ClassLoader): Boolean {
         return try {
@@ -329,6 +338,8 @@ object HookPushNC {
         installLocalReadyProbe(classLoader)
 
         val identityBridgeClass = hookIdentityBridge(classLoader, runtimeBridge)
+        notificationManagerClassRef = classNotificationManager
+        identityBridgeClassRef = identityBridgeClass
         if (identityBridgeClass != null) {
             if (HookSystemService.isSystemHookReady) {
                 markIdentityBridgeReady(classNotificationManager, identityBridgeClass)
@@ -562,6 +573,18 @@ object HookPushNC {
         XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "identity bridge hooks installed")
         return identityBridgeClass
     }
+
+    internal fun ensureIdentityBridgeMarked(): Boolean {
+        val nmClass = notificationManagerClassRef ?: return false
+        val idClass = identityBridgeClassRef ?: return false
+        if (idClass.getOrNull<Boolean>("isHooked") == true && nmClass.getOrNull<Boolean>("isHooked") == true) {
+            return true
+        }
+        if (!HookSystemService.isSystemHookReady) return false
+        return markIdentityBridgeReady(nmClass, idClass)
+    }
+
+    fun triggerIdentityBridgeRecheck(): Boolean = ensureIdentityBridgeMarked()
 
     private fun markIdentityBridgeReady(
         notificationManagerClass: Class<*>,
