@@ -107,7 +107,7 @@ variables:
   # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
   # here fails the fetch outright. Bump it together with the MiPushZygisk release
   # (module.prop version/versionCode must stay in sync with libs.versions.toml).
-  MIPUSH_ZYGISK_REF: "82d88942a42a1edf4fadfa95b0d78207d4b71d1a"
+  MIPUSH_ZYGISK_REF: "68889f156c64417381e22ddfb006e71ad9e7a15f"
   MIPUSH_ZYGISK_NDK_VERSION: "r30"
   MIPUSH_ZYGISK_NDK_REVISION: "30.0.16248370"
   MIPUSH_ZYGISK_NDK_HOME: "/opt/android-sdk/ndk/30.0.16248370"
