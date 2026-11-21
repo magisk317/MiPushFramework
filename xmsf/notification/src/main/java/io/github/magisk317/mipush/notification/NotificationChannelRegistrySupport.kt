@@ -25,6 +25,21 @@ internal class NotificationChannelRegistrySupport(
     private fun shouldUseModernIdentityStrategy(packageName: String): Boolean =
         packageName != context.packageName && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
+    /**
+     * Local XMSF channels are a compatibility fallback only when target identity is unavailable.
+     * Once the framework or delegated target path is active, accepting a same-id local channel
+     * can resurrect a stale shadow left by an earlier failed target provision.
+     */
+    private fun shouldUseLocalTargetFallback(packageName: String): Boolean {
+        if (packageName == context.packageName || !shouldUseModernIdentityStrategy(packageName)) {
+            return true
+        }
+        return runCatching {
+            NotificationVendorAdapter.resolveIdentityStrategy(context, packageName) ==
+                NotificationVendorAdapter.IdentityStrategy.UNSUPPORTED
+        }.getOrDefault(false)
+    }
+
     private fun isTargetPackageAvailable(packageName: String): Boolean =
         packageName == context.packageName || Utils.isAppInstalled(context, packageName)
 
@@ -46,6 +61,13 @@ internal class NotificationChannelRegistrySupport(
             logE("Failed to query package NotificationManager for $packageName", e)
             null
         }
+    }
+
+    fun getTargetNotificationChannel(packageName: String, channelId: String?): NotificationChannel? {
+        if (packageName == context.packageName) {
+            return channelId?.takeIf { it.isNotBlank() }?.let(notificationManager::getNotificationChannel)
+        }
+        return getDirectPackageNotificationChannel(packageName, channelId)
     }
 
     fun getDirectPackageNotificationChannel(packageName: String, channelId: String?): NotificationChannel? {
@@ -81,7 +103,11 @@ internal class NotificationChannelRegistrySupport(
         packageName: String,
         groupId: String?,
     ): NotificationChannelGroup? {
-        if (groupId.isNullOrEmpty() || shouldUseModernIdentityStrategy(packageName)) return null
+        if (groupId.isNullOrEmpty()) return null
+        if (shouldUseModernIdentityStrategy(packageName)) {
+            return NotificationVendorAdapter.getTargetGroups(context, packageName)
+                .firstOrNull { it.id == groupId }
+        }
         if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             return if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
@@ -200,7 +226,9 @@ internal class NotificationChannelRegistrySupport(
         ensureReferencedGroupsExist(packageName, nonNullChannels)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationVendorAdapter.createTargetChannels(context, packageName, nonNullChannels)) {
-                createLocalFallbackChannels(packageName, nonNullChannels)
+                if (shouldUseLocalTargetFallback(packageName)) {
+                    createLocalFallbackChannels(packageName, nonNullChannels)
+                }
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -209,7 +237,9 @@ internal class NotificationChannelRegistrySupport(
                 nonNullChannels.firstOrNull()?.id,
                 nonNullChannels.firstOrNull()?.group
             )
-            createLocalFallbackChannels(packageName, nonNullChannels)
+            if (shouldUseLocalTargetFallback(packageName)) {
+                createLocalFallbackChannels(packageName, nonNullChannels)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -247,8 +277,12 @@ internal class NotificationChannelRegistrySupport(
         if (directChannel != null) {
             return directChannel
         }
-        val localFallback = channelId?.takeIf { it.isNotBlank() }?.let { id ->
-            notificationManager.getNotificationChannel(id)
+        val localFallback = if (shouldUseLocalTargetFallback(packageName)) {
+            channelId?.takeIf { it.isNotBlank() }?.let { id ->
+                notificationManager.getNotificationChannel(id)
+            }
+        } else {
+            null
         }
         if (localFallback != null) {
             logD("getNotificationChannel local fallback pkg=$packageName channel=$channelId")
@@ -332,7 +366,11 @@ internal class NotificationChannelRegistrySupport(
                 }
             }
 
-            val managedLocal = localManagedChannels(packageName)
+            val managedLocal = if (shouldUseLocalTargetFallback(packageName)) {
+                localManagedChannels(packageName)
+            } else {
+                emptyList()
+            }
             if (managedLocal.isNotEmpty()) {
                 logI("getNotificationChannels local-managed fallback count=${managedLocal.size} pkg=$packageName")
                 return managedLocal
@@ -471,7 +509,9 @@ internal class NotificationChannelRegistrySupport(
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationVendorAdapter.createTargetGroups(context, packageName, nonNullGroups)) {
-                createLocalFallbackGroups(packageName, nonNullGroups)
+                if (shouldUseLocalTargetFallback(packageName)) {
+                    createLocalFallbackGroups(packageName, nonNullGroups)
+                }
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -480,7 +520,9 @@ internal class NotificationChannelRegistrySupport(
                 null,
                 nonNullGroups.firstOrNull()?.id
             )
-            createLocalFallbackGroups(packageName, nonNullGroups)
+            if (shouldUseLocalTargetFallback(packageName)) {
+                createLocalFallbackGroups(packageName, nonNullGroups)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -510,8 +552,12 @@ internal class NotificationChannelRegistrySupport(
         if (directGroup != null) {
             return directGroup
         }
-        val localFallback = groupId?.takeIf { it.isNotBlank() }?.let { id ->
-            notificationManager.getNotificationChannelGroup(id)
+        val localFallback = if (shouldUseLocalTargetFallback(packageName)) {
+            groupId?.takeIf { it.isNotBlank() }?.let { id ->
+                notificationManager.getNotificationChannelGroup(id)
+            }
+        } else {
+            null
         }
         if (localFallback != null) {
             logI("getNotificationChannelGroup local fallback pkg=$packageName group=$groupId")
@@ -557,7 +603,11 @@ internal class NotificationChannelRegistrySupport(
                     }
                 }
             }
-            val managedLocal = localManagedGroups(packageName)
+            val managedLocal = if (shouldUseLocalTargetFallback(packageName)) {
+                localManagedGroups(packageName)
+            } else {
+                emptyList()
+            }
             if (managedLocal.isNotEmpty()) {
                 logI("getNotificationChannelGroups local-managed fallback count=${managedLocal.size} pkg=$packageName")
                 return managedLocal
@@ -585,6 +635,29 @@ internal class NotificationChannelRegistrySupport(
             return platformGroups
         }
         return localManagedGroups(packageName)
+    }
+
+    fun removeLocalTargetNotificationShadows(packageName: String): Int {
+        if (packageName == context.packageName || shouldUseLocalTargetFallback(packageName)) {
+            return 0
+        }
+        val staleIds = notificationManager.notificationChannels
+            .mapNotNull { channel ->
+                channel?.id?.takeIf {
+                    io.github.magisk317.mipush.common.utils.NotificationUtils
+                        .isMiPushManagedChannelId(packageName, it)
+                }
+            }
+        staleIds.forEach { channelId ->
+            runCatching { notificationManager.deleteNotificationChannel(channelId) }
+                .onFailure {
+                    logW("failed to remove stale local channel shadow pkg=$packageName channel=$channelId")
+                }
+        }
+        if (staleIds.isNotEmpty()) {
+            logI("removed stale local channel shadows pkg=$packageName count=${staleIds.size}")
+        }
+        return staleIds.size
     }
 
     private fun queryPlatformNotificationChannelGroups(packageName: String): List<NotificationChannelGroup?> {

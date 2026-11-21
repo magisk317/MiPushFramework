@@ -493,7 +493,7 @@ object HookPushNC {
                 tryInvoke {
                     return@replace runtimeBridge.getNotificationChannel(
                         args[1] as String,
-                        args[2] as String
+                        args[2] as String?
                     )
                 }
             }

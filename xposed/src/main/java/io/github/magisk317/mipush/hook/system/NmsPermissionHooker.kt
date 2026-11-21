@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.system
 
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.pm.PackageManager
@@ -34,6 +35,8 @@ object NmsPermissionHooker {
     )
 
     private const val TAG = "NmsPermissionHooker"
+    private const val PER_USER_RANGE = 100_000L
+    private const val PID_MASK = 0xffff_ffffL
 
     @Volatile private var xmsfUid = -1
     private fun getXmsfUid(): Int {
@@ -64,6 +67,41 @@ object NmsPermissionHooker {
             getContext().packageManager.getPackagesForUid(callingUid)?.toList().orEmpty()
         }.getOrDefault(emptyList())
     }
+
+    internal fun userIdFromUid(uid: Int): Int =
+        uid.toLong().div(PER_USER_RANGE).toInt().coerceAtLeast(0)
+
+    /**
+     * Binder.clearCallingIdentity() always switches to system_server's user 0. Android 17's
+     * notification service now checks that the calling user matches the target uid, so hooks
+     * must restore a system identity belonging to the target user before invoking the original.
+     */
+    internal fun systemIdentityForUser(userId: Int, pid: Int): Long {
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val systemUid = normalizedUserId.toLong() * PER_USER_RANGE + Process.SYSTEM_UID
+        return (systemUid shl 32) or (pid.toLong() and PID_MASK)
+    }
+
+    private fun resolveTargetUserId(
+        args: Array<out Any?>,
+        callingUid: Int,
+        targetUidParamIndex: Int?,
+        targetUserIdParamIndex: Int?,
+    ): Int {
+        targetUidParamIndex
+            ?.let { args.getOrNull(it) as? Int }
+            ?.takeIf { it >= 0 }
+            ?.let(::userIdFromUid)
+            ?.let { return it }
+        targetUserIdParamIndex
+            ?.let { args.getOrNull(it) as? Int }
+            ?.takeIf { it >= 0 }
+            ?.let { return it }
+        return userIdFromUid(callingUid)
+    }
+
+    private fun isSystemUidForAnyUser(uid: Int): Boolean =
+        uid >= 0 && uid.toLong().rem(PER_USER_RANGE) == Process.SYSTEM_UID.toLong()
 
     // 每步独立隔离的 hook 安装：issue #149 的设备（system_server 被 R8 混淆，NMS 类名形如
     // android.telephony.BoulDealBlistount）上，PreferencesHelper 的 findClass 抛 LinkageError
@@ -108,7 +146,21 @@ object NmsPermissionHooker {
         }.getOrDefault(false)
     }
 
-    private fun getPackageUid(packageName: String) = getContext().packageManager.getPackageUid(packageName, 0)
+    private fun getPackageUid(packageName: String, userId: Int? = null): Int {
+        val packageManager = getContext().packageManager
+        if (userId != null) {
+            val uidAsUser = runCatching {
+                val method = PackageManager::class.java.getMethod(
+                    "getPackageUidAsUser",
+                    String::class.java,
+                    Int::class.javaPrimitiveType,
+                )
+                method.invoke(packageManager, packageName, userId) as Int
+            }.getOrNull()
+            if (uidAsUser != null) return uidAsUser
+        }
+        return packageManager.getPackageUid(packageName, 0)
+    }
 
     private fun getContext(): Context = currentApplication()
         ?: throw IllegalStateException("currentApplication unavailable")
@@ -161,12 +213,26 @@ object NmsPermissionHooker {
     internal fun shouldBypassCallingIdentity(targetPackageName: String?): Boolean =
         targetPackageName != XMSF_PACKAGE_NAME
 
-    private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (MethodHookParam.() -> Unit)? = null): HookCallback = {
+    private fun hookPermission(
+        targetPackageNameParamIndex: Int,
+        targetUidParamIndex: Int? = null,
+        targetUserIdParamIndex: Int? = null,
+        hookExtra: (MethodHookParam.() -> Unit)? = null,
+    ): HookCallback = {
         replace {
             var token: Long? = null
             if (fromXmsf()) {
-                if (shouldBypassCallingIdentity(args[targetPackageNameParamIndex] as? String)) {
+                val callingUid = Binder.getCallingUid()
+                val targetUserId = resolveTargetUserId(
+                    args = args,
+                    callingUid = callingUid,
+                    targetUidParamIndex = targetUidParamIndex,
+                    targetUserIdParamIndex = targetUserIdParamIndex,
+                )
+                val identityMustMatchTarget = targetUserId != userIdFromUid(callingUid)
+                if (shouldBypassCallingIdentity(args[targetPackageNameParamIndex] as? String) && identityMustMatchTarget) {
                     token = Binder.clearCallingIdentity()
+                    Binder.restoreCallingIdentity(systemIdentityForUser(targetUserId, Process.myPid()))
                 }
                 hookExtra?.invoke(this)
             }
@@ -225,8 +291,12 @@ object NmsPermissionHooker {
                     // opPkg=com.xiaomi.xmsf to distinguish a target-app MiPush notification from
                     // a notification posted by the Android system itself.
                     args[1] = XMSF_PACKAGE_NAME
-                } else {
+            } else {
+                    val targetUserId = (args.getOrNull(5) as? Int)
+                        ?.takeIf { it >= 0 }
+                        ?: userIdFromUid(Binder.getCallingUid())
                     token = Binder.clearCallingIdentity()
+                    Binder.restoreCallingIdentity(systemIdentityForUser(targetUserId, Process.myPid()))
                     args[1] = ANDROID_PACKAGE_NAME
                 }
             } else {
@@ -304,6 +374,24 @@ object NmsPermissionHooker {
         try {
         val preserveNotificationDelegateIdentity =
             installNotificationDelegateResolver(classINotificationManager.classLoader)
+        installStep("enforceSystemOrSystemUIOrSamePackage") {
+            // Android 17 moved the package/user guard into this Stub helper before the
+            // per-method body. XMSF is authorized by this module, so let the existing
+            // permission hooks handle the call without demanding STATUS_BAR_SERVICE.
+            findMethodExact(
+                classINotificationManager,
+                "enforceSystemOrSystemUIOrSamePackage",
+                String::class.java,
+                String::class.java,
+            ).hook {
+                replace {
+                    if (fromXmsf()) {
+                        return@replace null
+                    }
+                    invokeOriginal()
+                }
+            }
+        }
         //boolean canNotifyAsPackage(String callingPkg, String targetPkg, int userId);
         installStep("canNotifyAsPackage") {
             findMethodExact(classINotificationManager, "canNotifyAsPackage", String::class.java, String::class.java, Int::class.java)
@@ -313,7 +401,7 @@ object NmsPermissionHooker {
         //boolean areNotificationsEnabledForPackage(String pkg, int uid);
         installStep("areNotificationsEnabledForPackage") {
             findMethodExact(classINotificationManager, "areNotificationsEnabledForPackage", String::class.java, Int::class.java)
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         installStep("getNotificationChannelForPackage") {
@@ -324,7 +412,7 @@ object NmsPermissionHooker {
                     "getNotificationChannelForPackage",
                     String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java,
                 )
-                    .hook(hookPermission(0))
+                    .hook(hookPermission(0, targetUidParamIndex = 1))
             } else {
                 //NotificationChannel getNotificationChannelForPackage(String pkg, int uid, String channelId, boolean includeDeleted);
                 findMethodExact(
@@ -332,14 +420,14 @@ object NmsPermissionHooker {
                     "getNotificationChannelForPackage",
                     String::class.java, Int::class.java, String::class.java, Boolean::class.java,
                 )
-                    .hook(hookPermission(0))
+                    .hook(hookPermission(0, targetUidParamIndex = 1))
             }
         }
 
         //ParceledListSlice getNotificationChannelsForPackage(String pkg, int uid, boolean includeDeleted);
         installStep("getNotificationChannelsForPackage") {
             findMethodExact(classINotificationManager, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         //void enqueueNotificationWithTag(String pkg, String opPkg, String tag, int id, Notification notification, int userId)
@@ -364,7 +452,7 @@ object NmsPermissionHooker {
                 String::class.java, Int::class.java,
                 findClass("android.content.pm.ParceledListSlice", null),
             )
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         installStep("cancelNotificationWithTag") {
@@ -375,7 +463,7 @@ object NmsPermissionHooker {
                     "cancelNotificationWithTag",
                     String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java,
                 )
-                    .hook(hookPermission(0) {
+                    .hook(hookPermission(0, targetUserIdParamIndex = 4) {
                         val pkg = args[0] as? String
                         val currentOpPkg = args[1] as? String
                         val resolvedOpPkg = cancelOpPackage(pkg, currentOpPkg)
@@ -391,7 +479,7 @@ object NmsPermissionHooker {
             } else {
                 //void cancelNotificationWithTag(String pkg, String opPkg, String tag, int id, int userId);
                 findMethodExact(classINotificationManager, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
-                    .hook(hookPermission(0))
+                    .hook(hookPermission(0, targetUserIdParamIndex = 3))
             }
         }
 
@@ -404,14 +492,15 @@ object NmsPermissionHooker {
         //ParceledListSlice getAppActiveNotifications(String callingPkg, int userId);
         installStep("getAppActiveNotifications") {
             findMethodExact(classINotificationManager, "getAppActiveNotifications", String::class.java, Int::class.java)
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUserIdParamIndex = 1))
         }
 
         val deleteNotificationChannelHook: HookContext.() -> Unit = {
             doBefore {
                 val packageName = args[0] as String
-                if (Binder.getCallingUid() == Process.SYSTEM_UID) {
-                    args[1] = getPackageUid(packageName)
+                val callingUid = Binder.getCallingUid()
+                if (isSystemUidForAnyUser(callingUid)) {
+                    args[1] = getPackageUid(packageName, userIdFromUid(callingUid))
                 }
             }
         }
@@ -420,39 +509,43 @@ object NmsPermissionHooker {
             // NMS 类被 R8 重命名）上 findClass("com.android.server.notification.PreferencesHelper")
             // 抛的是 ClassNotFoundError（LinkageError），旧实现只捕 NoSuchMethodError，会从这里
             // 冲出外层 try，把其后整段 hook 安装（updateNotificationChannelGroupForPackage 等）
-            // 全部静默跳过。installStep 已兜住一切 Throwable；内部 catch 仅为保留 Samsung One UI 7
-            // 的"方法被删"语义日志。
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // 全部静默跳过。installStep 会记录可选删除 helper 的失败，但不会阻断后续 hook。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val primaryHook = runCatching {
                     findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
                         //public boolean deleteNotificationChannel(String pkg, int uid, String channelId, int callingUid, boolean fromSystemOrSystemUi)
                         .hookMethod(
-                            "deleteNotificationChannel", String::class.java, Int::class.java, String::class.java, Int::class.java, Boolean::class.java,
-                            callback = deleteNotificationChannelHook
-                        )
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
-                        //public boolean deleteNotificationChannel(String pkg, int uid, String channelId)
-                        .hookMethod("deleteNotificationChannel", String::class.java, Int::class.java, String::class.java,
-                            callback = deleteNotificationChannelHook
-                        )
-                } else {
-                    findClass("com.android.server.notification.RankingHelper", classINotificationManager.classLoader)
-                        //public void deleteNotificationChannel(String pkg, int uid, String channelId)
-                        .hookMethod("deleteNotificationChannel", String::class.java, Int::class.java, String::class.java,
-                            callback = deleteNotificationChannelHook
+                            "deleteNotificationChannel", String::class.java, Int::class.java, String::class.java,
+                            Int::class.java, Boolean::class.java, callback = deleteNotificationChannelHook,
                         )
                 }
-            } catch (e: NoSuchMethodError) {
-                //Samsung One UI 7 delete this method
-                XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "hook deleteNotificationChannel error, NoSuchMethodError", e)
+                if (primaryHook.isFailure) {
+                    // Android 17 removed the public helper and only retains the locked variant.
+                    findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
+                        .hookMethod(
+                            "deleteNotificationChannelLocked", String::class.java, Int::class.java,
+                            NotificationChannel::class.java, callback = deleteNotificationChannelHook,
+                        )
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                findClass("com.android.server.notification.PreferencesHelper", classINotificationManager.classLoader)
+                    //public boolean deleteNotificationChannel(String pkg, int uid, String channelId)
+                    .hookMethod("deleteNotificationChannel", String::class.java, Int::class.java, String::class.java,
+                        callback = deleteNotificationChannelHook
+                    )
+            } else {
+                findClass("com.android.server.notification.RankingHelper", classINotificationManager.classLoader)
+                    //public void deleteNotificationChannel(String pkg, int uid, String channelId)
+                    .hookMethod("deleteNotificationChannel", String::class.java, Int::class.java, String::class.java,
+                        callback = deleteNotificationChannelHook
+                    )
             }
         }
 
         //void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
         installStep("updateNotificationChannelGroupForPackage") {
             findMethodExact(classINotificationManager, "updateNotificationChannelGroupForPackage", String::class.java, Int::class.java, NotificationChannelGroup::class.java)
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         //void createNotificationChannelGroup(String pkg, int uid, in NotificationChannelGroup group, boolean fromApp, boolean fromListener);
@@ -466,19 +559,19 @@ object NmsPermissionHooker {
                 "createNotificationChannelGroup",
                 String::class.java, Int::class.java, NotificationChannelGroup::class.java, Boolean::class.java, Boolean::class.java,
             )
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         //NotificationChannelGroup getNotificationChannelGroupForPackage(String groupId, String pkg, int uid);
         installStep("getNotificationChannelGroupForPackage") {
             findMethodExact(classINotificationManager, "getNotificationChannelGroupForPackage", String::class.java, String::class.java, Int::class.java)
-                .hook(hookPermission(1))
+                .hook(hookPermission(1, targetUidParamIndex = 2))
         }
 
         //ParceledListSlice getNotificationChannelGroupsForPackage(String pkg, int uid, boolean includeDeleted);
         installStep("getNotificationChannelGroupsForPackage") {
             findMethodExact(classINotificationManager, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .hook(hookPermission(0))
+                .hook(hookPermission(0, targetUidParamIndex = 1))
         }
 
         //void deleteNotificationChannelGroup(String pkg, String channelGroupId);

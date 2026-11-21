@@ -7,6 +7,19 @@ import org.junit.jupiter.api.Test
 
 class NmsPermissionHookerTest {
     @Test
+    fun `target user is derived from per user uid`() {
+        assertEquals(0, NmsPermissionHooker.userIdFromUid(1000))
+        assertEquals(11, NmsPermissionHooker.userIdFromUid(1_110_259))
+    }
+
+    @Test
+    fun `synthetic system identity keeps target user and pid`() {
+        val identity = NmsPermissionHooker.systemIdentityForUser(userId = 11, pid = 1234)
+        assertEquals(1_101_000, (identity ushr 32).toInt())
+        assertEquals(1234, identity.toInt())
+    }
+
+    @Test
     fun `cancel keeps xmsf opPkg for xmsf-owned notifications`() {
         assertEquals(
             "com.xiaomi.xmsf",
