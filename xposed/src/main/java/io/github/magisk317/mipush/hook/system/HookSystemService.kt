@@ -337,6 +337,9 @@ class HookSystemService : BaseHook() {
         // Cancel delayed retries while the old module ClassLoader is still reachable so a
         // retry cannot invoke hooks through a stale classloader after hot reload.
         stopNmsHookRetry()
+        _isSystemHookReady = null
+        nmsHookInstallState.set(NmsHookInstallState.NOT_INSTALLED)
+        setNmsReadyProperty(false)
         // system_server owns the XSpace package-sync receiver and its executor. Release them
         // while the old module ClassLoader is still reachable so hot reload can collect its DEX.
         XSpacePackageSyncHook.stop()
@@ -359,6 +362,11 @@ class HookSystemService : BaseHook() {
             XLog.w(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "skip system hook: process mismatch proc=${param.processName}")
             return
         }
+        // The property is a process-lifetime readiness signal. Clear stale state before a new
+        // system_server generation installs its hooks.
+        _isSystemHookReady = null
+        nmsHookInstallState.set(NmsHookInstallState.NOT_INSTALLED)
+        setNmsReadyProperty(false)
         val classLoader = param.classLoader
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "installing system notification hooks")

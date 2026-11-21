@@ -45,6 +45,9 @@ class HookSystemUI : BaseHook() {
     private val substitutedGlyphKeys: MutableMap<Any, Boolean> =
         Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
 
+    @Volatile
+    private var isAndroid17StatusBarDescriptorHooked: Boolean = false
+
     private val autogroupSummaryIconResolver: AutogroupSummaryIconResolver by lazy {
         AutogroupSummaryIconResolver(
             statusBarNotificationFromEntry = ::statusBarNotificationFromEntry,
@@ -64,6 +67,7 @@ class HookSystemUI : BaseHook() {
         // module ClassLoader (and its DEX mappings) is not pinned by the registered receiver.
         IslandDispatcher.unregister()
         autogroupSummaryIconResolver.clearAll()
+        isAndroid17StatusBarDescriptorHooked = false
     }
 
     override fun onLoadPackage(param: LoadParam) {
@@ -285,51 +289,58 @@ class HookSystemUI : BaseHook() {
                                     SystemUiNotificationPolicy.isSyntheticAutogroupSummaryNotification(
                                         notification?.flags ?: 0,
                                     )
-                                if (isSyntheticAutogroupSummary) {
-                                    val summaryContext = iconView.context
-                                    val summaryGlyphSafety = autogroupSummaryIconResolver.postedMonochromeGlyphSafety(
-                                        summaryContext,
-                                        notification?.smallIcon,
-                                    )
-                                    val childResolution = autogroupSummaryIconResolver.resolveChildGlyph(
-                                        entry = entry,
-                                        summarySbn = sbn,
-                                        context = summaryContext,
+                                // On Android 17, getIconDescriptor handles synthetic autogroup summary icons
+                                // and child monochrome inheritance at the descriptor level, allowing
+                                // StatusBarIconView to apply its standard scaling matrix. Applying the icon
+                                // here directly via setImageDrawable bypasses mIconScale and causes the icon
+                                // to render oversized in the status bar.
+                                if (!isAndroid17StatusBarDescriptorHooked) {
+                                    if (isSyntheticAutogroupSummary) {
+                                        val summaryContext = iconView.context
+                                        val summaryGlyphSafety = autogroupSummaryIconResolver.postedMonochromeGlyphSafety(
+                                            summaryContext,
+                                            notification?.smallIcon,
+                                        )
+                                        val childResolution = autogroupSummaryIconResolver.resolveChildGlyph(
+                                            entry = entry,
+                                            summarySbn = sbn,
+                                            context = summaryContext,
+                                            thirdPartyIconPack = options.thirdPartyIconPack,
+                                            systemAppIconPack = options.systemAppIconPack,
+                                        )
+                                        val replaceWithChildMonochrome =
+                                            SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
+                                                isSyntheticAutogroupSummary = true,
+                                                isMiPushManagedSummary = isMiPushManaged,
+                                                summaryGlyphStateKnown = summaryGlyphSafety != null,
+                                                summaryHasSafeOwnMonochromeGlyph = summaryGlyphSafety == true,
+                                                childStateKnown = childResolution.childStateKnown,
+                                                hasMonochromeChild = childResolution.hasMonochromeChild,
+                                                safeReplacementAvailable = childResolution.icon != null,
+                                            )
+                                        if (replaceWithChildMonochrome) {
+                                            val overrideKey = autogroupSummaryIconResolver.overrideKeyOrNull(sbn)
+                                            if (overrideKey != null && childResolution.icon != null) {
+                                                autogroupSummaryIconResolver.rememberOverride(
+                                                    overrideKey,
+                                                    childResolution.icon,
+                                                )
+                                            }
+                                        }
+                                        XLog.i(
+                                            TAG,
+                                            "autogroup summary glyph decision childrenKnown=${childResolution.childStateKnown} " +
+                                                "monoChild=${childResolution.hasMonochromeChild} " +
+                                                "source=${childResolution.source} replace=$replaceWithChildMonochrome",
+                                        )
+                                    }
+                                    autogroupSummaryIconResolver.applyFrameworkAutogroupSummaryIcon(
+                                        iconView = iconView,
+                                        sbn = sbn,
                                         thirdPartyIconPack = options.thirdPartyIconPack,
                                         systemAppIconPack = options.systemAppIconPack,
                                     )
-                                    val replaceWithChildMonochrome =
-                                        SystemUiNotificationPolicy.shouldReplaceUnmanagedAutogroupSummaryWithChildMonochrome(
-                                            isSyntheticAutogroupSummary = true,
-                                            isMiPushManagedSummary = isMiPushManaged,
-                                            summaryGlyphStateKnown = summaryGlyphSafety != null,
-                                            summaryHasSafeOwnMonochromeGlyph = summaryGlyphSafety == true,
-                                            childStateKnown = childResolution.childStateKnown,
-                                            hasMonochromeChild = childResolution.hasMonochromeChild,
-                                            safeReplacementAvailable = childResolution.icon != null,
-                                        )
-                                    if (replaceWithChildMonochrome) {
-                                        val overrideKey = autogroupSummaryIconResolver.overrideKeyOrNull(sbn)
-                                        if (overrideKey != null && childResolution.icon != null) {
-                                            autogroupSummaryIconResolver.rememberOverride(
-                                                overrideKey,
-                                                childResolution.icon,
-                                            )
-                                        }
-                                    }
-                                    XLog.i(
-                                        TAG,
-                                        "autogroup summary glyph decision childrenKnown=${childResolution.childStateKnown} " +
-                                            "monoChild=${childResolution.hasMonochromeChild} " +
-                                            "source=${childResolution.source} replace=$replaceWithChildMonochrome",
-                                    )
                                 }
-                                autogroupSummaryIconResolver.applyFrameworkAutogroupSummaryIcon(
-                                    iconView = iconView,
-                                    sbn = sbn,
-                                    thirdPartyIconPack = options.thirdPartyIconPack,
-                                    systemAppIconPack = options.systemAppIconPack,
-                                )
                                 val hasSubstitutedGlyph = hasSubstitutedStatusBarGlyph(
                                     descriptor = descriptor,
                                     notificationSmallIcon = notification?.smallIcon,
@@ -549,8 +560,13 @@ class HookSystemUI : BaseHook() {
             val entryClass = classLoader.findClass(
                 "com.android.systemui.statusbar.notification.collection.NotificationEntry",
             )
-            classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
-                .hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
+            val iconManagerClass = classLoader.findClass(
+                "com.android.systemui.statusbar.notification.icon.IconManager",
+            )
+            // From this point on the descriptor path is the authoritative scaling path. If the
+            // runtime hook itself fails, keep native SystemUI rendering rather than applying a
+            // raw ImageView drawable that bypasses StatusBarIconView.mIconScale.
+            iconManagerClass.hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
                     doAfter {
                         val entry = args.getOrNull(0) ?: return@doAfter
                         val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
@@ -797,9 +813,10 @@ class HookSystemUI : BaseHook() {
                         }
                     }
                 }
+            isAndroid17StatusBarDescriptorHooked = true
             XLog.i(TAG, "hooked IconManager.getIconDescriptor for Android 17 monochrome")
         }.onFailure {
-            XLog.e(TAG, "Failed to hook Android 17 IconManager.getIconDescriptor", it)
+            XLog.e(TAG, "Failed to hook Android 17 IconManager.getIconDescriptor; preserving native rendering", it)
         }
     }
 
