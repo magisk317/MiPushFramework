@@ -249,10 +249,15 @@ open class MainActivity : ComponentActivity() {
                     }
 
                     val updateController = koinInject<AppUpdateController>()
+                    val updateCoordinator = koinInject<VersionUpdateCoordinator>()
                     // 冷启动静默检测更新：后台不打扰用户，强制更新照常弹窗。
                     // 走 kit 的统一规则：CI 轨道必检，release 听开关，商店包根本不走这里。
                     LaunchedEffect(Unit) {
-                        updateController.checkOnStartup()
+                        if (!BuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                            updateCoordinator.checkOnStartup()
+                        } else {
+                            updateController.checkOnStartup()
+                        }
                     }
                     AppUpdateDialog(
                         controller = updateController,

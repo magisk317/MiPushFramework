@@ -58,6 +58,20 @@ class XmsfVersionContractTest {
     }
 
     @Test
+    fun `target manager version may satisfy a newer runtime floor`() {
+        val manifest = manifest().copy(minManagerVersionCode = HOST_VERSION_CODE + 1)
+
+        assertNull(
+            manifest.validate(
+                hostVersionCode = HOST_VERSION_CODE,
+                targetManagerVersionCode = HOST_VERSION_CODE + 1,
+            ),
+        )
+    }
+
+
+
+    @Test
     fun `payload of another variant is rejected`() {
         // Both variants of a release share one versionName, so the version code
         // is the only field that can tell them apart -- and swapping them moves

@@ -152,10 +152,12 @@ internal fun XmsfDeliveryBlock(snackbarHostState: AppSnackbarHostState) {
                         // The downloader reports progress on a background dispatcher;
                         // hop back to the composition scope before touching state.
                         val result = delivery.ensureInstalled(
-                            (check as? XmsfLatestCheck.Available)?.latest?.versionName,
-                        ) { value ->
-                            scope.launch { progress = value }
-                        }
+                            targetVersionName =
+                                (check as? XmsfLatestCheck.Available)?.latest?.versionName,
+                            onProgress = { value ->
+                                scope.launch { progress = value }
+                            },
+                        )
                         when (result) {
                             is XmsfInstallResult.Installed ->
                                 snackbarHostState.showSnackbar(

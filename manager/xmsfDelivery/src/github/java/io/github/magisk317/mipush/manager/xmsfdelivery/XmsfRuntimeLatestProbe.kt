@@ -35,7 +35,10 @@ class XmsfRuntimeLatestProbe(
      * @throws IllegalStateException when the registry is unreachable, lists
      *   no versions, or holds none this host may install.
      */
-    suspend fun fetchLatestCompatible(hostVersionCode: Long): XmsfRuntimeManifest =
+    suspend fun fetchLatestCompatible(
+        hostVersionCode: Long,
+        targetManagerVersionCode: Long? = null,
+    ): XmsfRuntimeManifest =
         withContext(Dispatchers.IO) {
             val versions = fetchVersions()
             check(versions.isNotEmpty()) { "registry lists no xmsf-runtime packages" }
@@ -43,7 +46,9 @@ class XmsfRuntimeLatestProbe(
             for (version in newestFirst) {
                 val manifest = runCatching { fetchManifest(version) }.getOrNull() ?: continue
                 if (manifest.versionName != version) continue
-                if (manifest.validate(hostVersionCode, flavor) == null) return@withContext manifest
+                if (manifest.validate(hostVersionCode, flavor, targetManagerVersionCode) == null) {
+                    return@withContext manifest
+                }
             }
             error("no published runtime is compatible with manager versionCode $hostVersionCode")
         }

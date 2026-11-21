@@ -26,6 +26,8 @@ import io.github.magisk317.mipush.main.viewmodel.RemoteIconLibrarySource
 import io.github.magisk317.mipush.main.viewmodel.RemoteIconResourcesUpdateRequester
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.feature.main.subpage.VersionUpdateCoordinator
+import io.github.magisk317.mipush.feature.main.subpage.PairedOtaJournal
+import io.github.magisk317.mipush.feature.main.subpage.SharedPreferencesPairedOtaJournal
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.main.viewmodel.CloudBackupViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
@@ -94,6 +96,7 @@ val managerKoinModule = module {
             get<ManagerLogGateway>(),
         )
     }
+    single<PairedOtaJournal> { SharedPreferencesPairedOtaJournal(androidContext()) }
     single {
         val rootAccess = get<ManagerRootAccess>()
         ManagerRuntimeClient(
@@ -234,6 +237,7 @@ val managerKoinModule = module {
         VersionUpdateCoordinator(
             checker = get(),
             controller = get(),
+            pairedOtaJournal = get(),
             // The flavor-specific delivery is resolved reflectively; the lambda
             // defers construction until the first check actually needs it. The
             // runtime probe chain shares the same channel gate as the manager

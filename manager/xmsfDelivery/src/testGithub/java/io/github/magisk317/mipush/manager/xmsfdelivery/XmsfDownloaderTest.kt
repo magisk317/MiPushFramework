@@ -70,7 +70,7 @@ class XmsfDownloaderTest {
         // Only the manifest is re-fetched; the APK must stay untouched.
         enqueueManifest(hash)
         val progress = mutableListOf<Int>()
-        val cached = downloader().download { progress += it }
+        val cached = downloader().download(onProgress = { progress += it })
 
         assertTrue(cached.apk.isFile)
         assertEquals(requestsAfterFirst + 1, server.requestCount)

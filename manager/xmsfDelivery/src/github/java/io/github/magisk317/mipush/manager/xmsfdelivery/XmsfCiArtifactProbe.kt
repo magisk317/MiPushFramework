@@ -38,7 +38,10 @@ class XmsfCiArtifactProbe(
      *   (expired artifacts, cold window), the version does not match, or the
      *   manifest is rejected by [XmsfRuntimeManifest.validate].
      */
-    suspend fun fetchLatestCompatible(hostVersionCode: Long): XmsfRuntimeManifest =
+    suspend fun fetchLatestCompatible(
+        hostVersionCode: Long,
+        targetManagerVersionCode: Long? = null,
+    ): XmsfRuntimeManifest =
         withContext(Dispatchers.IO) {
             val versionName = downloadText(versionSidecarUrl).trim()
             check(versionName.isNotBlank()) { "ci artifacts version sidecar is blank" }
@@ -50,7 +53,7 @@ class XmsfCiArtifactProbe(
             check(manifest.versionName == versionName) {
                 "ci manifest version ${manifest.versionName} does not match sidecar $versionName"
             }
-            manifest.validate(hostVersionCode, flavor)?.let { reason ->
+            manifest.validate(hostVersionCode, flavor, targetManagerVersionCode)?.let { reason ->
                 error("ci runtime manifest rejected: $reason")
             }
             manifest

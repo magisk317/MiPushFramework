@@ -64,6 +64,20 @@ class XmsfRuntimeLatestProbeTest {
     }
 
     @Test
+    fun `target manager version unlocks the newest runtime`() = runBlocking {
+        enqueuePackages("1.0.11", "1.0.10")
+        enqueueManifest("1.0.11", minManagerVersionCode = HOST_VERSION_CODE + 1)
+
+        val manifest = probe().fetchLatestCompatible(
+            hostVersionCode = HOST_VERSION_CODE,
+            targetManagerVersionCode = HOST_VERSION_CODE + 1,
+        )
+
+        assertEquals("1.0.11", manifest.versionName)
+    }
+
+
+    @Test
     fun `incompatible schema and variant are skipped, not offered`() = runBlocking {
         enqueuePackages("2.0.0", "1.0.10")
         enqueueManifest("2.0.0", schema = 2)

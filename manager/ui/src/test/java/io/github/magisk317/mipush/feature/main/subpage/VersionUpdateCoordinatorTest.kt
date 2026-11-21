@@ -98,7 +98,7 @@ class VersionUpdateCoordinatorTest {
     }
 
     @Test
-    fun `runtime install failure keeps the manager update flowing`() = runBlocking {
+    fun `runtime install failure blocks the manager update`() = runBlocking {
         val controller = mockk<AppUpdateController>(relaxed = true)
         val coordinator = coordinator(
             manager = UpdateCheckResult.Available(managerManifest("2.0.0"), 1900, "1.0.9", force = false),
@@ -115,7 +115,7 @@ class VersionUpdateCoordinatorTest {
             VersionRowHint.Failed("runtime checksum mismatch"),
             coordinator.runtimeHint.value,
         )
-        verify { controller.check(userInitiated = true) }
+        verify(exactly = 0) { controller.check(any()) }
     }
 
     @Test
@@ -204,8 +204,24 @@ class VersionUpdateCoordinatorTest {
         return VersionUpdateCoordinator(
             checker = checker,
             controller = controller,
+            pairedOtaJournal = InMemoryPairedOtaJournal(),
             deliveryProvider = { delivery },
         )
+    }
+
+    private class InMemoryPairedOtaJournal : PairedOtaJournal {
+        private var pending: PairedOtaJournal.Pending? = null
+        override fun read(): PairedOtaJournal.Pending? = pending
+        override fun begin(manager: UpdateManifest, runtime: XmsfRuntimeManifest) {
+            pending = PairedOtaJournal.Pending(
+                managerVersionCode = manager.versionCode.toLong(),
+                managerVersionName = manager.versionName,
+                runtimeVersionName = runtime.versionName,
+            )
+        }
+        override fun clear() {
+            pending = null
+        }
     }
 
     private fun managerManifest(versionName: String) = UpdateManifest(
@@ -233,10 +249,11 @@ class VersionUpdateCoordinatorTest {
         override val status = MutableStateFlow(XmsfStatus())
         override suspend fun refresh(): XmsfStatus = status.value
         override val canInstallDirectly: Boolean get() = installsDirectly
-        override suspend fun checkLatestRuntime(): XmsfLatestCheck = latest
+        override suspend fun checkLatestRuntime(targetManagerVersionCode: Long?): XmsfLatestCheck = latest
         override suspend fun ensureInstalled(
             targetVersionName: String?,
             onProgress: (Int) -> Unit,
+            targetManagerVersionCode: Long?,
         ): XmsfInstallResult {
             installCalls += targetVersionName.orEmpty()
             return onEnsureInstalled(targetVersionName, onProgress)

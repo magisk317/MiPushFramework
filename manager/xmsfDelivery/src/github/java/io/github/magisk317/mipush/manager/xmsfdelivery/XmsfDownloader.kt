@@ -48,9 +48,12 @@ class XmsfDownloader(
      *
      * @throws IllegalStateException on any verification failure.
      */
-    suspend fun download(onProgress: (Int) -> Unit = {}): Downloaded = withContext(Dispatchers.IO) {
+    suspend fun download(
+        onProgress: (Int) -> Unit = {},
+        targetManagerVersionCode: Long? = null,
+    ): Downloaded = withContext(Dispatchers.IO) {
         val manifest = fetchManifest(expectedVersionName)
-        manifest.validate(hostVersionCode(), flavor)?.let { reason ->
+        manifest.validate(hostVersionCode(), flavor, targetManagerVersionCode)?.let { reason ->
             error("XMSF runtime manifest rejected: $reason")
         }
         check(manifest.matchesPin(expectedVersionName)) {
