@@ -54,6 +54,8 @@ object IconPackSnapshotCodec {
     // A snapshot holds one row per configured package; anything larger is a corrupt header, and
     // preallocating from it would cost memory SystemUI cannot recover.
     private const val MAX_ENTRIES = 20_000
+    private const val MAX_PACKAGE_NAME_BYTES = 512
+    private const val MAX_PNG_BYTES = 16 * 1024 * 1024
 
     fun write(snapshot: IconPackSnapshot, output: OutputStream): Int {
         val data = DataOutputStream(output)
@@ -85,12 +87,12 @@ object IconPackSnapshotCodec {
         val entries = ArrayList<IconPackSnapshotEntry>(count)
         repeat(count) {
             val nameLength = data.readInt()
-            if (nameLength <= 0 || nameLength > 512) return null
+            if (nameLength <= 0 || nameLength > MAX_PACKAGE_NAME_BYTES) return null
             val name = ByteArray(nameLength)
             data.readFully(name)
             val source = IconPackSource.fromWireId(data.readUnsignedByte()) ?: return null
             val pngLength = data.readInt()
-            if (pngLength < 0 || pngLength > 16 * 1024 * 1024) return null
+            if (pngLength < 0 || pngLength > MAX_PNG_BYTES) return null
             val png = ByteArray(pngLength)
             data.readFully(png)
             entries.add(IconPackSnapshotEntry(String(name, Charsets.UTF_8), png, source))
