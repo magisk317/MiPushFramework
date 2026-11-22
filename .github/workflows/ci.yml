@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: b2d1d58abfca674a60277ba302d06eae45da3ce4
+          ref: 3ca019f5b5a9e9b15c4d580dee3a594661047d84
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -87,7 +87,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: b2d1d58abfca674a60277ba302d06eae45da3ce4
+          ref: 3ca019f5b5a9e9b15c4d580dee3a594661047d84
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -200,7 +200,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: b2d1d58abfca674a60277ba302d06eae45da3ce4
+          ref: 3ca019f5b5a9e9b15c4d580dee3a594661047d84
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -261,7 +261,7 @@ jobs:
         run: echo "MAGISK_BUILD_TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_ENV"
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: b2d1d58abfca674a60277ba302d06eae45da3ce4
+          ref: 3ca019f5b5a9e9b15c4d580dee3a594661047d84
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -534,7 +534,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: b2d1d58abfca674a60277ba302d06eae45da3ce4
+          ref: 3ca019f5b5a9e9b15c4d580dee3a594661047d84
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
