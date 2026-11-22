@@ -9,6 +9,8 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.StatusBarNotification
 import android.view.View
 import java.util.Collections
@@ -20,6 +22,7 @@ import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
@@ -44,6 +47,33 @@ class HookSystemUI : BaseHook() {
      */
     private val substitutedGlyphKeys: MutableMap<Any, Boolean> =
         Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
+    private val observedEntries: MutableMap<Any, Boolean> =
+        Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
+    private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile
+    private var iconManagerInstance: Any? = null
+
+    private fun rememberObservedEntry(entry: Any) {
+        observedEntries[entry] = true
+    }
+
+    private fun refreshObservedIcons(packageName: String, userId: Int) {
+        val manager = iconManagerInstance ?: return
+        mainHandler.post {
+            val entries = synchronized(observedEntries) { observedEntries.keys.toList() }
+            entries.forEach { entry ->
+                val sbn = statusBarNotificationFromEntry(entry) ?: return@forEach
+                if (packageName.isNotBlank() && sbn.packageName != packageName) return@forEach
+                if (userId >= 0 && notificationUserId(sbn) != userId) return@forEach
+                try {
+                    manager.callMethod("updateIconsSafe", entry)
+                } catch (_: Throwable) {
+                    // A stale entry must not break the next refresh.
+                }
+            }
+        }
+    }
+
 
     @Volatile
     private var isAndroid17StatusBarDescriptorHooked: Boolean = false
@@ -67,6 +97,9 @@ class HookSystemUI : BaseHook() {
         // module ClassLoader (and its DEX mappings) is not pinned by the registered receiver.
         IslandDispatcher.unregister()
         autogroupSummaryIconResolver.clearAll()
+        StatusBarMonochromeIconPolicy.setIconRefreshCallback(null)
+        iconManagerInstance = null
+        synchronized(observedEntries) { observedEntries.clear() }
         isAndroid17StatusBarDescriptorHooked = false
     }
 
@@ -74,6 +107,7 @@ class HookSystemUI : BaseHook() {
         if (param.packageName != SYSTEMUI_PACKAGE) return
         val classLoader = param.classLoader
         XLog.i(TAG, "HookSystemUI.hook() called commit=${io.github.magisk317.mipush.common.BuildConfig.GIT_COMMIT}")
+        StatusBarMonochromeIconPolicy.setIconRefreshCallback(::refreshObservedIcons)
         MiuiHeaderAppIconHook().hook(classLoader)
         hookNativeCustomAppIcon(classLoader)
         hookAndroid17StatusBarIconDescriptor(classLoader)
@@ -123,17 +157,19 @@ class HookSystemUI : BaseHook() {
                             // MiPush-managed posts, and NO posted-glyph fallback — a miss must
                             // return null so the notification stays on SystemUI's native
                             // rendering (the white-block-free baseline) instead of being forced.
-                            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                            StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                                 context = context,
                                 packageName = owner,
+                                userId = userId,
                             )?.let {
                                 XLog.d(TAG, "status bar icon source=icon-pack owner=$owner")
                                 return it
                             }
                             if (owner != sbn.packageName) {
-                                StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                                     context = context,
                                     packageName = sbn.packageName,
+                                    userId = userId,
                                 )?.let {
                                     XLog.d(TAG, "status bar icon source=icon-pack pkg=${sbn.packageName}")
                                     return it
@@ -265,6 +301,7 @@ class HookSystemUI : BaseHook() {
                         doAfter {
                             runCatching {
                                 val entry = args.firstOrNull() ?: return@runCatching
+                                rememberObservedEntry(entry)
                                 val sbn = statusBarNotificationFromEntry(entry) ?: return@runCatching
                                 val options = IslandPreferences.current()
                                 if (!SystemUiNotificationPolicy.isMonochromeTakeoverEnabled(
@@ -569,6 +606,8 @@ class HookSystemUI : BaseHook() {
             iconManagerClass.hookMethod("getIconDescriptor", entryClass, Boolean::class.javaPrimitiveType!!) {
                     doAfter {
                         val entry = args.getOrNull(0) ?: return@doAfter
+                        iconManagerInstance = thisObject
+                        rememberObservedEntry(entry)
                         val sbn = statusBarNotificationFromEntry(entry) ?: return@doAfter
                         val notification = sbn.notification ?: return@doAfter
                         val isSyntheticAutogroupSummary =
@@ -594,13 +633,15 @@ class HookSystemUI : BaseHook() {
                             val (iconType, resId, resPackage) = readIconResourceFields(notification.smallIcon)
                             var summaryGlyphSafety: Boolean? = null
                             fun iconPackIcon(): Icon? {
-                                return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                return StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                                     context = systemUiContext,
                                     packageName = owner,
+                                    userId = userId,
                                 ) ?: if (owner != sbn.packageName) {
-                                    StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+                                    StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                                         context = systemUiContext,
                                         packageName = sbn.packageName,
+                                        userId = userId,
                                     )
                                 } else {
                                     null
@@ -766,7 +807,17 @@ class HookSystemUI : BaseHook() {
                             } else {
                                 null
                             }
-                            val icon = packIcon ?: silhouette
+                            val icon = packIcon ?: silhouette ?: if (
+                                isMiPushManaged && iconType == SystemUiNotificationPolicy.ICON_TYPE_BITMAP
+                            ) {
+                                XLog.i(
+                                    TAG,
+                                    "status bar icon source=framework-fallback pkg=${sbn.packageName}",
+                                )
+                                StatusBarMonochromeIconPolicy.frameworkAndroidLogoIconOrNull()
+                            } else {
+                                null
+                            }
                             val smallIconResName = smallIconResourceName(
                                 systemUiContext,
                                 iconType,

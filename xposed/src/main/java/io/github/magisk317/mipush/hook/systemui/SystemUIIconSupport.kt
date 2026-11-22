@@ -37,11 +37,15 @@ internal fun iconPackHitForStatus(
         userId: Int,
     ): Boolean {
         if (owner.isBlank() || userId < 0) return false
-        if (StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, owner) != null) {
+        if (StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
+                context, owner, userId,
+            ) != null) {
             return true
         }
         return owner != postedPackage &&
-            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, postedPackage) != null
+            StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
+                context, postedPackage, userId,
+            ) != null
     }
 
     /**

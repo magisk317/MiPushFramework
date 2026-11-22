@@ -146,10 +146,12 @@ internal class AutogroupSummaryIconResolver(
             sbn.packageName,
             notification.extras,
         )
+        val userId = notificationUserId(sbn) ?: return
         fun iconPackIcon(packageName: String): Icon? =
-            StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+            StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                 context = context,
                 packageName = packageName,
+                userId = userId,
             )
         val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
             notification.extras,
@@ -236,6 +238,7 @@ internal class AutogroupSummaryIconResolver(
                 childNotification.extras,
             )
             val isSystemApp = isSystemApplication(context, childPackage)
+            val childUserId = notificationUserId(childSbn) ?: return unknownChildGlyphResolution()
             val attemptsIconPack = SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
                 thirdPartyIconPack = thirdPartyIconPack,
                 systemAppIconPack = systemAppIconPack,
@@ -244,9 +247,13 @@ internal class AutogroupSummaryIconResolver(
                 isSystemApp = isSystemApp,
             )
             val childPackIcon = if (attemptsIconPack) {
-                StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, childOwner)
+                StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
+                    context, childOwner, childUserId,
+                )
                     ?: if (childOwner != childPackage) {
-                        StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(context, childPackage)
+                        StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
+                            context, childPackage, childUserId,
+                        )
                     } else {
                         null
                     }

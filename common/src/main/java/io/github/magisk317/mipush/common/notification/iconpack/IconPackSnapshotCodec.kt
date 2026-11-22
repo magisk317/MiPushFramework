@@ -5,8 +5,23 @@ import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 
-/** One icon-pack row as published to SystemUI: the package and its PNG bytes. */
-class IconPackSnapshotEntry(val packageName: String, val pngBytes: ByteArray)
+/** Which configured icon-pack layer supplied an entry. */
+enum class IconPackSource(val wireId: Int) {
+    USER_OVERRIDE(1),
+    ANIP(2),
+    ;
+
+    companion object {
+        fun fromWireId(value: Int): IconPackSource? = entries.firstOrNull { it.wireId == value }
+    }
+}
+
+/** One icon-pack row as published to SystemUI: the package, source layer and PNG bytes. */
+class IconPackSnapshotEntry(
+    val packageName: String,
+    val pngBytes: ByteArray,
+    val source: IconPackSource = IconPackSource.ANIP,
+)
 
 /**
  * A complete icon-pack index.
@@ -21,6 +36,8 @@ class IconPackSnapshot(
     val entries: List<IconPackSnapshotEntry>,
 ) {
     fun indexOfPackage(): Map<String, ByteArray> = entries.associate { it.packageName to it.pngBytes }
+
+    fun entriesByPackage(): Map<String, IconPackSnapshotEntry> = entries.associateBy { it.packageName }
 }
 
 /**
@@ -32,7 +49,7 @@ class IconPackSnapshot(
  */
 object IconPackSnapshotCodec {
     const val MAGIC = 0x4D504953 // "MPIS"
-    const val VERSION: Short = 1
+    const val VERSION: Short = 2
 
     // A snapshot holds one row per configured package; anything larger is a corrupt header, and
     // preallocating from it would cost memory SystemUI cannot recover.
@@ -49,6 +66,7 @@ object IconPackSnapshotCodec {
             val name = entry.packageName.toByteArray(Charsets.UTF_8)
             data.writeInt(name.size)
             data.write(name)
+            data.writeByte(entry.source.wireId)
             data.writeInt(entry.pngBytes.size)
             data.write(entry.pngBytes)
         }
@@ -66,11 +84,16 @@ object IconPackSnapshotCodec {
         if (count < 0 || count > MAX_ENTRIES) return null
         val entries = ArrayList<IconPackSnapshotEntry>(count)
         repeat(count) {
-            val name = ByteArray(data.readInt())
+            val nameLength = data.readInt()
+            if (nameLength <= 0 || nameLength > 512) return null
+            val name = ByteArray(nameLength)
             data.readFully(name)
-            val png = ByteArray(data.readInt())
+            val source = IconPackSource.fromWireId(data.readUnsignedByte()) ?: return null
+            val pngLength = data.readInt()
+            if (pngLength < 0 || pngLength > 16 * 1024 * 1024) return null
+            val png = ByteArray(pngLength)
             data.readFully(png)
-            entries.add(IconPackSnapshotEntry(String(name, Charsets.UTF_8), png))
+            entries.add(IconPackSnapshotEntry(String(name, Charsets.UTF_8), png, source))
         }
         IconPackSnapshot(releaseStamp, generatedAtMs, entries)
     }.getOrNull()

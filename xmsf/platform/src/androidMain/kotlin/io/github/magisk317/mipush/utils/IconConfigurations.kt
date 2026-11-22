@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.highcapable.anip.sdk.Anip
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackSnapshotEntry
+import io.github.magisk317.mipush.common.notification.iconpack.IconPackSource
 import com.highcapable.anip.sdk.config.AnipConfig
 import com.highcapable.anip.sdk.config.RemoteSource
 import com.highcapable.anip.sdk.entity.NotificationIcon
@@ -256,7 +257,9 @@ class IconConfigurations constructor(
         legacyIconConfigs.values.forEach { config ->
             val pkg = config.packageName ?: return@forEach
             if (config.isEnabled == false) return@forEach
-            pngOf(config.bitmap())?.let { pngs[pkg] = IconPackSnapshotEntry(pkg, it) }
+            pngOf(config.bitmap())?.let {
+                pngs[pkg] = IconPackSnapshotEntry(pkg, it, IconPackSource.USER_OVERRIDE)
+            }
         }
         val anip = runCatching { ensureAnipInitialized(context.applicationContext) }.getOrNull()
             ?: return@withContext pngs.values.toList()
@@ -264,7 +267,13 @@ class IconConfigurations constructor(
             .forEach { icon ->
                 if (pngs.containsKey(icon.packageName)) return@forEach
                 val bitmap = runCatching { icon.loadBitmap() }.getOrNull()
-                pngOf(bitmap)?.let { pngs[icon.packageName] = IconPackSnapshotEntry(icon.packageName, it) }
+                pngOf(bitmap)?.let {
+                    pngs[icon.packageName] = IconPackSnapshotEntry(
+                        icon.packageName,
+                        it,
+                        IconPackSource.ANIP,
+                    )
+                }
             }
         logI("IconConfigurations: snapshot entries=${pngs.size} stamp=${runCatching { anip.timestamp }.getOrNull()}")
         pngs.values.toList()
