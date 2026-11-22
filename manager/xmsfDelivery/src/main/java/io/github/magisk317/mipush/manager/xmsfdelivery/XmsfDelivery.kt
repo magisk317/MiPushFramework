@@ -52,6 +52,7 @@ interface XmsfDelivery {
     suspend fun ensureInstalled(
         targetVersionName: String? = null,
         onProgress: (Int) -> Unit = {},
+        onWaitingForSystemConfirmation: () -> Unit = {},
         targetManagerVersionCode: Long? = null,
     ): XmsfInstallResult
 

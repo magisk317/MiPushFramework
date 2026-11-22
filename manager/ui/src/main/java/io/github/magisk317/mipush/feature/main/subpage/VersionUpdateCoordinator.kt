@@ -8,6 +8,7 @@ import io.github.magisk317.uikit.update.AppUpdateChecker
 import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.uikit.update.UpdateCheckResult
 import io.github.magisk317.uikit.update.UpdateManifest
+import io.github.magisk317.uikit.update.UpdateUiState
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfRuntimeManifest
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfVersionComparator
 import kotlinx.coroutines.CoroutineScope
@@ -46,9 +47,13 @@ sealed interface VersionRowHint {
     /** Runtime in-process install progress (0..100); manager updates report through the dialog. */
     data class Updating(val percent: Int) : VersionRowHint
 
+    data object WaitingForSystemConfirmation : VersionRowHint
+
+    data object Installed : VersionRowHint
+
     data class Failed(val message: String) : VersionRowHint
 
-    /** Play flavor: the runtime cannot be probed or installed in-process. */
+    /** This build cannot probe or install the runtime in-process. */
     data object Unsupported : VersionRowHint
 }
 
@@ -127,11 +132,10 @@ internal class SharedPreferencesPairedOtaJournal(context: Context) : PairedOtaJo
  * rows keep showing the installed version again; progress and actionable
  * states (checking, updating, update available) persist until replaced.
  *
- * Installation is sequential and runtime-first on purpose: replacing the
- * manager APK kills this very process, so the runtime must already be in
- * place by the time the new manager starts. The runtime installs in-process
- * (progress rides the hint flow); the manager install reuses the controller,
- * whose dialog is hosted by MainActivity and therefore works from any page.
+ * CI installation is sequential and manager-first: the manager APK owns the
+ * process and must be replaced before a runtime whose manifest requires the
+ * target manager can be installed. The journal resumes the runtime step after
+ * the manager process restarts.
  *
  * One [Mutex] serializes checks and updates, so tapping both version rows —
  * or tapping again mid-flight — queues behind the running flow instead of
@@ -152,6 +156,20 @@ internal class VersionUpdateCoordinator(
     private val _runtimeHint = MutableStateFlow<VersionRowHint>(VersionRowHint.Hidden)
     val runtimeHint: StateFlow<VersionRowHint> = _runtimeHint.asStateFlow()
 
+    private val _pairedVisible = MutableStateFlow(false)
+    val pairedVisible: StateFlow<Boolean> = _pairedVisible.asStateFlow()
+
+    private val _pairedStarted = MutableStateFlow(false)
+    val pairedStarted: StateFlow<Boolean> = _pairedStarted.asStateFlow()
+
+    private val _managerCompleted = MutableStateFlow(false)
+    val managerCompleted: StateFlow<Boolean> = _managerCompleted.asStateFlow()
+
+    private val _managerInstallStarted = MutableStateFlow(false)
+    val managerInstallStarted: StateFlow<Boolean> = _managerInstallStarted.asStateFlow()
+
+    private var latestReport: VersionCheckReport? = null
+
     // Auto-clear timers for the terminal no-op states; writes come from both the
     // mutex-guarded check flow and the downloader's Dispatchers.IO callbacks.
     private val autoClearScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -166,6 +184,7 @@ internal class VersionUpdateCoordinator(
         flow.value = hint
         val dwellMillis = when (hint) {
             is VersionRowHint.UpToDate, is VersionRowHint.Unsupported -> 3_000L
+            is VersionRowHint.Installed, is VersionRowHint.WaitingForSystemConfirmation -> 0L
             is VersionRowHint.Failed -> 6_000L
             else -> 0L
         }
@@ -182,8 +201,103 @@ internal class VersionUpdateCoordinator(
     /** Whether this flavor can install the runtime in-process (github only). */
     val canUpdateRuntimeInApp: Boolean get() = deliveryProvider().canInstallDirectly
 
-    /** Open the manual runtime guidance page (play flavor fallback). */
-    fun openRuntimeGuidance(context: Context) = deliveryProvider().openGuidance(context)
+    /** Check both CI targets and expose one confirmation surface without installing yet. */
+    suspend fun checkAndShowPaired(): VersionCheckReport? = mutex.withLock {
+        val report = checkBothLocked()
+        preparePaired(report)
+        report.takeIf { hasPairedUpdate(it) }
+    }
+
+    /** Start the already checked pair from the single CI OTA dialog. */
+    suspend fun startPairedUpdate() = mutex.withLock {
+        val pending = pairedOtaJournal.read()
+        if (pending != null && checker.currentVersionCode().toLong() < pending.managerVersionCode) {
+            if (controller.state.value is UpdateUiState.Available) {
+                _pairedVisible.value = true
+                _pairedStarted.value = true
+                controller.download()
+            }
+            return@withLock
+        }
+        val report = latestReport ?: checkBothLocked().also(::preparePaired)
+        if (!hasPairedUpdate(report)) return@withLock
+        _pairedVisible.value = true
+        _pairedStarted.value = true
+        val manager = report.manager as? UpdateCheckResult.Available
+        val runtime = report.runtime
+        if (manager != null) {
+            if (runtime is XmsfLatestCheck.Available) {
+                pairedOtaJournal.begin(manager.manifest, runtime.latest)
+            }
+            controller.download()
+        } else {
+            _managerCompleted.value = true
+            updateRuntime(runtime)
+        }
+    }
+
+    /** Called by the paired dialog once the manager APK is downloaded and ready. */
+    fun installManager(context: Context) {
+        if (_managerInstallStarted.value) return
+        _managerInstallStarted.value = true
+        setHint(UpdateTarget.Manager, VersionRowHint.Updating(100))
+        controller.install(context)
+    }
+
+    fun retryManager() {
+        _managerInstallStarted.value = false
+        controller.retry()
+    }
+
+    /** Retry the runtime leg after the system installer or download reports failure. */
+    suspend fun retryRuntime() = mutex.withLock {
+        val pending = pairedOtaJournal.read() ?: return@withLock
+        _pairedVisible.value = true
+        _pairedStarted.value = true
+        _managerCompleted.value = checker.currentVersionCode().toLong() >= pending.managerVersionCode
+        if (!_managerCompleted.value) return@withLock
+        resumePendingRuntime()
+    }
+
+    /** A return from the system installer with the old manager still present means retry is valid. */
+    fun onHostResumed() {
+        val pending = pairedOtaJournal.read()
+        val targetCode = (latestReport?.manager as? UpdateCheckResult.Available)?.manifest?.versionCode
+            ?: pending?.managerVersionCode?.toInt()
+            ?: return
+        if (checker.currentVersionCode() < targetCode && controller.state.value is UpdateUiState.ReadyToInstall) {
+            _managerInstallStarted.value = false
+            val targetName = (latestReport?.manager as? UpdateCheckResult.Available)?.manifest?.versionName
+                ?: pending?.managerVersionName.orEmpty()
+            setHint(UpdateTarget.Manager, VersionRowHint.Available(targetName))
+        }
+    }
+
+    val canRetryPairedRuntime: Boolean
+        get() = _managerCompleted.value && pairedOtaJournal.read() != null
+
+    fun dismissPaired() {
+        if (_pairedStarted.value && !managerCompleted.value && pairedOtaJournal.read() != null) return
+        _pairedVisible.value = false
+        if (_managerHint.value is VersionRowHint.Installed) _managerHint.value = VersionRowHint.Hidden
+        if (_runtimeHint.value is VersionRowHint.Installed) _runtimeHint.value = VersionRowHint.Hidden
+    }
+
+    private fun preparePaired(report: VersionCheckReport) {
+        latestReport = report
+        if (!hasPairedUpdate(report)) {
+            _pairedVisible.value = false
+            return
+        }
+        _managerInstallStarted.value = false
+        _managerCompleted.value = report.manager !is UpdateCheckResult.Available
+        _pairedStarted.value = false
+        _pairedVisible.value = true
+        (report.manager as? UpdateCheckResult.Available)?.let { controller.adoptAvailable(it) }
+    }
+
+    private fun hasPairedUpdate(report: VersionCheckReport): Boolean =
+        report.manager is UpdateCheckResult.Available || report.runtime is XmsfLatestCheck.Available
 
     /**
      * Silent check of both targets. Never installs and never opens a dialog;
@@ -213,49 +327,48 @@ internal class VersionUpdateCoordinator(
 
     /**
      * Cold-start entry point. CI builds always reach this method through the
-     * shared startup policy; release and Play builds retain their existing
+     * shared startup policy; non-CI builds retain their existing
      * channel policy. A pending manager-first transaction is resumed before
      * probing a new update.
      */
     suspend fun checkOnStartup() = mutex.withLock {
-        resumePendingRuntime()
-        if (pairedOtaJournal.read() != null) return@withLock
-
-        val manager = checker.check()
-        setHint(UpdateTarget.Manager, manager.toHint())
-        val available = manager as? UpdateCheckResult.Available ?: return@withLock
-        if (!available.force) {
-            controller.check(userInitiated = false)
+        if (pairedOtaJournal.read() != null) {
+            val pending = pairedOtaJournal.read() ?: return@withLock
+            _pairedVisible.value = true
+            _managerCompleted.value = checker.currentVersionCode().toLong() >= pending.managerVersionCode
+            if (!_managerCompleted.value) {
+                _pairedStarted.value = false
+                _managerInstallStarted.value = false
+                val manager = checker.check()
+                setHint(UpdateTarget.Manager, manager.toHint())
+                if (manager is UpdateCheckResult.Available) {
+                    setHint(UpdateTarget.Runtime, VersionRowHint.Available(pending.runtimeVersionName))
+                    preparePaired(VersionCheckReport(manager, XmsfLatestCheck.UpToDate))
+                }
+                if (manager !is UpdateCheckResult.Available) {
+                    _managerHint.value = when (manager) {
+                        is UpdateCheckResult.Failed -> VersionRowHint.Failed(manager.reason)
+                        is UpdateCheckResult.UpToDate -> VersionRowHint.Failed(
+                            "paired manager target ${pairedOtaJournal.read()?.managerVersionName} is not installed",
+                        )
+                        is UpdateCheckResult.Available -> error("unreachable")
+                    }
+                }
+                return@withLock
+            }
+            _pairedStarted.value = true
+            _managerInstallStarted.value = false
+            _managerHint.value = VersionRowHint.Installed
+            resumePendingRuntime()
             return@withLock
         }
-        val runtime = deliveryProvider().checkLatestRuntime(available.manifest.versionCode.toLong())
-        setHint(UpdateTarget.Runtime, runtime.toHint())
-        val currentManagerVersionCode = checker.currentVersionCode().toLong()
-        pairedRuntimeReason(available.manifest, runtime)?.let { reason ->
-            setHint(UpdateTarget.Runtime, VersionRowHint.Failed(reason))
-            return@withLock
-        }
-        if (runtime is XmsfLatestCheck.Available &&
-            runtime.latest.minManagerVersionCode > currentManagerVersionCode
-        ) {
-            pairedOtaJournal.begin(available.manifest, runtime.latest)
-            controller.check(userInitiated = false)
-            return@withLock
-        }
-        val runtimeResult = updateRuntime(
-            runtime = runtime,
-            targetManagerVersionCode = currentManagerVersionCode,
-        )
-        if (runtime is XmsfLatestCheck.UpToDate ||
-            runtimeResult is XmsfInstallResult.Installed
-        ) {
-            controller.check(userInitiated = false)
-        }
+        val report = checkBothLocked()
+        preparePaired(report)
     }
 
     /**
-     * Settings entry: check both targets, then install everything that is
-     * available — runtime first, manager second.
+     * Settings entry for the legacy release path. CI/debug uses the paired
+     * dialog and its manager-first transaction instead.
      */
     suspend fun checkAndUpdate() {
         mutex.withLock {
@@ -266,10 +379,7 @@ internal class VersionUpdateCoordinator(
 
     /**
      * Install what a previous silent check ([checkBoth]) found, in the same
-     * fixed order: runtime first, manager second — replacing the manager APK
-     * kills this process, so the runtime must already be in place by the time
-     * the new manager starts. Progress rides the per-target hint flows; the
-     * manager path opens the controller's dialog wherever the user is.
+     * existing release controller and runtime delivery behavior.
      */
     suspend fun installAvailable(report: VersionCheckReport) = mutex.withLock {
         installLocked(report)
@@ -323,7 +433,7 @@ internal class VersionUpdateCoordinator(
             }.await()
             setHint(UpdateTarget.Manager, manager.toHint())
             setHint(UpdateTarget.Runtime, runtime.toHint())
-            VersionCheckReport(manager = manager, runtime = runtime)
+            VersionCheckReport(manager = manager, runtime = runtime).also { latestReport = it }
         }
     }
 
@@ -340,11 +450,18 @@ internal class VersionUpdateCoordinator(
             // and the UI collects on the main dispatcher.
             setHint(UpdateTarget.Runtime, VersionRowHint.Updating(percent))
             },
+            onWaitingForSystemConfirmation = {
+                setHint(UpdateTarget.Runtime, VersionRowHint.WaitingForSystemConfirmation)
+            },
         )
         setHint(
             UpdateTarget.Runtime,
             when (result) {
-                is XmsfInstallResult.Installed -> VersionRowHint.UpToDate
+                is XmsfInstallResult.Installed -> if (_pairedStarted.value) {
+                    VersionRowHint.Installed
+                } else {
+                    VersionRowHint.UpToDate
+                }
                 is XmsfInstallResult.GuidanceOpened -> VersionRowHint.Unsupported
                 is XmsfInstallResult.Failed -> VersionRowHint.Failed(result.message)
             },
@@ -355,7 +472,6 @@ internal class VersionUpdateCoordinator(
     private suspend fun resumePendingRuntime() {
         val pending = pairedOtaJournal.read() ?: return
         if (checker.currentVersionCode().toLong() < pending.managerVersionCode) {
-            controller.check(userInitiated = false)
             return
         }
         val result = deliveryProvider().ensureInstalled(
@@ -364,11 +480,14 @@ internal class VersionUpdateCoordinator(
             onProgress = { percent ->
                 setHint(UpdateTarget.Runtime, VersionRowHint.Updating(percent))
             },
+            onWaitingForSystemConfirmation = {
+                setHint(UpdateTarget.Runtime, VersionRowHint.WaitingForSystemConfirmation)
+            },
         )
         when (result) {
             is XmsfInstallResult.Installed -> {
                 pairedOtaJournal.clear()
-                setHint(UpdateTarget.Runtime, VersionRowHint.UpToDate)
+                setHint(UpdateTarget.Runtime, VersionRowHint.Installed)
             }
             else -> setHint(
                 UpdateTarget.Runtime,

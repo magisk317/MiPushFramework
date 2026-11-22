@@ -800,7 +800,24 @@ This could be the application doing a reverse registration, or the registration 
     <string name="version_hint_available">New version available: %1$s</string>
     <string name="version_hint_updating">Updating runtime… %1$d%%</string>
     <string name="version_hint_failed">Update check failed: %1$s</string>
-    <string name="version_hint_unsupported">Play builds: check the release page manually</string>
+    <string name="version_hint_unsupported">Runtime updates are unavailable for this build</string>
+    <string name="paired_ota_title">MiPush update</string>
+    <string name="paired_ota_manager">Manager</string>
+    <string name="paired_ota_runtime">Runtime</string>
+    <string name="paired_ota_start">Update</string>
+    <string name="paired_ota_status_waiting">Waiting</string>
+    <string name="paired_ota_status_checking">Checking</string>
+    <string name="paired_ota_status_available">Ready</string>
+    <string name="paired_ota_status_downloading">Downloading</string>
+    <string name="paired_ota_status_waiting_install">Waiting to install</string>
+    <string name="paired_ota_status_waiting_system">Waiting for system confirmation</string>
+    <string name="paired_ota_status_installing">Installing</string>
+    <string name="paired_ota_status_installed">Installed</string>
+    <string name="paired_ota_status_failed">Failed</string>
+    <string name="paired_ota_version">Target: %1$s</string>
+    <string name="paired_ota_install_manager">Install manager</string>
+    <string name="paired_ota_retry_manager">Retry manager</string>
+    <string name="paired_ota_retry_runtime">Retry runtime</string>
 
     <string name="pref_theme_group_color">Color</string>
     <string name="pref_theme_group_navigation">Navigation bar</string>

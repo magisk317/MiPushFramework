@@ -112,6 +112,7 @@ class GithubXmsfDelivery(
     override suspend fun ensureInstalled(
         targetVersionName: String?,
         onProgress: (Int) -> Unit,
+        onWaitingForSystemConfirmation: () -> Unit,
         targetManagerVersionCode: Long?,
     ): XmsfInstallResult {
         // Without an explicit target, ask the probe rather than assuming the
@@ -146,7 +147,7 @@ class GithubXmsfDelivery(
             // the staging area instead of the registry, which 404s for them.
             val effectiveDownloader = if (
                 target == ciTrackVersionName ||
-                (trackCi() && CI_VERSION_NAME.matches(target))
+                CI_VERSION_NAME.matches(target)
             ) {
                 ciDownloaderFactory(flavor, target)
             } else {
@@ -167,7 +168,7 @@ class GithubXmsfDelivery(
                     appContext,
                     XmsfSignatureSource.ApkFile(downloaded.apk.absolutePath, apkHashes),
                 )
-                installAndConfirm(downloaded.apk)
+                installAndConfirm(downloaded.apk, onWaitingForSystemConfirmation)
             }.exceptionOrNull()
             if (failure == null) {
                 // Verify against the requested target, not the build pin:
@@ -211,8 +212,14 @@ class GithubXmsfDelivery(
      * installer asks for it. Suspends until a terminal installer event;
      * throws on failure so the caller reports a single message.
      */
-    private suspend fun installAndConfirm(apk: File) = withContext(Dispatchers.Main) {
-        when (val event = installer.install(apk) { confirmation -> startConfirmation(confirmation) }) {
+    private suspend fun installAndConfirm(
+        apk: File,
+        onWaitingForSystemConfirmation: () -> Unit,
+    ) = withContext(Dispatchers.Main) {
+        when (val event = installer.install(apk) { confirmation ->
+            onWaitingForSystemConfirmation()
+            startConfirmation(confirmation)
+        }) {
             is XmsfInstallEvent.Success -> Unit
             is XmsfInstallEvent.Failed -> error(event.message)
         }

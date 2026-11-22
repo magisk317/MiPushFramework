@@ -38,6 +38,7 @@ import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.xmsfdelivery.XmsfLatestCheck
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
+import io.github.magisk317.mipush.manager.di.ManagerUpdateSources
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
@@ -558,12 +559,20 @@ internal fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: A
         summary = stringResource(R.string.check_update_summary),
     ) {
         scope.launch {
-            // Probe both targets, report availability, then install what the
-            // check found — runtime first, manager second (the coordinator's
-            // fixed order: replacing the manager APK ends this process).
+            // Probe both targets; CI/debug builds surface the one paired OTA
+            // dialog, while release builds retain the existing report path.
             snackbarHostState.showSnackbar(checkReportChecking)
-            val report = updateCoordinator.checkBoth()
-            launch { updateCoordinator.installAvailable(report) }
+            val report = if (!ManagerBuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                updateCoordinator.checkAndShowPaired()
+            } else {
+                val legacyReport = updateCoordinator.checkBoth()
+                launch { updateCoordinator.installAvailable(legacyReport) }
+                legacyReport
+            }
+            if (report == null) {
+                snackbarHostState.showSnackbar("No update available")
+                return@launch
+            }
             val managerLine = when (val manager = report.manager) {
                 is UpdateCheckResult.Available -> checkReportManagerAvailable.format(manager.manifest.versionName)
                 is UpdateCheckResult.UpToDate -> checkReportManagerUpToDate

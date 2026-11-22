@@ -435,6 +435,11 @@ telegram:ci:
     # without the rolling pin; the toolkit after_script hook relays a pointer
     # into the legacy room (MAGISK_TELEGRAM_LEGACY_NOTICE_* project variables).
     MAGISK_TELEGRAM_PIN: "false"
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-dist/telegram-announcement.txt
   needs:
     - job: android:build
       artifacts: true
@@ -503,6 +508,7 @@ android:test:pure-modules:
       # Guards the blocking staging path: a lost allocated versionCode
       # used to vanish silently instead of failing the job.
       bash scripts/ci/tests/test_stage_ci_dist.sh
+      bash scripts/ci/tests/test_telegram_ci_hook.sh
       bash scripts/ci/tests/test_gitlab_ci_config.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:

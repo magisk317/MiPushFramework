@@ -26,6 +26,7 @@ class PlayXmsfDelivery(context: Context) :
     override suspend fun ensureInstalled(
         targetVersionName: String?,
         onProgress: (Int) -> Unit,
+        onWaitingForSystemConfirmation: () -> Unit,
         targetManagerVersionCode: Long?,
     ): XmsfInstallResult {
         // The play distribution never handles an APK, so the requested
