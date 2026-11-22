@@ -30,6 +30,8 @@ import io.github.magisk317.mipush.common.notification.iconpack.IconPackSnapshotC
  * expanded notification rows, while the status bar has its own getSmallIcon/icon tint path.
  */
 object StatusBarMonochromeIconPolicy {
+    private const val AFU_PACKAGE = "com.antgroup.aijk.android"
+    private const val AFU_PUSH_ICON_RESOURCE = "appicon_push"
     private const val SILHOUETTE_LOG_TAG = "MiPushSilhouette"
     private const val ICON_PACK_LOG_TAG = "MiPushIconPack"
     private const val FULLY_OPAQUE_ALPHA = 0xFF
@@ -574,6 +576,7 @@ object StatusBarMonochromeIconPolicy {
         val appIcon = runCatching {
             context.packageManager.getApplicationIcon(packageName)
         }.getOrNull() ?: return null
+        dedicatedNotificationIcon(context, packageName)?.let { return it }
         // The layer actually consumed decides how spec-compliant the app is: a shipped monochrome
         // layer (Android 13 themed icons), an adaptive icon without one, or a legacy flattened
         // bitmap. The log line below records which one every package takes.
@@ -609,6 +612,35 @@ object StatusBarMonochromeIconPolicy {
             "changed=${normalized !== white}"
         )
         return silhouetteIconOrNull(normalized, "pkg=$packageName layer=$layer")
+    }
+
+    /**
+     * Afu ships a purpose-built white transparent push glyph alongside its colorful launcher
+     * adaptive icon. Prefer that authored notification asset over thresholding the sparse
+     * foreground; the latter preserves only a few colored pixels and produces a faint glyph.
+     */
+    private fun dedicatedNotificationIcon(context: Context, packageName: String): Icon? {
+        if (packageName != AFU_PACKAGE) return null
+        return runCatching {
+            val packageContext = context.createPackageContext(packageName, 0)
+            val resId = packageContext.resources.getIdentifier(
+                AFU_PUSH_ICON_RESOURCE,
+                "drawable",
+                packageName,
+            )
+            if (resId == 0) return@runCatching null
+            val drawable = packageContext.getDrawable(resId) ?: return@runCatching null
+            val bitmap = ImgUtils.drawableToBitmap(drawable)
+            val normalized = normalizeSilhouetteBounds(bitmap)
+            silhouetteIconOrNull(normalized, "pkg=$packageName dedicated=$AFU_PUSH_ICON_RESOURCE")?.also {
+                silhouetteLogger.i(
+                    "silhouette pkg=$packageName dedicated=$AFU_PUSH_ICON_RESOURCE " +
+                        "src=${bitmap.width}x${bitmap.height} out=${normalized.width}x${normalized.height}",
+                )
+            }
+        }.onFailure {
+            silhouetteLogger.w("dedicated notification icon unavailable pkg=$packageName", it)
+        }.getOrNull()
     }
 
     /**

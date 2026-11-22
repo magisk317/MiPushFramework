@@ -745,9 +745,23 @@ class HookSystemUI : BaseHook() {
                                 // is unsafe: preserve the established pack-asset behavior here.
                                 StatusBarMonochromeIconPolicy.statusSafeGlyphOrNull(systemUiContext, it) ?: it
                             } else null
-                            val silhouette = if (packIcon == null && isMiPushManaged &&
-                                !options.colorStatusBarIcon
-                            ) {
+                            val shouldUseSilhouette = SystemUiNotificationPolicy
+                                .shouldUseSafeSilhouetteFallback(
+                                    monochromeEnabled = !options.colorStatusBarIcon,
+                                    isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
+                                    isMiPushManaged = isMiPushManaged,
+                                    attemptsIconPack = attemptsIconPack,
+                                    iconPackHit = packIcon != null,
+                                    iconType = iconType,
+                                    resId = resId,
+                                    resPackage = resPackage,
+                                    ownerPackage = owner,
+                                    uid = sbn.uid,
+                                    isSystemApp = isSystemApplication(systemUiContext, sbn.packageName),
+                                    postedGlyphIsGrayscale = !isMiPushManaged &&
+                                        isPositivelyGrayscaleSmallIcon(systemUiContext, notification.smallIcon),
+                                )
+                            val silhouette = if (shouldUseSilhouette) {
                                 monochromeSilhouette()
                             } else {
                                 null

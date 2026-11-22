@@ -19,6 +19,104 @@ class SystemUiNotificationPolicyTest {
     }
 
     @Test
+    fun `unmanaged app-owned color icons use the generic silhouette fallback`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldUseSafeSilhouetteFallback(
+                monochromeEnabled = true,
+                isSyntheticAutogroupSummary = false,
+                isMiPushManaged = false,
+                attemptsIconPack = true,
+                iconPackHit = false,
+                iconType = SystemUiNotificationPolicy.ICON_TYPE_RESOURCE,
+                resId = 0x7f0d0000,
+                resPackage = "com.example.app",
+                ownerPackage = "com.example.app",
+                uid = 10_123,
+                isSystemApp = false,
+                postedGlyphIsGrayscale = false,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldUseSafeSilhouetteFallback(
+                monochromeEnabled = true,
+                isSyntheticAutogroupSummary = false,
+                isMiPushManaged = false,
+                attemptsIconPack = true,
+                iconPackHit = false,
+                iconType = SystemUiNotificationPolicy.ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                ownerPackage = "com.example.app",
+                uid = 10_123,
+                isSystemApp = false,
+                postedGlyphIsGrayscale = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `silhouette fallback rejects safe or ambiguous icon classes`() {
+        fun decide(
+            monochromeEnabled: Boolean = true,
+            isSyntheticAutogroupSummary: Boolean = false,
+            attemptsIconPack: Boolean = true,
+            iconPackHit: Boolean = false,
+            iconType: Int = SystemUiNotificationPolicy.ICON_TYPE_RESOURCE,
+            resId: Int = 0x7f0d0000,
+            resPackage: String? = "com.example.app",
+            ownerPackage: String? = "com.example.app",
+            uid: Int = 10_123,
+            isSystemApp: Boolean = false,
+            postedGlyphIsGrayscale: Boolean = false,
+        ) = SystemUiNotificationPolicy.shouldUseSafeSilhouetteFallback(
+            monochromeEnabled = monochromeEnabled,
+            isSyntheticAutogroupSummary = isSyntheticAutogroupSummary,
+            isMiPushManaged = false,
+            attemptsIconPack = attemptsIconPack,
+            iconPackHit = iconPackHit,
+            iconType = iconType,
+            resId = resId,
+            resPackage = resPackage,
+            ownerPackage = ownerPackage,
+            uid = uid,
+            isSystemApp = isSystemApp,
+            postedGlyphIsGrayscale = postedGlyphIsGrayscale,
+        )
+
+        assertFalse(decide(monochromeEnabled = false))
+        assertFalse(decide(isSyntheticAutogroupSummary = true))
+        assertFalse(decide(iconPackHit = true))
+        assertFalse(decide(postedGlyphIsGrayscale = true))
+        assertFalse(decide(attemptsIconPack = false))
+        assertFalse(decide(isSystemApp = true))
+        assertFalse(decide(uid = 1000))
+        assertFalse(decide(resPackage = "android"))
+        assertFalse(decide(resPackage = "com.other.app"))
+        assertFalse(decide(resId = 0))
+        assertFalse(decide(iconType = 99))
+    }
+
+    @Test
+    fun `managed color icon still gets silhouette fallback independently of category switch`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldUseSafeSilhouetteFallback(
+                monochromeEnabled = true,
+                isSyntheticAutogroupSummary = false,
+                isMiPushManaged = true,
+                attemptsIconPack = true,
+                iconPackHit = false,
+                iconType = SystemUiNotificationPolicy.ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                ownerPackage = "com.example.app",
+                uid = 10_123,
+                isSystemApp = false,
+                postedGlyphIsGrayscale = false,
+            ),
+        )
+    }
+
+    @Test
     fun `third party apps follow the third-party switch only`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldAttemptIconPackSubstitution(
