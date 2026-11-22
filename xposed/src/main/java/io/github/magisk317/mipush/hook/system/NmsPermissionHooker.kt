@@ -82,7 +82,7 @@ object NmsPermissionHooker {
         return (systemUid shl 32) or (pid.toLong() and PID_MASK)
     }
 
-    private fun resolveTargetUserId(
+    internal fun resolveTargetUserId(
         args: Array<out Any?>,
         callingUid: Int,
         targetUidParamIndex: Int?,
@@ -213,6 +213,21 @@ object NmsPermissionHooker {
     internal fun shouldBypassCallingIdentity(targetPackageName: String?): Boolean =
         targetPackageName != XMSF_PACKAGE_NAME
 
+    /**
+     * Foreign notification packages always need a system identity, including when the caller
+     * and target are in the same user. Android 16 checks the effective caller uid even without
+     * a cross-user boundary; only XMSF-owned calls must retain the real XMSF identity.
+     */
+    internal fun systemIdentityForTarget(
+        targetPackageName: String?,
+        targetUserId: Int,
+        pid: Int,
+    ): Long? = if (shouldBypassCallingIdentity(targetPackageName)) {
+        systemIdentityForUser(targetUserId, pid)
+    } else {
+        null
+    }
+
     private fun hookPermission(
         targetPackageNameParamIndex: Int,
         targetUidParamIndex: Int? = null,
@@ -229,10 +244,14 @@ object NmsPermissionHooker {
                     targetUidParamIndex = targetUidParamIndex,
                     targetUserIdParamIndex = targetUserIdParamIndex,
                 )
-                val identityMustMatchTarget = targetUserId != userIdFromUid(callingUid)
-                if (shouldBypassCallingIdentity(args[targetPackageNameParamIndex] as? String) && identityMustMatchTarget) {
+                val targetIdentity = systemIdentityForTarget(
+                    targetPackageName = args[targetPackageNameParamIndex] as? String,
+                    targetUserId = targetUserId,
+                    pid = Process.myPid(),
+                )
+                if (targetIdentity != null) {
                     token = Binder.clearCallingIdentity()
-                    Binder.restoreCallingIdentity(systemIdentityForUser(targetUserId, Process.myPid()))
+                    Binder.restoreCallingIdentity(targetIdentity)
                 }
                 hookExtra?.invoke(this)
             }
