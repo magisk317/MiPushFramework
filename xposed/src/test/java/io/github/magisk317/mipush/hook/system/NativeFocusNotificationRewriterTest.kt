@@ -30,7 +30,7 @@ class NativeFocusNotificationRewriterTest {
         // Notification.extras is a public field on the API surface (no getter), so the stub is
         // placed by field assignment on the mock instance instead of call recording.
         val notification = mockk<Notification>()
-        runCatching { notification.extras = extras }
+        notification.extras = extras
 
         val result = NativeFocusNotificationRewriter.rewrite(
             NativeFocusNotificationRewriter.RewriteInput(

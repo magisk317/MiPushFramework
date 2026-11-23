@@ -226,6 +226,8 @@ internal object NativeFocusNotificationRewriter {
             runCatching {
                 builder.javaClass.getMethod("setShortCriticalText", CharSequence::class.java)
                     .invoke(builder, shortText.take(MAX_SHORT_CRITICAL_TEXT))
+            }.onFailure { error ->
+                XLog.w(TAG, "setShortCriticalText unavailable: ${error.javaClass.simpleName}")
             }
         }
         if (promote) requestPromotion(builder)
@@ -317,11 +319,12 @@ internal object NativeFocusNotificationRewriter {
     }
 
     private fun createUserHandle(userId: Int): UserHandle {
-        runCatching {
-            return UserHandle::class.java
+        val viaFactory = runCatching {
+            UserHandle::class.java
                 .getMethod("of", Int::class.javaPrimitiveType)
-                .invoke(null, userId) as UserHandle
-        }
+                .invoke(null, userId) as? UserHandle
+        }.getOrNull()
+        if (viaFactory != null) return viaFactory
         return UserHandle::class.java.getDeclaredConstructor(Int::class.javaPrimitiveType).apply {
             isAccessible = true
         }.newInstance(userId)
