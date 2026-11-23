@@ -28,7 +28,6 @@ import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
-import io.github.magisk317.xposed.setHookObjectField
 
 class HookSystemUI : BaseHook() {
     companion object {
@@ -675,7 +674,7 @@ class HookSystemUI : BaseHook() {
                                         descriptor = descriptor,
                                         substituted = true,
                                     )
-                                    setHookObjectField(descriptor, "icon", summaryIcon)
+                                    replaceStatusBarDescriptorIcon(descriptor, summaryIcon)
                                     XLog.d(
                                         TAG,
                                         "status bar icon source=autogroup owner=$owner " +
@@ -699,7 +698,7 @@ class HookSystemUI : BaseHook() {
                                         )
                                     if (summaryGlyphSafety == true && shouldInspectSummaryGlyph) {
                                         val postedGlyph = notification.smallIcon ?: return@runCatching
-                                        setHookObjectField(descriptor, "icon", postedGlyph)
+                                        replaceStatusBarDescriptorIcon(descriptor, postedGlyph)
                                         markSubstitutedStatusBarGlyph(
                                             entry = entry,
                                             descriptor = descriptor,
@@ -732,7 +731,7 @@ class HookSystemUI : BaseHook() {
                                         if (shouldUseChildGlyph) {
                                             val childIcon = childResolution.icon ?: return@runCatching
                                             val summaryKey = autogroupSummaryIconResolver.overrideKeyOrNull(sbn) ?: return@runCatching
-                                            setHookObjectField(descriptor, "icon", childIcon)
+                                            replaceStatusBarDescriptorIcon(descriptor, childIcon)
                                             autogroupSummaryIconResolver.rememberOverride(summaryKey, childIcon)
                                             markSubstitutedStatusBarGlyph(
                                                 entry = entry,
@@ -751,7 +750,7 @@ class HookSystemUI : BaseHook() {
                                         val cachedGroupGlyph = sbn.groupKey?.takeIf { it.isNotBlank() }
                                             ?.let { autogroupSummaryIconResolver.groupGlyphOrNull(it) }
                                         if (cachedGroupGlyph != null) {
-                                            setHookObjectField(descriptor, "icon", cachedGroupGlyph)
+                                            replaceStatusBarDescriptorIcon(descriptor, cachedGroupGlyph)
                                             markSubstitutedStatusBarGlyph(
                                                 entry = entry,
                                                 descriptor = descriptor,
@@ -856,7 +855,7 @@ class HookSystemUI : BaseHook() {
                                     descriptor = descriptor,
                                     substituted = true,
                                 )
-                                setHookObjectField(descriptor, "icon", restoredGlyph)
+                                replaceStatusBarDescriptorIcon(descriptor, restoredGlyph)
                                 XLog.i(
                                     TAG,
                                     "descriptor restored pkg=${sbn.packageName} " +
@@ -869,7 +868,7 @@ class HookSystemUI : BaseHook() {
                                 descriptor = descriptor,
                                 substituted = true,
                             )
-                            setHookObjectField(descriptor, "icon", icon)
+                            replaceStatusBarDescriptorIcon(descriptor, icon)
                             sbn.groupKey?.takeIf { it.isNotBlank() }?.let { groupKey ->
                                 autogroupSummaryIconResolver.rememberGroupGlyph(groupKey, icon)
                             }
