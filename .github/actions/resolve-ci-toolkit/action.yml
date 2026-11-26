@@ -8,7 +8,7 @@ inputs:
   ref:
     description: magisk-ci-toolkit commit SHA to fetch
     required: false
-    default: '3ca019f5b5a9e9b15c4d580dee3a594661047d84'
+    default: '382a1d77f0cc41bd427fd2ac28acc9817b21fbb7'
   token:
     description: >-
       Optional GitLab read credential (personal access token or deploy token with
