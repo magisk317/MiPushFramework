@@ -25,6 +25,7 @@
 -keep class io.github.magisk317.mipush.notification.NotificationManagerEx { *; }
 -keep class io.github.magisk317.mipush.notification.NotificationHookBridge { *; }
 -keep class io.github.magisk317.mipush.notification.NotificationHookBackend { *; }
+-keep class io.github.magisk317.mipush.notification.NotificationHookBackend$PostResult { *; }
 -keep class io.github.magisk317.mipush.notification.BackendLog { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge$* { *; }
