@@ -12,7 +12,7 @@ TOOLKIT_PARENT="$(dirname "$TOOLKIT_DIR_RAW")"
 TOOLKIT_PARENT="$(cd "$TOOLKIT_PARENT" && pwd)"
 TOOLKIT_DIR="${TOOLKIT_PARENT}/$(basename "$TOOLKIT_DIR_RAW")"
 TOOLKIT_REPOSITORY="${MAGISK_CI_TOOLKIT_REPOSITORY:-https://gitlab.com/magisk3171/shared/magisk-ci-toolkit.git}"
-TOOLKIT_REF="${MAGISK_CI_TOOLKIT_REF:-382a1d77f0cc41bd427fd2ac28acc9817b21fbb7}"
+TOOLKIT_REF="${MAGISK_CI_TOOLKIT_REF:-f96af187197c8f25dc050f4504779e8e4503d67c}"
 TOOLKIT_OWNER_MARKER=.magisk-ci-toolkit-owned
 [[ "$TOOLKIT_DIR" != / && "$TOOLKIT_DIR" != "$ROOT_DIR" ]] || {
   echo "refusing unsafe toolkit directory: $TOOLKIT_DIR" >&2
