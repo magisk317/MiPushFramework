@@ -11,4 +11,9 @@ class HookPushNCTest {
         assertTrue(HookPushNC.shouldRetrySystemHookReady(119))
         assertFalse(HookPushNC.shouldRetrySystemHookReady(120))
     }
+
+    @Test
+    fun `triggerIdentityBridgeRecheck returns false when classes uninitialized`() {
+        assertFalse(HookPushNC.triggerIdentityBridgeRecheck())
+    }
 }

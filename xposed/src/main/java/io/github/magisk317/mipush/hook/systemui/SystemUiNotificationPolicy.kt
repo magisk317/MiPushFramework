@@ -176,10 +176,9 @@ internal object SystemUiNotificationPolicy {
     /**
      * Whether a multi-color RESOURCE smallIcon should be swapped for the icon-pack glyph.
      *
-     * Product rule: only when the owner's category switch allows icon-pack substitution. A
-     * pack miss falls through (caller keeps the posted glyph) and SystemUI renders natively —
-     * no forced silhouette, no forced tint, no white block. MiPush-managed notifications
-     * always attempt (their launcher-bitmap assets would tint into blocks otherwise).
+     * A pack hit is only the first link in the monochrome fallback chain. A miss is handled by
+     * [shouldUseSafeSilhouetteFallback] for application-owned color assets, while framework and
+     * already-safe glyphs keep the native path.
      */
     fun shouldReplaceResourceWithPackageMonochrome(
         attemptsIconPack: Boolean,
@@ -190,6 +189,45 @@ internal object SystemUiNotificationPolicy {
         if (iconType != ICON_TYPE_RESOURCE) return false
         if (isGrayscaleIcon) return false
         return attemptsIconPack
+    }
+
+    /**
+     * Selects the generic, package-independent silhouette fallback for an app-owned color icon.
+     *
+     * The decision deliberately separates ordinary notifications from synthetic autogroup
+     * summaries. Summary icons have their own child/group-key resolver and must never enter this
+     * branch. For ordinary notifications, an enabled icon-pack category plus an app-owned color
+     * RESOURCE/BITMAP is enough to justify a silhouette after a pack miss. Framework ids,
+     * shared-system UIDs, grayscale glyphs and unknown ownership stay native.
+     */
+    fun shouldUseSafeSilhouetteFallback(
+        monochromeEnabled: Boolean,
+        isSyntheticAutogroupSummary: Boolean,
+        isMiPushManaged: Boolean,
+        attemptsIconPack: Boolean,
+        iconPackHit: Boolean,
+        iconType: Int,
+        resId: Int,
+        resPackage: String?,
+        ownerPackage: String?,
+        uid: Int,
+        isSystemApp: Boolean,
+        postedGlyphIsGrayscale: Boolean,
+    ): Boolean {
+        if (!monochromeEnabled || isSyntheticAutogroupSummary || iconPackHit) return false
+        if (isMiPushManaged) return true
+        if (!attemptsIconPack || postedGlyphIsGrayscale || !isApplicationUid(uid) || isSystemApp) return false
+        if (ownerPackage.isNullOrBlank()) return false
+        return when (iconType) {
+            ICON_TYPE_BITMAP -> true
+            ICON_TYPE_RESOURCE -> {
+                resId != 0 &&
+                    resPackage == ownerPackage &&
+                    resPackage != FRAMEWORK_RES_PACKAGE &&
+                    isResourceSmallIconLoadable(iconType, resId, resPackage)
+            }
+            else -> false
+        }
     }
 
     /**

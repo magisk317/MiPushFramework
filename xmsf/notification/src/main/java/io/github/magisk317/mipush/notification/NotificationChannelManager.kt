@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.notification
 
 import io.github.magisk317.mipush.common.cache.ApplicationNameCache
+import io.github.magisk317.mipush.common.utils.logD
 import android.annotation.TargetApi
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -132,9 +133,27 @@ object NotificationChannelManager {
             listOf(notificationChannelGroup)
         )
 
+        // 建组在部分 ROM 上只更新、不创建缺失的组（issue #149：一台 system_server 混淆的
+        // Android 16 设备上 updateNotificationChannelGroupForPackage 永远无法落地新组，NMS
+        // 的 PreferencesHelper.createNotificationChannel 随即抛
+        // "NotificationChannelGroup doesn't exist"，19 次 IAE 每次发布一条，
+        // 全部通知被 publish skipped）。组只是 UI 归类装饰，不是投递必需项：
+        // 校验组真的存在才挂到通道上，否则发一个无组通道，保证通知至少能出来。
+        val groupProvisioned = runCatching {
+            getNotificationManagerEx()
+                .getNotificationChannelGroup(packageName, notificationChannelGroup.id) != null
+        }.getOrDefault(false)
+
         val notificationChannel = createChannelWithPackage(context, metaInfo, packageName)
         if (notificationChannel != null) {
-            notificationChannel.group = notificationChannelGroup.id
+            if (groupProvisioned) {
+                notificationChannel.group = notificationChannelGroup.id
+            } else {
+                logD(
+                    "createNotificationChannel() group unavailable, publishing group-less channel " +
+                        "pkg=$packageName group=${notificationChannelGroup.id}",
+                )
+            }
             getNotificationManagerEx().createNotificationChannels(
                 packageName,
                 listOf(notificationChannel)

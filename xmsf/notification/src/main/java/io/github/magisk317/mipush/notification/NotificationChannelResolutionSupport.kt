@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -23,6 +22,10 @@ object NotificationChannelResolutionSupport {
         metaInfo: PushMetaInfo,
         packageName: String,
     ): String? {
+        // A failed system hook can leave the same managed ID under XMSF. Once target identity is
+        // available, remove that shadow before resolving channels so it cannot mask a missing
+        // target-owned channel.
+        NotificationManagerEx.removeLocalTargetNotificationShadows(packageName)
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val preferredBorrowed = custom.borrowChannelId(null)?.takeIf { it.isNotBlank() }
         if (preferredBorrowed != null) {
@@ -39,10 +42,10 @@ object NotificationChannelResolutionSupport {
         // channel is always provisioned with the stock-owned ID used by clear semantics.
         val legacyChannelId = NotificationChannelManager.getLegacyChannelId(metaInfo, packageName)
         val sourceChannelId = custom.channelId(null)?.takeIf(String::isNotBlank)
-        val stockManager = NotificationManagerHelper.from(context.applicationContext, packageName)
-        val stockChannelExists = stockManager.getNotificationChannel(stockChannelId) != null
+        val stockChannelExists = NotificationManagerEx
+            .getTargetNotificationChannel(packageName, stockChannelId) != null
         val legacyChannelExists = NotificationManagerEx
-            .getNotificationChannel(packageName, legacyChannelId) != null
+            .getTargetNotificationChannel(packageName, legacyChannelId) != null
         val selectedChannelId = selectManagedChannelId(
             stockChannelId = stockChannelId,
             stockChannelExists = stockChannelExists,

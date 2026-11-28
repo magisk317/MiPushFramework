@@ -55,11 +55,25 @@ object HookPushNC {
     private const val MAX_READY_RETRY_ATTEMPTS = 120
 
     private val readyRetryLock = Any()
+    private val identityBridgeMarkLock = Any()
     private var readyRetryHandler: Handler? = null
     private var readyRetryTask: Runnable? = null
     private var readyRetryAttempt = 0
 
-    private val hookCheck = { HookSystemService.isSystemHookReady }
+    @Volatile
+    private var notificationManagerClassRef: Class<*>? = null
+    @Volatile
+    private var identityBridgeClassRef: Class<*>? = null
+    @Volatile
+    private var applicationReadyRecheckInstalled = false
+
+    private val hookCheck = {
+        val ready = HookSystemService.isSystemHookReady
+        if (ready) {
+            ensureIdentityBridgeMarked()
+        }
+        ready
+    }
 
     fun canHook(classLoader: ClassLoader): Boolean {
         return try {
@@ -329,6 +343,9 @@ object HookPushNC {
         installLocalReadyProbe(classLoader)
 
         val identityBridgeClass = hookIdentityBridge(classLoader, runtimeBridge)
+        notificationManagerClassRef = classNotificationManager
+        identityBridgeClassRef = identityBridgeClass
+        installApplicationReadyRecheck(classLoader)
         if (identityBridgeClass != null) {
             if (HookSystemService.isSystemHookReady) {
                 markIdentityBridgeReady(classNotificationManager, identityBridgeClass)
@@ -390,7 +407,9 @@ object HookPushNC {
             nmClass.hookMethod("isSystemConditionProviderEnabled", String::class.java) {
                 doBefore {
                     val arg = args[0] as? String
-                    if (arg == IS_SYSTEM_HOOK_READY || arg == XMSF_FAKE_CONDITION_PROVIDER_PATH) {
+                    if ((arg == IS_SYSTEM_HOOK_READY || arg == XMSF_FAKE_CONDITION_PROVIDER_PATH) &&
+                        HookSystemService.getNmsReadyProperty()
+                    ) {
                         result = true
                     }
                 }
@@ -474,7 +493,7 @@ object HookPushNC {
                 tryInvoke {
                     return@replace runtimeBridge.getNotificationChannel(
                         args[1] as String,
-                        args[2] as String
+                        args[2] as String?
                     )
                 }
             }
@@ -562,6 +581,47 @@ object HookPushNC {
         XLog.i(tag = TAG, route = LogRoute.XMSF_HOOK.id, message = "identity bridge hooks installed")
         return identityBridgeClass
     }
+
+    private fun installApplicationReadyRecheck(classLoader: ClassLoader) {
+        synchronized(readyRetryLock) {
+            if (applicationReadyRecheckInstalled) return
+            applicationReadyRecheckInstalled = true
+        }
+        runCatching {
+            classLoader.findClass("android.app.Application").hookMethod("onCreate") {
+                doAfter {
+                    ensureIdentityBridgeMarked()
+                }
+            }
+            XLog.i(
+                tag = TAG,
+                route = LogRoute.XMSF_HOOK.id,
+                message = "installed application readiness recheck commit=${BuildConfig.GIT_COMMIT}",
+            )
+        }.onFailure {
+            synchronized(readyRetryLock) {
+                applicationReadyRecheckInstalled = false
+            }
+            XLog.w(
+                tag = TAG,
+                route = LogRoute.XMSF_HOOK.id,
+                message = "application readiness recheck unavailable commit=${BuildConfig.GIT_COMMIT}",
+                it,
+            )
+        }
+    }
+
+    internal fun ensureIdentityBridgeMarked(): Boolean = synchronized(identityBridgeMarkLock) {
+        val nmClass = notificationManagerClassRef ?: return@synchronized false
+        val idClass = identityBridgeClassRef ?: return@synchronized false
+        if (idClass.getOrNull<Boolean>("isHooked") == true && nmClass.getOrNull<Boolean>("isHooked") == true) {
+            return@synchronized true
+        }
+        if (!HookSystemService.isSystemHookReady) return@synchronized false
+        markIdentityBridgeReady(nmClass, idClass)
+    }
+
+    fun triggerIdentityBridgeRecheck(): Boolean = ensureIdentityBridgeMarked()
 
     private fun markIdentityBridgeReady(
         notificationManagerClass: Class<*>,
@@ -670,6 +730,9 @@ object HookPushNC {
             readyRetryTask = null
             readyRetryAttempt = 0
             readyRetryHandler = null
+            notificationManagerClassRef = null
+            identityBridgeClassRef = null
+            applicationReadyRecheckInstalled = false
         }
     }
 

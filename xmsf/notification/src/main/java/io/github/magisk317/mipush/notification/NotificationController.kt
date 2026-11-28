@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -146,7 +147,14 @@ object NotificationController {
             notificationBuilder.setContentText(SweetTagHandler.renderFtHtmlIfNeeded(description))
         }
 
-        val notifyResult = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        val notifyResult = notify(
+            context = context,
+            notificationId = notificationId,
+            packageName = packageName,
+            notificationBuilder = notificationBuilder,
+            metaInfo = metaInfo,
+            resolvedChannel = channel,
+        )
         if (notifyResult === NotifyResult.SuppressedByPolicy) {
             emit(result = "skip", reason = "original_notification_disabled")
             return PublishResult.SuppressedByPolicy
@@ -218,6 +226,7 @@ object NotificationController {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo,
+        resolvedChannel: NotificationChannel? = null,
         applyPayloadDecorations: Boolean = true,
     ): NotifyResult {
         val userId = resolveNotificationUserId(context, packageName)
@@ -373,7 +382,11 @@ object NotificationController {
             notificationBuilder.setAutoCancel(true)
         }
         val notification = NativeNotificationFeatureBuilder.buildNotification(context, notificationBuilder, nativeFeature)
-        val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
+        val channel = resolveFinalPublishChannel(
+            resolvedChannel = resolvedChannel,
+            builtChannelId = notification.channelId,
+            packageName = packageName,
+        )
         when {
             channel == null -> {
                 logD(
@@ -515,6 +528,26 @@ object NotificationController {
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
         return NotifyResult.Posted(notificationToPost, postResult.owner)
     }
+
+    /**
+     * Final pre-post validation must honor the channel publish() already resolved and possibly
+     * fallback-remapped. Re-querying by built channel id alone re-runs the identity lookup that
+     * just failed, so a usable in-hand channel was dropped as "unavailable".
+     */
+    internal fun resolveFinalPublishChannel(
+        resolvedChannel: NotificationChannel?,
+        builtChannelId: String?,
+        packageName: String,
+    ): NotificationChannel? = if (shouldReuseResolvedChannel(resolvedChannel?.id, builtChannelId)) {
+        resolvedChannel
+    } else {
+        getNotificationManagerEx().getNotificationChannel(packageName, builtChannelId)
+    }
+
+    internal fun shouldReuseResolvedChannel(
+        resolvedChannelId: String?,
+        builtChannelId: String?,
+    ): Boolean = resolvedChannelId != null && resolvedChannelId == builtChannelId
 
     /** Cancels one (packageName, tag, id) slot with every coordinator that tracks publish identity. */
     private fun cancelNotificationSlot(

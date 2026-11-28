@@ -23,6 +23,8 @@ import java.util.concurrent.Executors
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ICON_PACK_PREF_PATH_SNAPSHOT
 import io.github.magisk317.mipush.common.notification.iconpack.IconPackSnapshotCodec
+import io.github.magisk317.mipush.common.notification.iconpack.IconPackSnapshotEntry
+import io.github.magisk317.mipush.common.notification.iconpack.IconPackSource
 
 /** Status-bar-only monochrome icon helpers.
  *
@@ -37,9 +39,13 @@ object StatusBarMonochromeIconPolicy {
 
     private val silhouetteLogger = XLog.tagged(SILHOUETTE_LOG_TAG)
     private val iconPackLogger = XLog.tagged(ICON_PACK_LOG_TAG)
+    @Volatile
+    private var iconRefreshCallback: ((String, Int) -> Unit)? = null
 
     @JvmStatic
     fun clearCacheForTest() {
+        iconRefreshCallback = null
+        DedicatedNotificationIconResolver.clearForTest()
         silhouetteCache.clear()
         shadeLayerCache.clear()
         decodedIconCache.clear()
@@ -50,10 +56,25 @@ object StatusBarMonochromeIconPolicy {
         inFlightSilhouettePrefetches.clear()
     }
 
+    @JvmStatic
+    fun setIconRefreshCallback(callback: ((String, Int) -> Unit)?) {
+        iconRefreshCallback = callback
+    }
+
+    private fun requestIconRefresh(packageName: String, userId: Int) {
+        try {
+            iconRefreshCallback?.invoke(packageName, userId)
+        } catch (_: Throwable) {
+            // Refresh is best-effort; cache and rendering must remain independent.
+        }
+    }
+
     /** Test seam: publish an index directly, so snapshot semantics are testable without a provider. */
     @JvmStatic
     internal fun putSnapshotIndexForTest(index: Map<String, ByteArray>, fetchedAtMs: Long = System.currentTimeMillis()) {
-        snapshotIndex = index
+        snapshotIndex = index.mapValues { (packageName, pngBytes) ->
+            IconPackSnapshotEntry(packageName, pngBytes, IconPackSource.ANIP)
+        }
         snapshotFetchedAtMs = fetchedAtMs
         decodedIconCache.clear()
     }
@@ -103,6 +124,22 @@ object StatusBarMonochromeIconPolicy {
                 null
             }
         }
+    }
+
+    @JvmStatic
+    fun dedicatedNotificationIconForPackageOrNull(
+        context: Context,
+        packageName: String,
+        userId: Int = 0,
+    ): Icon? {
+        when (val cached = DedicatedNotificationIconResolver.lookupCached(packageName, userId)) {
+            is DedicatedNotificationIconResolver.CachedLookup.Hit ->
+                return runCatching { Icon.createWithBitmap(cached.value.bitmap) }.getOrNull()
+            DedicatedNotificationIconResolver.CachedLookup.Absent -> return null
+            DedicatedNotificationIconResolver.CachedLookup.NotReady ->
+                scheduleSilhouettePrefetch(context, packageName, userId)
+        }
+        return null
     }
 
     /**
@@ -335,6 +372,11 @@ object StatusBarMonochromeIconPolicy {
 
     internal data class IconPackEntry(val icon: Icon?, val storedAtMs: Long)
 
+    data class DecodedIconPackEntry(
+        val icon: Icon,
+        val source: IconPackSource,
+    )
+
     private const val SILHOUETTE_POSITIVE_TTL_MS = 10 * 60 * 1000L
     private const val SILHOUETTE_NEGATIVE_TTL_MS = 15 * 1000L
 
@@ -371,7 +413,7 @@ object StatusBarMonochromeIconPolicy {
     private const val SNAPSHOT_DECODED_CACHE_MAX = 256
 
     @Volatile
-    private var snapshotIndex: Map<String, ByteArray>? = null
+    private var snapshotIndex: Map<String, IconPackSnapshotEntry>? = null
 
     @Volatile
     private var snapshotFetchedAtMs = 0L
@@ -383,9 +425,11 @@ object StatusBarMonochromeIconPolicy {
 
     private val snapshotFetchLock = Any()
 
-    private val decodedIconCache: MutableMap<String, Icon> = Collections.synchronizedMap(
-        object : LinkedHashMap<String, Icon>(64, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Icon>?): Boolean {
+    private val decodedIconCache: MutableMap<String, DecodedIconPackEntry> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, DecodedIconPackEntry>(64, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, DecodedIconPackEntry>?,
+            ): Boolean {
                 return size > SNAPSHOT_DECODED_CACHE_MAX
             }
         },
@@ -397,7 +441,14 @@ object StatusBarMonochromeIconPolicy {
      * and the caller keeps SystemUI's native rendering until the next icon rebuild.
      */
     @JvmStatic
-    fun iconPackIconForPackageOrNull(context: Context, packageName: String): Icon? {
+    fun iconPackIconForPackageOrNull(context: Context, packageName: String): Icon? =
+        iconPackLookupForPackageOrNull(context, packageName)?.icon
+
+    @JvmStatic
+    fun iconPackLookupForPackageOrNull(
+        context: Context,
+        packageName: String,
+    ): DecodedIconPackEntry? {
         if (packageName.isBlank()) return null
         if (snapshotIndex == null || isSnapshotStale()) scheduleSnapshotFetch(context)
         val index = snapshotIndex ?: run {
@@ -405,19 +456,31 @@ object StatusBarMonochromeIconPolicy {
             return null
         }
         decodedIconCache[packageName]?.let { return it }
-        val png = index[packageName]
-        if (png == null) {
-            iconPackLogger.d("lookup pkg=$packageName decision=MISS entries=${index.size}")
+        val entry = index[packageName]
+        if (entry == null) {
+            iconPackLogger.d("lookup pkg=$packageName decision=MISS entries=" + index.size)
             return null
         }
-        val bitmap = runCatching { BitmapFactory.decodeByteArray(png, 0, png.size) }.getOrNull()
+        val bitmap = runCatching {
+            BitmapFactory.decodeByteArray(entry.pngBytes, 0, entry.pngBytes.size)
+        }.getOrNull()
         if (bitmap == null) {
-            iconPackLogger.w("snapshot entry undecodable pkg=$packageName bytes=${png.size}")
+            iconPackLogger.w(
+                "snapshot entry undecodable pkg=$packageName bytes=" + entry.pngBytes.size,
+            )
             return null
         }
-        return Icon.createWithBitmap(bitmap).also {
+        val normalized = normalizeSilhouetteBounds(bitmap)
+        return DecodedIconPackEntry(
+            icon = Icon.createWithBitmap(normalized),
+            source = entry.source,
+        ).also {
             decodedIconCache[packageName] = it
-            iconPackLogger.d("lookup pkg=$packageName decision=HIT bytes=${png.size}")
+            iconPackLogger.d(
+                "lookup pkg=$packageName decision=HIT source=" + entry.source.name +
+                    " bytes=" + entry.pngBytes.size + " src=" + bitmap.width + "x" + bitmap.height +
+                    " out=" + normalized.width + "x" + normalized.height,
+            )
         }
     }
 
@@ -461,11 +524,12 @@ object StatusBarMonochromeIconPolicy {
             iconPackLogger.i(
                 "snapshot loaded entries=${index.size} took=${System.currentTimeMillis() - startedAtMs}ms",
             )
+            requestIconRefresh("", -1)
         }
     }
 
     /** Background worker only: reads the whole index through the provider in one open. */
-    private fun loadSnapshot(context: Context): Map<String, ByteArray> {
+    private fun loadSnapshot(context: Context): Map<String, IconPackSnapshotEntry> {
         val uri = Uri.Builder()
             .scheme("content")
             .authority(ICON_PACK_PREF_AUTHORITY)
@@ -473,7 +537,22 @@ object StatusBarMonochromeIconPolicy {
             .build()
         val stream = context.contentResolver.openInputStream(uri) ?: error("provider served no snapshot")
         val snapshot = stream.use { IconPackSnapshotCodec.read(it) } ?: error("snapshot unreadable")
-        return snapshot.indexOfPackage()
+        return snapshot.entriesByPackage()
+    }
+
+    @JvmStatic
+    fun preferredMonochromeIconForPackageOrNull(
+        context: Context,
+        packageName: String,
+        userId: Int = 0,
+    ): Icon? {
+        val pack = iconPackLookupForPackageOrNull(context, packageName)
+        if (pack?.source == IconPackSource.USER_OVERRIDE) return pack.icon
+        dedicatedNotificationIconForPackageOrNull(context, packageName, userId)?.let {
+            silhouetteLogger.i("preferred source=dedicated pkg=" + packageName + " user=" + userId)
+            return it
+        }
+        return pack?.icon
     }
 
     // --- White silhouette cache ---------------------------------------------------------------
@@ -510,15 +589,24 @@ object StatusBarMonochromeIconPolicy {
     // Background silhouette prefetch must survive any single-app failure (OEM icon quirks,
     // work-profile PackageManager, OOM from oversized bitmaps) without killing the executor.
     @Suppress("TooGenericExceptionCaught")
-    private fun scheduleSilhouettePrefetch(context: Context, packageName: String) {
-        if (!inFlightSilhouettePrefetches.add(packageName)) return
+    private fun scheduleSilhouettePrefetch(context: Context, packageName: String, userId: Int = 0) {
+        val flightKey = "$packageName#$userId"
+        if (!inFlightSilhouettePrefetches.add(flightKey)) return
         val appContext = context.applicationContext ?: context
         silhouettePrefetchExecutor.execute {
             try {
-                val icon = createWhiteSilhouetteIcon(appContext, packageName)
+                val dedicated = DedicatedNotificationIconResolver.resolveBlocking(
+                    appContext,
+                    packageName,
+                    userId,
+                )
+                val dedicatedIcon = dedicated?.let {
+                    runCatching { Icon.createWithBitmap(it.bitmap) }.getOrNull()
+                }
+                val icon = dedicatedIcon ?: createWhiteSilhouetteIcon(appContext, packageName)
                 silhouetteCache[packageName] = IconPackEntry(icon, System.currentTimeMillis())
                 shadeLayerCache[packageName] = IconPackEntry(
-                    createMonochromeLayerIcon(appContext, packageName),
+                    dedicatedIcon ?: createMonochromeLayerIcon(appContext, packageName),
                     System.currentTimeMillis(),
                 )
             } catch (_: Throwable) {
@@ -530,7 +618,8 @@ object StatusBarMonochromeIconPolicy {
                 val retainedLayer = shadeLayerCache[packageName]?.icon
                 shadeLayerCache[packageName] = IconPackEntry(retainedLayer, System.currentTimeMillis())
             } finally {
-                inFlightSilhouettePrefetches.remove(packageName)
+                inFlightSilhouettePrefetches.remove(flightKey)
+                requestIconRefresh(packageName, userId)
             }
         }
     }

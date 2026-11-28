@@ -606,9 +606,6 @@ object NotificationHookBackend {
             groups.forEach {
                 JavaCalls.setField(it, "mName", "Mi Push")
 
-                // 无法 hook
-                // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)
-                // JavaCalls.callMethodOrThrow(requireNotificationManager(), "createNotificationChannelGroup", packageName, getUid(packageName), it, true, false)
                 runCatching {
                     // void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
                     // 因 createNotificationChannelGroup 的 fromApp 为 false，首次创建会产生 NullPointerException
@@ -625,6 +622,49 @@ object NotificationHookBackend {
                         throw throwable
                     }
                     BackendLog.d(TAG, "Ignoring ROM-side channel group update failure: ${cause.message}")
+                }
+
+                // update 语义不保证"缺失的组会被创建"：issue #149 的设备（system_server 混淆的
+                // Android 16）上 update 对不存在的组不落地、也不抛非致命错误，导致
+                // createNotificationChannelsForPackage 随后在 NMS 里抛
+                // "NotificationChannelGroup doesn't exist"（LSPosed 日志 19 次 IAE，每次发布一条）。
+                // 所以调用后回查一次，组仍缺失就走 createNotificationChannelGroup 创建兜底；
+                // fromApp=true 规避上面注释里 fromApp=false 的 NPE，fromListener=false 表示非监听路径。
+                val groupExists = runCatching {
+                    invokeNotificationManager(
+                        "getNotificationChannelGroupForPackage",
+                        arrayOf(String::class.java, String::class.java, Int::class.java),
+                        it.id,
+                        packageName,
+                        uid,
+                    )
+                }.getOrNull() != null
+                if (!groupExists) {
+                    runCatching {
+                        // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)
+                        invokeNotificationManager(
+                            "createNotificationChannelGroup",
+                            arrayOf(
+                                String::class.java,
+                                Int::class.java,
+                                NotificationChannelGroup::class.java,
+                                Boolean::class.java,
+                                Boolean::class.java,
+                            ),
+                            packageName,
+                            uid,
+                            it,
+                            true,
+                            false,
+                        )
+                    }.onFailure { fallbackCause ->
+                        val fallbackError = fallbackCause.unwrapSystemCallFailure()
+                        BackendLog.w(
+                            TAG,
+                            "createNotificationChannelGroup fallback failed pkg=$packageName " +
+                                "group=${it.id}: ${fallbackError.javaClass.simpleName}: ${fallbackError.message}",
+                        )
+                    }
                 }
             }
         }

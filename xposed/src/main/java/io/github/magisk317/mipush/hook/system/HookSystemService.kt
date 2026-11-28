@@ -69,31 +69,46 @@ class HookSystemService : BaseHook() {
         val isSystemHookReady: Boolean
             get() {
                 if (_isSystemHookReady == true) return true
-                return try {
-                    val app = currentApplication() ?: return false
-                    val nm = app.getSystemService(NotificationManager::class.java) ?: return false
+
+                // 1. Fast path: system property set by system_server upon hook installation
+                if (getNmsReadyProperty()) {
+                    if (_isSystemHookReady != true) {
+                        XLog.i(
+                            tag = TAG,
+                            route = LogRoute.NMS_HOOK.id,
+                            message = "system hook readiness probe=true (property) commit=${BuildConfig.GIT_COMMIT}",
+                        )
+                    }
+                    _isSystemHookReady = true
+                    return true
+                }
+
+                // 2. Condition provider probe via NotificationManager
+                return runCatching {
+                    val app = currentApplication() ?: return@runCatching false
+                    val nm = app.getSystemService(NotificationManager::class.java) ?: return@runCatching false
                     val ready = nm.callMethod("isSystemConditionProviderEnabled", IS_SYSTEM_HOOK_READY) as? Boolean ?: false
                     if (ready) {
                         if (_isSystemHookReady != true) {
-                            XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "system hook readiness probe=true commit=${BuildConfig.GIT_COMMIT}")
+                            XLog.i(
+                                tag = TAG,
+                                route = LogRoute.NMS_HOOK.id,
+                                message = "system hook readiness probe=true (condition_provider) commit=${BuildConfig.GIT_COMMIT}",
+                            )
                         }
                         _isSystemHookReady = true
                     }
                     ready
-                } catch (t: Throwable) {
-                    XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "readiness probe threw, trying property fallback", t)
-                    // Samsung Android 16 blocks isSystemConditionProviderEnabled as hidden API.
-                    // Fall back to the system property signal set by system_server.
-                    val propReady = getNmsReadyProperty()
-                    if (propReady) {
-                        XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "system hook readiness probe=true (property fallback) commit=${BuildConfig.GIT_COMMIT}")
-                        _isSystemHookReady = true
-                    }
-                    propReady
-                }
+                }.onFailure {
+                    XLog.d(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "readiness condition provider probe threw", it)
+                }.getOrDefault(false)
             }
 
-        private fun getNmsReadyProperty(): Boolean {
+        internal fun resetSystemHookReadyForTest(ready: Boolean? = null) {
+            _isSystemHookReady = ready
+        }
+
+        internal fun getNmsReadyProperty(): Boolean {
             return runCatching {
                 val clazz = Class.forName("android.os.SystemProperties")
                 val get = clazz.getMethod("get", String::class.java, String::class.java)
@@ -322,6 +337,9 @@ class HookSystemService : BaseHook() {
         // Cancel delayed retries while the old module ClassLoader is still reachable so a
         // retry cannot invoke hooks through a stale classloader after hot reload.
         stopNmsHookRetry()
+        _isSystemHookReady = null
+        nmsHookInstallState.set(NmsHookInstallState.NOT_INSTALLED)
+        setNmsReadyProperty(false)
         // system_server owns the XSpace package-sync receiver and its executor. Release them
         // while the old module ClassLoader is still reachable so hot reload can collect its DEX.
         XSpacePackageSyncHook.stop()
@@ -344,6 +362,11 @@ class HookSystemService : BaseHook() {
             XLog.w(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "skip system hook: process mismatch proc=${param.processName}")
             return
         }
+        // The property is a process-lifetime readiness signal. Clear stale state before a new
+        // system_server generation installs its hooks.
+        _isSystemHookReady = null
+        nmsHookInstallState.set(NmsHookInstallState.NOT_INSTALLED)
+        setNmsReadyProperty(false)
         val classLoader = param.classLoader
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(tag = TAG, route = LogRoute.NMS_HOOK.id, message = "installing system notification hooks")

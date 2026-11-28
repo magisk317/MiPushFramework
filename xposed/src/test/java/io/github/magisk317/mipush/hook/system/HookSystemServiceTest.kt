@@ -128,6 +128,19 @@ class HookSystemServiceTest {
         assertTrue(NmsHookInstallRetryPolicy.RETRY_DELAY_MS > 0)
     }
 
+    @Test
+    fun `isSystemHookReady honors cached ready state`() {
+        HookSystemService.resetSystemHookReadyForTest(true)
+        assertTrue(HookSystemService.isSystemHookReady)
+        HookSystemService.resetSystemHookReadyForTest(null)
+    }
+
+    @Test
+    fun `isSystemHookReady handles missing application context safely`() {
+        HookSystemService.resetSystemHookReadyForTest(null)
+        assertFalse(HookSystemService.isSystemHookReady)
+    }
+
     private class FakePackageSetting(private val packageName: String) {
         fun getPackageName(): String = packageName
     }

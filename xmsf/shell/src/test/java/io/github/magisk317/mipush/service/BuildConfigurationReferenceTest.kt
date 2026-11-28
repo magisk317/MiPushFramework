@@ -20,4 +20,16 @@ class BuildConfigurationReferenceTest {
         assertFalse(shellRules.contains("RegistrationRecorder"))
         assertFalse(detekt.contains("**/RegistrationRecorder.kt"))
     }
+
+    @Test
+    fun `notification bridge keep rules cover nested post result`() {
+        val projectRoot = File("../..")
+        val applicationRules = File(projectRoot, "xmsf/proguard-rules.pro").readText()
+        val shellRules = File(projectRoot, "xmsf/shell/proguard-rules.pro").readText()
+        val nestedPostResult =
+            "io.github.magisk317.mipush.notification.NotificationHookBackend\$PostResult"
+
+        assertTrue(applicationRules.contains(nestedPostResult))
+        assertTrue(shellRules.contains(nestedPostResult))
+    }
 }

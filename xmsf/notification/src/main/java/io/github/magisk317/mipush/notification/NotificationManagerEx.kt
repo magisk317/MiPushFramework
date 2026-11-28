@@ -237,6 +237,14 @@ object NotificationManagerEx {
         }
     }
 
+    internal fun getTargetNotificationChannel(
+        packageName: String,
+        channelId: String?,
+    ): NotificationChannel? = channelRegistry().getTargetNotificationChannel(packageName, channelId)
+
+    internal fun removeLocalTargetNotificationShadows(packageName: String): Int =
+        channelRegistry().removeLocalTargetNotificationShadows(packageName)
+
     private fun getNotificationManagerForPackage(packageName: String): NotificationManager? =
         channelRegistry().getNotificationManagerForPackage(packageName)
 
