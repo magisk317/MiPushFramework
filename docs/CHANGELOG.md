@@ -2,6 +2,18 @@
 
 本日志记录了项目近期的主要变更。
 
+
+---
+## [v1.1.5] - 2026-11-28
+- 版本：`versionCode 24` / `versionName 1.1.5`。
+- `[fix]` 修复 Android 17 通知分组、身份与图标处理。#149 #150 #151 #152
+- `[feat]` 完善 manager 与 XMSF 成对 OTA。
+- `[refactor]` 整理运行时存储与设置界面。
+- `[ci]` 对齐构建门禁、版本轴与 OTA 公告。
+- `[deps]` 升级 Kotlin、Gradle、AGP 与相关依赖。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v1.1.4...v1.1.5
+
 ---
 ## [v1.1.4] - 2026-11-16
 - 版本：`versionCode 23` / `versionName 1.1.4`。
