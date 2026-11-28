@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: ae9df2649ee47934c35f676439e1ffd9528db604
+          ref: fde2ec9c0129a05830435aea005f8ee45b3720d6
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -87,7 +87,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: ae9df2649ee47934c35f676439e1ffd9528db604
+          ref: fde2ec9c0129a05830435aea005f8ee45b3720d6
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -200,7 +200,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: ae9df2649ee47934c35f676439e1ffd9528db604
+          ref: fde2ec9c0129a05830435aea005f8ee45b3720d6
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -261,7 +261,7 @@ jobs:
         run: echo "MAGISK_BUILD_TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_ENV"
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: ae9df2649ee47934c35f676439e1ffd9528db604
+          ref: fde2ec9c0129a05830435aea005f8ee45b3720d6
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
@@ -403,7 +403,7 @@ jobs:
     timeout-minutes: 45
     env:
       MAGISK_BUILD_TYPE: debug
-      MIPUSH_ZYGISK_REF: ef5e1c7105da70d32a098b304cfe5bf77ac4a576
+      MIPUSH_ZYGISK_REF: 05d7e907bad6bc3eb3df95c2cfc3ea73f43e72e1
     steps:
       - name: Configure GitLab submodule credentials
         env:
@@ -534,7 +534,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/resolve-ci-toolkit
         with:
-          ref: ae9df2649ee47934c35f676439e1ffd9528db604
+          ref: fde2ec9c0129a05830435aea005f8ee45b3720d6
       - name: Setup Android CI
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:

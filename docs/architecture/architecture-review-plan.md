@@ -1,109 +1,98 @@
 # MiPushFramework Architecture Review
 
-## Final status
+## Current Status
 
-运行时双 APK 架构和主要通知 ownership 边界在源码层已收口。源码、JVM、静态检查和构建结果通过；需要真实 ROM、跨进程或跨用户触发的项目仍未宣称完成。
+The dual-APK runtime architecture, notification ownership boundaries, and the vendor–XMSF split are settled at the source level. Source, JVM, static checks, boundary checks, and builds all pass; items requiring a real ROM, cross-process, or cross-user triggers are not yet claimed as complete (see "Open Gates").
 
-## Architecture invariants
+## Architectural Invariants
 
-- `:xmsf` 只打包可安装的 `com.xiaomi.xmsf` runtime。
-- `:mipush` 拥有 manager UI 和 Xposed 入口。
-- manager 与 runtime 通过签名保护的 Binder 合同通信。
-- 远端读取失败保持 unavailable，不转换为空成功结果。
-- 通知、Island、HyperIsland、proxy、点击路由和生命周期行为保持既有兼容目标。
-- 所有可获得的通知、应用、事件、注册、媒体、KeepAlive、Island 和清理状态均使用明确 Android user scope；缺失或非法身份按 fail-closed 处理。
+- `:xmsf` packages only the installable `com.xiaomi.xmsf` runtime; `:mipush` owns the manager UI and the Xposed entry point.
+- The manager and the runtime communicate through a signature-protected Binder contract.
+- Failed remote reads remain unavailable and are never converted into empty success results.
+- Notification, Island, HyperIsland, proxy, click routing, and lifecycle behavior retain existing compatibility targets.
+- All available notification, app, event, registration, media, KeepAlive, Island, and cleanup states use an explicit Android user scope; missing or invalid identities fail closed.
+- `vendor` is responsible only for event detection, transport implementation, and plan execution; `:core` holds reusable neutral policies; `xmsf` owns runtime composition and Android side effects. `vendor` must not introduce product policies.
 
-## Completed results
+## Ownership and Layering
 
-### Runtime and data ownership
+### Runtime and Data
 
-- 应用、事件、注册、通知 channel、media-session、dedup、extension、KeepAlive 和 package cleanup 已完成用户隔离。
-- God-file 拆分已完成且没有抬高门禁：当前 `ManagerRuntimeClient.kt` 为 893 行，`AndroidPushRuntime.kt` 为 872 行；`ManagerRuntimeBindSession.kt` / `ManagerRuntimeDiagnostics.kt` 分担 manager bind/diagnostic 支持，`AndroidPushRuntimeWindowSupport.kt` 分担 dedup/window/bounded-map 策略，连接状态转移与 session merge 集中在 `RuntimeConnectionObservationCoordinator`。公开 facade、单一 runtime state owner 和锁边界保持不变。
-- `PushRuntimeRegistrationChannelObservationSink` 的 registration/channel state 方法现在显式携带 `androidUserId`；shell execution/channel adapters 将已解析的用户传入 runtime adapter，避免跨模块 observation 边界隐式回退到 current user。`MiPushRuntimeBridge` 的 payload dedupe 也继续传递上游已解析 user，`RuntimeRegistrationCoordinator.replayPending()` 不再丢失 user。
-- JVM 测试中的 primary-user 场景均显式传入 `userId = 0`；observation sink 合同缺少 user、registration record 查询漏参和 replayPending 丢参已修复，runtime 与 shell 全量测试现已通过。
-- manager DTO、Binder 校验、runtime read/write、数据库查询、本地 adapter 和 dedup helper 均使用显式 user scope；生产路径不再用 `coerceAtLeast(0)` 或异常回退到 user 0。legacy 数据库行迁移和输出 DTO 的 `0` 默认值属于兼容协议，不能作为 caller authorization。
-- 跨包、跨用户的 stale ID、event、channel、provider、配置和 fallback 读取均按 ownership 校验。
-- 注册 secret、last-receive、事件解密和 package cleanup 均使用目标用户作用域。
-- EventDb 的 current/显式 user、DatabaseUtils 的初始化/迁移 telemetry user、RuntimeEventQueryPolicy 的查询 user、RegisteredApplicationDb facade 的 current/显式 user、manager application read source/reader 的 current、persisted/transient projection user、manager notification channel reader 的 current/page-token user 以及 ManagerEventRuntimeReader 的入口/显式 query user 均已 fail-closed；manager application/event/channel/write 请求模型缺失 user 时使用 `-1` 并由 Binder/协议校验拒绝，legacy 数据库 schema 的 user `0` 默认值和一次性迁移 SQL 保持不变。输出模型的构造默认值只服务兼容性，不能作为 caller authorization。
-
-- connection status/client-change/channel open/reset/network/redirect、host/GSLB/HostManager、socket candidate/retry/sink-down 与 SLIM handshake/payload/write 的可平台化决策已统一到 `:core commonMain`；`Connection`、`SocketConnection`、`HostManager`、`BlobReader`、`BlobWriter` 真实执行路径均已接线。Android/vendor 继续拥有 URL、socket、I/O、Fallback 持久化、Blob/RC4/CRC/protobuf、Service/Intent 和 telemetry side effects。
-- manager contract validation/size arithmetic, focus parsing/planning, page activation/request isolation, snapshot validity/sorting, JSONL encoding/redaction, and daily route quota decisions are also core-owned. Parcelable/AIDL, Compose/NavController, Binder scheduling, and filesystem operations remain adapters in their owning modules.
+- Apps, events, registrations, notification channels, media sessions, dedup, extensions, KeepAlive, and package cleanup are user-isolated using `(user_id, package)` ownership.
+- Large-file splitting is complete without raising gates: `ManagerRuntimeClient.kt` / `AndroidPushRuntime.kt` have been split into `ManagerRuntimeBindSession.kt`, `ManagerRuntimeDiagnostics.kt`, and `AndroidPushRuntimeWindowSupport.kt`; connection state transitions and session merges are centralized in `RuntimeConnectionObservationCoordinator`. The public facade, single runtime state owner, and lock boundaries are unchanged. (Line counts are intentionally not pinned to avoid rotting as code evolves.)
+- `PushRuntimeRegistrationChannelObservationSink` carries `androidUserId` explicitly; shell execution and channel adapters pass the resolved user; `MiPushRuntimeBridge` dedup and `RuntimeRegistrationCoordinator.replayPending()` no longer drop the user.
+- Manager DTOs, Binder validation, runtime reads/writes, database queries, local adapters, and dedup helpers all use an explicit user scope; production paths no longer use `coerceAtLeast(0)` or exceptional fallback to user 0. Legacy DB row migration and the `0` default in output DTOs serve only protocol compatibility and are not used for caller authorization.
+- Platform-neutral decisions for connection, client change, channel, reset, network, redirect, host, GSLB, HostManager, socket candidate, retry, sink-down, and SLIM handshake, payload, and write are unified in `:core commonMain`; real I/O, URLs, fallback persistence, Blob/RC4/CRC/protobuf, Service/Intent, and telemetry side effects remain in Android/vendor.
+- Manager contract validation and size arithmetic, focus parsing and planning, page activation and request isolation, snapshot validity and sorting, JSONL encoding and redaction, daily route quota, and availability/backoff are held by `:core`; Parcelable/AIDL, Compose/NavController, Binder scheduling, and filesystem operations remain in their owning modules.
 
 ### Notification and Island
 
-- active notification 查询通过目标包 UID/user identity，local fallback 仅接受目标 marker 和目标用户。
-- channel/group 创建、删除、名称补全和 delegated notification lifecycle 保持目标包 ownership。
-- Island proxy 的 post、cancel、dedup、ID、visual snapshot、preference 和 broadcast 均携带用户身份。
-- Top、Sweet、VoIP、extension、focus、progress、click intent 和 cancellation 状态均具备产品侧用户/包隔离。
-- 无法解析目标用户时，发布、取消、provider 读取和配置读取均 fail-closed。
+- Active notification queries are keyed by the target package's UID and user identity; local fallback accepts only the target marker and target user; `getActiveNotifications(packageName, userId)` is the explicit interface, a negative `userId` fails closed, and the legacy interface without a user argument is kept only for compatibility and delegates to the current space.
+- Channel/group creation, deletion, name completion, and delegated notification lifecycle retain target-package ownership.
+- Island proxy post, cancel, dedup, ID, visual snapshot, preference, and broadcast all carry user identity; Top, Sweet, VoIP, extension, focus, progress, click intent, and cancellation have product-side user/package isolation.
+- When the target user cannot be resolved, publish, cancel, provider reads, and configuration reads all fail closed.
+- Notification reflection and ROM compatibility exceptions have explicit failure logs, fallback, and safe exception propagation, with no detekt file-level suppression.
 
-### Boundary and security
+### Vendor–XMSF Boundary
 
-- vendor lifecycle 通过 observer/plan 将策略决策交给 xmsf。
-- vendor active notification facade 增加显式 user API；旧无用户接口仅保留兼容。
-- vendor product import baseline 未新增。
-- Android 17 optional reflection 只把明确的缺失类/方法视为 unavailable 并进入受限 fallback；`SecurityException`、`InvocationTargetException` 等真实调用失败继续保持 failure 语义。vendor notification、DeviceInfo 和可选 push-manager 探测均有源码合同，最后一次已安装的 Android 17 smoke 未发现匹配的项目 warning。
-- `XSpaceXmsfInstallKeeper` 对 dual-app 状态读取失败保持 unavailable，不执行 root 或 package mutation；user 999 同步只使用显式、固定的包命令。正常同步路径已覆盖，异常注入和 user 999 第三方通知仍不是设备完成证据。
-- `MiPushZygisk` native hook 属于外部 source/ref/NDK ABI；MiPushFramework 只消费其构建产物，native registration 或 ABI 兼容性不能由本仓库 Kotlin/Xposed 源码结论替代。
-- 外部 Binder、provider、SDK ingress、intent、payload、package/UID ownership 和 telemetry boundary 均有源码合同保护。
-- 未恢复 OneTrack、tiny-data、LNS/LNC、installed-app collection、log upload 或 notification-exposure telemetry。
+- `vendor` owns stock transport, heartbeat, timeout, compatibility predicates, and frozen implementations; it delegates product policy decisions to `xmsf` through observers and plans, and no longer holds product policies directly.
+- Retained frozen compatibility surface: `PING_TIMEOUT_MS=10s`, `CONNECTING_TIMEOUT=15s`, heartbeat `235s`/`600s`, `shouldReconnect`/`shouldFalldown`, minimal observer adapter calls; product imports are recorded in `scripts/vendor_boundary_baseline.txt` with no new boundary debt.
+- Dedup entry points are layered by call timing and cannot be merged into a global cache:
+  - `StockMiPushPayloadDeduper` (`:xmsf:runtime`): full payload digest before `MiPushFacadeService` forwards external SDK intents, preserving the stock stale-hit ordering.
+  - `AndroidPushRuntimeWindowSupport` (`:xmsf:runtime`): inbound observation for `PushRuntime.observeInboundMessage`, user/package/message identity, and action burst windows.
+  - `DuplicateMessagePolicy` (`:core`): the hook duplicate callback of `xmsf/push` `ExplicitHookBridge`, keyed by user/package/message ID.
+  - The stock SDK's 25-ID app-facing cache is merged with `RegistrationRecordDeduper` local registration history; each serves a different call timing.
+  - `PushRuntimeDuplicateStore` / `MiPushMessageDuplicate` remain only as compatibility facades/adapters and are not the current delivery gate.
+- Android 17 optional reflection treats only explicitly missing classes/methods as unavailable and enters a restricted fallback; real failures such as `SecurityException` / `InvocationTargetException` retain failure semantics.
+- `XSpaceXmsfInstallKeeper` keeps unavailable on dual-app read failures and performs no root or package mutation; user 999 sync uses only explicit fixed-package commands.
+- `MiPushZygisk` native hooks belong to an external source/ref/NDK ABI; this repository consumes only their build artifacts.
 
-## Code-only evidence summary
+## Stock Parity Decisions
 
-- 当前受影响模块验证使用 `:core:jvmTest`（KMP JVM target），以及 manager contract/client/UI、notification、XMSF shell 和 Xposed 的对应测试/编译任务；捕获日志无 Kotlin compiler warning。
-- `./gradlew qualityGateKoverVerify --warning-mode=all --console=plain` 通过；目标为 `common/core/xposed/xmsf:shell`，门槛分别为 10%/10%/10%/7%，不再把仅用于打包的 `:xmsf` 根应用误作为 0% 实现模块。
-- 当前工作树执行 `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleGithubDebug --warning-mode=all --console=plain`，1362 actionable tasks 全部通过；Kover 只应用于四个明确门禁模块，不让零测试的 packaging/vendor 模块污染普通 `check`。
-- `manager:port` JSON 序列化/default/未知字段兼容测试通过；CallMessage、PushCommonProvider、regSec 缺失目标偏好文件和 xmsf runtime regression tests 通过。
-- `verifyGodFileLimits`、`verifyModuleBoundaries`、ShellCheck、CI shard 脚本测试和 `git diff --check` 通过。
-- `.kiro` 下的历史规格保留原始任务上下文；当前架构归属、验证命令和开放项以本文、`xmsf-decomposition-roadmap.md` 及仓库根/模块 `AGENTS.md` 为准。
+Source and build layers are verified; cross-UID and cross-device parity still has open gates. Conclusions from the manifest diff against stock 3.7.9 → 7.4.67-C → 7.5.29 (see `docs/CHANGELOG.md` v1.0.3):
 
-## Last device evidence (2026-08-31)
+- Upstream sync principle: features removed upstream are removed here too, with no historical debt. `FocusNotificationCollectionFilter` and the `OnetrackSwitch(140)` gate chain have been removed; LNS/LNC, CollectRunningTasks, and MainProcBridge were never mirrored or were removed early (guarded by absence tests).
+- Retained decisions: ads q0/r0 ack, tiny-data ingress rejection, subscribe-remind, hyper_type/TTS/CallKit, OcVersion/DailyCheck, PushControl, and the MiCloud provider are still shipped in 7.5.29; `island.prefs`/IconPack are product-owned surfaces; the pinned 3.7.9 dictionary is client-side frozen fidelity.
+- The spoofed version has been raised to `7.5.29-C / 70005029` (`PushVersionInfo.STOCK_XMSF_APP_VERSION_*`, plus the fakeXmsfPackageInfo and service-package self-report chains).
+- Five Island/dispatch consistency fixes: focus authentication allow-all, the five `MESSAGE_ARRIVED` fixes, `autoMarkPkgs` pass-through and ack alignment, and 30-second non-display dedup changed to an empty-messageId bypass.
+- SendMessage pass-through display classification and the 6-hour replay drop are product decisions; the FCM assemble-push decryption branch has zero impact in this architecture (no FCM receiver, tokens are never uploaded).
+- Known limitations (all with code KDoc anchors): the msg-id → notification ID registry, AppOps notification permission writes, the CallKit watcher, `provider.g` profile cache refresh, scenepush, the GroupBindCommand Room ledger, server allowlist/scheduled sync, the `h/h.c` click-statistics ring, and encrypted LBS command payloads.
+- OneTrack, tiny-data, LNS/LNC, installed-app collection, log upload, and notification exposure collection have not been restored.
 
-The following device evidence belongs to the 2026-08-31 installed APK. The 2026-09-01 policy and
-manager refactor has passed local build/test gates but has not been installed or replayed on a
-device, so it does not extend these runtime claims.
+## Source-Level Verification
 
-- 该次设备验证使用 `universal_normal_xmsf_v1.0.1-20260831_221345_debug.apk` 和 `universal_MiPush_v1.0.1-20260831_221345_debug.apk`；SHA-256 分别为 `22045fd002759817b9df0cd3a6d2e931b476813f9206def7dbf38509af8b23eb`、`8a0ba99c2a9e1fc8eb00d4ffa862b680fe135be90bf133634cde27247d0a0e30`，MD5 分别为 `e54b4e63dda990587fdfd13980a3164b`、`1a5f1a257edbd44280488da6b50634c4`。两包经本地/MBP SHA-256 和 MD5 一致性校验后使用 `adb install -r` 安装，未清除应用数据。
-- 该次验证设备为 MBP 连接的 Xiaomi `pudding`，Android 17/API 37，current user 0。覆盖安装后执行受控冷启动，XMSF 主进程、`:services`、manager、`ServiceBoxService`、`XMPushServiceCore` 和 `ManagerRuntimeService` 均存活。
-- manager Binder 连续读取 `connection_snapshot` 成功，运行时状态保持 `Connected`；当前最终日志窗口没有 XMSF/manager crash 或 ANR。
-- Android 17 真机还暴露了 exported `XMPushService` facade 被外部 `startForegroundService` 调用时的 deadline crash；`stopSelfResult()` 单独不足以满足该 ROM。最终实现先通过 `ForegroundHelper` 瞬时 `startForeground`/`stopForeground` 确认系统契约，再完成分发和 `stopSelfResult()`。显式 `am start-foreground-service` 后等待超过 deadline，进程和核心服务保持存活，`ForegroundServiceDidNotStartInTimeException` 为 0。
-- 首轮真机日志暴露出目标应用没有 `shared_prefs/mipush.xml` 时 `Utils.getRegSecs()` 触发 `ContextImpl` 目录创建警告洪泛。加入文件存在性保护并重装最终 APK 后，同一 manager event-page/调试解码入口中 XMSF `ContextImpl` 警告从约 9038 行降为 0；最终冷启动窗口的少量 framework `ContextImpl` 行均无项目调用栈，不构成项目 warning flood。
-- `BackgroundActivityStartEnabler` 失败根因已确认：当前 XMSF 的 `POST_NOTIFICATIONS` runtime permission 为 denied，自有 `MPF.BAFE` 通知被 NMS 静默丢弃，而 `activeNotifications` 返回 XMSF 作为 `opPkg` 发布的 delegated records。修复后在权限不可用时优先选择含 PendingIntent 的 existing active donor（精确 `MPF.BAFE` 身份仍优先），且只清理自有 tag/channel，不取消 donor。最终 Android 17 专用窗口首次 capture 成功，日志为 `source=ExistingNotification`；选中的 Alipay donor 精确身份记录前后保持 `1 -> 1`（此前独立窗口的 notification records 总数为 `44 -> 44`）。
-- 该窗口只证明当次安装 APK 的安装、冷启动、foreground-facade 契约、核心服务、manager Binder、BAFE active donor 和既有长连接；没有触发真实跨 UID 注册、通知点击、XSpace、网络切换、KeepAlive negative control 或 package cleanup。
+- `./gradlew check qualityGateKoverVerify :xmsf:assembleNormalDebug :mipush:assembleGithubDebug --warning-mode=all --console=plain` is green; Kover applies only to `common/core/xposed/xmsf:shell` (10%/10%/10%/7%), and zero-test packaging/vendor modules are excluded.
+- Kotlin compiler warnings 0, lint findings 0; `verifyModuleBoundaries`, ShellCheck, CI shard script tests, and `git diff --check` pass.
+- `manager:port` JSON compatibility, CallMessage, PushCommonProvider, regSec missing-target preference file, and XMSF runtime regression tests pass.
+- The historical device dump index is 87 raw / 86 unique / 0 errors, kept only as an audit record and not representative of the current working tree.
 
-## Historical device evidence
+## Open Gates
 
-- 历史 APK：`universal_normal_xmsf_v1.0.1-20260830_070831_debug.apk`，versionCode `1003003000`，versionName `1.0.1-20260830_070831`；其 hash、安装链路和设备状态只对应 2026-08-30 的旧工作树。
-- user 0 设备验证：历史窗口中 xmsf 主进程、`:services`、`ServiceBoxService`、`XMPushServiceCore` 和 `ManagerRuntimeService` 均运行。`MainProcBridgeService` 已按 stock 7.5.29-C 基线移除，不能再作为运行证据。manager handshake、connection snapshot 和 `RegistrationStateCompat` 均曾返回 primary-user 作用域结果；精确 PID、主机和设备路径不写入此持久文档。
-- user 999 XSpace 验证：历史窗口中 user 999 的 xmsf 与 manager 均已安装，manager handshake、`ManagerRuntimeService` 绑定和 application list 均使用 `userId=999`，未把 primary-user 的 application list 数量投影到 XSpace。该用户的 registration-specific 查询未单独触发，不能宣称注册去重/registration record 已完成跨用户设备验证。
-- 安装后历史 logcat 曾出现两次 user 0 启动期 framework `APP CRASH(EXCEPTION)`，堆栈止于 `ActivityThread.handleBindApplication` / `ConfigurationController.updateLocaleListFromAppContext`，未进入本项目 runtime 代码；结合 package-update kill 记录，判断为覆盖安装后的 ROM/LSPosed 旧 APK 资源路径竞态。随后新 APK 进程稳定运行并完成 Binder 验证；该启动竞态保留为设备异常记录，不能写成“无 crash”。
-- 设备实时 dumpsys/logcat 未证明 heartbeat 学习、网络切换、KeepAlive negative control、真实注册去重、malformed/telemetry rejection、通知全链路或 package cleanup 的完整行为；这些仍需独立场景验证。
+### Device and Cross-Process
 
-## Open source follow-up
+- Long-term background survival, manifest/component external call surface, and long-connection recovery after restart/standby; currently only short-window cold start and connected snapshots are covered.
+- Heartbeat learning, ping timeout, network switching, OC updates, and alarm re-registration.
+- KeepAlive Binder/config, observer/polling, bind transfer, unbind, retry, and anti-kill negative controls.
+- Real cross-UID SDK entry, registration, dedup, control actions, payload validation, and telemetry rejection; the registration-specific query for user 999 has not been triggered separately.
+- Package data clear/removal, user isolation, and same-package cross-profile cleanup.
 
-- 请求入口、存储 facade 和 notification/registration 关键路径的非法 user 已在源码层 fail-closed；后续新增 user-scoped DTO 必须沿用 `-1` 缺省与显式校验规则。
-- `RuntimeEventDeletionRepository` 的显式删除/恢复请求继续保持非法 requested user fail-closed；历史数据库迁移仍固定把未带 user 字段的 legacy rows 归入 user 0。
+### Notification and Platform
 
-## Open device gates
+- Delegated/framework notification lifecycle, target identity, channel/permission/group/click preservation; BAFE active donor capture passes under Android 17 permission denial, but real cross-UID background-activity launch still needs separate verification.
+- HyperIsland, Top, Sweet, VoIP, extension callback/fallback, focus/progress, and self-update revival.
+- Provider/Binder caller authorization, cloud/account compatibility, XSpace, and privileged platform helpers.
+- AOSP/non-MIUI downgrade, Android 16+ progress and promoted ongoing notification behavior.
 
-最近一次设备 APK 已覆盖 user 0 安装、冷启动、核心服务、manager Binder 和稳定 connection snapshot；历史窗口另有旧 APK 的 user 999 application-list 证据。2026-09-01 重构后的 APK 尚未安装，以下仍未完成或仅有部分证据：
+### External Dependencies
 
-- heartbeat 学习、ping timeout、网络切换和 alarm 重注册。
-- KeepAlive Binder/config、observer/polling、服务绑定和 anti-kill negative controls。
-- 跨 UID SDK ingress、registration-specific 去重/控制动作、package clear/removal 和 malformed/telemetry rejection；user 999 的 registration-specific 查询尚未单独触发。
-- delegated notification、HyperIsland、Top、Sweet、VoIP、click routing 和 self-update revival 的完整场景；`BackgroundActivityStartEnabler` 在当前 Android 17/通知权限拒绝条件下的 active donor capture 已完成，但这不替代真实后台 activity launch 的跨 UID 场景验证。
-- provider caller authorization、工作资料用户和更复杂的同包跨用户隔离场景。
-- 覆盖安装后的两次 framework 资源初始化 crash（旧 APK 路径竞态）尚未在第二台 ROM 或冷启动场景复现/修复；当前证据表明它发生在应用代码之前，不能归因于本轮 facade/runtime user-scope 修改。
+- Versioned evidence for external platform helpers such as `SecurityCoreAdd.apk` is missing.
+- `MiPushZygisk` native source/ref/NDK ABI native registration and Android 17 compatibility need verification in a separate source/release gate.
+- XMSFKeeper and other privileged helpers are treated as external dependencies and are not faked inside XMSF.
 
-历史 APK 的设备证据不能替代上述场景门禁；特别是“user 0 与 user 999 的 manager/runtime/application-list 已实际运行”不等于所有 registration、notification、cleanup 和 SDK ingress 行为均已跨用户完成验证。
+## Non-Claims
 
+Source tests, static checks, buildable APKs, manifest presence, short no-crash windows, or a single `dumpsys notification` snapshot cannot by themselves prove visible UI, cross-UID calls, cross-user isolation, KeepAlive binding, heartbeat learning, or full stock parity. Historical APK/device window evidence cannot replace the gates above.
 
-## Manager background and framework identity registration audit (2026-08-30)
+## References
 
-- `KeepAliveHook` 的 `desiredOomAdj`、standby/doze bypass、`killLocked` 和 package-kill guard 均严格匹配 `com.xiaomi.xmsf`；`io.github.magisk317.mipush` 不属于 anti-kill 保护目标，也不会被该 hook 主动杀死。对应 manager package negative-control 已加入 `KeepAlivePolicyTest`。
-- manager 的 `finishAndRemoveTask()`/`Process.killProcess()` 仅存在于用户明确切换 launcher icon 的 `LauncherIconController.applyAndRelaunch()/exitOnly()` 流程；普通 Home、Binder reconnect、runtime recovery 均不调用它们。桌面 launcher alias 直接指向 `MainActivity`，首次使用由 `MainActivity` 路由到 `RequestPermissionPage`；不再存在 `WelcomeActivity`、`ManagerLauncherActivity` 或 XMSF 侧 redirect trampoline。
-- 受控普通后台复现中，user 0 与 user 999 的 manager 进程在启动后按 Home 仍存活，对应任务也保留；未观察到当前测试窗口的 `finishAndRemoveTask`、manager `force-stop` 或 manager kill。历史 exit-info 的 manager 记录来自 ROM/第三方策略：`LockScreenClean` force-stop，以及 `umms_selfcheck` 的 `OTHER KILLS BY SYSTEM`。因此不能把该问题归因于 xmsf anti-kill，也不应为 manager UI 扩大常驻 anti-kill；ROM 的后台/任务清理策略仍是设备侧开放项。
-- application detail/diagnostics 入口在 user 0 触发了 `ManagerRuntime application_detail`、`application_diagnostics` 和 registration read；日志明确携带 `userId=0`。user 999 的 application list 使用 `userId=999`，仍为 `items=1 using=1 total=2`；本次 `com.xiaomi.xmsf` 详情没有形成独立 user 999 detail 调用，不能宣称 user 999 registration-specific detail 已完成。
-- xmsf self-registration 与第三方 app force-register 已明确分离。`ProactiveMiPushRegistrar` 只扫描带 credentials/legacy service 的第三方 app；`FirstRegister`、`RetryRegister`、boot/network runtime dispatch 才是 xmsf 使用固定 `Constants.APP_ID/APP_KEY` 调用 `MiPushClient.registerPush()` 的路径。
-- 新增 `KEY_ENABLE_FRAMEWORK_SELF_REGISTRATION`，默认 `false`。push service 启动、boot/network dispatch、FirstRegister、历史 RetryRegister 和 execution bridge 均遵守该 opt-in；关闭时仍启动 runtime connection，不调用 `MiPushClient.registerPush()`，也不写入虚假的 framework registration request record。已有 xmsf regId 只读显示，不会被自动清除。显式 opt-in API 为 per-user preference，非法 current user fail-closed。
-- 回归覆盖：已注册不重复注册、未注册且 opt-in 时仍保留请求/retry 合同、关闭 opt-in 时不请求不排队、runtime host 禁止时 boot/network 不产生 framework registration record、manager package 不命中 KeepAlive policy、非法 user 的 Island click identity fail-closed。源码 targeted tests 已通过。
+- Current boundary ownership and verification status are defined by this document, `xmsf-decomposition-roadmap.md`, `xmsf-package-boundaries.md`, `current-runtime-call-flow.md`, and the repository/module `AGENTS.md`.
+- Historical specs in `.kiro/specs/` retain only original task context and are not a source of current status.

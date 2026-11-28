@@ -1,30 +1,30 @@
 include:
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/android.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/renovate.yml
 
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/cancel-mr-pipelines.yml
   # Utility-job anchor (alpine, pinned): update:anip-bundle extends it instead of
   # pinning its own image; sync:github gets it through the mirror anchor.
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/utility.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/github-sync.yml
   - project: magisk3171/shared/magisk-ci-toolkit
-    ref: "ae9df2649ee47934c35f676439e1ffd9528db604"
+    ref: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
     file: /.gitlab/ci/readme-badges.yml
 
 workflow:
@@ -58,7 +58,7 @@ variables:
   # response with a bash regex instead; af0295f additionally writes the
   # allocated code to .magisk-version-code as a durable handoff for staging;
   # the stager also prefers MAGISK_VERSION_CODE when the export is present.
-  MAGISK_CI_TOOLKIT_REF: "ae9df2649ee47934c35f676439e1ffd9528db604"
+  MAGISK_CI_TOOLKIT_REF: "fde2ec9c0129a05830435aea005f8ee45b3720d6"
   # Quality-stage jobs (test/detekt/compat/boundaries) read this tag so the
   # quality stage can move off a busy host.
   # All Android jobs (test/build/bundle/publish) read these tags, which both
@@ -107,7 +107,7 @@ variables:
   # Must be a commit SHA: the MiPushZygisk repository carries no tags, so a tag ref
   # here fails the fetch outright. Bump it together with the MiPushZygisk release
   # (module.prop version/versionCode must stay in sync with libs.versions.toml).
-  MIPUSH_ZYGISK_REF: "1758688318050b84afac820d9a30fe12c1f25627"
+  MIPUSH_ZYGISK_REF: "05d7e907bad6bc3eb3df95c2cfc3ea73f43e72e1"
   MIPUSH_ZYGISK_NDK_VERSION: "r30"
   MIPUSH_ZYGISK_NDK_REVISION: "30.0.16248370"
   MIPUSH_ZYGISK_NDK_HOME: "/opt/android-sdk/ndk/30.0.16248370"
@@ -428,6 +428,9 @@ telegram:ci:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
     MAGISK_TELEGRAM_CI_BRANCH: "beta"
+    MAGISK_TELEGRAM_OTA_VERSION_PATH: "ci-dist/io.github.magisk317.mipush/version.txt"
+    MAGISK_TELEGRAM_OTA_RUNTIME_VERSION_PATH: "ci-dist/com.xiaomi.xmsf/version.txt"
+    MAGISK_TELEGRAM_OTA_MARKER_PATH: "ci-dist/telegram-announcement.txt"
     MAGISK_TELEGRAM_CI_ARTIFACT_PATTERNS: |-
       *arm64-v8a*.apk
       arm64-v8a_*.zip
@@ -435,6 +438,11 @@ telegram:ci:
     # without the rolling pin; the toolkit after_script hook relays a pointer
     # into the legacy room (MAGISK_TELEGRAM_LEGACY_NOTICE_* project variables).
     MAGISK_TELEGRAM_PIN: "false"
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-dist/telegram-announcement.txt
   needs:
     - job: android:build
       artifacts: true
@@ -442,6 +450,21 @@ telegram:ci:
     - job: zygisk:build:arm
       artifacts: true
       optional: true
+
+android:build-warnings:
+  extends: .magisk_android_build_warnings
+  stage: quality
+  # Delivery first: run after build/release, never block the pipeline.
+  # Pull the build log only when it exists; a failed/absent build still runs
+  # this job (optional + when: always), which then exits 0 with a notice.
+  needs:
+    - job: android:build
+      artifacts: true
+      optional: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
 
 android:detekt:
   extends:
@@ -453,15 +476,12 @@ android:detekt:
   allow_failure: true
   # Wait for automatic Renovate delivery when present; the optional manual
   # Play action on human beta pipelines does not block this quality job.
-  needs:
-    - job: android:build
-      artifacts: false
+  needs: []
   cache: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
       detekt
       qualityGateDetekt
-      verifyGodFileLimits
       -PminifyDebug
       -Pkotlin.incremental=false
   artifacts:
@@ -489,9 +509,7 @@ android:test:pure-modules:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
-  needs:
-    - job: android:build
-      artifacts: false
+  needs: []
   cache: []
   variables:
     MAGISK_ANDROID_TEST_SHARDS: android-pure-modules
@@ -504,6 +522,7 @@ android:test:pure-modules:
       # Guards the blocking staging path: a lost allocated versionCode
       # used to vanish silently instead of failing the job.
       bash scripts/ci/tests/test_stage_ci_dist.sh
+      bash "$MAGISK_CI_TOOLKIT_DIR/ci/tests/test_telegram_ota_marker.sh"
       bash scripts/ci/tests/test_gitlab_ci_config.sh
       bash scripts/ci/run_test_shards.sh "$MAGISK_ANDROID_TEST_SHARDS"
   artifacts:
@@ -523,9 +542,7 @@ android:test:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
-  needs:
-    - job: android:build
-      artifacts: false
+  needs: []
   cache: []
   script:
     - |
@@ -554,9 +571,7 @@ android:module-boundaries:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
-  needs:
-    - job: android:build
-      artifacts: false
+  needs: []
   variables:
     MAGISK_LINUX_APT_PACKAGES: "ripgrep"
   script:
@@ -571,9 +586,7 @@ android:shared-compat:
   stage: quality
   tags:
     - $MIPUSH_QUALITY_RUNNER_TAG
-  needs:
-    - job: android:build
-      artifacts: false
+  needs: []
   cache: []
   before_script:
     - !reference [.magisk_android_base, before_script]

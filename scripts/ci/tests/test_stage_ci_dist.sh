@@ -18,7 +18,7 @@ trap 'rm -rf "$tmp_dir"' EXIT
 mkdir -p "$tmp_dir/work/mipush/build/outputs/apk/github/debug"
 mkdir -p "$tmp_dir/work/xmsf/build/outputs/apk/normal/debug"
 mkdir -p "$tmp_dir/work/gradle"
-printf 'apk' > "$tmp_dir/work/mipush/build/outputs/apk/github/debug/universal_mipush_v0.4.1-20261027_070707_debug.apk"
+printf 'apk' > "$tmp_dir/work/mipush/build/outputs/apk/github/debug/universal_mipush_v1.2.3-20261027_070707_debug.apk"
 printf 'apk' > "$tmp_dir/work/xmsf/build/outputs/apk/normal/debug/universal_xiaomi_xmsf_v1.2.3-20261027_070707_debug.apk"
 cat > "$tmp_dir/work/gradle/libs.versions.toml" <<'TOML'
 [versions]
@@ -63,7 +63,7 @@ run_stager() {
 printf '1623\n' > "$tmp_dir/work/.magisk-version-code"
 run_stager
 
-manifest="$tmp_dir/work/ci-dist/io.github.magisk317.mipush/0.4.1-20261027_070707/mipush-ci-manifest.json"
+manifest="$tmp_dir/work/ci-dist/io.github.magisk317.mipush/1.2.3-20261027_070707/mipush-ci-manifest.json"
 [ -f "$manifest" ] || { echo "FAIL: mipush manifest was not staged" >&2; exit 1; }
 grep -Fq '"versionCode": 1623' "$manifest" || {
   echo "FAIL: mipush manifest does not carry the allocated code:" >&2
@@ -75,7 +75,7 @@ grep -Fq '"minSupportedVersionCode": 1623' "$manifest" || {
   cat "$manifest" >&2
   exit 1
 }
-grep -Fq '"versionName": "0.4.1-20261027_070707"' "$manifest" || {
+grep -Fq '"versionName": "1.2.3-20261027_070707"' "$manifest" || {
   echo "FAIL: versionName was not parsed from the APK file name" >&2
   exit 1
 }
@@ -215,8 +215,8 @@ grep -Fq '"commit": "7865a560"' "$manifest" || {
 # (AppUpdateChecker.kt, ciSidecarVersionShape), so a bare version would publish a
 # path no client can name and an update channel that reports "up to date".
 manager_dir="$tmp_dir/work/mipush/build/outputs/apk/github/debug"
-manager_stamped="$manager_dir/universal_mipush_v0.4.1-20261027_070707_debug.apk"
-manager_bare="$manager_dir/universal_mipush_v0.4.1_debug.apk"
+manager_stamped="$manager_dir/universal_mipush_v1.2.3-20261027_070707_debug.apk"
+manager_bare="$manager_dir/universal_mipush_v1.2.3_debug.apk"
 mv "$manager_stamped" "$tmp_dir/manager-apk.bak"
 printf 'apk' > "$manager_bare"
 rm -rf "$tmp_dir/work/ci-dist"
@@ -265,7 +265,7 @@ if run_stager >/dev/null 2>&1; then
   echo "FAIL: stager succeeded with no allocated versionCode available" >&2
   exit 1
 fi
-[ ! -e "$tmp_dir/work/ci-dist/io.github.magisk317.mipush/0.4.1-20261027_070707/mipush-ci-manifest.json" ] || {
+[ ! -e "$tmp_dir/work/ci-dist/io.github.magisk317.mipush/1.2.3-20261027_070707/mipush-ci-manifest.json" ] || {
   echo "FAIL: a manifest was staged from an unknown versionCode" >&2
   exit 1
 }

@@ -39,7 +39,7 @@ run_shard() {
         :magisk-ui-kit:testAndroidHostTest \
         :magisk-ui-kit:jvmTest \
         :magisk-ui-kit:billing:testDebugUnitTest \
-        :magisk-ui-kit:update:testGithubDebugUnitTest \
+        :magisk-ui-kit:governance:testGithubDebugUnitTest \
         :magisk-xposed-kit:testDebugUnitTest \
         :magisk-xposed-kit:contract:test \
         :magisk-xposed-kit:capability:testDebugUnitTest \

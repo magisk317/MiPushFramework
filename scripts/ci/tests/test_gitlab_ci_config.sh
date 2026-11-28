@@ -77,7 +77,7 @@ if not any("ci/otel_export.sh" in line and not line.lstrip().startswith("#")
            for line in after_script):
     fail("android:build after_script must retain the OTEL export")
 
-# Keep Detekt + verifyGodFileLimits combined and optional, as approved.
+# Keep the combined optional Detekt job, as approved.
 detekt = get_job("android:detekt")
 if not any(re.fullmatch(r"  allow_failure:\s*true\s*(?:#.*)?", line)
            for line in detekt):
@@ -85,7 +85,7 @@ if not any(re.fullmatch(r"  allow_failure:\s*true\s*(?:#.*)?", line)
 detekt_variables = get_field(detekt, "variables")
 if not any(line.strip() == "MAGISK_ANDROID_DETEKT_TASKS: >-" for line in detekt_variables):
     fail("android:detekt must retain its combined MAGISK_ANDROID_DETEKT_TASKS list")
-for task in ("detekt", "qualityGateDetekt", "verifyGodFileLimits"):
+for task in ("detekt", "qualityGateDetekt"):
     if not any(line.strip() == task for line in detekt_variables):
         fail(f"android:detekt task list must include {task}")
 

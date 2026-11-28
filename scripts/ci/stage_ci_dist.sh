@@ -145,6 +145,11 @@ stage_runtime_variant() {
     echo "cannot resolve versionName from the runtime APK name: $apk (got: ${version:-none})" >&2
     exit 1
   fi
+  if [ "$version" != "$mipush_version" ]; then
+    echo "manager/runtime versionName mismatch: manager=$mipush_version runtime=$version" >&2
+    exit 1
+  fi
+
   # The runtime versionCode comes from the version catalog, not from the
   # manager's allocated code: the two live on different scales. An unreadable
   # readout would stage invalid JSON both probes choke on, so fail loudly
