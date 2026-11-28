@@ -3,7 +3,7 @@
 # Format: relative/path.kt|matched source line (import or inline io.github.magisk317 FQCN
 # reference; scanner trims leading whitespace and keeps comment/string lines in scope)
 # Every entry MUST have: stock source, impact, verification status.
-# See docs/vendor_boundary_audit.md for full details.
+# See docs/architecture/vendor_boundary_audit.md for full details.
 # === Category 1: MagiskOtel Structured Telemetry (10 entries) ===
 # Source: stock com.xiaomi.channel.commonutils.logger.MyLog
 # Impact: Structured JSONL events, no behavior change
@@ -23,7 +23,7 @@
 # === Category 5: Inline FQCN plan delegation to runtime-core (22 entries) ===
 # Source: stock inline policy logic in slim/smack/connection code paths
 # Impact: Plan-delegation/adapter idiom sanctioned by
-#         docs/architecture/vendor-xmsf-boundary-compliance.md; vendor detects events and
+#         docs/architecture/architecture-review-plan.md; vendor detects events and
 #         executes runtime-core plan factories inline; no new vendor-owned policy constants
 # Verified: PushSlimPlanFactoryTest, PushConnectionPolicyPlanFactoryTest,
 #           BlobStreamPolicyWiringContractTest, PushConnectionStatusRuntimeTest,
@@ -43,7 +43,7 @@
 # xmsf/shell/src/main/java/com/xiaomi/push/service/timers/AlarmManagerTimer.kt) with a
 # vendor StockAlarmManagerTimer fallback. The target is a com.xiaomi.* class-name string, so
 # it is invisible to the io.github.magisk317. scan by design; it is a sanctioned,
-# reflection-free-of-import compatibility seam documented in docs/vendor_boundary_audit.md.
+# reflection-free-of-import compatibility seam documented in docs/architecture/vendor_boundary_audit.md.
 vendor/src/main/java/com/xiaomi/channel/commonutils/file/SDCardUtils.kt|import io.github.magisk317.xposed.logging.XLog
 vendor/src/main/java/com/xiaomi/channel/commonutils/logger/KermitLoggerCompat.kt|import io.github.magisk317.xposed.logging.XLog
 vendor/src/main/java/com/xiaomi/channel/commonutils/logger/MyLog.kt|import io.github.magisk317.xposed.logging.XLog

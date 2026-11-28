@@ -1,15 +1,15 @@
 # Storage Ownership Matrix
 
-> 创建日期：2026-08-22
-> 更新日期：2026-08-31
-> 对应文档：`docs/architecture/boundary-model.md`、`docs/architecture/current-runtime-call-flow.md`
-> 用途：记录每个存储键/表的所有者、进程、用户、读写 API、迁移版本和清除条件
+> Created: 2026-08-22
+> Updated: 2026-08-31
+> Related docs: `docs/architecture/boundary-model.md`, `docs/architecture/current-runtime-call-flow.md`
+> Purpose: records the owner, process, user, read/write APIs, migration version, and clear condition of every storage key/table
 
-## 1. DataStore Preferences（产品设置）
+## 1. DataStore Preferences (Product Settings)
 
 | Key / Pref | Owner | Process | User | Read API | Write API | Migration | Clear Condition | Stock Contract |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `mipush_framework_settings` (全局) | `PreferenceRepository` | xmsf + manager | current | `dataStore.data` Flow | `dataStore.edit {}` | N/A | app data clear | No |
+| `mipush_framework_settings` (global) | `PreferenceRepository` | xmsf + manager | current | `dataStore.data` Flow | `dataStore.edit {}` | N/A | app data clear | No |
 | Island settings (ISLAND_PREF_*) | `PreferenceRepository` | xmsf + manager | current | `readIslandSettingsSnapshot()` | setters in PreferenceRepository | N/A | app data clear | No |
 | KeepAlive settings (KEEPALIVE_PREF_*) | `PreferenceRepository` | xmsf + manager | current | Flow exposure | setters in PreferenceRepository | N/A | app data clear | No |
 | Debug mode | `PreferenceRepository` | xmsf | current | `isDebugMode` Flow | `setDebugMode()` | N/A | app data clear | No |
@@ -20,13 +20,9 @@
 | Application list cache | `ApplicationListCacheStore` | manager | current | DataStore | DataStore edit | N/A | app data clear | No |
 | Event list cache | `EventListCacheStore` | manager | current user-scoped key | DataStore cache-first read | DataStore edit/merge | N/A | app data clear | No |
 
-事件列表缓存是 manager 侧的显示镜像，不是 XMSF `EVENT` 表的第二个事实来源。页面打开时
-先恢复缓存；XMSF maintenance/background refresh 读取 runtime 第一页后与原始缓存合并；显式
-刷新仍通过 `RemoteEventListSource` 查询 runtime。成功但为空的 runtime 页和临时 unavailable
-读取不会自动删除已有缓存，因此 UI 可能继续显示较早的历史事件，而同一时刻的
-`getEventPage items=0` 只代表本次 live query 没有返回行。
+The event list cache is a display mirror on the manager side, not a second source of truth for the XMSF `EVENT` table. On page open the cache is restored first; XMSF maintenance/background refresh reads the first runtime page and merges it with the original cache; explicit refresh still queries the runtime through `RemoteEventListSource`. A successful but empty runtime page and a transient unavailable read do not automatically evict the existing cache, so the UI may keep showing older historical events, while `getEventPage items=0` at the same moment means only that this particular live query returned no rows.
 
-## 2. Room Database（运行时存储）
+## 2. Room Database (Runtime Storage)
 
 | Table | Owner | Process | User | Read API | Write API | Schema Version | Clear Condition | Stock Contract |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -34,7 +30,7 @@
 | DELETED_EVENT | `EventRepository` | xmsf | (user_id, pkg) | DeletedEventDao queries | DeletedEventDao.insert | v9 | retention policy (bounded) | No |
 | REGISTERED_APPLICATION | `RegisteredApplicationDb` | xmsf | (user_id, pkg) | RegisteredApplicationDao | RegisteredApplicationDao | v9 | package uninstall | Partial (stock registration) |
 
-## 3. SharedPreferences（vendor / 兼容）
+## 3. SharedPreferences (Vendor / Compatibility)
 
 | File | Owner | Process | User | Read API | Write API | Migration Path | Stock Contract |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -50,10 +46,10 @@
 | `ModuleLogProvider` prefs | logging | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Retain: provider compatibility state | No (internal) |
 | `AnonymousInstallationId` | logging | xposed | current | getSharedPreferences | SharedPreferences.Editor | Retain: hook-process identity boundary | No (internal) |
 | `WelcomeIslandNotifier` | manager | manager | current | PreferenceRepository/DataStore | DataStore edit | Completed | No (internal) |
-| `LauncherIconController` | manager | manager | current | PreferenceRepository/DataStore + memory | DataStore edit | Completed | No (internal) |
+| `SYSTEM_APP_ICON_PACK_KEY` preference | settings + manager | manager | current | PreferenceRepository/DataStore | DataStore edit | Completed | No (internal) |
 | `LEGACY_SETTINGS_FILE_NAME` | MiCloudSettings | xmsf | current | getSharedPreferences | SharedPreferences.Editor | Read-only migration | **Yes** (read) |
 
-## 4. ContentProvider（跨进程边界）
+## 4. ContentProvider (Cross-Process Boundary)
 
 | Provider | Owner | Process | User | Consumer | Permission | Stock Contract |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -86,19 +82,22 @@
 ## 6. Migration Status
 
 ### Completed
-- `SweetNotificationCoordinator` → DataStore / Memory Cache（已完成迁移与 SP 兼容导入）
-- `PREF_MILEPOST_STATUS` → DataStore / Memory Cache（已完成迁移）
-- `WelcomeIslandNotifier` → DataStore / PreferenceRepository（已完成迁移）
-- `LauncherIconController` → DataStore / Memory State（已完成）
+
+- `SweetNotificationCoordinator` → DataStore / Memory Cache (migration and SP-compatible import completed)
+- `PREF_MILEPOST_STATUS` → DataStore / Memory Cache (migration completed)
+- `WelcomeIslandNotifier` → DataStore / PreferenceRepository (migration completed)
+- `SYSTEM_APP_ICON_PACK_KEY` → PreferenceRepository / DataStore (completed)
 
 ### Intentionally retained
+
 - `stock_keepalive_runtime` — ServiceBox/strategy subprocess state and Xposed-compatible runtime reads
 - `SweetNotificationCoordinator` / `PREF_MILEPOST_STATUS` — stock-compatible package/user key lifecycle state
 - `PushControllerUtils` prefs — legacy control keys and explicit framework-registration opt-in
-- `last_receive_time` — legacy reader remains in `common`; a Room migration needs a separate schema and cross-package read proof
+- `last_receive_time` — the legacy reader remains in `common`; a Room migration needs a separate schema and cross-package read proof
 
-### Frozen（不可迁移）
+### Frozen (cannot be migrated)
+
 - `mipush_profile_id` — stock key
 - `pref_registered_pkg_names` — stock key
 - `stock_surface` — stock key
-- `LEGACY_SETTINGS_FILE_NAME` — 只读迁移状态
+- `LEGACY_SETTINGS_FILE_NAME` — read-only migration state

@@ -308,14 +308,43 @@ Native progress and Android 16 promotion are also separate layers:
 - `ProgressStyleBuilder` always builds an ongoing, continuously updateable standard progress
   notification first, then uses platform `Notification.ProgressStyle` on API 36+;
 - it requests promoted ongoing on Android 16 QPR1+, but does not claim that the request was granted;
-- Android 16 / HyperOS `OS3.0.315` `NotificationManagerService.fixNotificationWithChannel(...)`
-  checks `POST_PROMOTED_NOTIFICATIONS` with the final delegated target `pkg` and its resolved
-  notification UID, not the XMSF operation package;
+- the Android 16 QPR1 / HyperOS `OS3.0.315` framework dump shows
+  `NotificationManagerService.fixNotificationWithChannel(Notification, NotificationChannel, int,
+  String)` checking promotable characteristics, channel importance, and
+  `POST_PROMOTED_NOTIFICATIONS` against the final notification `pkg` and resolved UID, not the XMSF
+  operation package;
 - therefore XMSF's own manifest permission cannot promote a delegated target application. A denied
   request correctly remains the same ongoing standard progress notification, while an authorized
   target may be promoted by the system without changing notification identity;
-- do not rewrite `pkg`/`opPkg`, inject the promoted flag, or consult XMSF's own
-  `NotificationManager.canPostPromotedNotifications()` as a substitute for the target-app check.
+- for this existing MiPush-built path, do not rewrite `pkg`/`opPkg`, inject the promoted flag, or
+  consult XMSF's own `NotificationManager.canPostPromotedNotifications()` as a substitute for the
+  target-app check.
+
+### Proposed Third-Party Native Focus Conversion
+
+The current detector and builder operate on MiPush `PushMetaInfo`; they do not convert notifications
+posted directly by third-party applications. A separate experimental exception is proposed for
+Android 16 QPR1+: it is disabled by default and must require an explicit per-application opt-in.
+The enqueue path would classify an eligible native Focus notification and reconstruct a new
+`Notification` from the supported semantic fields. A private internal marker on that reconstructed
+object would scope a promotion-check bypass in
+`NotificationManagerService.fixNotificationWithChannel(...)` to that conversion only. The normal
+platform check would remain in force for every unmarked notification.
+
+This conversion is intentionally lossy. Only supported progress/category, text, and semantic fields
+map to `Notification.ProgressStyle`; actions, custom views, unknown Focus fields, and unsupported
+styles are not synthesized. Any opt-out, failed classification/reconstruction, unsupported style,
+or ineligible platform/channel condition must fall back to enqueueing the original notification
+unchanged. Preserve `pkg`, `opPkg`, UID, user, channel, and notification identity throughout; do not
+globally relax promotion or alter notification identity to obtain the flag.
+
+Evidence and status: the Android 16 QPR1 `OS3.0.315.0.WPCCNXM` dump exposes the method signature and
+target-package permission check described above. The Android 17 framework comparison classifies the
+NMS implementation as changed and calls for runtime confirmation. Method signatures, flag semantics,
+eligibility conditions, permission protection/signature-grant rules, and hidden-API behavior can
+therefore vary by platform build. The numeric value or meaning of `FLAG_PROMOTED_ONGOING` may also
+change. This third-party conversion and marker bypass are a proposal only; neither is implemented nor
+verified on a device.
 
 Extension notification callbacks preserve the stock 7.4.67-C completion boundary:
 

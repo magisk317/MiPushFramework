@@ -87,6 +87,45 @@ selection, and app/runtime logging.
     the legacy route as caller-authenticated; its package-scoped control actions remain a residual
     risk until a compatible authenticated transport exists.
 
+## Third-Party Native Focus to Live Update (Experimental Proposal)
+
+This is a proposed, default-off, per-application opt-in exception. It is separate from the existing
+MiPush path, where `FocusSemanticTranslator` derives progress semantics from `PushMetaInfo` and
+`ProgressStyleBuilder` builds an XMSF notification. The current system hook does not rebuild a
+third-party notification or bypass the platform promotion decision.
+
+If implemented, the narrowly scoped path is:
+
+1. At the notification enqueue boundary, classify only an eligible third-party native Focus
+   notification for an application whose experimental opt-in is enabled. Build a new `Notification`
+   from supported semantic fields; do not mutate the caller's original object.
+2. Carry a private internal marker on that reconstructed notification so system_server can identify
+   this conversion. On Android 16 QPR1+ only, inspect the marker in
+   `NotificationManagerService.fixNotificationWithChannel(...)` and bypass only the target-app
+   promoted-permission check for that marked conversion. Leave all unmarked notifications on the
+   platform path.
+3. Preserve the notification's `pkg`, `opPkg`, resolved UID, user, channel, and notification key.
+   Do not rewrite identity, inject a promoted flag globally, or relax promotion checks for other
+   notifications.
+
+The mapping is lossy: only recognized progress/category, text, and supported semantic fields can be
+represented as platform `ProgressStyle`. Actions, custom `RemoteViews`, app-specific Focus payloads,
+unknown fields, or other unsupported semantics must not be guessed. If classification, opt-in,
+reconstruction, or platform eligibility fails, enqueue the original notification unchanged.
+
+The platform evidence is static and version-specific. The retained Android 16 HyperOS
+`OS3.0.315.0.WPCCNXM` dump shows `fixNotificationWithChannel(Notification, NotificationChannel,
+int notificationUid, String pkg)` checking promotable characteristics, channel importance, and
+`POST_PROMOTED_NOTIFICATIONS` for the notification package/UID before setting
+`FLAG_PROMOTED_ONGOING`. The Android 17 comparison records implementation changes and requires
+runtime confirmation. Hook signatures, marker transport, channel conditions, permission/AppOp
+behavior, permission protection/signature-grant rules, and `FLAG_PROMOTED_ONGOING` value and
+semantics must be rechecked against each supported platform build. A ROM-side method signature,
+permission signing policy, or flag change can invalidate the narrow bypass or change its scope. The
+path is implemented on the `codex/native-focus-live-update` branch behind the per-application
+opt-in switch and remains device-unvalidated: unit tests cover the decision logic, while promotion,
+reconstruction, and fallback behavior still require on-device acceptance runs.
+
 ## XSpace Identity Boundary
 
 - The packaged static scope contains only hook-required platform/companion packages: system,
