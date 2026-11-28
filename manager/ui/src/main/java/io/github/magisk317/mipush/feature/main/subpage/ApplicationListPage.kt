@@ -13,8 +13,8 @@ import io.github.magisk317.uikit.surface.AppHorizontalDivider
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
@@ -65,6 +65,8 @@ import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
 import io.github.magisk317.uikit.surface.InfoPill
 import io.github.magisk317.uikit.theme.spacing
+import io.github.magisk317.uikit.theme.AppShapeRole
+import io.github.magisk317.uikit.theme.appShape
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.surface.rememberSearchOverlayState
 import io.github.magisk317.uikit.surface.SearchOverlayState
@@ -75,6 +77,7 @@ import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
+import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.theme.AppColorRole
 import io.github.magisk317.uikit.theme.appColor
 
@@ -289,7 +292,7 @@ private fun ApplicationListUnavailable(
             .padding(horizontal = MaterialTheme.spacing.medium, vertical = MaterialTheme.spacing.small)
             .background(
                 color = appColor(AppColorRole.ErrorContainer),
-                shape = RoundedCornerShape(16.dp),
+                shape = appShape(AppShapeRole.Large),
             )
             .padding(MaterialTheme.spacing.medium),
     ) {
@@ -515,7 +518,10 @@ private fun ApplicationListPreview(
 ) {
     // Preview helper mirrors the runtime shape (bar above the list) without
     // the removed overlay-hero scaffolding.
-    Page {
+    AppSurface(
+        modifier = Modifier.fillMaxSize(),
+        color = appColor(AppColorRole.Background),
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             AppTopBar(
                 title = stringResource(R.string.app_list_hero_title),

@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
+import io.github.magisk317.mipush.manager.BuildConfig as ManagerBuildConfig
+import io.github.magisk317.mipush.manager.di.ManagerUpdateSources
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.uikit.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
@@ -108,7 +110,7 @@ internal class OverviewActions(
     val onStatusCardClick: () -> Unit = {},
     /** Tap the manager row: check and update the manager itself only. */
     val onManagerVersionClick: () -> Unit = {},
-    /** Tap the runtime row: check and update the runtime only; the play flavor routes to guidance. */
+    /** Tap the runtime row: check and update the runtime only when direct delivery is available. */
     val onRuntimeVersionClick: () -> Unit = {},
 )
 
@@ -138,6 +140,11 @@ private fun VersionRowHint.toValueState(): OverviewValueState? = when (this) {
     is VersionRowHint.Updating -> OverviewValueState(
         text = stringResource(R.string.version_hint_updating, percent),
         colorRole = AppColorRole.Primary,
+    )
+    VersionRowHint.WaitingForSystemConfirmation,
+    VersionRowHint.Installed -> OverviewValueState(
+        text = stringResource(R.string.version_hint_up_to_date),
+        colorRole = AppColorRole.OnSurfaceVariant,
     )
     is VersionRowHint.Failed -> OverviewValueState(
         text = stringResource(R.string.version_hint_failed, message),
@@ -211,14 +218,24 @@ fun Overview(
         onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
         onDonate = { showDonateDialog = true },
         onStatusCardClick = onNavigateToConnectionStatus,
-        onManagerVersionClick = { scope.launch { updateCoordinator.checkAndUpdateManager() } },
+        onManagerVersionClick = {
+            scope.launch {
+                if (!ManagerBuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                    updateCoordinator.checkAndShowPaired()
+                } else {
+                    updateCoordinator.checkAndUpdateManager()
+                }
+            }
+        },
         onRuntimeVersionClick = {
-            // The play distribution never handles an APK: the runtime row hands
-            // the user to the release page instead of probing the registry.
             if (updateCoordinator.canUpdateRuntimeInApp) {
-                scope.launch { updateCoordinator.checkAndUpdateRuntime() }
-            } else {
-                updateCoordinator.openRuntimeGuidance(context)
+                scope.launch {
+                    if (!ManagerBuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                        updateCoordinator.checkAndShowPaired()
+                    } else {
+                        updateCoordinator.checkAndUpdateRuntime()
+                    }
+                }
             }
         },
     )
@@ -301,12 +318,7 @@ internal fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
 
     val data = snapshot
     val state = data?.connectionState ?: "Idle"
-    val indicatorColor = when (state) {
-        "Connected" -> Color(0xFF4CAF50)
-        "Connecting" -> Color(0xFFFFC107)
-        "Disconnected" -> Color(0xFFF44336)
-        else -> Color.Gray
-    }
+    val indicatorColor = connectionStatusIndicatorColor(state)
 
     Row(
         modifier = Modifier

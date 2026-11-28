@@ -15,8 +15,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.application.ManagerApplication
+import io.github.magisk317.uikit.preference.SettingsChoiceRow
 import io.github.magisk317.uikit.surface.AppCircularProgressIndicator
-import io.github.magisk317.uikit.surface.AppDropdownField
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.AppPrimaryButton
 import io.github.magisk317.uikit.surface.AppTextButton
@@ -36,15 +36,15 @@ internal fun ApplicationRegistrationCard(
     val selected = if (info.blocked) ManagerApplication.Type.DENY else info.type
     DetailSectionCard(title = stringResource(R.string.app_detail_registration_policy)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(
-                horizontal = MaterialTheme.spacing.large,
-                vertical = MaterialTheme.spacing.medium,
-            ),
+            modifier = Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.medium),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
         ) {
-            AppDropdownField(
+            // DetailSectionCard content is unpadded: choice rows carry their own
+            // 16dp internal inset (miuix BasicComponent / material ListItem), so the
+            // plain children below pad individually to share that same left edge.
+            SettingsChoiceRow(
                 title = stringResource(R.string.app_detail_registration_policy),
-                value = stringResource(
+                summary = stringResource(
                     when (selected) {
                         ManagerApplication.Type.ASK -> R.string.app_detail_registration_ask
                         ManagerApplication.Type.DENY -> R.string.app_detail_registration_deny
@@ -84,11 +84,13 @@ internal fun ApplicationRegistrationCard(
                 ),
                 role = AppTextRole.BodySmall,
                 color = appColor(AppColorRole.OnSurfaceVariant),
+                modifier = Modifier.padding(horizontal = MaterialTheme.spacing.large),
             )
             if (busy) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                    modifier = Modifier.padding(horizontal = MaterialTheme.spacing.large),
                 ) {
                     AppCircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     AppText(
@@ -104,11 +106,15 @@ internal fun ApplicationRegistrationCard(
                     text = stringResource(R.string.app_detail_registration_pending),
                     role = AppTextRole.BodySmall,
                     color = appColor(AppColorRole.OnSurface),
+                    modifier = Modifier.padding(horizontal = MaterialTheme.spacing.large),
                 )
                 AppPrimaryButton(
                     text = stringResource(R.string.app_detail_registration_approve),
                     enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MaterialTheme.spacing.large)
+                        .heightIn(min = 48.dp),
                     onClick = onApprove,
                 )
             }
@@ -118,7 +124,9 @@ internal fun ApplicationRegistrationCard(
                 AppTextButton(
                     text = stringResource(R.string.app_detail_retry_revocation),
                     enabled = !busy,
-                    modifier = Modifier.heightIn(min = 48.dp),
+                    modifier = Modifier
+                        .padding(horizontal = MaterialTheme.spacing.large)
+                        .heightIn(min = 48.dp),
                     color = appColor(AppColorRole.Primary),
                     onClick = { onSelect(ManagerApplication.Type.DENY) },
                 )

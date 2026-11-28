@@ -60,7 +60,11 @@ import io.github.magisk317.xposed.logging.XLog
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.currentUiKitStyle
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import androidx.compose.ui.graphics.Color
 
 private val navLog = XLog.tagged("NavDiag")
 
@@ -96,6 +100,34 @@ internal fun shouldShowCompactBottomBar(destination: NavDestination?): Boolean {
 
 @Composable
 fun MainScreen(
+    startDestination: String,
+    initialRouteOverride: String? = null,
+) {
+    // Miuix anchored popups (SettingsChoiceRow) render into the root miuix Scaffold's
+    // popup host. The main window roots on MainTabScaffold chrome instead of a
+    // PageScaffold, so host one here; detail routes bring their own PageScaffold,
+    // which nests cleanly (the closest host serves the row, root-chain popups stay
+    // on this one). Expressive popups are window-backed and need no host.
+    if (currentUiKitStyle() == UiKitStyle.Miuix) {
+        MiuixScaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+        ) {
+            MainScreenContent(
+                startDestination = startDestination,
+                initialRouteOverride = initialRouteOverride,
+            )
+        }
+    } else {
+        MainScreenContent(
+            startDestination = startDestination,
+            initialRouteOverride = initialRouteOverride,
+        )
+    }
+}
+
+@Composable
+private fun MainScreenContent(
     startDestination: String,
     initialRouteOverride: String? = null,
 ) {

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -41,30 +40,6 @@ import io.github.magisk317.uikit.theme.appColor
 import io.github.magisk317.uikit.theme.spacing
 
 @Composable
-internal fun ApplicationDetailHeading(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-    ) {
-        AppIconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-            AppIcon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.app_detail_back),
-            )
-        }
-        AppText(
-            text = stringResource(R.string.app_detail_title),
-            role = AppTextRole.Body,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = appColor(AppColorRole.OnSurface),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
 internal fun ApplicationIdentityCard(info: ManagerApplication) {
     AppCard(color = appColor(AppColorRole.SurfaceContainerLow)) {
         Column(
@@ -80,7 +55,6 @@ internal fun ApplicationIdentityCard(info: ManagerApplication) {
                     AppText(
                         text = info.appName,
                         role = AppTextRole.Title,
-                        fontSize = 22.sp,
                         color = appColor(AppColorRole.OnSurface),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -227,7 +201,6 @@ private fun ApplicationDetailSummary(
         AppText(
             text = label,
             role = AppTextRole.Footnote,
-            fontSize = 11.sp,
             color = appColor(AppColorRole.OnSurfaceVariant),
         )
         FlowRow(
