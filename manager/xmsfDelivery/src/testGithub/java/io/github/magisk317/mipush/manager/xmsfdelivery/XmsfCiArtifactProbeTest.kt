@@ -30,6 +30,7 @@ class XmsfCiArtifactProbeTest {
     fun `sidecar version with a compatible manifest resolves`() = runBlocking {
         enqueueSidecar("1.1.1-20261022_025631")
         enqueueManifest("1.1.1-20261022_025631")
+        enqueueAnnouncement("1.1.1-20261022_025631")
 
         val manifest = probe().fetchLatestCompatible(HOST_VERSION_CODE)
 
@@ -53,6 +54,7 @@ class XmsfCiArtifactProbeTest {
     fun `incompatible manifest is rejected, not offered`() = runBlocking {
         enqueueSidecar("1.1.1-20261022_025631")
         enqueueManifest("1.1.1-20261022_025631", minManagerVersionCode = HOST_VERSION_CODE + 1)
+        enqueueAnnouncement("1.1.1-20261022_025631")
 
         val error = assertThrows(IllegalStateException::class.java) {
             runBlocking { probe().fetchLatestCompatible(HOST_VERSION_CODE) }
@@ -99,6 +101,7 @@ class XmsfCiArtifactProbeTest {
     fun `manifest request carries the mandatory ci job query`() = runBlocking {
         enqueueSidecar("1.1.1-20261022_025631")
         enqueueManifest("1.1.1-20261022_025631")
+        enqueueAnnouncement("1.1.1-20261022_025631")
 
         probe().fetchLatestCompatible(HOST_VERSION_CODE)
 
@@ -110,15 +113,50 @@ class XmsfCiArtifactProbeTest {
         assertEquals("android:build", manifestRequest.url.queryParameter("job"))
     }
 
+    @Test
+    fun `runtime CI artifact is rejected when no announcement marker exists`() = runBlocking {
+        enqueueSidecar(VERSION)
+        enqueueManifest(VERSION)
+        server.enqueue(MockResponse.Builder().code(404).build())
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            runBlocking { probe().fetchLatestCompatible(HOST_VERSION_CODE) }
+        }
+
+        assertTrue(error.message!!.contains("ci artifacts probe failed"), error.message!!)
+    }
+
+    @Test
+    fun `runtime CI artifact must match both announced variants`() = runBlocking {
+        enqueueSidecar(VERSION)
+        enqueueManifest(VERSION)
+        enqueueAnnouncement(VERSION, runtimeVersion = "1.1.2-20261022_025631")
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            runBlocking { probe().fetchLatestCompatible(HOST_VERSION_CODE) }
+        }
+
+        assertTrue(error.message!!.contains("not Telegram-announced"), error.message!!)
+    }
+
     private fun probe(flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal) = XmsfCiArtifactProbe(
         flavor = flavor,
         versionSidecarUrl = server.url("/ci-dist/${flavor.ciDistRoot}/version.txt").toString(),
         manifestBaseUrl = server.url("/ci-dist/${flavor.ciDistRoot}").toString(),
+        announcementUrl = server.url("/ci-dist/telegram-announcement.txt").toString(),
         httpClient = OkHttpClient(),
     )
 
     private fun enqueueSidecar(version: String) {
         server.enqueue(MockResponse.Builder().code(200).body(version).build())
+    }
+
+    private fun enqueueAnnouncement(version: String, runtimeVersion: String = version) {
+        server.enqueue(
+            MockResponse.Builder().code(200).body(
+                "pipeline_id=1\ncommit=7865a560\nmanager_version=$version\nruntime_version=$runtimeVersion\n",
+            ).build(),
+        )
     }
 
     @Test
@@ -127,6 +165,7 @@ class XmsfCiArtifactProbeTest {
         // landing in the vc105 root is caught by the variant's own version code.
         enqueueSidecar("1.1.1-20261022_025631")
         enqueueManifest("1.1.1-20261022_025631", versionCode = XmsfRuntimeFlavor.Normal.versionCode)
+        enqueueAnnouncement("1.1.1-20261022_025631")
 
         val error = assertThrows(IllegalStateException::class.java) {
             runBlocking { probe(XmsfRuntimeFlavor.Vc105).fetchLatestCompatible(HOST_VERSION_CODE) }
@@ -158,6 +197,7 @@ class XmsfCiArtifactProbeTest {
     }
 
     private companion object {
+        const val VERSION = "1.1.1-20261022_025631"
         const val HOST_VERSION_CODE = 1003003000L
     }
 }

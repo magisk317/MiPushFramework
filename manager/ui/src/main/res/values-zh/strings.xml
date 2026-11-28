@@ -761,13 +761,9 @@
 
     <string name="settings_enable_analytics">统计数据</string>
     <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
-    <string name="runtime_missing_dialog_title">未检测到可用的xmsf</string>
-    <string name="runtime_missing_dialog_message">xmsf运行时可能未安装或版本不兼容，请安装匹配的xmsf运行时，然后重新打开管理器。</string>
     <string name="dialog_acknowledge">我知道了</string>
-    <string name="runtime_warning_check_permissions">查看权限状态</string>
     <string name="legacy_module_dialog_title">检测到不兼容的 MiPush 模块</string>
     <string name="legacy_module_dialog_message">检测到不兼容的模块：%1$s，请卸载后重新打开管理器。</string>
-    <string name="runtime_commit_mismatch_toast">模块与 xmsf 版本不匹配，通知功能可能异常</string>
 
     <string name="pref_theme_group_color">色彩</string>
     <string name="pref_theme_group_navigation">导航栏</string>
@@ -793,22 +789,24 @@
     <string name="version_hint_available">发现新版本：%1$s</string>
     <string name="version_hint_updating">正在更新运行时… %1$d%%</string>
     <string name="version_hint_failed">检查更新失败：%1$s</string>
-    <string name="version_hint_unsupported">Play 版本请前往发布页手动检查</string>
-    <string name="xmsf_delivery_title">XMSF 运行时</string>
-    <string name="xmsf_delivery_state_not_installed">未安装</string>
-    <string name="xmsf_delivery_state_update_available">有新版本可用</string>
-    <string name="xmsf_delivery_state_signature_mismatch">签名不匹配，运行时不可信</string>
-    <string name="xmsf_delivery_state_ready">已就绪</string>
-    <string name="xmsf_delivery_connectivity_connected">Binder 已连接</string>
-    <string name="xmsf_delivery_connectivity_unavailable">Binder 不可用</string>
-    <string name="xmsf_delivery_install_action">下载并安装运行时</string>
-    <string name="xmsf_delivery_install_summary">拉取锁定的运行时，校验签名后安装</string>
-    <string name="xmsf_delivery_install_busy">正在下载并安装… %1$d%%</string>
-    <string name="xmsf_delivery_guidance_action">打开发布页手动安装</string>
-    <string name="xmsf_delivery_guidance_summary">此渠道不在应用内下载 APK</string>
-    <string name="xmsf_delivery_installed_snackbar">XMSF 运行时已安装并验证通过</string>
-    <string name="xmsf_delivery_guidance_opened_snackbar">已打开发布页，安装后请刷新状态</string>
-    <string name="xmsf_delivery_failed_snackbar">运行时下发失败：%1$s</string>
+    <string name="version_hint_unsupported">当前构建不支持运行时更新</string>
+    <string name="paired_ota_title">MiPush 更新</string>
+    <string name="paired_ota_manager">管理器</string>
+    <string name="paired_ota_runtime">运行时</string>
+    <string name="paired_ota_start">立即更新</string>
+    <string name="paired_ota_status_waiting">等待中</string>
+    <string name="paired_ota_status_checking">检测中</string>
+    <string name="paired_ota_status_available">可更新</string>
+    <string name="paired_ota_status_downloading">下载中</string>
+    <string name="paired_ota_status_waiting_install">等待安装</string>
+    <string name="paired_ota_status_waiting_system">等待系统确认</string>
+    <string name="paired_ota_status_installing">安装中</string>
+    <string name="paired_ota_status_installed">已安装</string>
+    <string name="paired_ota_status_failed">失败</string>
+    <string name="paired_ota_version">目标：%1$s</string>
+    <string name="paired_ota_install_manager">安装管理器</string>
+    <string name="paired_ota_retry_manager">重试管理器</string>
+    <string name="paired_ota_retry_runtime">重试运行时</string>
     <string name="wizard_section_required">必需</string>
     <string name="wizard_section_optional">可选</string>
     <string name="wizard_action_grant_all">全部静默授权</string>
@@ -869,5 +867,8 @@
     <string name="cloud_backup_restore_confirm_title">恢复云端备份？</string>
     <string name="cloud_backup_restore_confirm_message">本地设置将被所选备份覆盖。</string>
     <string name="cloud_backup_restore_confirm_action">恢复</string>
+    <string name="app_detail_native_live_update">&#x539F;&#x751F; Live Update&#xFF08;&#x5B9E;&#x9A8C;&#xFF09;</string>
+    <string name="app_detail_native_live_update_summary">&#x5C06;&#x6B64;&#x5E94;&#x7528;&#x7684; MIUI &#x7126;&#x70B9;&#x901A;&#x77E5;&#x8F6C;&#x6362;&#x4E3A; Android Live Update&#x5E76;&#x8BF7;&#x6C42;&#x63D0;&#x5347;&#x663E;&#x793A;&#x3002;&#x9700; Android 16 QPR1 &#x6216;&#x66F4;&#x9AD8;&#x7248;&#x672C;&#xFF1B;&#x4E0D;&#x517C;&#x5BB9;&#x7684;&#x901A;&#x77E5;&#x4FDD;&#x6301;&#x539F;&#x6837;&#x3002;</string>
+    <string name="app_detail_native_live_update_failed">&#x65E0;&#x6CD5;&#x66F4;&#x65B0;&#x539F;&#x751F; Live Update&#xFF0C;&#x8FD0;&#x884C;&#x65F6;&#x53EF;&#x80FD;&#x9700;&#x8981;&#x5347;&#x7EA7;&#x3002;</string>
 </resources>
 

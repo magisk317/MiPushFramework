@@ -88,11 +88,16 @@ class GithubXmsfDelivery(
      * the installed one. Read-only: the status flow keeps describing the pin,
      * and a runtime ahead of the pin still counts as READY there.
      */
-    override suspend fun checkLatestRuntime(): XmsfLatestCheck = withContext(Dispatchers.IO) {
+    override suspend fun checkLatestRuntime(
+        targetManagerVersionCode: Long?,
+    ): XmsfLatestCheck = withContext(Dispatchers.IO) {
         val installed = statusResolver.queryInstalled()
         val latest = runCatching {
             probeChain(XmsfRuntimeFlavor.forVersionCode(installed?.versionCode))
-                .fetchLatestCompatible(XmsfDownloader.hostVersionCode(appContext))
+                .fetchLatestCompatible(
+                    hostVersionCode = XmsfDownloader.hostVersionCode(appContext),
+                    targetManagerVersionCode = targetManagerVersionCode,
+                )
         }.getOrElse { error ->
             return@withContext XmsfLatestCheck.Failed(error.describeFailure())
         }
@@ -107,6 +112,8 @@ class GithubXmsfDelivery(
     override suspend fun ensureInstalled(
         targetVersionName: String?,
         onProgress: (Int) -> Unit,
+        onWaitingForSystemConfirmation: () -> Unit,
+        targetManagerVersionCode: Long?,
     ): XmsfInstallResult {
         // Without an explicit target, ask the probe rather than assuming the
         // build pin is downloadable: a CI pin names a version that only exists
@@ -138,14 +145,20 @@ class GithubXmsfDelivery(
             // named, so it needs its own downloader: the pin is baked into the
             // manifest gate and the cache directory. CI-track targets come from
             // the staging area instead of the registry, which 404s for them.
-            val effectiveDownloader = if (target == ciTrackVersionName) {
+            val effectiveDownloader = if (
+                target == ciTrackVersionName ||
+                CI_VERSION_NAME.matches(target)
+            ) {
                 ciDownloaderFactory(flavor, target)
             } else {
                 registryDownloaderFactory(flavor, target)
             }
             var runtimeCommit: String? = null
             val failure = runCatching {
-                val downloaded = effectiveDownloader.download(onProgress)
+                val downloaded = effectiveDownloader.download(
+                    onProgress = onProgress,
+                    targetManagerVersionCode = targetManagerVersionCode,
+                )
                 runtimeCommit = downloaded.manifest.commit
                 val apkHashes = XmsfSignatureVerifier.apkSignerHashes(
                     appContext.packageManager,
@@ -155,7 +168,7 @@ class GithubXmsfDelivery(
                     appContext,
                     XmsfSignatureSource.ApkFile(downloaded.apk.absolutePath, apkHashes),
                 )
-                installAndConfirm(downloaded.apk)
+                installAndConfirm(downloaded.apk, onWaitingForSystemConfirmation)
             }.exceptionOrNull()
             if (failure == null) {
                 // Verify against the requested target, not the build pin:
@@ -199,8 +212,14 @@ class GithubXmsfDelivery(
      * installer asks for it. Suspends until a terminal installer event;
      * throws on failure so the caller reports a single message.
      */
-    private suspend fun installAndConfirm(apk: File) = withContext(Dispatchers.Main) {
-        when (val event = installer.install(apk) { confirmation -> startConfirmation(confirmation) }) {
+    private suspend fun installAndConfirm(
+        apk: File,
+        onWaitingForSystemConfirmation: () -> Unit,
+    ) = withContext(Dispatchers.Main) {
+        when (val event = installer.install(apk) { confirmation ->
+            onWaitingForSystemConfirmation()
+            startConfirmation(confirmation)
+        }) {
             is XmsfInstallEvent.Success -> Unit
             is XmsfInstallEvent.Failed -> error(event.message)
         }
@@ -216,5 +235,6 @@ class GithubXmsfDelivery(
     companion object {
         private const val TAG = "XmsfDelivery"
         private const val PROGRESS_COMPLETE = 100
+        private val CI_VERSION_NAME = Regex("^[A-Za-z0-9._+-]+-\\d{8}_\\d{6}$")
     }
 }

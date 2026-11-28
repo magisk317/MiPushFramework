@@ -42,16 +42,25 @@ data class XmsfRuntimeManifest(
      * tell them apart, and installing across tiers silently moves the version
      * code apps compare against.
      */
-    fun validate(hostVersionCode: Long, flavor: XmsfRuntimeFlavor? = null): String? = when {
+    fun validate(
+        hostVersionCode: Long,
+        flavor: XmsfRuntimeFlavor? = null,
+        targetManagerVersionCode: Long? = null,
+    ): String? {
+        val effectiveManagerVersionCode = targetManagerVersionCode ?: hostVersionCode
+        return when {
         schema != SCHEMA -> "manifest schema $schema does not match host contract $SCHEMA"
         variant != VARIANT -> "manifest variant \"$variant\" does not match host variant \"$VARIANT\""
         versionName.isBlank() -> "manifest versionName is blank"
         versionCode <= 0L -> "manifest versionCode is not positive"
         flavor != null && versionCode != flavor.versionCode ->
             "manifest versionCode $versionCode is not the ${flavor.label} variant (${flavor.versionCode})"
-        minManagerVersionCode > hostVersionCode ->
-            "runtime requires manager versionCode >= $minManagerVersionCode, host is $hostVersionCode"
+        effectiveManagerVersionCode < hostVersionCode ->
+            "target manager versionCode $effectiveManagerVersionCode is older than host $hostVersionCode"
+        minManagerVersionCode > effectiveManagerVersionCode ->
+            "runtime requires manager versionCode >= $minManagerVersionCode, host is $effectiveManagerVersionCode"
         else -> null
+        }
     }
 
     /** The runtime must not be newer than what this host build knows about. */

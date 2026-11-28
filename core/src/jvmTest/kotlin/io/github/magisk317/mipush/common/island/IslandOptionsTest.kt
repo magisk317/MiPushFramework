@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.MONOCHROME_SHADE_ICON_KEY
 import io.github.magisk317.mipush.common.NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY
+import io.github.magisk317.mipush.common.island.NATIVE_LIVE_UPDATE_ENABLED_KEY
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -30,5 +31,15 @@ class IslandOptionsTest {
         val flags = IslandOptions(notificationCountLimitExempt = true).toPreferenceFlags()
 
         assertEquals("1", flags.getValue(NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY))
+    }
+
+    @Test
+    fun `native live update preference flag defaults off and can be enabled`() {
+        assertEquals("0", IslandOptions().toPreferenceFlags().getValue(NATIVE_LIVE_UPDATE_ENABLED_KEY))
+        assertEquals(
+            "1",
+            IslandOptions(nativeLiveUpdateEnabled = true).toPreferenceFlags()
+                .getValue(NATIVE_LIVE_UPDATE_ENABLED_KEY),
+        )
     }
 }

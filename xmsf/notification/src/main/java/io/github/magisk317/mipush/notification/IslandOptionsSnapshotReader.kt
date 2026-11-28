@@ -81,6 +81,7 @@ object IslandOptionsSnapshotReader {
                 settings = settings,
                 appEnabled = packageSettings?.enabled,
                 appFocusNotification = packageSettings?.focusNotification,
+                appNativeLiveUpdateEnabled = packageSettings?.nativeLiveUpdateEnabled,
                 appCountLimitExempt = packageSettings?.countLimitExempt,
                 packageScoped = normalizedPackage != null,
             )
@@ -116,6 +117,7 @@ object IslandOptionsSnapshotReader {
         settings: IslandSettingsSnapshot,
         appEnabled: Boolean?,
         appFocusNotification: Boolean?,
+        appNativeLiveUpdateEnabled: Boolean? = null,
         appCountLimitExempt: Boolean? = null,
         packageScoped: Boolean = appFocusNotification != null,
     ): IslandOptionsSnapshot {
@@ -137,6 +139,7 @@ object IslandOptionsSnapshotReader {
                 // read needs the registered-app focus opt-in to narrow generated payloads.
                 focusNotification = settings.focusNotification &&
                     (!packageScoped || appFocusNotification == true),
+                nativeLiveUpdateEnabled = packageScoped && appNativeLiveUpdateEnabled == true,
                 colorStatusBarIcon = settings.colorStatusBarIcon,
                 monochromeShadeIcon = settings.monochromeShadeIcon,
                 thirdPartyIconPack = settings.thirdPartyIconPack,

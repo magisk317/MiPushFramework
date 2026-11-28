@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.File
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
 
 class IslandPreferencesTest {
     @BeforeEach
@@ -14,11 +15,22 @@ class IslandPreferencesTest {
     }
 
     @Test
+    fun `native live update preference is explicit opt in`() {
+        assertFalse(IslandPreferences.buildOptionsFromValues(emptyMap()).nativeLiveUpdateEnabled)
+        assertTrue(
+            IslandPreferences.buildOptionsFromValues(
+                mapOf(NATIVE_LIVE_UPDATE_ENABLED_KEY to "1"),
+            ).nativeLiveUpdateEnabled,
+        )
+    }
+
+    @Test
     fun `default options keep focus payload injection disabled`() {
         val options = IslandPreferences.current()
 
         assertTrue(options.enabled)
         assertFalse(options.focusNotification)
+        assertFalse(options.nativeLiveUpdateEnabled)
         assertFalse(options.canInjectFocusPayload)
         assertEquals(5, options.timeoutSecs)
     }

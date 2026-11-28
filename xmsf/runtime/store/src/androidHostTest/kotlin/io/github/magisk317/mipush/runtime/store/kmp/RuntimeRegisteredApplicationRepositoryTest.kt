@@ -76,6 +76,28 @@ class RuntimeRegisteredApplicationRepositoryTest {
     }
 
     @Test
+    fun `native live update opt in is scoped and defaults off`() = runBlocking {
+        val store = FakeStore(
+            rows = mutableListOf(
+                row(id = 5, packageName = "com.example.app", userId = 7)
+                    .copy(nativeLiveUpdateEnabled = true),
+                row(id = 6, packageName = "com.example.app", userId = 8),
+            ),
+        )
+        val repository = repository(store)
+
+        assertTrue(repository.getIslandSettings("com.example.app")!!.nativeLiveUpdateEnabled)
+        assertFalse(
+            RuntimeRegisteredApplicationRepository(
+                store = store,
+                userId = 8,
+                appNameForPackage = { "Example" },
+            ).getIslandSettings("com.example.app")!!.nativeLiveUpdateEnabled,
+        )
+        assertFalse(repository.isNativeLiveUpdateEnabled("com.missing.app"))
+    }
+
+    @Test
     fun `click fallback flag defaults off and updates through the scoped store`() = runBlocking {
         val store = FakeStore(
             rows = mutableListOf(
@@ -108,6 +130,45 @@ class RuntimeRegisteredApplicationRepositoryTest {
             store.require("com.example.app").copy(suppressWhenDisabled = true),
         )
         assertTrue(repository.isSuppressWhenDisabled("com.example.app"))
+    }
+
+    @Test
+    fun `native live update flag updates only the repository user row`() = runBlocking {
+        val store = FakeStore(
+            rows = mutableListOf(
+                row(id = 5, packageName = "com.example.app", userId = 7),
+                row(id = 6, packageName = "com.example.app", userId = 8),
+            ),
+        )
+        val repository = repository(store)
+
+        assertFalse(repository.isNativeLiveUpdateEnabled("com.example.app"))
+        assertEquals(1, repository.updateNativeLiveUpdateEnabled("com.example.app", true))
+        assertTrue(repository.isNativeLiveUpdateEnabled("com.example.app"))
+        assertFalse(
+            RuntimeRegisteredApplicationRepository(
+                store = store,
+                userId = 8,
+                appNameForPackage = { "Example" },
+            ).isNativeLiveUpdateEnabled("com.example.app"),
+        )
+        assertEquals(0, repository.updateNativeLiveUpdateEnabled("com.missing.app", true))
+    }
+
+    @Test
+    fun `native live update write cannot modify a blocked row`() = runBlocking {
+        val store = FakeStore(
+            rows = mutableListOf(
+                row(id = 5, packageName = "com.example.app", userId = 7)
+                    .copy(blocked = true, nativeLiveUpdateEnabled = true),
+            ),
+        )
+
+        assertEquals(
+            0,
+            repository(store).updateNativeLiveUpdateEnabled("com.example.app", false),
+        )
+        assertTrue(store.require("com.example.app").nativeLiveUpdateEnabled)
     }
 
     @Test
@@ -204,6 +265,21 @@ class RuntimeRegisteredApplicationRepositoryTest {
             rows[index] = application
             return 1
         }
+
+        override suspend fun updateNativeLiveUpdateEnabled(
+            packageName: String,
+            enabled: Boolean,
+            userId: Int,
+        ): Int {
+            val index = rows.indexOfFirst { it.packageName == packageName && it.userId == userId }
+            if (index < 0) return 0
+            if (rows[index].blocked) return 0
+            rows[index] = rows[index].copy(nativeLiveUpdateEnabled = enabled)
+            return 1
+        }
+
+        override suspend fun isNativeLiveUpdateEnabled(packageName: String, userId: Int): Boolean? =
+            getByPackageName(packageName, userId)?.nativeLiveUpdateEnabled
 
         override suspend fun updateBlocked(id: Long, blocked: Boolean, userId: Int): Int {
             val index = rows.indexOfFirst { it.id == id && it.userId == userId }

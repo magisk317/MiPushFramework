@@ -24,6 +24,7 @@ import io.github.magisk317.mipush.common.SYSTEM_APP_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.THIRD_PARTY_ICON_PACK_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY
+import io.github.magisk317.mipush.common.NATIVE_LIVE_UPDATE_ENABLED_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
@@ -56,6 +57,7 @@ class IslandPreferenceProvider : ContentProvider() {
         SYSTEM_APP_ICON_PACK_KEY,
         DUAL_APP_ENABLED_KEY,
         NOTIFICATION_COUNT_LIMIT_EXEMPT_KEY,
+        NATIVE_LIVE_UPDATE_ENABLED_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -75,7 +77,6 @@ class IslandPreferenceProvider : ContentProvider() {
         if (callerAccess == CallerAccess.DENIED) {
             return null
         }
-        val requestedKeys = preferenceKeysForCaller(selectionArgs)
         val packageName = uri.getQueryParameter(ISLAND_PREF_COLUMN_PACKAGE)
             ?.takeIf { it.isNotBlank() }
             ?: uri.getQueryParameter("package")
@@ -84,6 +85,10 @@ class IslandPreferenceProvider : ContentProvider() {
             ?.toIntOrNull()
             ?.takeIf { it >= 0 }
 
+        val requestedKeys = preferenceKeysForCaller(
+            selectionArgs = selectionArgs,
+            packageScoped = !packageName.isNullOrBlank() && userId != null,
+        )
         if (requiresExplicitUserScope(packageName, userId)) {
             // A package-scoped read must identify the notification owner explicitly. Falling back
             // to the XMSF process user can return primary-user settings for a cloned notification.
@@ -109,7 +114,9 @@ class IslandPreferenceProvider : ContentProvider() {
 
     private fun resolveCallerAccess(appContext: android.content.Context): CallerAccess {
         val callingUid = Binder.getCallingUid()
-        if (callingUid == Process.ROOT_UID || systemUiCallerGuard.isCallerAllowed(appContext)) {
+        if (isTrustedSystemServerUid(callingUid) || callingUid == Process.ROOT_UID ||
+            systemUiCallerGuard.isCallerAllowed(appContext)
+        ) {
             return CallerAccess.FULL
         }
         if (appContext.checkCallingPermission(ISLAND_PREF_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
@@ -120,16 +127,20 @@ class IslandPreferenceProvider : ContentProvider() {
 
     internal fun preferenceKeysForCaller(
         selectionArgs: Array<out String>?,
+        packageScoped: Boolean = true,
     ): List<String> {
-        return if (selectionArgs.isNullOrEmpty()) {
+        val requested = if (selectionArgs.isNullOrEmpty()) {
             keys
         } else {
             selectionArgs.filter { it in keys }
         }
+        return if (packageScoped) requested else requested.filterNot { it == NATIVE_LIVE_UPDATE_ENABLED_KEY }
     }
 
     internal fun isTrustedSystemUiPackage(packageName: String, flags: Int): Boolean =
         systemUiCallerGuard.isPackageAllowed(packageName, flags)
+
+    internal fun isTrustedSystemServerUid(uid: Int): Boolean = uid == Process.SYSTEM_UID
 
     internal fun requiresExplicitUserScope(packageName: String?, userId: Int?): Boolean =
         !packageName.isNullOrBlank() && userId == null

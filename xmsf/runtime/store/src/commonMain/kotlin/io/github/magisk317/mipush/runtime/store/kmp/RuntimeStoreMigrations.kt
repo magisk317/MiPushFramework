@@ -23,6 +23,14 @@ object RuntimeStoreMigrations {
         }
     }
 
+    val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN native_live_update_enabled INTEGER NOT NULL DEFAULT 0",
+            )
+        }
+    }
+
     val MIGRATION_2_3: Migration = object : Migration(2, 3) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("ALTER TABLE REGISTERED_APPLICATION ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0")
@@ -216,6 +224,7 @@ object RuntimeStoreMigrations {
         MIGRATION_10_11,
         MIGRATION_11_12,
         MIGRATION_12_13,
+        MIGRATION_13_14,
     )
 
     private fun SQLiteConnection.hasColumn(tableName: String, columnName: String): Boolean =

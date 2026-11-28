@@ -25,6 +25,20 @@ class ApplicationInfoStatePolicyTest {
     }
 
     @Test
+    fun `native live update is independent of the island switch and preserved while blocked`() {
+        val info = app(islandEnabled = false, nativeLiveUpdateEnabled = true)
+        val blocked = ApplicationInfoStatePolicy.withBlocked(info, blocked = true)
+        val unblocked = ApplicationInfoStatePolicy.withBlocked(blocked, blocked = false)
+
+        assertTrue(blocked.nativeLiveUpdateEnabled)
+        assertTrue(unblocked.nativeLiveUpdateEnabled)
+        assertNull(ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(blocked, false))
+        val disabled = ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(unblocked, false)
+        requireNotNull(disabled)
+        assertFalse(disabled.nativeLiveUpdateEnabled)
+    }
+
+    @Test
     fun `blocked app disables every notification control`() {
         val info = app(
             blocked = true,
@@ -39,10 +53,26 @@ class ApplicationInfoStatePolicyTest {
         assertFalse(controls.islandFocusEnabled)
         assertFalse(controls.clickFallbackEnabled)
         assertFalse(controls.suppressWhenDisabled)
+        assertFalse(controls.nativeLiveUpdateEnabled)
         assertNull(ApplicationInfoStatePolicy.withIslandEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withIslandFocusEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withClickFallbackEnabled(info, enabled = true))
         assertNull(ApplicationInfoStatePolicy.withSuppressWhenDisabled(info, enabled = true))
+        assertNull(ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(info, enabled = true))
+    }
+
+    @Test
+    fun `native live update control is per app and only gated by block state`() {
+        val enabled = app(nativeLiveUpdateEnabled = false)
+        val updated = ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(enabled, true)
+        requireNotNull(updated)
+        assertTrue(updated.nativeLiveUpdateEnabled)
+        assertNull(
+            ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(
+                app(blocked = true),
+                true,
+            ),
+        )
     }
 
     @Test
@@ -143,6 +173,7 @@ class ApplicationInfoStatePolicyTest {
         blocked: Boolean = false,
         islandEnabled: Boolean = false,
         islandFocusNotification: Boolean = false,
+        nativeLiveUpdateEnabled: Boolean = false,
         clickFallbackEnabled: Boolean = false,
         suppressWhenDisabled: Boolean = false,
     ) = ManagerApplication(
@@ -150,6 +181,7 @@ class ApplicationInfoStatePolicyTest {
         blocked = blocked,
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
+        nativeLiveUpdateEnabled = nativeLiveUpdateEnabled,
         clickFallbackEnabled = clickFallbackEnabled,
         suppressWhenDisabled = suppressWhenDisabled,
     )

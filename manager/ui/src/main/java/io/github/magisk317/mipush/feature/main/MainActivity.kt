@@ -4,7 +4,6 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -25,7 +24,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 import io.github.magisk317.mipush.manager.application.ManagerPermissionGateway
@@ -33,31 +31,25 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.feature.navigation.*
 import io.github.magisk317.mipush.feature.main.MainActivityUtils
 import io.github.magisk317.mipush.feature.main.subpage.Settings
+import io.github.magisk317.mipush.feature.main.subpage.VersionUpdateCoordinator
+import io.github.magisk317.mipush.feature.main.subpage.PairedOtaDialog
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.feature.wizard.support.WizardRequirementProbe
-import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
-import io.github.magisk317.mipush.main.viewmodel.requiresRuntimeWarning
-import io.github.magisk317.mipush.main.viewmodel.runtimeCommitMismatch
 import io.github.magisk317.mipush.manager.BuildConfig
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.LegacyModuleDetector
 import io.github.magisk317.mipush.manager.application.ManagerConfigGateway
-import io.github.magisk317.mipush.common.BuildConfig as CommonBuildConfig
-import kotlinx.coroutines.flow.first
+import io.github.magisk317.mipush.manager.di.ManagerUpdateSources
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.uikit.update.AppUpdateDialog
-import io.github.magisk317.uikit.update.FlavorPlayUpdateDelegate
-import io.github.magisk317.uikit.update.UpdatePlayPolicy
-import io.github.magisk317.uikit.update.WifiState
-import io.github.magisk317.uikit.shell.PlayUpdateDelegate
 import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.theme.ThemeRevealOverlay
 import io.github.magisk317.uikit.theme.rememberThemeRevealState
@@ -80,20 +72,13 @@ open class MainActivity : ComponentActivity() {
     private val preferenceRepository: PreferenceRepository by inject()
     private val permissionGateway: ManagerPermissionGateway by inject()
     private val settingsManager: SettingsManager by inject()
-    private val runtimeClient: ManagerRuntimeClient by inject()
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
     private var incompatibleModules by mutableStateOf<List<String>>(emptyList())
-    private val playUpdateDelegate: PlayUpdateDelegate by lazy { FlavorPlayUpdateDelegate() }
-    private var autoUpdateChecked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
         applyEdgeToEdge(this)
-        playUpdateDelegate.onCreate(this) {
-            UpdateFallback.openPlayStoreOrGithub(this)
-        }
-        triggerAutoUpdateIfEnabled()
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         mainActivityUtils.initOnCreate(
             context = applicationContext,
@@ -142,7 +127,6 @@ open class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val runtimeAvailability by runtimeClient.availability.collectAsStateWithLifecycle()
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
 
             var currentThemeMode by remember { mutableIntStateOf(themeState.mode) }
@@ -203,36 +187,13 @@ open class MainActivity : ComponentActivity() {
                 layoutScale = currentLayoutScale,
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    val runtimeWarning = runtimeAvailability.requiresRuntimeWarning()
                     val managerWarning = incompatibleModules.isNotEmpty()
-                    val commitMismatch = runtimeAvailability.runtimeCommitMismatch(
-                        moduleCommit = CommonBuildConfig.GIT_COMMIT,
-                    )
 
                     // 每次冷启动都会重新提醒（rememberSaveable 跟随 Activity 实例），
                     // app 内切 tab / 重组不会反复弹。
-                    var runtimeWarningDismissed by rememberSaveable { mutableStateOf(false) }
                     var managerWarningDismissed by rememberSaveable { mutableStateOf(false) }
 
-                    // 错配发生时 Toast 简短通知一次。
-                    val toastContext = LocalContext.current
-                    LaunchedEffect(commitMismatch) {
-                        if (commitMismatch != null) {
-                            Toast.makeText(
-                                toastContext,
-                                R.string.runtime_commit_mismatch_toast,
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                    }
-
                     when {
-                        runtimeWarning && !runtimeWarningDismissed -> {
-                            RuntimeCompatibilityWarningDialog(
-                                onDismiss = { runtimeWarningDismissed = true },
-                            )
-                        }
-
                         managerWarning && !managerWarningDismissed -> {
                             LegacyModuleWarningDialog(
                                 packageNames = incompatibleModules,
@@ -249,15 +210,28 @@ open class MainActivity : ComponentActivity() {
                     }
 
                     val updateController = koinInject<AppUpdateController>()
+                    val updateCoordinator = koinInject<VersionUpdateCoordinator>()
                     // 冷启动静默检测更新：后台不打扰用户，强制更新照常弹窗。
                     // 走 kit 的统一规则：CI 轨道必检，release 听开关，商店包根本不走这里。
                     LaunchedEffect(Unit) {
-                        updateController.checkOnStartup()
+                        if (!BuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                            updateCoordinator.checkOnStartup()
+                        } else {
+                            updateController.checkOnStartup()
+                        }
                     }
-                    AppUpdateDialog(
-                        controller = updateController,
-                        onInstall = { updateController.install(this@MainActivity) },
-                    )
+                    if (!BuildConfig.HAS_BILLING && ManagerUpdateSources.isCiOrDebugBuild) {
+                        PairedOtaDialog(
+                            coordinator = updateCoordinator,
+                            controller = updateController,
+                            context = this@MainActivity,
+                        )
+                    } else {
+                        AppUpdateDialog(
+                            controller = updateController,
+                            onInstall = { updateController.install(this@MainActivity) },
+                        )
+                    }
 
                     ThemeRevealOverlay(themeRevealState)
                 }
@@ -268,78 +242,12 @@ open class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         incompatibleModules = LegacyModuleDetector.findInstalledPackages(packageManager)
-        playUpdateDelegate.onResume(this) {
-            UpdateFallback.openPlayStoreOrGithub(this)
-        }
     }
 
     override fun onDestroy() {
         mainActivityUtils.close()
-        playUpdateDelegate.onDestroy()
         super.onDestroy()
     }
-
-    private fun requestPlayUpdateInternal(silentIfNoUpdate: Boolean, fallbackOnQueryFailure: Boolean) {
-        playUpdateDelegate.requestUpdate(
-            activity = this,
-            silentIfNoUpdate = silentIfNoUpdate,
-            fallbackOnQueryFailure = fallbackOnQueryFailure,
-        ) {
-            UpdateFallback.openPlayStoreOrGithub(this)
-        }
-    }
-
-    private fun triggerAutoUpdateIfEnabled() {
-        if (!BuildConfig.HAS_BILLING || autoUpdateChecked) return
-        autoUpdateChecked = true
-
-        lifecycleScope.launch {
-            val enabled = preferenceRepository.autoUpdateOnStart.first()
-            if (!enabled) return@launch
-
-            val wifiOnly = preferenceRepository.autoUpdateWifiOnly.first()
-            val onWifi = WifiState.isOnWifi(this@MainActivity)
-            if (!UpdatePlayPolicy.shouldRunAutoCheck(enabled, wifiOnly, onWifi)) return@launch
-
-            requestPlayUpdateInternal(silentIfNoUpdate = true, fallbackOnQueryFailure = false)
-        }
-    }
-}
-
-@Composable
-private fun RuntimeCompatibilityWarningDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    AppAlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-        ),
-        title = {
-            AppText(text = stringResource(R.string.runtime_missing_dialog_title), color = appColor(AppColorRole.OnSurface))
-        },
-        text = {
-            AppText(text = stringResource(R.string.runtime_missing_dialog_message), color = appColor(AppColorRole.OnSurface))
-        },
-        confirmButton = {
-            AppTextButton(
-                text = stringResource(R.string.runtime_warning_check_permissions),
-                onClick = {
-                    context.startActivity(
-                        Intent(context, RequestPermissionPage::class.java)
-                            .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, true),
-                    )
-                    onDismiss()
-                },
-            )
-        },
-        dismissButton = {
-            AppTextButton(
-                text = stringResource(R.string.dialog_acknowledge),
-                onClick = onDismiss,
-            )
-        },
-    )
 }
 
 @Composable

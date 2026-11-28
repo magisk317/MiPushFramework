@@ -32,6 +32,30 @@ class ManagerContractValidationCoreTest {
     }
 
     @Test
+    fun `application settings and native live update writes require an explicit user`() {
+        val update = WriteRequestValidationInput(
+            schemaVersion = 1,
+            requestId = "request",
+            operation = "update_application",
+            packageName = "com.example.app",
+            intArgument = 0,
+            eventId = null,
+            userId = -1,
+            argumentLength = 0,
+        )
+        val nativeLiveUpdate = update.copy(operation = "set_native_live_update")
+
+        assertEquals(
+            "invalid_write_user_id",
+            ManagerContractValidationCore.validateWriteRequest(update),
+        )
+        assertEquals(
+            "invalid_write_user_id",
+            ManagerContractValidationCore.validateWriteRequest(nativeLiveUpdate),
+        )
+    }
+
+    @Test
     fun `event and channel queries reject invalid negotiated bounds`() {
         assertEquals(
             "invalid_negotiated_page_size",

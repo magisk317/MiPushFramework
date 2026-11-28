@@ -46,8 +46,31 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    fun getRegisteredApplication(pkg: String): RuntimeRegisteredApplicationRow? {
-        val application = runBlocking { repository().getRegisteredApplication(pkg) }
+    fun getNativeLiveUpdateEnabled(pkg: String, requestedUserId: Int? = null): Boolean? {
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        return runBlocking { repository(userId).isNativeLiveUpdateEnabled(pkg) }
+    }
+
+    @JvmStatic
+    fun setNativeLiveUpdateEnabled(
+        pkg: String,
+        enabled: Boolean,
+        requestedUserId: Int,
+    ): Boolean {
+        require(pkg.isNotBlank()) { "Empty application package" }
+        val userId = requireValidUserId(requestedUserId)
+        return runBlocking {
+            repository(userId).updateNativeLiveUpdateEnabled(pkg, enabled) > 0
+        }
+    }
+
+    @JvmStatic
+    fun getRegisteredApplication(
+        pkg: String,
+        requestedUserId: Int? = null,
+    ): RuntimeRegisteredApplicationRow? {
+        val userId = requestedUserId?.let(::requireValidUserId) ?: currentUserId()
+        val application = runBlocking { repository(userId).getRegisteredApplication(pkg) }
         if (DEBUG) {
             logD("register -> existing application = $application")
         }
@@ -253,6 +276,19 @@ object RegisteredApplicationDb {
 
         override suspend fun isSuppressWhenDisabled(packageName: String, userId: Int): Boolean? =
             DatabaseUtils.registeredApplicationDao.isSuppressWhenDisabled(packageName, userId)
+
+        override suspend fun isNativeLiveUpdateEnabled(packageName: String, userId: Int): Boolean? =
+            DatabaseUtils.registeredApplicationDao.isNativeLiveUpdateEnabled(packageName, userId)
+
+        override suspend fun updateNativeLiveUpdateEnabled(
+            packageName: String,
+            enabled: Boolean,
+            userId: Int,
+        ): Int = DatabaseUtils.registeredApplicationDao.updateNativeLiveUpdateEnabled(
+            packageName,
+            enabled,
+            userId,
+        )
     }
 }
 

@@ -13,7 +13,7 @@ import androidx.room.RoomDatabaseConstructor
         RuntimeRegisteredApplicationRow::class,
         RuntimePendingRegistrationRow::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 @ConstructedBy(RuntimeStoreDatabaseConstructor::class)

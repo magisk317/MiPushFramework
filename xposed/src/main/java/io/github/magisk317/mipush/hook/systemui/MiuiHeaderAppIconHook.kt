@@ -178,9 +178,10 @@ class MiuiHeaderAppIconHook {
         fun iconPackIcon(packageName: String): Icon? {
             val resolvedUserId = userId ?: return null
             if (!attemptsIconPack) return null
-            return StatusBarMonochromeIconPolicy.iconPackIconForPackageOrNull(
+            return StatusBarMonochromeIconPolicy.preferredMonochromeIconForPackageOrNull(
                 context = context,
                 packageName = packageName,
+                userId = resolvedUserId,
             )
         }
         val packIcon = iconPackIcon(ownerPackage) ?: postingPackage

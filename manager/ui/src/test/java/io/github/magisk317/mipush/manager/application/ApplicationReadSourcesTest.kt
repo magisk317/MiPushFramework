@@ -287,6 +287,7 @@ class ApplicationReadSourcesTest {
             appName = "Example",
             appNamePinYin = "example",
             lastReceiveTimeMs = 9L,
+            nativeLiveUpdateEnabled = true,
         )
         val source = RemoteApplicationDetailSource(
             detailLoader = { _, _ -> ManagerRuntimeResult.Success(detail) },
@@ -310,6 +311,7 @@ class ApplicationReadSourcesTest {
             appName = "Example",
             appNamePinYin = "example",
             lastReceiveTimeMs = 9L,
+            nativeLiveUpdateEnabled = true,
         ), (result as ApplicationReadResult.Available).value)
     }
 

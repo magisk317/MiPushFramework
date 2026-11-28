@@ -28,6 +28,7 @@ class XmsfCiArtifactProbe(
     private val flavor: XmsfRuntimeFlavor = XmsfRuntimeFlavor.Normal,
     private val versionSidecarUrl: String = sidecarUrlFor(flavor),
     private val manifestBaseUrl: String = payloadBaseUrlFor(flavor),
+    private val announcementUrl: String = announcementUrlFor(),
     private val httpClient: OkHttpClient = XmsfDownloader.defaultHttpClient(),
 ) {
 
@@ -38,7 +39,10 @@ class XmsfCiArtifactProbe(
      *   (expired artifacts, cold window), the version does not match, or the
      *   manifest is rejected by [XmsfRuntimeManifest.validate].
      */
-    suspend fun fetchLatestCompatible(hostVersionCode: Long): XmsfRuntimeManifest =
+    suspend fun fetchLatestCompatible(
+        hostVersionCode: Long,
+        targetManagerVersionCode: Long? = null,
+    ): XmsfRuntimeManifest =
         withContext(Dispatchers.IO) {
             val versionName = downloadText(versionSidecarUrl).trim()
             check(versionName.isNotBlank()) { "ci artifacts version sidecar is blank" }
@@ -50,7 +54,22 @@ class XmsfCiArtifactProbe(
             check(manifest.versionName == versionName) {
                 "ci manifest version ${manifest.versionName} does not match sidecar $versionName"
             }
-            manifest.validate(hostVersionCode, flavor)?.let { reason ->
+            val announcement = downloadText(announcementUrl).lineSequence()
+                .mapNotNull { line -> line.substringBefore('=', "")
+                    .takeIf { it.isNotBlank() }
+                    ?.let { it to line.substringAfter('=', "") } }
+                .toMap()
+            check(announcement["runtime_version"] == versionName) {
+                "ci runtime build was not Telegram-announced for $versionName"
+            }
+            check(announcement["manager_version"] == versionName) {
+                "ci manager and runtime announcement versions do not match"
+            }
+            val announcedCommit = announcement["commit"].orEmpty()
+            check(manifest.commit.isBlank() || announcedCommit.startsWith(manifest.commit.take(8))) {
+                "ci runtime announcement commit does not match manifest"
+            }
+            manifest.validate(hostVersionCode, flavor, targetManagerVersionCode)?.let { reason ->
                 error("ci runtime manifest rejected: $reason")
             }
             manifest
@@ -98,5 +117,8 @@ class XmsfCiArtifactProbe(
          */
         fun payloadBaseUrlFor(flavor: XmsfRuntimeFlavor): String =
             "$CI_DIST_PREFIX/${flavor.ciDistRoot}"
+
+        fun announcementUrlFor(): String =
+            "$CI_DIST_PREFIX/telegram-announcement.txt?job=telegram:ci"
     }
 }

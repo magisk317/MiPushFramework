@@ -70,6 +70,7 @@ class RemoteManagerApplicationGateway(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
                 packageName = application.packageName,
+                userId = application.userId,
                 argument = listOf(
                     application.type,
                     application.blocked,
@@ -82,6 +83,24 @@ class RemoteManagerApplicationGateway(
                 ).joinToString(","),
             ),
             operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
+        )
+    }
+
+    override suspend fun updateNativeLiveUpdateEnabled(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        enabled: Boolean,
+    ) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_SET_NATIVE_LIVE_UPDATE,
+                packageName = packageName,
+                userId = userId,
+                booleanArgument = enabled,
+            ),
+            operation = ManagerProtocol.WRITE_OP_SET_NATIVE_LIVE_UPDATE,
         )
     }
 

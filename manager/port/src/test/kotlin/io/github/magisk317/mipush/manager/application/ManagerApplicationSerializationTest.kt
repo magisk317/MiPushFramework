@@ -28,6 +28,7 @@ class ManagerApplicationSerializationTest {
             blocked = true,
             islandEnabled = false,
             islandFocusNotification = true,
+            nativeLiveUpdateEnabled = true,
             registeredType = ManagerApplication.RegisteredType.REGISTERED,
             existServices = true,
             appName = "Example",
@@ -42,6 +43,7 @@ class ManagerApplicationSerializationTest {
         assertEquals(application, decoded)
         assertTrue(encoded.jsonObject.containsKey("userId"))
         assertTrue(encoded.jsonObject.getValue("registrationPending").jsonPrimitive.boolean)
+        assertTrue(encoded.jsonObject.getValue("nativeLiveUpdateEnabled").jsonPrimitive.boolean)
     }
 
     @Test
@@ -70,5 +72,6 @@ class ManagerApplicationSerializationTest {
         assertEquals("com.example.client", decoded.packageName)
         assertEquals(ManagerApplication.Type.ALLOW, decoded.type)
         assertFalse(decoded.registrationPending)
+        assertFalse(decoded.nativeLiveUpdateEnabled)
     }
 }

@@ -11,6 +11,7 @@ import io.github.magisk317.uikit.update.AppUpdateController
 import io.github.magisk317.uikit.update.UpdateCheckResult
 import io.github.magisk317.uikit.update.UpdateManifest
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.util.concurrent.atomic.AtomicReference
@@ -47,6 +48,65 @@ class VersionUpdateCoordinatorTest {
             assertTrue(coordinator.managerHint.value is VersionRowHint.Available)
             verify { controller.check(userInitiated = true) }
         }
+
+    @Test
+    fun `paired check exposes one transaction and start adopts the checked manager`() = runBlocking {
+        val controller = mockk<AppUpdateController>(relaxed = true)
+        val journal = InMemoryPairedOtaJournal()
+        val coordinator = coordinator(
+            manager = UpdateCheckResult.Available(managerManifest("2.0.0"), 1900, "1.0.9", force = true),
+            controller = controller,
+            delivery = FakeXmsfDelivery(latest = XmsfLatestCheck.Available(runtimeManifest("1.0.10"))),
+            journal = journal,
+        )
+
+        coordinator.checkAndShowPaired()
+        coordinator.startPairedUpdate()
+
+        assertTrue(coordinator.pairedVisible.value)
+        assertTrue(coordinator.pairedStarted.value)
+        assertEquals("2.0.0", journal.read()?.managerVersionName)
+        verify { controller.adoptAvailable(any()) }
+        verify { controller.download() }
+    }
+
+    @Test
+    fun `pending pair resumes runtime after manager restart and allows runtime retry`() = runBlocking {
+        val journal = InMemoryPairedOtaJournal().apply {
+            begin(managerManifest("2.0.0"), runtimeManifest("1.0.10"))
+        }
+        var installAttempt = 0
+        val delivery = FakeXmsfDelivery(
+            latest = XmsfLatestCheck.UpToDate,
+            onEnsureInstalled = { _, _ ->
+                installAttempt++
+                if (installAttempt == 1) {
+                    XmsfInstallResult.Failed("temporary download failure")
+                } else {
+                    XmsfInstallResult.Installed()
+                }
+            },
+        )
+        val coordinator = coordinator(
+            manager = UpdateCheckResult.UpToDate,
+            controller = mockk(relaxed = true),
+            delivery = delivery,
+            journal = journal,
+            installedVersionCode = 2000,
+        )
+
+        coordinator.checkOnStartup()
+
+        assertEquals(VersionRowHint.Failed("temporary download failure"), coordinator.runtimeHint.value)
+        assertTrue(coordinator.canRetryPairedRuntime)
+        assertEquals(listOf("1.0.10"), delivery.installCalls)
+
+        coordinator.retryRuntime()
+
+        assertEquals(null, journal.read())
+        assertEquals(listOf("1.0.10", "1.0.10"), delivery.installCalls)
+        assertEquals(VersionRowHint.Installed, coordinator.runtimeHint.value)
+    }
 
     @Test
     fun `only the runtime available installs it and leaves the manager dialog alone`() = runBlocking {
@@ -98,7 +158,7 @@ class VersionUpdateCoordinatorTest {
     }
 
     @Test
-    fun `runtime install failure keeps the manager update flowing`() = runBlocking {
+    fun `runtime install failure blocks the manager update`() = runBlocking {
         val controller = mockk<AppUpdateController>(relaxed = true)
         val coordinator = coordinator(
             manager = UpdateCheckResult.Available(managerManifest("2.0.0"), 1900, "1.0.9", force = false),
@@ -115,7 +175,7 @@ class VersionUpdateCoordinatorTest {
             VersionRowHint.Failed("runtime checksum mismatch"),
             coordinator.runtimeHint.value,
         )
-        verify { controller.check(userInitiated = true) }
+        verify(exactly = 0) { controller.check(any()) }
     }
 
     @Test
@@ -152,7 +212,7 @@ class VersionUpdateCoordinatorTest {
     }
 
     @Test
-    fun `play flavor reports unsupported and never installs the runtime`() = runBlocking {
+    fun `unsupported delivery reports unsupported and never installs the runtime`() = runBlocking {
         val controller = mockk<AppUpdateController>(relaxed = true)
         val delivery = FakeXmsfDelivery(latest = XmsfLatestCheck.Unsupported, installsDirectly = false)
         val coordinator = coordinator(
@@ -197,21 +257,41 @@ class VersionUpdateCoordinatorTest {
         manager: UpdateCheckResult,
         controller: AppUpdateController,
         delivery: FakeXmsfDelivery,
+        journal: InMemoryPairedOtaJournal = InMemoryPairedOtaJournal(),
+        installedVersionCode: Int = 0,
     ): VersionUpdateCoordinator {
         val checker = mockk<AppUpdateChecker> {
             coEvery { check(any()) } returns manager
+            every { currentVersionCode() } returns installedVersionCode
         }
         return VersionUpdateCoordinator(
             checker = checker,
             controller = controller,
+            pairedOtaJournal = journal,
             deliveryProvider = { delivery },
         )
     }
 
-    private fun managerManifest(versionName: String) = UpdateManifest(
+    private class InMemoryPairedOtaJournal : PairedOtaJournal {
+        private var pending: PairedOtaJournal.Pending? = null
+        override fun read(): PairedOtaJournal.Pending? = pending
+        override fun begin(manager: UpdateManifest, runtime: XmsfRuntimeManifest) {
+            pending = PairedOtaJournal.Pending(
+                managerVersionCode = manager.versionCode.toLong(),
+                managerVersionName = manager.versionName,
+                runtimeVersionName = runtime.versionName,
+            )
+        }
+        override fun clear() {
+            pending = null
+        }
+    }
+
+    private fun managerManifest(versionName: String, force: Boolean = false) = UpdateManifest(
         versionCode = 2000,
         versionName = versionName,
         apkUrl = "https://example.com/mipush.apk",
+        force = force,
     )
 
     private fun runtimeManifest(versionName: String) = XmsfRuntimeManifest(
@@ -233,10 +313,12 @@ class VersionUpdateCoordinatorTest {
         override val status = MutableStateFlow(XmsfStatus())
         override suspend fun refresh(): XmsfStatus = status.value
         override val canInstallDirectly: Boolean get() = installsDirectly
-        override suspend fun checkLatestRuntime(): XmsfLatestCheck = latest
+        override suspend fun checkLatestRuntime(targetManagerVersionCode: Long?): XmsfLatestCheck = latest
         override suspend fun ensureInstalled(
             targetVersionName: String?,
             onProgress: (Int) -> Unit,
+            onWaitingForSystemConfirmation: () -> Unit,
+            targetManagerVersionCode: Long?,
         ): XmsfInstallResult {
             installCalls += targetVersionName.orEmpty()
             return onEnsureInstalled(targetVersionName, onProgress)

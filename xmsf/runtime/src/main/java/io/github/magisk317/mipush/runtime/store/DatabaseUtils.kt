@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
  * Created by Trumeet on 2017/12/23.
  */
 object DatabaseUtils {
-    private const val DATABASE_SCHEMA_VERSION = 10
+    private const val DATABASE_SCHEMA_VERSION = 14
     private const val USER_SCOPE_MIGRATION_PREFS = "database_identity_migration"
     private const val USER_SCOPE_MIGRATION_KEY = "v7_done"
 

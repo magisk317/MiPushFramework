@@ -28,6 +28,8 @@ object ManagerUpdateSources {
     /** CI track: latest successful pipeline on this branch. */
     const val CI_BRANCH = "beta"
     const val CI_JOB_NAME = "android:build"
+    const val CI_ANNOUNCEMENT_JOB_NAME = "telegram:ci"
+    const val CI_ANNOUNCEMENT_PATH = "ci-dist/telegram-announcement.txt"
 
     /**
      * Version-keyed staging path: the `{versionName}` segment is resolved from the sidecar below
@@ -63,6 +65,8 @@ object ManagerUpdateSources {
             jobName = CI_JOB_NAME,
             versionSidecarPath = CI_VERSION_SIDECAR_PATH,
             manifestPath = CI_MANIFEST_PATH,
+            announcementPath = CI_ANNOUNCEMENT_PATH,
+            announcementJobName = CI_ANNOUNCEMENT_JOB_NAME,
         ),
         isPlayFlavor = { ManagerBuildConfig.HAS_BILLING },
         buildProvenance = { isCiOrDebugBuild },

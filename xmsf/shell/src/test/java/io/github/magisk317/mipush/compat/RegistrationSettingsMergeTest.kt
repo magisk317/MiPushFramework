@@ -5,10 +5,41 @@ import io.github.magisk317.mipush.manager.application.ManagerApplication
 import io.github.magisk317.mipush.runtime.store.kmp.RegisteredAppRegisteredType
 import io.github.magisk317.mipush.runtime.store.kmp.RuntimeRegisteredApplicationRow
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RegistrationSettingsMergeTest {
+    @Test
+    fun `native live update setting follows the app block boundary`() {
+        val latest = RuntimeRegisteredApplicationRow(
+            id = 7L,
+            packageName = "app.pkg",
+            userId = 0,
+            type = 2,
+            notificationOnRegister = true,
+            registeredType = RegisteredAppRegisteredType.Registered,
+            appName = "App",
+        )
+        val enabled = mergeEditableApplicationSettings(
+            latest,
+            ManagerApplication(packageName = "app.pkg", nativeLiveUpdateEnabled = true),
+        )
+        assertTrue(enabled.nativeLiveUpdateEnabled)
+
+        val blocked = mergeEditableApplicationSettings(
+            latest.copy(blocked = true, nativeLiveUpdateEnabled = true),
+            ManagerApplication(packageName = "app.pkg", nativeLiveUpdateEnabled = false),
+        )
+        assertTrue(blocked.nativeLiveUpdateEnabled)
+        assertFalse(
+            mergeEditableApplicationSettings(
+                latest.copy(blocked = true, nativeLiveUpdateEnabled = false),
+                ManagerApplication(packageName = "app.pkg", nativeLiveUpdateEnabled = true),
+            ).nativeLiveUpdateEnabled,
+        )
+    }
+
     @Test
     fun `saving stale allowed settings preserves the latest denial and unregistered state`() {
         val revoked = RuntimeRegisteredApplicationRow(
@@ -25,6 +56,7 @@ class RegistrationSettingsMergeTest {
             clickFallbackEnabled = true,
             suppressWhenDisabled = true,
             countLimitExempt = true,
+            nativeLiveUpdateEnabled = true,
         )
         val stale = ManagerApplication(
             id = 7L,
@@ -37,6 +69,7 @@ class RegistrationSettingsMergeTest {
             clickFallbackEnabled = false,
             suppressWhenDisabled = false,
             countLimitExempt = false,
+            nativeLiveUpdateEnabled = false,
             notificationOnRegister = true,
         )
 
@@ -50,6 +83,7 @@ class RegistrationSettingsMergeTest {
         assertTrue(saved.islandFocusNotification)
         assertTrue(saved.clickFallbackEnabled)
         assertTrue(saved.countLimitExempt)
+        assertTrue(saved.nativeLiveUpdateEnabled)
         assertTrue(saved.suppressWhenDisabled)
     }
 }

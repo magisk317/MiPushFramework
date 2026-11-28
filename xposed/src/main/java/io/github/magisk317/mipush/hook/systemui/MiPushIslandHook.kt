@@ -287,7 +287,15 @@ class MiPushIslandHook : BaseHook() {
             method.parameterTypes.firstOrNull() == StatusBarNotification::class.java
     }
 
-    private companion object {
+    internal companion object {
+        // Referenced from MiPushIslandHookContractTest; keep the pure decision testable without
+        // widening any other companion member.
+        internal fun isManagedLiveUpdate(
+            isLiveUpdate: Boolean,
+            isXmsfOwned: Boolean,
+            hasTargetPackage: Boolean,
+            isModuleConverted: Boolean,
+        ): Boolean = isLiveUpdate && (isXmsfOwned || hasTargetPackage || isModuleConverted)
         private const val TAG = "MiPushIslandHook"
         private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
@@ -381,10 +389,14 @@ class MiPushIslandHook : BaseHook() {
             extras.getBoolean("android.requestPromotedOngoing", false) ||
             (promotedFlag != 0 && (notification.flags and promotedFlag) != 0)
         if (!isLiveUpdate) return
-        val relatedToMipush = sbn.packageName == "com.xiaomi.xmsf" ||
-            !extras.getString("target_package").isNullOrBlank() ||
-            !extras.getString("miui.targetPkg").isNullOrBlank() ||
-            !extras.getString("xmsf_target_package").isNullOrBlank()
+        val relatedToMipush = isManagedLiveUpdate(
+            isLiveUpdate = isLiveUpdate,
+            isXmsfOwned = sbn.packageName == "com.xiaomi.xmsf",
+            hasTargetPackage = !extras.getString("target_package").isNullOrBlank() ||
+                !extras.getString("miui.targetPkg").isNullOrBlank() ||
+                !extras.getString("xmsf_target_package").isNullOrBlank(),
+            isModuleConverted = extras.getBoolean("mipush.native_focus_live_update", false),
+        )
         if (!relatedToMipush) return
 
         // Prefer NLS cancelNotification(key) — it asks NMS to remove the real posting package entry

@@ -25,13 +25,18 @@ internal class XmsfLatestProbeChain(
      *
      * @throws IllegalStateException when both tracks are unavailable.
      */
-    suspend fun fetchLatestCompatible(hostVersionCode: Long): Result {
+    suspend fun fetchLatestCompatible(
+        hostVersionCode: Long,
+        targetManagerVersionCode: Long? = null,
+    ): Result {
         val ciManifest = ciArtifacts?.let { probe ->
-            runCatching { probe.fetchLatestCompatible(hostVersionCode) }.getOrNull()
+            runCatching {
+                probe.fetchLatestCompatible(hostVersionCode, targetManagerVersionCode)
+            }.getOrNull()
         }
         if (ciManifest != null) return Result(ciManifest, fromCiArtifacts = true)
         return Result(
-            manifest = registry.fetchLatestCompatible(hostVersionCode),
+            manifest = registry.fetchLatestCompatible(hostVersionCode, targetManagerVersionCode),
             fromCiArtifacts = false,
         )
     }

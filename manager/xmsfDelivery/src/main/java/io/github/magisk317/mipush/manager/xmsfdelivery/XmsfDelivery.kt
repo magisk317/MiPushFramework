@@ -34,7 +34,7 @@ interface XmsfDelivery {
      * play: [XmsfLatestCheck.Unsupported] — the play distribution never
      * touches the registry.
      */
-    suspend fun checkLatestRuntime(): XmsfLatestCheck
+    suspend fun checkLatestRuntime(targetManagerVersionCode: Long? = null): XmsfLatestCheck
 
     /**
      * Install or update the runtime. github: download, verify and install,
@@ -52,6 +52,8 @@ interface XmsfDelivery {
     suspend fun ensureInstalled(
         targetVersionName: String? = null,
         onProgress: (Int) -> Unit = {},
+        onWaitingForSystemConfirmation: () -> Unit = {},
+        targetManagerVersionCode: Long? = null,
     ): XmsfInstallResult
 
     /** Open the manual guidance page (release listing) in the browser. */

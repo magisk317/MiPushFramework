@@ -23,6 +23,7 @@ data class ManagerApplicationDetailDto(
     val lastReceiveTimeMs: Long = 0L,
     val userId: Int = 0,
     val registrationPending: Boolean = false,
+    val nativeLiveUpdateEnabled: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -46,6 +47,7 @@ data class ManagerApplicationDetailDto(
             writeWireBoolean(suppressWhenDisabled)
             writeWireBoolean(countLimitExempt)
             writeWireBoolean(registrationPending)
+            writeWireBoolean(nativeLiveUpdateEnabled)
         }
     }
 
@@ -75,6 +77,7 @@ data class ManagerApplicationDetailDto(
                         suppressWhenDisabled = readBoolean(),
                         countLimitExempt = readBoolean(),
                         registrationPending = readBoolean(),
+                        nativeLiveUpdateEnabled = readBoolean(),
                     )
                 }
 

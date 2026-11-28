@@ -32,6 +32,7 @@ internal data class ApplicationInfoControlState(
     val clickFallbackEnabled: Boolean,
     val suppressWhenDisabled: Boolean,
     val countLimitExemptEnabled: Boolean,
+    val nativeLiveUpdateEnabled: Boolean,
 )
 
 internal object ApplicationInfoStatePolicy {
@@ -43,6 +44,7 @@ internal object ApplicationInfoStatePolicy {
             clickFallbackEnabled = !info.blocked,
             suppressWhenDisabled = !info.blocked,
             countLimitExemptEnabled = !info.blocked,
+            nativeLiveUpdateEnabled = !info.blocked,
         )
 
     fun withBlocked(info: ManagerApplication, blocked: Boolean): ManagerApplication =
@@ -60,6 +62,14 @@ internal object ApplicationInfoStatePolicy {
             islandEnabled = enabled,
             islandFocusNotification = info.islandFocusNotification && enabled,
         )
+    }
+
+    fun withNativeLiveUpdateEnabled(
+        info: ManagerApplication,
+        enabled: Boolean,
+    ): ManagerApplication? {
+        if (!controls(info).nativeLiveUpdateEnabled) return null
+        return info.copy(nativeLiveUpdateEnabled = enabled)
     }
 
     fun withIslandFocusEnabled(info: ManagerApplication, enabled: Boolean): ManagerApplication? {
@@ -211,6 +221,48 @@ class ApplicationInfoViewModel constructor(
 
     fun updateIslandFocusEnabled(enabled: Boolean) = updateApplication {
         ApplicationInfoStatePolicy.withIslandFocusEnabled(it, enabled)
+    }
+
+    fun updateNativeLiveUpdateEnabled(
+        context: android.content.Context,
+        enabled: Boolean,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        if (_registrationBusy.value) {
+            onResult(false)
+            return
+        }
+        val previous = _applicationInfo.value ?: run {
+            onResult(false)
+            return
+        }
+        val updated = ApplicationInfoStatePolicy.withNativeLiveUpdateEnabled(previous, enabled) ?: run {
+            onResult(false)
+            return
+        }
+        _applicationInfo.value = updated
+        viewModelScope.launch(Dispatchers.IO) {
+            var succeeded = false
+            try {
+                applicationWriteMutex.withLock {
+                    if (_registrationBusy.value || _applicationInfo.value != updated) return@withLock
+                    applicationGateway.updateNativeLiveUpdateEnabled(
+                        context = context,
+                        packageName = updated.packageName,
+                        userId = updated.userId,
+                        enabled = updated.nativeLiveUpdateEnabled,
+                    )
+                    succeeded = true
+                }
+            } catch (error: CancellationException) {
+                if (_applicationInfo.value == updated) _applicationInfo.value = previous
+                throw error
+            } catch (_: Exception) {
+                succeeded = false
+            }
+            if (!succeeded && _applicationInfo.value == updated) _applicationInfo.value = previous
+            withContext(Dispatchers.Main) { onResult(succeeded) }
+        }
     }
 
     fun updateClickFallbackEnabled(enabled: Boolean) = updateApplication {

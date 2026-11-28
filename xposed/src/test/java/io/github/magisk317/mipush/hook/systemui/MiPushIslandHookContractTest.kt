@@ -23,6 +23,34 @@ class MiPushIslandHookContractTest {
         assertFalse(hook.isNotificationRemovedCallback(unrelated))
     }
 
+    @Test
+    fun `module converted third party live updates participate in removal sync`() {
+        assertTrue(
+            MiPushIslandHook.isManagedLiveUpdate(
+                isLiveUpdate = true,
+                isXmsfOwned = false,
+                hasTargetPackage = false,
+                isModuleConverted = true,
+            ),
+        )
+        assertFalse(
+            MiPushIslandHook.isManagedLiveUpdate(
+                isLiveUpdate = true,
+                isXmsfOwned = false,
+                hasTargetPackage = false,
+                isModuleConverted = false,
+            ),
+        )
+        assertFalse(
+            MiPushIslandHook.isManagedLiveUpdate(
+                isLiveUpdate = false,
+                isXmsfOwned = false,
+                hasTargetPackage = false,
+                isModuleConverted = true,
+            ),
+        )
+    }
+
     @Suppress("UNUSED_PARAMETER")
     private class CallbackSamples {
         fun onNotificationRemoved(sbn: StatusBarNotification, reason: Int) = Unit

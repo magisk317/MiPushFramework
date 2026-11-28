@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 /** Pure focus-payload parsing and planning. Android notification construction stays in adapters. */
 object FocusSemanticCore {
     enum class Style { GENERAL, MESSAGE, MEDIA, ALERT, PROMO, PROGRESS }
+    enum class NativeStyle { BIG_TEXT, PROGRESS }
     enum class SemanticStyle { INFO, SAFE, CAUTION, DANGER, UNSPECIFIED }
     enum class Source { DETECTED, CONFIGURED_FOCUS, GENERATED_FOCUS }
 
@@ -18,6 +19,8 @@ object FocusSemanticCore {
         val style: Style,
         val progressPercent: Int?,
         val progressText: String?,
+        val businessName: String?,
+        val payloadTitle: String?,
         val startLabel: String?,
         val endLabel: String?,
         val trackerLabel: String?,
@@ -26,6 +29,26 @@ object FocusSemanticCore {
     ) {
         val isProgressLike: Boolean
             get() = style == Style.PROGRESS || category != LiveUpdateDetectorCore.ProgressCategory.UNKNOWN
+    }
+
+    private fun focusBody(value: String?): JsonObject? = runCatching {
+        if (value.isNullOrBlank()) return null
+        val root = Json.parseToJsonElement(value) as? JsonObject ?: return null
+        root[PARAM_V2] as? JsonObject ?: root
+    }.getOrNull()
+
+    /**
+     * First overall percent found across the progress payload objects.
+     * Values below zero carry no determinate percent and are skipped, not clamped to zero.
+     */
+    private fun JsonObject.determinateProgressPercent(): Int? {
+        for (key in PROGRESS_PAYLOAD_KEYS) {
+            val primitive = (this[key] as? JsonObject)?.get(PROGRESS_FIELD) as? JsonPrimitive ?: continue
+            val percent = primitive.content.toIntOrNull() ?: continue
+            if (percent < 0) continue
+            return percent.coerceAtMost(100)
+        }
+        return null
     }
 
     data class Capabilities(
@@ -39,6 +62,81 @@ object FocusSemanticCore {
         val allowIslandProxy: Boolean,
         val reason: String,
     )
+
+    data class NativeLiveUpdatePlan(
+        val shouldRewrite: Boolean,
+        val style: NativeStyle?,
+        val title: String?,
+        val text: String?,
+        val shortText: String?,
+        val progressPercent: Int?,
+        val forceOngoing: Boolean,
+        val reason: String,
+    )
+
+    fun planNativeLiveUpdate(
+        focusParam: String?,
+        notificationTitle: String?,
+        notificationText: String?,
+    ): NativeLiveUpdatePlan {
+        val semantic = parse(focusParam, Source.CONFIGURED_FOCUS)
+            ?: return NativeLiveUpdatePlan(
+                shouldRewrite = false,
+                style = null,
+                title = notificationTitle,
+                text = notificationText,
+                shortText = null,
+                progressPercent = null,
+                forceOngoing = false,
+                reason = if (focusParam.isNullOrBlank()) "missing_focus_payload" else "invalid_focus_payload",
+            )
+        val title = notificationTitle?.trim()?.takeIf(String::isNotEmpty)
+            ?: semantic.payloadTitle?.trim()?.takeIf(String::isNotEmpty)
+            ?: return NativeLiveUpdatePlan(
+                shouldRewrite = false,
+                style = null,
+                title = null,
+                text = notificationText,
+                shortText = null,
+                progressPercent = null,
+                forceOngoing = false,
+                reason = "missing_title",
+            )
+        val payloadText = listOfNotNull(
+            semantic.businessName?.trim()?.takeIf(String::isNotEmpty),
+            semantic.payloadTitle?.trim()?.takeIf(String::isNotEmpty),
+        ).distinct().joinToString(" ").takeIf(String::isNotEmpty)
+            ?: semantic.progressText?.trim()?.takeIf(String::isNotEmpty)
+        val text = notificationText?.trim()?.takeIf(String::isNotEmpty) ?: payloadText
+            ?: semantic.trackerLabel?.trim()?.takeIf(String::isNotEmpty)
+            ?: return NativeLiveUpdatePlan(
+                shouldRewrite = false,
+                style = null,
+                title = title,
+                text = null,
+                shortText = null,
+                progressPercent = null,
+                forceOngoing = false,
+                reason = "missing_text",
+            )
+        val body = focusBody(focusParam)
+        val explicitProgress = body?.determinateProgressPercent()
+        val style = if (explicitProgress != null) NativeStyle.PROGRESS else NativeStyle.BIG_TEXT
+        return NativeLiveUpdatePlan(
+            shouldRewrite = true,
+            style = style,
+            title = title,
+            text = text,
+            shortText = semantic.trackerLabel?.take(MAX_SHORT_TEXT),
+            progressPercent = explicitProgress,
+            forceOngoing = true,
+            reason = when {
+                style == NativeStyle.PROGRESS -> "progress_payload"
+                body != null && PROGRESS_PAYLOAD_KEYS.any { body.containsKey(it) } -> "indeterminate_progress"
+                else -> "focus_content"
+            },
+        )
+    }
 
     fun plan(
         detected: LiveUpdateDetectorCore.DetectionResult?,
@@ -86,6 +184,8 @@ object FocusSemanticCore {
         style = Style.PROGRESS,
         progressPercent = progressPercent,
         progressText = progressText,
+        businessName = null,
+        payloadTitle = null,
         startLabel = startLabel,
         endLabel = endLabel,
         trackerLabel = trackerLabel,
@@ -103,17 +203,15 @@ object FocusSemanticCore {
             .joinToString(" ")
         val style = resolveStyle(body, text)
         val category = resolveCategory(text, style)
-        val progressPercent = ((body["progressBar"] as? JsonObject)?.get("progress") as? JsonPrimitive)
-            ?.content
-            ?.toIntOrNull()
-            ?.coerceIn(0, 100)
-            ?: extractProgressPercent(text)
+        val progressPercent = body.determinateProgressPercent() ?: extractProgressPercent(text)
         val progressText = text.takeIf(String::isNotBlank)
         Semantic(
             category = category,
             style = style,
             progressPercent = progressPercent,
             progressText = progressText,
+            businessName = body.text("businessName"),
+            payloadTitle = (body["hintInfo"] as? JsonObject)?.text("title"),
             startLabel = labels(category).first,
             endLabel = labels(category).second,
             trackerLabel = (body["hintInfo"] as? JsonObject)?.text("title")
@@ -125,8 +223,7 @@ object FocusSemanticCore {
     }.getOrNull()
 
     private fun resolveStyle(body: JsonObject, text: String): Style = when {
-        body.containsKey("progressBar") || body.containsKey("multiProgressInfo") ||
-            text.contains("progress", ignoreCase = true) || text.contains("进度") -> Style.PROGRESS
+        body.containsKey("progressBar") || body.containsKey("multiProgressInfo") -> Style.PROGRESS
         body.containsKey("chatInfo") -> Style.MESSAGE
         body.containsKey("coverInfo") -> Style.MEDIA
         body.containsKey("highlightInfo") -> Style.ALERT
@@ -237,6 +334,8 @@ object FocusSemanticCore {
 
     private const val MAX_SHORT_TEXT = 15
     private const val PARAM_V2 = "param_v2"
+    private const val PROGRESS_FIELD = "progress"
+    private val PROGRESS_PAYLOAD_KEYS = listOf("progressBar", "multiProgressInfo")
     private val PERCENT_PATTERN = Regex("(\\d{1,3})%")
     private val FRACTION_PATTERN = Regex("(\\d+)\\s*/\\s*(\\d+)")
     private val FOCUS_CATEGORY_KEYWORDS = mapOf(

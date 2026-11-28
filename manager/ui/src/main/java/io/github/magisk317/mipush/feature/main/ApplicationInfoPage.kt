@@ -10,30 +10,26 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import io.github.magisk317.uikit.scroll.uiKitScrollEndHaptic
 import io.github.magisk317.uikit.surface.AppAlertDialog
 import io.github.magisk317.uikit.surface.AppCard
 import androidx.compose.material3.MaterialTheme
 import io.github.magisk317.uikit.common.AppSnackbarDuration
 import io.github.magisk317.uikit.common.AppSnackbarHostState
 import io.github.magisk317.uikit.common.AppSnackbarHost
-import io.github.magisk317.uikit.surface.AppSurface
 import io.github.magisk317.uikit.surface.DetailSectionCard
+import io.github.magisk317.uikit.surface.PageScaffoldExpressive
+import io.github.magisk317.uikit.surface.PageScaffoldMiuix
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -71,7 +67,9 @@ import io.github.magisk317.uikit.theme.applyEdgeToEdge
 import io.github.magisk317.uikit.text.AppText
 import io.github.magisk317.uikit.text.AppTextRole
 import io.github.magisk317.uikit.theme.AppColorRole
+import io.github.magisk317.uikit.theme.UiKitStyle
 import io.github.magisk317.uikit.theme.appColor
+import io.github.magisk317.uikit.theme.currentUiKitStyle
 import io.github.magisk317.mipush.common.logging.CompanionLogSupport
 
 open class ApplicationInfoPage : ComponentActivity() {
@@ -123,32 +121,46 @@ open class ApplicationInfoPage : ComponentActivity() {
         val snackbarHostState = remember { AppSnackbarHostState() }
 
         Theme {
-            AppSurface(
-                modifier = Modifier.fillMaxSize(),
-                color = appColor(AppColorRole.Background),
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    SectionColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
-                            .verticalScroll(rememberScrollState())
-                            .uiKitScrollEndHaptic()
-                            .padding(horizontal = MaterialTheme.spacing.medium),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            top = MaterialTheme.spacing.medium,
-                            bottom = bottomInset + MaterialTheme.spacing.medium,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-                    ) {
-                        SettingsScreen(snackbarHostState)
-                    }
-                    AppSnackbarHost(
-                        hostState = snackbarHostState,
-                        bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
-                    )
+            val body: @Composable (PaddingValues, Modifier) -> Unit = { listPadding, scrollModifier ->
+                val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                SectionColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .then(scrollModifier)
+                        .padding(horizontal = MaterialTheme.spacing.medium),
+                    contentPadding = PaddingValues(
+                        top = listPadding.calculateTopPadding() + MaterialTheme.spacing.medium,
+                        bottom = bottomInset + MaterialTheme.spacing.medium,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+                ) {
+                    SettingsScreen(snackbarHostState)
                 }
+            }
+            when (currentUiKitStyle()) {
+                UiKitStyle.Miuix -> PageScaffoldMiuix(
+                    title = stringResource(R.string.app_detail_title),
+                    onBack = ::finish,
+                    snackbarHost = {
+                        AppSnackbarHost(
+                            hostState = snackbarHostState,
+                            bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
+                        )
+                    },
+                    content = body,
+                )
+                UiKitStyle.Expressive -> PageScaffoldExpressive(
+                    title = stringResource(R.string.app_detail_title),
+                    onBack = ::finish,
+                    snackbarHost = {
+                        AppSnackbarHost(
+                            hostState = snackbarHostState,
+                            bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
+                        )
+                    },
+                    content = body,
+                )
             }
         }
     }
@@ -157,7 +169,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     fun SettingsScreen(snackbarHostState: AppSnackbarHostState) {
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val context = LocalContext.current
-        ApplicationDetailHeading(onBack = ::finish)
         ApplicationIdentityCard(info = currentInfo ?: applicationInfo)
         RegistrationPolicyCard(snackbarHostState)
         NotificationBehaviorSection(snackbarHostState)
@@ -328,6 +339,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun NotificationBehaviorSection(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+        val scope = rememberCoroutineScope()
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val busy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
         val info = currentInfo ?: applicationInfo
@@ -371,12 +383,15 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun IslandDisplaySection(snackbarHostState: AppSnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+        val scope = rememberCoroutineScope()
+        val nativeLiveUpdateFailedMessage = stringResource(R.string.app_detail_native_live_update_failed)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val busy by infoViewModel.registrationBusy.collectAsStateWithLifecycle()
         val info = currentInfo ?: applicationInfo
         val blocked = info.blocked || info.type == ManagerApplication.Type.DENY
         val islandEnabled = info.islandEnabled
         val islandFocusNotification = info.islandFocusNotification
+        val nativeLiveUpdateEnabled = info.nativeLiveUpdateEnabled
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_island_controls),
@@ -403,6 +418,32 @@ open class ApplicationInfoPage : ComponentActivity() {
             ) { enabled ->
                 infoViewModel.updateIslandFocusEnabled(enabled)
                 showSwitchFeedback(islandFocusNotificationTitle, enabled)
+            }
+
+            val nativeLiveUpdateTitle = stringResource(R.string.app_detail_native_live_update)
+            SettingSwitchRow(
+                title = nativeLiveUpdateTitle,
+                summary = stringResource(R.string.app_detail_native_live_update_summary),
+                checked = nativeLiveUpdateEnabled,
+                enabled = !blocked && !busy,
+                showDivider = false,
+            ) { enabled ->
+                infoViewModel.updateNativeLiveUpdateEnabled(
+                    context = this@ApplicationInfoPage,
+                    enabled = enabled,
+                ) { success ->
+                    if (success) {
+                        showSwitchFeedback(nativeLiveUpdateTitle, enabled)
+                    } else {
+                        scope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar(
+                                message = nativeLiveUpdateFailedMessage,
+                                duration = AppSnackbarDuration.Short,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
